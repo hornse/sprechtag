@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Sprechtag FRG</title>
+<link rel="stylesheet" href="/style.css?v=DEV">
+</head>
+<body>
+
+<header class="kopf">
+  <h1>Sprechtag <span class="frg">FRG</span></h1>
+  <p class="untertitel">Elternsprechtag-Organisation · Friedrich-Rückert-Gymnasium Düsseldorf</p>
+</header>
+
+<main id="app">
+
+  <section id="sondierung" class="karte">
+    <h2>WebUntis-Sondierung <span class="badge">Paket 1 · nur lesend</span></h2>
+    <p class="hinweis">
+      Klopft die Instanz mit einem beliebigen Konto ab – für die offenen
+      Machbarkeitsfragen bitte mit dem <strong>Testeltern-Konto</strong> ausführen,
+      zum Vergleich danach mit Lehrkraft- und ggf. Admin-Konto.
+      Es wird nichts geschrieben, das Passwort wird nicht gespeichert.
+    </p>
+
+    <form id="sondierung-form">
+      <div class="zeile">
+        <label>WebUntis-Benutzername
+          <input type="text" id="benutzername" autocomplete="username" required>
+        </label>
+        <label>Passwort
+          <input type="password" id="passwort" autocomplete="current-password" required>
+        </label>
+      </div>
+
+      <fieldset class="gruppen">
+        <legend>Probengruppen</legend>
+        <label><input type="checkbox" value="basis" checked> Basis (authenticate, JWT, app/data → Kind-Zuordnung)</label>
+        <label><input type="checkbox" value="sprechtag" checked> Sprechtag-Endpunkte (Modul ist lizenziert!)</label>
+        <label><input type="checkbox" value="stundenplan"> Stundenplan je Schüler/Klasse</label>
+        <label><input type="checkbox" value="mitteilungen"> Mitteilungs-Endpunkte (nur GET)</label>
+      </fieldset>
+
+      <details class="erweitert">
+        <summary>Erweitert</summary>
+        <label>Schüler-ID manuell (falls app/data keine liefert)
+          <input type="text" id="schueler-id" inputmode="numeric" placeholder="z. B. 1234">
+        </label>
+        <label>Eigene Zusatzpfade (je Zeile ein GET-Pfad, beginnend mit /WebUntis/…)
+          <textarea id="extra-pfade" rows="3"
+            placeholder="/WebUntis/api/rest/view/v1/…"></textarea>
+        </label>
+      </details>
+
+      <div class="aktionen">
+        <button type="submit" id="starten">Sondierung starten</button>
+        <span id="status" role="status"></span>
+      </div>
+    </form>
+  </section>
+
+  <section id="bericht-karte" class="karte versteckt">
+    <h2>Sondierungsbericht</h2>
+    <div class="aktionen">
+      <button type="button" id="kopieren">Bericht als Markdown kopieren</button>
+      <span id="kopier-status" role="status"></span>
+    </div>
+    <div id="bericht"></div>
+  </section>
+
+</main>
+
+<footer class="fuss">
+  <span>sprechtag v0.1.0 · GPL-3.0-or-later · Sebastian Horn</span>
+</footer>
+
+<script src="/app.js?v=DEV"></script>
+</body>
+</html>
