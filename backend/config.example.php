@@ -8,18 +8,19 @@
 return [
 
     'webuntis' => [
-        'base_url' => 'https://frg-dusseldorf.webuntis.com',
-        'school'   => 'frg-dusseldorf',
-        'client'   => 'SprechtagFRG',
-        // Wird später um den Eltern-personType erweitert, sobald die
+        'base_url' => 'https://SCHULSERVER.webuntis.com',   // ohne Slash am Ende
+        'school'   => 'SCHULKENNUNG',                        // wie in der WebUntis-URL
+        'client'   => 'SprechtagApp',
+        // Wird um den Eltern-personType erweitert, sobald die
         // Sondierung den Wert geliefert hat (vermutlich 15).
+        // 2 = Lehrkraft, 16 = WebUntis-Admin, 5 = Schüler
         'allowed_person_types' => [2, 16, 5],
-        'admin_kuerzel' => ['Hor'],
+        'admin_kuerzel' => ['XYZ'],
     ],
 
     'db' => [
-        'dsn'      => 'mysql:host=localhost;dbname=hornse_sprechtag;charset=utf8mb4',
-        'benutzer' => 'hornse',
+        'dsn'      => 'mysql:host=localhost;dbname=DBNAME;charset=utf8mb4',
+        'benutzer' => 'DBBENUTZER',
         'passwort' => 'AUS_~/.my.cnf_EINTRAGEN',
     ],
 
