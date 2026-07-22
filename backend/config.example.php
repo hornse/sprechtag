@@ -11,10 +11,10 @@ return [
         'base_url' => 'https://SCHULSERVER.webuntis.com',   // ohne Slash am Ende
         'school'   => 'SCHULKENNUNG',                        // wie in der WebUntis-URL
         'client'   => 'SprechtagApp',
-        // Wird um den Eltern-personType erweitert, sobald die
-        // Sondierung den Wert geliefert hat (vermutlich 15).
-        // 2 = Lehrkraft, 16 = WebUntis-Admin, 5 = Schüler
-        'allowed_person_types' => [2, 16, 5],
+        // Befund Sondierung 07/2026:
+        // 2 = Lehrkraft, 5 = Schüler, 12 = Erziehungsberechtigte(r)
+        // (LEGAL_GUARDIAN), 16 = WebUntis-Admin (personId -1!)
+        'allowed_person_types' => [2, 5, 12, 16],
         'admin_kuerzel' => ['XYZ'],
     ],
 

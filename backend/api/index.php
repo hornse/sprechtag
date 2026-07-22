@@ -39,6 +39,13 @@ if ($methode === 'POST' && $pfad === '/api/sondierung') {
     if ($schuelerId !== '' && !ctype_digit($schuelerId)) {
         json_err('schueler_id muss eine Zahl sein');
     }
+    $von = trim((string)($b['von'] ?? ''));
+    $bis = trim((string)($b['bis'] ?? ''));
+    foreach (['von' => $von, 'bis' => $bis] as $feld => $wert) {
+        if ($wert !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $wert)) {
+            json_err("$feld muss das Format JJJJ-MM-TT haben");
+        }
+    }
 
     // Brute-Force-Bremse: Fehlversuche je Benutzername im Zeitfenster zählen,
     // BEVOR WebUntis gefragt wird. Ohne DB (frische Installation) greift
@@ -66,7 +73,7 @@ if ($methode === 'POST' && $pfad === '/api/sondierung') {
 
     try {
         $bericht = sondierung_ausfuehren($cfg, $benutzer, $passwort,
-            $gruppen, $extraPfade, $schuelerId);
+            $gruppen, $extraPfade, $schuelerId, $von, $bis);
         if ($dbVerfuegbar) {
             $pdo->prepare('INSERT INTO login_log
                 (webuntis_benutzer, erfolgreich, grund, ip) VALUES (?, 1, ?, ?)')

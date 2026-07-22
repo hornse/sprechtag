@@ -22,6 +22,8 @@
       passwort:     $('#passwort').value,
       gruppen,
       schueler_id:  $('#schueler-id').value.trim(),
+      von:          $('#von').value.trim(),
+      bis:          $('#bis').value.trim(),
       extra_pfade:  $('#extra-pfade').value,
     };
 
@@ -120,6 +122,13 @@
     }
     if (p.fehler_details) {
       box.appendChild(vorformatiert(JSON.stringify(p.fehler_details, null, 2)));
+    }
+    if (p.lehrer_gefunden) {
+      const treffer = el('div', 'treffer');
+      treffer.appendChild(absatz(p.lehrer_gefunden.length
+        ? '🧑‍🏫 Lehrkräfte im Zeitraum: ' + p.lehrer_gefunden.join(', ')
+        : '🧑‍🏫 Antwort ok, aber keine TEACHER-Elemente im Zeitraum – anderen Zeitraum (normale Schulwoche) wählen.'));
+      box.appendChild(treffer);
     }
     if (p.kind_strukturen && p.kind_strukturen.length) {
       for (const f of p.kind_strukturen) {

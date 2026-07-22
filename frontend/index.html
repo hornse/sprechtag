@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Sprechtag FRG</title>
-<link rel="stylesheet" href="/style.css?v=20260719170840">
+<link rel="stylesheet" href="/style.css?v=20260722115226">
 </head>
 <body>
 
@@ -48,6 +48,14 @@
         <label>Schüler-ID manuell (falls app/data keine liefert)
           <input type="text" id="schueler-id" inputmode="numeric" placeholder="z. B. 1234">
         </label>
+        <div class="zeile">
+          <label>Zeitraum von (JJJJ-MM-TT, in Ferien: normale Schulwoche wählen!)
+            <input type="text" id="von" inputmode="numeric" placeholder="z. B. 2026-06-15">
+          </label>
+          <label>Zeitraum bis
+            <input type="text" id="bis" inputmode="numeric" placeholder="z. B. 2026-06-19">
+          </label>
+        </div>
         <label>Eigene Zusatzpfade (je Zeile ein GET-Pfad, beginnend mit /WebUntis/…)
           <textarea id="extra-pfade" rows="3"
             placeholder="/WebUntis/api/rest/view/v1/…"></textarea>
@@ -76,6 +84,6 @@
   <span>sprechtag v0.1.0 · GPL-3.0-or-later · Sebastian Horn</span>
 </footer>
 
-<script src="/app.js?v=20260719170840"></script>
+<script src="/app.js?v=20260722115226"></script>
 </body>
 </html>

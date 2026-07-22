@@ -52,10 +52,41 @@ $g = sondierung_kuerzen($lang, 100);
 pruefe('langer Text gekürzt + markiert',
     strlen($g) < 150 && str_ends_with($g, '…[gekürzt]'));
 
+echo "sondierung_schueler_ids\n";
+// Befund 07/2026: user.person (Eltern-Person!) darf NICHT als Kind gelten
+$funde = [
+    ['pfad' => 'user.person',   'ids' => [476]],
+    ['pfad' => 'user.students', 'ids' => [13914, 14069]],
+];
+pruefe('ignoriert user.person, nimmt user.students',
+    sondierung_schueler_ids($funde) === ['13914', '14069']);
+pruefe('manuelle ID hat Vorrang',
+    sondierung_schueler_ids($funde, '999') === ['999']);
+pruefe('leer ohne Student-Pfade',
+    sondierung_schueler_ids([['pfad' => 'user.person', 'ids' => [476]]]) === []);
+pruefe('-1 wird verworfen (Admin)',
+    sondierung_schueler_ids([['pfad' => 'user.students', 'ids' => [-1]]]) === []);
+pruefe('max begrenzt',
+    sondierung_schueler_ids([['pfad' => 'x.children', 'ids' => [1, 2, 3, 4]]], '', 2) === ['1', '2']);
+
+echo "sondierung_lehrer_aus_entries\n";
+$entries = ['days' => [['gridEntries' => [[
+    'position1' => [['current' => ['type' => 'CLASS',   'shortName' => '7a', 'id' => 3]]],
+    'position2' => [['current' => ['type' => 'TEACHER', 'shortName' => 'Ho', 'id' => 1013]],
+                    ['current' => ['type' => 'TEACHER', 'shortName' => 'Mu', 'id' => 7]]],
+    'position3' => [['current' => ['type' => 'SUBJECT', 'shortName' => 'M',  'id' => 9]]],
+]]]]];
+$lehrer = sondierung_lehrer_aus_entries($entries);
+pruefe('findet beide Lehrkräfte, keine Fächer/Klassen',
+    $lehrer === ['Ho (1013)', 'Mu (7)']);
+pruefe('dedupliziert', count(sondierung_lehrer_aus_entries(
+    ['a' => $entries, 'b' => $entries])) === 2);
+pruefe('robust bei Nicht-Array', sondierung_lehrer_aus_entries('x') === []);
+
 echo "sondierung_kandidaten\n";
 $k = sondierung_kandidaten();
-pruefe('drei Gruppen vorhanden',
-    isset($k['sprechtag'], $k['stundenplan'], $k['mitteilungen']));
+pruefe('Gruppen sprechtag + mitteilungen vorhanden',
+    isset($k['sprechtag'], $k['mitteilungen']));
 $allePfadeOk = true;
 foreach ($k as $proben) {
     foreach ($proben as $p) {
@@ -63,9 +94,9 @@ foreach ($k as $proben) {
     }
 }
 pruefe('alle Pfade beginnen mit /WebUntis/', $allePfadeOk);
-$platzhalter = $k['stundenplan'][0]['query'];
-pruefe('Stundenplan-Probe nutzt Platzhalter',
-    $platzhalter['resources'] === '{SCHUELER_ID}' && $platzhalter['start'] === '{START}');
+$mitParam = array_filter($k['mitteilungen'], fn($p) => isset($p['query']['recipients']));
+pruefe('recipients-Parameterprobe vorhanden',
+    count($mitParam) === 1 && reset($mitParam)['query']['recipients'] === '{USER_ID}');
 
 echo "\n" . ($fehler === 0 ? "ALLE TESTS GRÜN\n" : "$fehler TEST(S) ROT\n");
 exit($fehler === 0 ? 0 : 1);

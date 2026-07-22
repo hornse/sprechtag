@@ -8,12 +8,17 @@ protokolliert (Brute-Force-Bremse).
 
 ## Empfohlene Durchläufe
 
-1. **Testeltern-Konto** – Gruppen „Basis" + „Sprechtag" (der wichtigste Lauf!)
-2. Testeltern-Konto – Gruppe „Stundenplan" (nachdem Lauf 1 eine Schüler-ID
-   gefunden hat; sonst Schüler-ID unter „Erweitert" manuell eintragen)
-3. Testeltern-Konto – Gruppe „Mitteilungen"
-4. **Lehrkraft-Konto** – alle Gruppen (Vergleich: was sehen Lehrkräfte?)
-5. Optional Admin-Konto – alle Gruppen
+**Nachlauf v0.2.0 (offen):** Testeltern-Konto, Gruppen „Basis" + „Stundenplan",
+Zeitraum **einer normalen Schulwoche** (z. B. 2026-06-15 bis 2026-06-19).
+Das Werkzeug wählt jetzt automatisch die Kind-IDs aus `user.students` und
+listet je Kind die gefundenen Lehrkräfte („🧑‍🏫 Lehrkräfte im Zeitraum").
+
+Zum Vergleich anschließend derselbe Lauf mit dem Lehrkraft-Konto – dort ist
+`user.students` leer, die Stundenplan-Probe wird also übersprungen; das ist
+das erwartete Verhalten.
+
+Erledigt (19.07.2026): Basis + Sprechtag + Mitteilungen mit Eltern-,
+Lehrkraft- und Admin-Konto – Ergebnisse siehe unten.
 
 Nach jedem Lauf **„Bericht als Markdown kopieren"** und in den Projekt-Chat
 einfügen – auf dieser Basis wird der Adapter implementiert.
@@ -21,10 +26,9 @@ einfügen – auf dieser Basis wird der Adapter implementiert.
 ## Was die Proben beantworten
 
 ### authenticate (JSON-RPC)
-Liefert für das Eltern-Konto den bislang unbekannten **personType**
-(Vermutung: 15) sowie personId und ggf. weitere Felder. Der Wert wandert
-anschließend in `allowed_person_types` der config.php und ins
-Rollen-Mapping.
+Liefert den **personType**. Befund 07/2026: Erziehungsberechtigte = **12**
+(LEGAL_GUARDIAN), Lehrkraft = 2, WebUntis-Admin = 16 (personId -1),
+Schüler = 5. Diese Werte stehen in `allowed_person_types` der config.php.
 
 ### REST-Zugang (/api/token/new)
 Nur wenn hier ein JWT kommt, ist die interne REST-API mit diesem Konto
@@ -32,15 +36,15 @@ nutzbar. Falls nicht: Eltern-Funktionen müssten komplett über einen
 Dienst-/Admin-Kontext laufen.
 
 ### app/data (Basis)
-Der Kandidat für die **Kind-Zuordnung**. Der Bericht durchsucht die Antwort
-automatisch nach Strukturen mit Schlüsseln wie `students`, `children`,
-`persons` und zeigt Pfad, Anzahl und IDs („👪 Kind-/Personen-Struktur").
-Ein Treffer mit plausibler Anzahl (= Anzahl der Testkinder) beantwortet
-Frage 2 positiv.
+Die Quelle der **Kind-Zuordnung** (bestätigt 07/2026): `user.students[]`
+enthält beim Eltern-Konto die verknüpften Kinder. Der Bericht zeigt alle
+gefundenen Strukturen („👪") plus die daraus gewählten IDs
+(`schueler_ids_gewaehlt`) und die `user_id` für Mitteilungen.
+Achtung: `user.person` ist die eigene Person des Kontos, **kein Kind**.
 
 ### Sprechtag-Endpunkte
-Da das Sprechtag-Modul lizenziert ist, muss die WebUntis-Oberfläche einen
-dieser Pfade (oder einen ähnlichen) nutzen. Interpretation:
+Am 19.07.2026 lieferten alle Kandidaten 404 (siehe Befunde unten) – die
+Gruppe ist nur noch optional. Interpretation der Statuscodes:
 
 | Status | Bedeutung |
 |---|---|
@@ -56,16 +60,55 @@ Testeltern den Sprechtag öffnen und in den Browser-Entwicklerwerkzeugen
 „Erweitert → Eigene Zusatzpfade" nachsondieren.
 
 ### Stundenplan-Proben
-`timetable/entries` mit `resourceType=STUDENT` klärt, ob wir je Kind die
-unterrichtenden Lehrkräfte (Kurs-Ebene, wichtig für die Oberstufe!)
-ableiten können – und ob das mit Eltern-Session für das eigene Kind
-funktioniert. Die CLASS-Probe ist der Fallback für die Sekundarstufe I.
+`timetable/entries` mit `resourceType=STUDENT` wird **je Kind einzeln**
+abgefragt (IDs automatisch aus `user.students`). Bei Status 200 extrahiert
+das Werkzeug alle `current.type == "TEACHER"`-Elemente und zeigt sie als
+„🧑‍🏫 Lehrkräfte im Zeitraum" – das ist der Nachweis für die Kurs-Ebene
+(wichtig für die Oberstufe). Leere Liste trotz 200 heißt meist: Zeitraum
+liegt in den Ferien.
 
 ### Mitteilungs-Endpunkte
-Nur GET-Proben. Ziel ist zunächst der Nachweis, dass die
-Nachrichten-Endpunkte mit dem jeweiligen Konto erreichbar sind. Der
-eigentliche Versandweg (POST) wird erst nach Auswertung dieser Befunde –
-und dann gezielt mit einem Testempfänger – erprobt.
+Nur GET-Proben. Befund 07/2026: `/messages` und `/messages/status` sind für
+Eltern und Lehrkräfte erreichbar (200), `/messages/recipients` erwartet eine
+User-ID vom Typ Long. Der Versandweg (POST) wird in einem späteren Paket
+gezielt mit einem Testempfänger erprobt – nicht mit diesem Werkzeug.
+
+## Befunde der Sondierung vom 19.07.2026 (frg-dusseldorf)
+
+Drei Läufe: Testeltern (`hornse@icloud.com`), Lehrkraft (`ho`), Admin (`adminho`).
+
+| Frage | Ergebnis |
+|---|---|
+| Eltern-Login | **GELÖST**: personType **12**, Rolle `LEGAL_GUARDIAN`, eigene personId. JWT für REST funktioniert auch mit Eltern-Konto. |
+| Kind-Zuordnung | **GELÖST**: `app/data` → `user.students[]` liefert beim Eltern-Konto die verknüpften Kinder (id, displayName). Bei Lehrkraft/Admin ist das Array leer. Kein Schild-Import nötig. |
+| Kind → Lehrkräfte | offen – Probe lief wegen eines Werkzeug-Bugs (siehe unten) nie mit echter Kind-ID. Nachlauf erforderlich. |
+| Sprechtag-Endpunkte | Alle sieben Kandidaten liefern über alle Konten 404 `NOT_FOUND` **ohne** validationErrors → Pfade existieren nicht. Für das Projekt irrelevant, da Kind- und Lehrkraftzuordnung anders gelöst werden. |
+| Mitteilungen | vielversprechend: `/messages` und `/messages/status` antworten für Eltern **und** Lehrkräfte mit 200. `/messages/recipients` liefert 400 mit `parameter 'recipients' … expected type Long` → Endpunkt existiert und erwartet eine **User-ID** (nicht personId!). |
+
+### Wichtige ID-Unterscheidung
+
+`app/data` liefert zwei verschiedene Nummern, die nicht verwechselt werden dürfen:
+
+* `user.id` – **User-ID** (Login-Konto), Adressat für Mitteilungen
+* `user.person.id` – **Person-ID**, identisch mit `personId` aus authenticate
+* `user.students[].id` – IDs der **Kinder** (Schüler-Person-IDs)
+
+### Behobener Werkzeug-Bug
+
+Die automatische Schüler-ID-Erkennung nahm die *erste* gefundene Struktur –
+und das war `user.person`, also die Person des angemeldeten Elternteils
+selbst (476). Die STUDENT-Stundenplanprobe lief damit gegen die falsche ID
+und meldete folgerichtig `NOT_FOUND`. Seit v0.2.0 wählt
+`sondierung_schueler_ids()` nur Pfade, die nach Schüler/Kind aussehen,
+verwirft `-1` und sondiert **je Kind einzeln**.
+
+### Zweiter Fallstrick: Zeitraum
+
+Die Läufe vom 19.07. fielen in die Sommerferien (Schuljahr endete am
+19.07.2026) – ein leerer Stundenplan wäre auch bei korrekter ID zu
+erwarten gewesen. Deshalb gibt es jetzt die Felder **Zeitraum von/bis**:
+für den Nachlauf eine normale Schulwoche des laufenden Schuljahres wählen,
+z. B. 2026-06-15 bis 2026-06-19.
 
 ## Nach der Sondierung
 

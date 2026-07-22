@@ -38,20 +38,16 @@ function sondierung_kandidaten(): array
             ['pfad' => '/WebUntis/api/parentsday/config'],
             ['pfad' => '/WebUntis/api/rest/view/v1/parent-days/appointments'],
         ],
-        'stundenplan' => [
-            ['pfad' => '/WebUntis/api/rest/view/v1/timetable/entries',
-             'query' => ['start' => '{START}', 'end' => '{ENDE}',
-                         'resourceType' => 'STUDENT', 'resources' => '{SCHUELER_ID}']],
-            ['pfad' => '/WebUntis/api/rest/view/v1/timetable/entries',
-             'query' => ['start' => '{START}', 'end' => '{ENDE}',
-                         'resourceType' => 'CLASS', 'resources' => '{KLASSE_ID}']],
-        ],
         'mitteilungen' => [
             // Nur GET! Kein Versand. 405 "Method Not Allowed" wäre sogar ein
             // POSITIVER Befund (Endpunkt existiert, erwartet POST).
             ['pfad' => '/WebUntis/api/rest/view/v1/messages'],
             ['pfad' => '/WebUntis/api/rest/view/v1/messages/status'],
             ['pfad' => '/WebUntis/api/rest/view/v1/messages/recipients'],
+            // Befund 07/2026: ohne Parameter -> 400 "parameter 'recipients'
+            // expects Long" -> Probe mit eigener User-ID aus app/data:
+            ['pfad' => '/WebUntis/api/rest/view/v1/messages/recipients',
+             'query' => ['recipients' => '{USER_ID}']],
             ['pfad' => '/WebUntis/api/rest/view/v2/messages'],
         ],
     ];
@@ -93,6 +89,28 @@ function sondierung_kind_strukturen(mixed $json, string $pfad = ''): array
     return $funde;
 }
 
+/**
+ * Wählt Schüler-IDs aus den gefundenen Kind-Strukturen aus.
+ * WICHTIG (Befund Sondierung 07/2026): app/data enthält AUCH user.person
+ * (die eigene Person des angemeldeten Kontos!) – nur Pfade, die nach
+ * Schüler/Kind aussehen, dürfen als Kind-IDs gelten, sonst landet die
+ * Eltern-personId in der Stundenplan-Probe. Reine Funktion – testbar.
+ */
+function sondierung_schueler_ids(array $funde, string $manuell = '', int $max = 3): array
+{
+    if ($manuell !== '') return [$manuell];
+    $ids = [];
+    foreach ($funde as $f) {
+        if (!preg_match('/student|child|kind|pupil|ward/i', (string)($f['pfad'] ?? ''))) continue;
+        foreach (($f['ids'] ?? []) as $id) {
+            $id = (string)$id;
+            if ($id !== '' && $id !== '-1' && !in_array($id, $ids, true)) $ids[] = $id;
+            if (count($ids) >= $max) return $ids;
+        }
+    }
+    return $ids;
+}
+
 /** Kürzt eine Roh-Antwort für den Bericht (kein Daten-Dump). */
 function sondierung_kuerzen(string $text, int $max = 900): string
 {
@@ -101,6 +119,31 @@ function sondierung_kuerzen(string $text, int $max = 900): string
     if ($laenge <= $max) return $text;
     $kurz = function_exists('mb_substr') ? mb_substr($text, 0, $max) : substr($text, 0, $max);
     return $kurz . ' …[gekürzt]';
+}
+
+/**
+ * Sammelt aus einer timetable/entries-Antwort alle TEACHER-Elemente
+ * (defensiv-rekursiv: Positionsbedeutung ist formatabhängig, daher wird
+ * NUR current.type gelesen – siehe Modul-README). Beweisführung für
+ * "welche Lehrkräfte unterrichten dieses Kind". Reine Funktion – testbar.
+ */
+function sondierung_lehrer_aus_entries(mixed $json): array
+{
+    $lehrer = [];
+    $lauf = function ($knoten) use (&$lauf, &$lehrer): void {
+        if (!is_array($knoten)) return;
+        $aktuell = $knoten['current'] ?? null;
+        if (is_array($aktuell) && ($aktuell['type'] ?? '') === 'TEACHER') {
+            $name = $aktuell['shortName'] ?? $aktuell['displayName']
+                ?? $aktuell['longName'] ?? $aktuell['name'] ?? null;
+            $id   = $aktuell['id'] ?? null;
+            $kennung = ($name ?? '?') . ($id !== null ? ' (' . $id . ')' : '');
+            $lehrer[$kennung] = true;
+        }
+        foreach ($knoten as $wert) $lauf($wert);
+    };
+    $lauf($json);
+    return array_keys($lehrer);
 }
 
 /** Führt eine einzelne GET-Probe aus und fasst das Ergebnis zusammen. */
@@ -132,11 +175,14 @@ function sondierung_probe(WebUntisRest $rest, string $pfad, array $query = []): 
 /**
  * Komplette Sondierung. $gruppen: Teilmenge von
  * ['basis','sprechtag','stundenplan','mitteilungen'], $extraPfade: je Zeile
- * ein zusätzlicher GET-Pfad (beginnend mit /WebUntis/…).
+ * ein zusätzlicher GET-Pfad (beginnend mit /WebUntis/…). $von/$bis
+ * (YYYY-MM-DD) überschreiben den Probezeitraum – wichtig in Ferien:
+ * normale Schulwoche wählen!
  */
 function sondierung_ausfuehren(
     array $cfg, string $benutzer, string $passwort,
-    array $gruppen, array $extraPfade = [], string $schuelerIdManuell = ''
+    array $gruppen, array $extraPfade = [], string $schuelerIdManuell = '',
+    string $von = '', string $bis = ''
 ): array {
     $wcfg = $cfg['webuntis'];
     $bericht = [
@@ -149,7 +195,7 @@ function sondierung_ausfuehren(
 
     $wu = new WebUntisAuth($wcfg['base_url'], $wcfg['school'], $wcfg['client']);
 
-    // ---- 1. authenticate: DIE Antwort auf die personType-Frage ----------
+    // ---- 1. authenticate: personType-Befund -----------------------------
     $auth = $wu->authenticate($benutzer, $passwort);
     $bericht['authenticate'] = [
         'alle_schluessel' => array_keys($auth),
@@ -158,7 +204,8 @@ function sondierung_ausfuehren(
         'klasseId'        => $auth['klasseId']   ?? null,
         'rolle_bekannt'   => match ($auth['personType'] ?? -1) {
             2 => 'Lehrkraft', 5 => 'Schüler', 16 => 'WebUntis-Admin',
-            default => 'UNBEKANNT – vermutlich Erziehungsberechtigte(r), Wert notieren!',
+            12 => 'Erziehungsberechtigte(r) (LEGAL_GUARDIAN – Befund Sondierung 07/2026)',
+            default => 'UNBEKANNT – Wert notieren!',
         },
     ];
 
@@ -176,57 +223,98 @@ function sondierung_ausfuehren(
         }
         $rest->tenantErmitteln();
 
-        // ---- 3. Basis: app/data (Kind-Zuordnung!) ---------------------------
-        $schuelerId = $schuelerIdManuell;
-        $klasseId   = (string)($auth['klasseId'] ?? '');
+        // ---- 3. app/data IMMER intern abrufen (liefert die IDs für alle
+        //         weiteren Proben); in den Bericht nur bei Gruppe "basis" ----
+        $appData = $rest->get('/WebUntis/api/rest/view/v1/app/data');
+        $funde   = $appData['json'] !== null
+            ? sondierung_kind_strukturen($appData['json']) : [];
+        $userId  = (string)($appData['json']['user']['id'] ?? '');
+        $schuelerIds = sondierung_schueler_ids($funde, $schuelerIdManuell);
+
         if (in_array('basis', $gruppen, true)) {
-            $r = $rest->get('/WebUntis/api/rest/view/v1/app/data');
-            $basis = [
-                'status'          => $r['status'],
-                'json_schluessel' => $r['json'] !== null
-                    ? array_slice(array_keys($r['json']), 0, 15) : [],
-                'user_schluessel' => isset($r['json']['user']) && is_array($r['json']['user'])
-                    ? array_keys($r['json']['user']) : [],
-                'kind_strukturen' => $r['json'] !== null
-                    ? sondierung_kind_strukturen($r['json']) : [],
-                'roh_auszug'      => sondierung_kuerzen($r['text'], 1500),
+            $bericht['app_data'] = [
+                'status'          => $appData['status'],
+                'json_schluessel' => $appData['json'] !== null
+                    ? array_slice(array_keys($appData['json']), 0, 15) : [],
+                'user_schluessel' => isset($appData['json']['user'])
+                        && is_array($appData['json']['user'])
+                    ? array_keys($appData['json']['user']) : [],
+                'kind_strukturen' => $funde,
+                'user_id'         => $userId,
+                'schueler_ids_gewaehlt' => $schuelerIds,
+                'roh_auszug'      => sondierung_kuerzen($appData['text'], 1500),
             ];
-            // Erste gefundene Kind-ID automatisch für die Stundenplan-Probe nutzen
-            foreach ($basis['kind_strukturen'] as $f) {
-                if ($schuelerId === '' && !empty($f['ids'])) {
-                    $schuelerId = (string)$f['ids'][0];
-                    $basis['auto_schueler_id'] = $schuelerId;
-                    break;
-                }
-            }
-            $bericht['app_data'] = $basis;
         }
 
-        // ---- 4. Kandidaten-Gruppen ------------------------------------------
-        $start = date('Y-m-d', strtotime('monday this week'));
-        $ende  = date('Y-m-d', strtotime('friday this week'));
-        $ersetzen = static function (string $s) use ($start, $ende, $schuelerId, $klasseId): string {
+        // ---- 4. Zeitraum: manuell > Standard (Vorwoche der Probe) -----------
+        $datumOk = fn(string $d) => (bool)preg_match('/^\d{4}-\d{2}-\d{2}$/', $d);
+        $start = $datumOk($von) ? $von : date('Y-m-d', strtotime('monday this week'));
+        $ende  = $datumOk($bis) ? $bis : date('Y-m-d', strtotime('friday this week'));
+        $ersetzen = static function (string $s) use ($start, $ende, $userId): string {
             return strtr($s, ['{START}' => $start, '{ENDE}' => $ende,
-                '{SCHUELER_ID}' => $schuelerId, '{KLASSE_ID}' => $klasseId]);
+                '{USER_ID}' => $userId]);
         };
 
+        // ---- 5. Stundenplan: je gefundenem/angegebenem Kind einzeln ---------
+        if (in_array('stundenplan', $gruppen, true)) {
+            $bericht['stundenplan'] = [];
+            if ($schuelerIds === []) {
+                $bericht['stundenplan'][] = ['pfad' => '/WebUntis/api/rest/view/v1/timetable/entries',
+                    'uebersprungen' => 'Keine Schüler-ID gefunden (app/data ohne '
+                        . 'user.students-Einträge) – unter „Erweitert" manuell angeben'];
+            }
+            foreach ($schuelerIds as $sid) {
+                $query = ['start' => $start, 'end' => $ende,
+                          'resourceType' => 'STUDENT', 'resources' => $sid];
+                $voll  = $rest->get('/WebUntis/api/rest/view/v1/timetable/entries', $query);
+                $probe = [
+                    'pfad'        => '/WebUntis/api/rest/view/v1/timetable/entries',
+                    'query'       => $query,
+                    'status'      => $voll['status'],
+                    'contentType' => $voll['contentType'],
+                ];
+                if ($voll['json'] !== null) {
+                    $probe['json_schluessel'] = array_slice(array_keys($voll['json']), 0, 15);
+                    if ($voll['status'] >= 400) {
+                        $probe['fehler_details'] = [
+                            'errorCode'        => $voll['json']['errorCode'] ?? null,
+                            'validationErrors' => $voll['json']['validationErrors'] ?? null,
+                            'message'          => $voll['json']['message'] ?? null,
+                        ];
+                    } else {
+                        $probe['lehrer_gefunden'] =
+                            sondierung_lehrer_aus_entries($voll['json']);
+                    }
+                }
+                $probe['roh_auszug'] = sondierung_kuerzen($voll['text']);
+                $bericht['stundenplan'][] = $probe;
+            }
+            $klasseId = (string)($auth['klasseId'] ?? '0');
+            if ($klasseId !== '' && $klasseId !== '0') {
+                $bericht['stundenplan'][] = sondierung_probe($rest,
+                    '/WebUntis/api/rest/view/v1/timetable/entries', [
+                        'start' => $start, 'end' => $ende,
+                        'resourceType' => 'CLASS', 'resources' => $klasseId,
+                    ]);
+            }
+        }
+
+        // ---- 6. Statische Kandidaten-Gruppen --------------------------------
         foreach (sondierung_kandidaten() as $gruppe => $proben) {
             if (!in_array($gruppe, $gruppen, true)) continue;
             $bericht[$gruppe] = [];
             foreach ($proben as $p) {
                 $query = array_map($ersetzen, $p['query'] ?? []);
-                // Proben mit nicht auflösbaren Platzhaltern überspringen
                 if (in_array('', $query, true)) {
                     $bericht[$gruppe][] = ['pfad' => $p['pfad'],
-                        'uebersprungen' => 'ID-Platzhalter nicht auflösbar '
-                            . '(keine Schüler-/Klassen-ID gefunden – ggf. manuell angeben)'];
+                        'uebersprungen' => 'ID-Platzhalter nicht auflösbar'];
                     continue;
                 }
                 $bericht[$gruppe][] = sondierung_probe($rest, $p['pfad'], $query);
             }
         }
 
-        // ---- 5. Freie Zusatzpfade -------------------------------------------
+        // ---- 7. Freie Zusatzpfade -------------------------------------------
         foreach ($extraPfade as $pfad) {
             $pfad = trim($pfad);
             if ($pfad === '' || !str_starts_with($pfad, '/WebUntis/')) continue;
