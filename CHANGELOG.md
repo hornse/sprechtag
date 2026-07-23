@@ -1,5 +1,27 @@
 # Changelog – sprechtag
 
+## v0.4.1 (Juli 2026) – Fehlerbehebungen Frontend
+
+### Behoben
+- **Stammdaten-Sync, Sondierung und Mitteilungsversand meldeten
+  „Feld 'benutzername' fehlt"**: Die drei Aktionen setzten zuerst eine
+  Statusmeldung („… läuft") und lasen erst danach die Eingabefelder aus.
+  `meldung()` ruft aber `zeichne()` auf, wodurch die Ansicht komplett neu
+  aufgebaut wird – die Felder samt eingetippten Werten waren zu diesem
+  Zeitpunkt bereits verschwunden, es wurden leere Strings gesendet.
+  Jetzt werden Werte grundsätzlich vor jeder Meldung gelesen; zusätzlich
+  prüft das Frontend auf leere Eingaben, bevor es den Server fragt.
+- **Aufgeklappte Bereiche schlossen sich nach jeder Meldung**: Neue
+  Hilfsfunktion `block()` merkt den Zustand jedes `<details>`-Bereichs in
+  `S.offeneBloecke` und stellt ihn beim Neuzeichnen wieder her.
+- **Versionsnummer war seit Paket 3 auf 0.3.0 stehengeblieben**, obwohl
+  die Mitteilungsfunktionen enthalten waren – irreführend beim Prüfen des
+  Deployments. Die Nummer steht jetzt in `index.php` und `index.html`.
+
+### Tests
+- `tests/frontend_reihenfolge_test.js` (Node): weist nach, dass die alte
+  Reihenfolge leere Werte liefert und die neue die eingetippten.
+
 ## v0.4.0 (Juli 2026) – Paket 3: Mitteilungen an Erziehungsberechtigte
 
 ### Neu

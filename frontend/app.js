@@ -30,6 +30,7 @@ const S = {
   einladungen: [],
   mitteilungen: null,
   meldung: null,
+  offeneBloecke: {},   // merkt aufgeklappte <details> über Neuzeichnen hinweg
 };
 
 // ---------- API-Helfer ----------------------------------------------------
@@ -56,6 +57,18 @@ function el(tag, klasse, text) {
   if (text != null) e.textContent = text;
   return e;
 }
+/**
+ * Erzeugt einen <details>-Block, dessen Auf-/Zugeklappt-Zustand ein
+ * Neuzeichnen der Ansicht übersteht (meldung() ruft zeichne() auf).
+ */
+function block(kennung, titel) {
+  const d = el('details', 'block');
+  d.appendChild(el('summary', null, titel));
+  if (S.offeneBloecke[kennung]) d.open = true;
+  d.addEventListener('toggle', () => { S.offeneBloecke[kennung] = d.open; });
+  return d;
+}
+
 function knopf(text, klasse, aktion) {
   const b = el('button', klasse, text);
   b.type = 'button';
@@ -581,8 +594,7 @@ function ansichtAdmin(ziel) {
   ziel.appendChild(el('h2', null, 'Administration'));
 
   // ---- Stammdaten-Sync -------------------------------------------------
-  const sync = el('details', 'block');
-  sync.appendChild(el('summary', null, 'Stammdaten aus WebUntis übernehmen'));
+  const sync = block('sync', 'Stammdaten aus WebUntis übernehmen');
   sync.appendChild(el('p', 'hinweis',
     'Holt Lehrkräfte und Räume aus WebUntis. Zugangsdaten werden nur für '
     + 'diesen Abruf verwendet und nicht gespeichert. Beim ersten Lauf bitte '
@@ -592,10 +604,17 @@ function ansichtAdmin(ziel) {
   sf.appendChild(feld('Passwort', 'sync-passwort', 'password'));
   sync.appendChild(sf);
   sync.appendChild(knopf('Synchronisieren', null, async () => {
+    // WICHTIG: Werte VOR meldung() lesen – meldung() ruft zeichne() auf
+    // und baut die Ansicht neu auf, wodurch die Eingabefelder verschwinden.
+    const zugang = { benutzername: wert('sync-benutzer'),
+                     passwort: wert('sync-passwort') };
+    if (zugang.benutzername === '' || zugang.passwort === '') {
+      meldung('Bitte Benutzername und Passwort eingeben.', 'fehler');
+      return;
+    }
     meldung('Synchronisierung läuft …', 'info');
     try {
-      const d = await api('/api/stammdaten/sync', { method: 'POST', body: {
-        benutzername: wert('sync-benutzer'), passwort: wert('sync-passwort') } });
+      const d = await api('/api/stammdaten/sync', { method: 'POST', body: zugang });
       await ladeStammdaten();
       meldung('Übernommen: ' + d.lehrer + ' Lehrkräfte, ' + d.raeume + ' Räume.', 'ok');
     } catch (f) { meldung(String(f.message), 'fehler'); }
@@ -603,8 +622,7 @@ function ansichtAdmin(ziel) {
   ziel.appendChild(sync);
 
   // ---- Sprechtag anlegen ------------------------------------------------
-  const neu = el('details', 'block');
-  neu.appendChild(el('summary', null, 'Neuen Sprechtag anlegen'));
+  const neu = block('neu', 'Neuen Sprechtag anlegen');
   const nf = el('div');
   nf.appendChild(feld('Bezeichnung', 'neu-name', 'text',
     'Elternsprechtag ' + new Date().getFullYear()));
@@ -648,10 +666,8 @@ function ansichtAdmin(ziel) {
 }
 
 function sprechtagKarte(s) {
-  const k = el('details', 'block');
-  const summe = el('summary', null,
+  const k = block('st' + s.id,
     s.name + ' – ' + s.datum + ' (' + phaseText(s.phase) + ')');
-  k.appendChild(summe);
 
   // Parameter
   const p = el('div');
@@ -926,14 +942,21 @@ function ansichtSondierung(ziel) {
 
   const ausgabe = el('pre', 'sondierung-ausgabe');
   ziel.appendChild(knopf('Sondierung starten', null, async () => {
+    // Werte VOR meldung() lesen (meldung() zeichnet die Ansicht neu)
+    const anfrage = {
+      benutzername: wert('so-benutzer'), passwort: wert('so-passwort'),
+      gruppen: Array.from(document.querySelectorAll('.so-gruppe:checked'))
+        .map((e) => e.value),
+      von: wert('so-von'), bis: wert('so-bis'),
+      schueler_id: wert('so-schueler'),
+    };
+    if (anfrage.benutzername === '' || anfrage.passwort === '') {
+      meldung('Bitte Benutzername und Passwort eingeben.', 'fehler');
+      return;
+    }
     meldung('Sondierung läuft …', 'info');
-    const gew = Array.from(document.querySelectorAll('.so-gruppe:checked'))
-      .map((e) => e.value);
     try {
-      const d = await api('/api/sondierung', { method: 'POST', body: {
-        benutzername: wert('so-benutzer'), passwort: wert('so-passwort'),
-        gruppen: gew, von: wert('so-von'), bis: wert('so-bis'),
-        schueler_id: wert('so-schueler') } });
+      const d = await api('/api/sondierung', { method: 'POST', body: anfrage });
       ausgabe.textContent = JSON.stringify(d.bericht, null, 2);
       meldung('Sondierung abgeschlossen.', 'ok');
     } catch (f2) { meldung(String(f2.message), 'fehler'); }
@@ -976,11 +999,18 @@ function ansichtMitteilungen(ziel) {
     z.appendChild(feld('Passwort', 'mv-passwort', 'password'));
     kasten.appendChild(z);
     kasten.appendChild(knopf('Alle offenen versenden', null, async () => {
+      // Werte VOR meldung() lesen (meldung() zeichnet die Ansicht neu)
+      const auftrag = { sprechtag_id: S.aktiverSprechtag.id,
+                        benutzername: wert('mv-benutzer'),
+                        passwort: wert('mv-passwort') };
+      if (auftrag.benutzername === '' || auftrag.passwort === '') {
+        meldung('Bitte Benutzername und Passwort eingeben.', 'fehler');
+        return;
+      }
       meldung('Versand läuft …', 'info');
       try {
-        const d = await api('/api/mitteilungen/senden', { method: 'POST', body: {
-          sprechtag_id: S.aktiverSprechtag.id,
-          benutzername: wert('mv-benutzer'), passwort: wert('mv-passwort') } });
+        const d = await api('/api/mitteilungen/senden',
+          { method: 'POST', body: auftrag });
         await ladeMitteilungen();
         meldung(d.grund + (d.variante ? ' (Variante: ' + d.variante + ')' : ''),
           d.gesendet > 0 ? 'ok' : 'fehler');
