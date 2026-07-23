@@ -111,6 +111,97 @@ function sondierung_schueler_ids(array $funde, string $manuell = '', int $max = 
     return $ids;
 }
 
+/**
+ * Sondiert die Stammdaten für die Zuordnungsvorbereitung:
+ * getKlassen (Weg A) und getStudents (Weg B), dazu die Frage, ob
+ * WebUntis eine Gruppenzugehörigkeit (z. B. "SuS über 18") mitliefert.
+ *
+ * DATENSCHUTZ: Der Bericht enthält KEINE Klarnamen von Schüler:innen.
+ * Ausgegeben werden nur Feldnamen, Anzahlen und – zur Strukturprüfung –
+ * ein anonymisiertes Beispiel (Namensfelder durch "…" ersetzt).
+ */
+function sondierung_stammdaten(WebUntisAuth $wu, WebUntisRest $rest): array
+{
+    $bericht = [];
+
+    // ---- Klassen (Grundlage für Weg A) ------------------------------
+    try {
+        $klassen = $wu->getKlassen();
+        $bericht['getKlassen'] = [
+            'anzahl'          => count($klassen),
+            'felder'          => $klassen === [] ? [] : array_keys($klassen[0]),
+            'beispiele'       => array_slice(array_map(
+                fn($k) => ['id' => $k['id'] ?? null, 'name' => $k['name'] ?? ''],
+                $klassen), 0, 8),
+        ];
+    } catch (Throwable $e) {
+        $bericht['getKlassen'] = ['fehler' => $e->getMessage()];
+    }
+
+    // ---- Schüler:innen (Grundlage für Weg B) ------------------------
+    try {
+        $schueler = $wu->getStudents();
+        $felder = $schueler === [] ? [] : array_keys($schueler[0]);
+
+        // Anonymisiertes Struktur-Beispiel: Namensfelder ausblenden
+        $namensfelder = ['name', 'foreName', 'longName', 'displayName', 'key'];
+        $beispiel = [];
+        if ($schueler !== []) {
+            foreach ($schueler[0] as $feld => $wert) {
+                $beispiel[$feld] = in_array($feld, $namensfelder, true)
+                    ? '…' : $wert;
+            }
+        }
+
+        // Gibt es Hinweise auf Gruppen-/Zusatzmerkmale?
+        $gruppenfelder = array_values(array_filter($felder,
+            fn($f) => preg_match('/group|gruppe|category|kategorie|type|typ|flag/i', $f)));
+
+        $bericht['getStudents'] = [
+            'anzahl'            => count($schueler),
+            'felder'            => $felder,
+            'beispiel_anonym'   => $beispiel,
+            'gruppen_verdacht'  => $gruppenfelder,
+            'hinweis'           => $gruppenfelder === []
+                ? 'Keine Gruppenfelder erkennbar – Volljährigkeit muss anders '
+                    . 'ermittelt werden (z. B. über personType 5 beim Login).'
+                : 'Mögliche Gruppenfelder gefunden – Werte prüfen.',
+        ];
+    } catch (Throwable $e) {
+        $bericht['getStudents'] = ['fehler' => $e->getMessage()];
+    }
+
+    // ---- REST-Varianten: liefern sie mehr (z. B. Gruppen)? ----------
+    foreach ([
+        '/WebUntis/api/rest/view/v1/students',
+        '/WebUntis/api/rest/view/v1/persons',
+        '/WebUntis/api/rest/view/v1/student-groups',
+        '/WebUntis/api/rest/view/v1/groups',
+    ] as $pfad) {
+        $r = $rest->get($pfad);
+        $zeile = ['pfad' => $pfad, 'status' => $r['status']];
+        if ($r['json'] !== null) {
+            $zeile['json_schluessel'] = array_slice(array_keys($r['json']), 0, 12);
+            if ($r['status'] >= 400) {
+                $zeile['fehler_details'] = [
+                    'errorCode' => $r['json']['errorCode'] ?? null,
+                    'message'   => $r['json']['errorMessage'] ?? null,
+                ];
+            }
+        }
+        // Roh-Auszug nur bei Fehlern (sonst stünden hier Klarnamen!)
+        if ($r['status'] >= 400) {
+            $zeile['roh_auszug'] = sondierung_kuerzen($r['text'], 300);
+        } else {
+            $zeile['hinweis'] = 'Antwort erfolgreich – Inhalt aus '
+                . 'Datenschutzgründen nicht abgedruckt.';
+        }
+        $bericht['rest_varianten'][] = $zeile;
+    }
+
+    return $bericht;
+}
+
 /** Kürzt eine Roh-Antwort für den Bericht (kein Daten-Dump). */
 function sondierung_kuerzen(string $text, int $max = 900): string
 {
@@ -297,6 +388,11 @@ function sondierung_ausfuehren(
                         'resourceType' => 'CLASS', 'resources' => $klasseId,
                     ]);
             }
+        }
+
+        // ---- 5b. Stammdaten (Klassen, Schüler:innen, Gruppen) --------------
+        if (in_array('stammdaten', $gruppen, true)) {
+            $bericht['stammdaten'] = sondierung_stammdaten($wu, $rest);
         }
 
         // ---- 6. Statische Kandidaten-Gruppen --------------------------------

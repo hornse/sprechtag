@@ -110,6 +110,36 @@ erwarten gewesen. Deshalb gibt es jetzt die Felder **Zeitraum von/bis**:
 für den Nachlauf eine normale Schulwoche des laufenden Schuljahres wählen,
 z. B. 2026-06-15 bis 2026-06-19.
 
+
+## Gruppe „Klassen & Schüler:innen" (v0.4.2)
+
+Klärt die Grundlage für die Zuordnungsvorbereitung:
+
+* **`getKlassen`** – Klassenliste (Grundlage für den Klassenweg, Sek I)
+* **`getStudents`** – alle Schüler:innen mit ihren Feldern; entscheidend
+  ist, **welche** Felder mitkommen und ob eine Gruppenzugehörigkeit
+  (z. B. „SuS über 18") darunter ist
+* **REST-Varianten** `students`, `persons`, `student-groups`, `groups` –
+  liefern sie mehr als JSON-RPC?
+
+**Datenschutz:** Der Bericht enthält **keine Klarnamen**. Ausgegeben werden
+Feldnamen, Anzahlen und ein Struktur-Beispiel, in dem alle Namensfelder
+(`name`, `foreName`, `longName`, `displayName`, `key`) durch „…" ersetzt
+sind. Bei erfolgreichen REST-Antworten wird der Inhalt bewusst nicht
+abgedruckt, nur der Statuscode und die obersten JSON-Schlüssel.
+
+Der Lauf braucht ein Konto mit Leserecht auf die Stammdaten – in der Regel
+das Admin- oder ein Dienstkonto.
+
+### Was der Befund entscheidet
+
+| Ergebnis | Konsequenz |
+|---|---|
+| `getStudents` liefert ein Gruppenfeld mit „über 18" o. ä. | Volljährige lassen sich direkt erkennen und getrennt behandeln |
+| kein Gruppenfeld | Volljährigkeit wird über `personType 5` beim Login erkannt (Schüler:innen buchen dann selbst) |
+| `getKlassen` liefert Klassenliste | Klassenweg für Sek I umsetzbar |
+| REST-Variante liefert mehr Felder | ggf. bessere Datenquelle als JSON-RPC |
+
 ## Nach der Sondierung
 
 `'sondierung_freigeschaltet' => false` in `config.php` setzen, sobald die

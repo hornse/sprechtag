@@ -98,5 +98,35 @@ $mitParam = array_filter($k['mitteilungen'], fn($p) => isset($p['query']['recipi
 pruefe('recipients-Parameterprobe vorhanden',
     count($mitParam) === 1 && reset($mitParam)['query']['recipients'] === '{USER_ID}');
 
+
+echo "sondierung_stammdaten – Anonymisierung\n";
+// Die Funktion braucht Client-Objekte; hier wird nur die Logik der
+// Feldauswahl geprüft, indem der relevante Code nachgebildet wird.
+// (Der Netzteil ist in den Integrationstests abgedeckt.)
+$namensfelder = ['name', 'foreName', 'longName', 'displayName', 'key'];
+$schueler = ['id' => 13914, 'key' => 'PAULOWSKI', 'name' => 'PaulowskiPau',
+             'foreName' => 'Paul', 'longName' => 'Paulowski', 'klasseId' => 42];
+$beispiel = [];
+foreach ($schueler as $feld => $wert) {
+    $beispiel[$feld] = in_array($feld, $namensfelder, true) ? '…' : $wert;
+}
+pruefe('Vorname anonymisiert',   $beispiel['foreName'] === '…');
+pruefe('Nachname anonymisiert',  $beispiel['longName'] === '…');
+pruefe('Kurzname anonymisiert',  $beispiel['name'] === '…');
+pruefe('key anonymisiert',       $beispiel['key'] === '…');
+pruefe('ID bleibt sichtbar',     $beispiel['id'] === 13914);
+pruefe('Klassen-ID bleibt',      $beispiel['klasseId'] === 42);
+pruefe('kein Klarname im Beispiel',
+    !str_contains(json_encode($beispiel), 'Paul'));
+
+echo "Gruppenfeld-Erkennung\n";
+$erkenne = fn(array $felder) => array_values(array_filter($felder,
+    fn($f) => preg_match('/group|gruppe|category|kategorie|type|typ|flag/i', $f)));
+pruefe('erkennt studentGroup', $erkenne(['id', 'studentGroup']) === ['studentGroup']);
+pruefe('erkennt category',     $erkenne(['id', 'category']) === ['category']);
+pruefe('erkennt personType',   $erkenne(['id', 'personType']) === ['personType']);
+pruefe('keine Fehltreffer',    $erkenne(['id', 'name', 'klasseId']) === []);
+
+
 echo "\n" . ($fehler === 0 ? "ALLE TESTS GRÜN\n" : "$fehler TEST(S) ROT\n");
 exit($fehler === 0 ? 0 : 1);

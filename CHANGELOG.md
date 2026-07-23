@@ -1,5 +1,54 @@
 # Changelog – sprechtag
 
+## v0.4.2 (Juli 2026) – Sondierung Klassen/Schüler:innen freigeschaltet
+
+### Neu
+- Sondiergruppe **„Klassen & Schüler:innen"** im Frontend auswählbar.
+  Die zugehörige Backend-Funktion `sondierung_stammdaten()` war bereits
+  vorhanden, aber über die Oberfläche nicht erreichbar. Sie prüft
+  `getKlassen()` und `getStudents()` sowie vier REST-Kandidaten und
+  meldet, ob ein Gruppen-/Kategoriefeld existiert (für „SuS über 18").
+- Ausgabe ist datensparsam: nur Feldnamen, Anzahlen und ein
+  anonymisiertes Struktur-Beispiel (Namensfelder durch „…" ersetzt).
+  Klassennamen werden im Klartext gezeigt, da für die Zuordnung nötig.
+
+### Hinweis zur Konfiguration
+`admin_kuerzel` erwartet ein **Lehrkraft-Kürzel** aus der Tabelle `lehrer`
+(z. B. `Ho`), nicht den WebUntis-Benutzernamen des Admin-Kontos
+(`adminho`). Grund: Das WebUntis-Admin-Konto hat `personId -1` und
+erscheint nicht in `getTeachers()`; über das Kürzel wird ihm der
+Lehrkraft-Stammsatz zugeordnet, damit „Meine Termine" funktioniert.
+Der Feldname wird in einer kommenden Version in `admin_lehrer_kuerzel`
+umbenannt (mit Rückwärtskompatibilität).
+
+
+## v0.4.2 (Juli 2026) – Sondierung der Stammdaten
+
+### Neu
+- Sondiergruppe **„Klassen & Schüler:innen"**: prüft `getKlassen`,
+  `getStudents` und vier REST-Varianten daraufhin, welche Felder zur
+  Verfügung stehen und ob WebUntis eine Gruppenzugehörigkeit
+  (z. B. „SuS über 18") mitliefert. Grundlage für die Entscheidung
+  zwischen Klassenweg (Sek I) und Einzelermittlung (Oberstufe).
+- `WebUntisAuth::getKlassen()` und `::getStudents()` (Modul-Ergänzung,
+  gehört nach `hornse/webuntis-client-php` v1.4.0)
+
+### Datenschutz
+- Der Sondierungsbericht enthält **keine Klarnamen**: Namensfelder werden
+  im Struktur-Beispiel durch „…" ersetzt, erfolgreiche REST-Antworten
+  werden nicht abgedruckt (nur Status und oberste Schlüssel).
+
+### Tests
+- 11 zusätzliche Prüfungen: Anonymisierung der Namensfelder,
+  Sichtbarkeit der IDs, Erkennung möglicher Gruppenfelder
+
+### Bekannte Einschränkung
+- `admin_kuerzel` erfüllt zwei Aufgaben gleichzeitig (Admin-Rechte für
+  Lehrkräfte **und** Ersatz-Kürzel für personType-16-Konten). Das führt
+  dazu, dass ein WebUntis-Admin-Konto auf einen fremden Lehrkraft-
+  Stammsatz zeigen kann. Trennung ist für das nächste Paket vorgesehen.
+
+
 ## v0.4.1 (Juli 2026) – Fehlerbehebungen Frontend
 
 ### Behoben

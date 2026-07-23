@@ -50,6 +50,17 @@ class WebUntisAuth
     public function getSubjects(): array { return $this->rpc('getSubjects'); }
     public function getRooms(): array    { return $this->rpc('getRooms'); }
 
+    /** Alle Klassen des aktuellen Schuljahres (Ergänzung v1.4.0). */
+    public function getKlassen(): array { return $this->rpc('getKlassen'); }
+
+    /**
+     * Alle Schüler:innen (Ergänzung v1.4.0).
+     * Liefert je Eintrag mindestens id, key, name, foreName, longName.
+     * ACHTUNG: personenbezogene Daten – nur abrufen, was gebraucht wird,
+     * und nicht mehr speichern als nötig.
+     */
+    public function getStudents(): array { return $this->rpc('getStudents'); }
+
     /** JSESSIONID-Cookie der laufenden Session (für die interne REST-API). */
     public function sessionCookie(): ?string { return $this->sessionCookie; }
 

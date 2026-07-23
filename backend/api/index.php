@@ -44,7 +44,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.4.1', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.4.2', 'db' => $db]);
 }
 
 // ============================================================
@@ -383,7 +383,7 @@ if ($methode === 'POST' && ($seg[0] ?? '') === 'sondierung') {
     $benutzer = req($body, 'benutzername');
     $passwort = req($body, 'passwort');
     $gruppen  = array_values(array_intersect((array)($body['gruppen'] ?? []),
-        ['basis', 'sprechtag', 'stundenplan', 'mitteilungen']));
+        ['basis', 'sprechtag', 'stundenplan', 'mitteilungen', 'stammdaten']));
     if ($gruppen === []) $gruppen = ['basis'];
     $extraPfade = preg_split('/\r?\n/', (string)($body['extra_pfade'] ?? '')) ?: [];
     $schuelerId = trim((string)($body['schueler_id'] ?? ''));

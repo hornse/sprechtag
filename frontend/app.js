@@ -929,11 +929,12 @@ function ansichtSondierung(ziel) {
 
   const gruppen = el('div', 'gruppen-zeile');
   for (const [w, t] of [['basis', 'Basis'], ['sprechtag', 'Sprechtag-Endpunkte'],
-      ['stundenplan', 'Stundenplan'], ['mitteilungen', 'Mitteilungen']]) {
+      ['stundenplan', 'Stundenplan'], ['mitteilungen', 'Mitteilungen'],
+      ['stammdaten', 'Klassen & Schüler:innen']]) {
     const l = el('label', 'inline');
     const cb = document.createElement('input');
     cb.type = 'checkbox'; cb.value = w; cb.className = 'so-gruppe';
-    if (w === 'basis' || w === 'stundenplan') cb.checked = true;
+    if (w === 'basis' || w === 'stammdaten') cb.checked = true;
     l.appendChild(cb);
     l.appendChild(document.createTextNode(' ' + t));
     gruppen.appendChild(l);
