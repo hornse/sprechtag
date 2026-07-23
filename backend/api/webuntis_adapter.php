@@ -15,6 +15,7 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../helfer.php';
 require_once __DIR__ . '/../auth/WebUntisAuth.php';
 require_once __DIR__ . '/../auth/WebUntisRest.php';
 require_once __DIR__ . '/../auth/extractors.php';
@@ -167,7 +168,7 @@ function wu_kind_lehrer_ermitteln(
         if ($lehrerId === false) continue;   // Lehrkraft nicht in Stammdaten
         $faecher = implode(', ', array_slice(array_keys($info['faecher']), 0, 6));
         $stmtCache->execute([$sprechtagId, $schuelerId, (int)$lehrerId,
-            mb_substr($faecher, 0, 190), (int)$info['stunden']]);
+            kuerze($faecher, 190), (int)$info['stunden']]);
         $anzahl++;
     }
     return $anzahl;

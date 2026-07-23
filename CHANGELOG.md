@@ -1,5 +1,51 @@
 # Changelog – sprechtag
 
+## v0.4.0 (Juli 2026) – Paket 3: Mitteilungen an Erziehungsberechtigte
+
+### Neu
+- **Mitteilungs-Warteschlange** (`sql/03_mitteilungen.sql`): Tabelle
+  `mitteilungen` mit Status (offen/gesendet/verworfen), Fehlergrund und
+  Versuchszähler; Schlüssel-Wert-Tabelle `einstellungen`
+- **Automatische Terminbestätigung**: Bei jeder Buchung wird eine
+  Bestätigung mit *allen* aktuellen Terminen des Kontos vorgemerkt
+  (Zeit, Lehrkraft, Raum). Eine bereits offene Bestätigung wird ersetzt,
+  nicht ergänzt – es gilt der aktuelle Gesamtstand.
+- **Absage-Benachrichtigung**: Sagt eine Lehrkraft ab, entsteht eine
+  Mitteilung mit Zeit, Lehrkraft und optionalem Freitext. Sagen Eltern
+  selbst ab, entsteht keine.
+- **Versand mit Variantenprobe**: Da der POST-Weg der WebUntis-API
+  undokumentiert ist, werden vier plausible Feldstrukturen nacheinander
+  probiert; die erfolgreiche wird gemerkt und künftig zuerst genutzt.
+  401/403 brechen sofort ab (Rechteproblem), 400/404/405/500 führen zur
+  nächsten Variante.
+- **Fallback ohne Datenverlust**: Schlägt der Versand fehl, bleibt die
+  Mitteilung mit Fehlermeldung stehen und kann manuell versendet werden.
+  Buchung bzw. Absage sind davon unabhängig und immer korrekt.
+- **Ansicht „Mitteilungen"** für Lehrkräfte und Administration: Liste mit
+  Anlass, Betreff, Empfänger-ID, Status und Fehlergrund; Versand und
+  Verwerfen für die Administration
+- **API**: `GET /api/mitteilungen`, `POST /api/mitteilungen`,
+  `POST /api/mitteilungen/senden`, `DELETE /api/mitteilungen/{id}`
+- **Modul-Erweiterung** `WebUntisRest::post()` für schreibende Zugriffe
+  (gehört nach `hornse/webuntis-client-php` v1.3.0)
+
+### Behoben
+- `mb_substr()` wurde ohne Prüfung genutzt; fehlte die mbstring-Erweiterung,
+  scheiterte die Bestätigung stillschweigend. Neue Hilfsfunktion `kuerze()`
+  in `backend/helfer.php` mit Fallback, der auch keine kaputten
+  UTF-8-Sequenzen erzeugt
+- Archivieren löscht jetzt auch die Mitteilungen (enthalten Lehrkraftnamen)
+
+### Tests
+- `tests/run_mitteilungen.php`: 39 Prüfungen (Antwortbewertung inkl.
+  endgültig/weiterprobieren, Variantenstruktur, Textbausteine, Datumsformat)
+- `tests/run_warteschlange.php`: 13 Prüfungen gegen SQLite (Einreihen,
+  Fehlschlag ohne Datenverlust, kuerze-Fallback)
+
+### Offen
+- Der **Versandweg selbst ist noch nicht gegen die echte Instanz erprobt**.
+  Vorgehen für den ersten Versuch: `docs/MITTEILUNGEN.md`
+
 ## v0.3.0 (Juli 2026) – Paket 2: Datenmodell, Adapter, Buchung, Adminseite
 
 ### Neu

@@ -80,6 +80,42 @@ class WebUntisRest
         return $this->rohGet($pfad . ($query ? '?' . http_build_query($query) : ''), $extra);
     }
 
+    /**
+     * POST mit Bearer-Auth und JSON-Body (Ergänzung v1.3.0).
+     * ACHTUNG: schreibender Zugriff – nur mit ausdrücklicher Absicht nutzen.
+     * Liefert ['status','contentType','text','json'].
+     */
+    public function post(string $pfad, array $daten): array
+    {
+        $headers = ['Accept: application/json, text/plain',
+                    'Content-Type: application/json'];
+        if ($this->jwt !== null)      $headers[] = 'Authorization: Bearer ' . $this->jwt;
+        if ($this->tenantId !== null) $headers[] = 'tenant-id: ' . $this->tenantId;
+        if ($this->cookie !== null)   $headers[] = 'Cookie: ' . $this->cookie;
+
+        $ch = curl_init($this->baseUrl . $pfad);
+        curl_setopt_array($ch, [
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => json_encode($daten, JSON_UNESCAPED_UNICODE),
+            CURLOPT_HTTPHEADER     => $headers,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => $this->timeout,
+        ]);
+        $text = curl_exec($ch);
+        if ($text === false) {
+            $fehler = curl_error($ch);
+            curl_close($ch);
+            return ['status' => 0, 'contentType' => '', 'text' => 'cURL: ' . $fehler, 'json' => null];
+        }
+        $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $ct     = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        curl_close($ch);
+
+        $json = json_decode($text, true);
+        return ['status' => $status, 'contentType' => $ct,
+                'text' => $text, 'json' => is_array($json) ? $json : null];
+    }
+
     private function rohGet(string $pfadMitQuery, array $extraHeader = []): array
     {
         $headers = array_merge(['Accept: application/json, text/plain'], $extraHeader);

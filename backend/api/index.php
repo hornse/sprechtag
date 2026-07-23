@@ -32,6 +32,7 @@ require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/slots.php';
 require_once __DIR__ . '/webuntis_adapter.php';
 require_once __DIR__ . '/sondierung.php';
+require_once __DIR__ . '/mitteilungen.php';
 
 $methode = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $pfad    = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
@@ -235,6 +236,8 @@ if (($seg[0] ?? '') === 'sprechtage') {
             $pdo->prepare('DELETE FROM buchungen WHERE sprechtag_id = ?')->execute([$sid]);
             $pdo->prepare('DELETE FROM einladungen WHERE sprechtag_id = ?')->execute([$sid]);
             $pdo->prepare('DELETE FROM kind_lehrer_cache WHERE sprechtag_id = ?')->execute([$sid]);
+            // Mitteilungstexte enthalten Namen von Lehrkräften und Zeiten
+            $pdo->prepare('DELETE FROM mitteilungen WHERE sprechtag_id = ?')->execute([$sid]);
         }
         json_ok(['ok' => true, 'anonymisiert' => $archivieren]);
     }
@@ -402,6 +405,73 @@ if ($methode === 'POST' && ($seg[0] ?? '') === 'sondierung') {
     } catch (RuntimeException $e) {
         sleep(2);
         json_err('Sondierung fehlgeschlagen: ' . $e->getMessage(), 502);
+    }
+}
+
+// ============================================================
+// MITTEILUNGEN
+//   GET    /api/mitteilungen?sprechtag=ID[&status=offen]
+//   POST   /api/mitteilungen/senden   {sprechtag_id, ids?, benutzername, passwort}
+//   POST   /api/mitteilungen          {sprechtag_id, empfaenger_user_id, betreff, text}
+//   DELETE /api/mitteilungen/{id}     (verwerfen)
+// ============================================================
+if (($seg[0] ?? '') === 'mitteilungen') {
+    $u   = auth_require_lehrkraft();   // Eltern haben hier nichts zu suchen
+    $pdo = db($cfg);
+
+    if ($methode === 'GET' && !isset($seg[1])) {
+        $sid = (int)($_GET['sprechtag'] ?? 0);
+        $sql = 'SELECT id, empfaenger_user_id, anlass, betreff, status, grund,
+                       versuche, angelegt_am, gesendet_am
+                FROM mitteilungen WHERE sprechtag_id = ?';
+        $werte = [$sid];
+        if (($_GET['status'] ?? '') !== '') {
+            $st = (string)$_GET['status'];
+            if (!in_array($st, ['offen', 'gesendet', 'verworfen'], true)) {
+                json_err('Unbekannter Status');
+            }
+            $sql .= ' AND status = ?';
+            $werte[] = $st;
+        }
+        $stmt = $pdo->prepare($sql . ' ORDER BY angelegt_am DESC LIMIT 500');
+        $stmt->execute($werte);
+        json_ok(['mitteilungen' => $stmt->fetchAll()]);
+    }
+
+    // Versand anstoßen (Zugangsdaten werden nicht gespeichert)
+    if ($methode === 'POST' && ($seg[1] ?? '') === 'senden') {
+        auth_require_admin();
+        $sid = (int)($body['sprechtag_id'] ?? 0);
+        $ids = array_values(array_filter(array_map('intval',
+            (array)($body['ids'] ?? [])), fn($i) => $i > 0));
+
+        if ($ids === []) {   // alle offenen des Sprechtags
+            $stmt = $pdo->prepare("SELECT id FROM mitteilungen
+                WHERE sprechtag_id = ? AND status = 'offen' LIMIT 200");
+            $stmt->execute([$sid]);
+            $ids = array_map('intval', array_column($stmt->fetchAll(), 'id'));
+        }
+
+        ignore_user_abort(true);
+        set_time_limit(0);
+        json_ok(mit_versand_ausfuehren($cfg, $pdo, $ids,
+            req($body, 'benutzername'), req($body, 'passwort')));
+    }
+
+    // Freie Mitteilung vormerken
+    if ($methode === 'POST' && !isset($seg[1])) {
+        $empf = (int)($body['empfaenger_user_id'] ?? 0);
+        if ($empf <= 0) json_err('empfaenger_user_id fehlt');
+        $e = mit_einreihen_und_senden($cfg, $pdo,
+            (int)($body['sprechtag_id'] ?? 0), $empf, 'hinweis',
+            req($body, 'betreff'), req($body, 'text'));
+        json_ok($e, 201);
+    }
+
+    if ($methode === 'DELETE' && isset($seg[1]) && ctype_digit($seg[1])) {
+        $pdo->prepare("UPDATE mitteilungen SET status = 'verworfen' WHERE id = ?")
+            ->execute([(int)$seg[1]]);
+        json_ok(['ok' => true]);
     }
 }
 

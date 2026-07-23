@@ -221,3 +221,8 @@ select.konflikt { border-color: var(--rot); background: #fdecea; }
   padding: .6rem; font-size: .72rem; max-height: 30rem; overflow: auto;
   white-space: pre-wrap; word-break: break-all; margin-top: .8rem;
 }
+
+/* Mitteilungs-Status */
+.status-offen    { color: var(--gelb); font-weight: 600; }
+.status-gesendet { color: var(--gruen); font-weight: 600; }
+.status-verworfen{ color: var(--grau); text-decoration: line-through; }

@@ -28,6 +28,7 @@ const S = {
   raster: [],
   meineBuchungen: [],
   einladungen: [],
+  mitteilungen: null,
   meldung: null,
 };
 
@@ -155,6 +156,7 @@ function zeichne() {
     lehrkraft: ansichtLehrkraft,
     einladungen: ansichtEinladungen,
     admin: ansichtAdmin,
+    mitteilungen: ansichtMitteilungen,
     sondierung: ansichtSondierung,
   };
   (ansichten[S.ansicht] || ansichtLogin)(ziel);
@@ -171,7 +173,8 @@ function zeichneNavigation() {
     punkte.push(['buchen', 'Termin buchen'], ['meine', 'Meine Termine']);
   }
   if (S.user.rolle === 'lehrkraft' || S.user.rolle === 'admin') {
-    punkte.push(['lehrkraft', 'Meine Termine'], ['einladungen', 'Einladungen']);
+    punkte.push(['lehrkraft', 'Meine Termine'], ['einladungen', 'Einladungen'],
+                ['mitteilungen', 'Mitteilungen']);
   }
   if (S.user.rolle === 'admin') {
     punkte.push(['admin', 'Administration'], ['sondierung', 'Sondierung']);
@@ -498,8 +501,10 @@ async function lehrkraftStorno(b) {
     const d = await api('/api/buchungen/' + b.id
       + '?nachricht=' + encodeURIComponent(text), { method: 'DELETE' });
     await ladeLehrkraftBuchungen();
-    meldung('Termin abgesagt. Mitteilungsversand folgt in Paket 3 '
-      + '(Empfänger-ID ' + d.empfaenger_user_id + ').', 'ok');
+    const m = d.mitteilung;
+    meldung('Termin abgesagt. ' + (m && m.status === 'gesendet'
+      ? 'Die Erziehungsberechtigten wurden benachrichtigt.'
+      : 'Die Benachrichtigung ist unter „Mitteilungen" zum Versand vorgemerkt.'), 'ok');
   } catch (f) { meldung(String(f.message), 'fehler'); }
 }
 
@@ -934,6 +939,107 @@ function ansichtSondierung(ziel) {
     } catch (f2) { meldung(String(f2.message), 'fehler'); }
   }));
   ziel.appendChild(ausgabe);
+}
+
+// ============================================================
+// ANSICHT: Mitteilungen
+// ============================================================
+function ansichtMitteilungen(ziel) {
+  ziel.appendChild(el('h2', null, 'Mitteilungen an Erziehungsberechtigte'));
+  ziel.appendChild(el('p', 'hinweis',
+    'Terminbestätigungen und Absagen werden hier gesammelt. Der Versand über '
+    + 'WebUntis wird von der Administration angestoßen und benötigt einmalig '
+    + 'deren Zugangsdaten (sie werden nicht gespeichert).'));
+  if (!sprechtagWaehler(ziel, () => ladeMitteilungen())) return;
+
+  if (S.mitteilungen === null) {
+    ziel.appendChild(knopf('Mitteilungen laden', null, () => ladeMitteilungen()));
+    return;
+  }
+
+  const offen = S.mitteilungen.filter((m) => m.status === 'offen');
+  const zusammenfassung = el('p', 'hinweis',
+    S.mitteilungen.length + ' Mitteilung(en), davon ' + offen.length + ' offen.');
+  ziel.appendChild(zusammenfassung);
+
+  // Versand nur für die Administration
+  if (S.user.rolle === 'admin' && offen.length > 0) {
+    const kasten = el('div', 'block');
+    kasten.appendChild(el('strong', null, 'Offene Mitteilungen versenden'));
+    kasten.appendChild(el('p', 'hinweis',
+      'Der Versandweg der WebUntis-Schnittstelle ist nicht dokumentiert. '
+      + 'Beim ersten Versand werden mehrere Feldstrukturen ausprobiert; '
+      + 'die funktionierende wird gemerkt. Schlägt alles fehl, bleiben die '
+      + 'Mitteilungen hier stehen und können manuell in WebUntis versendet werden.'));
+    const z = el('div', 'zeile');
+    z.appendChild(feld('WebUntis-Benutzername', 'mv-benutzer'));
+    z.appendChild(feld('Passwort', 'mv-passwort', 'password'));
+    kasten.appendChild(z);
+    kasten.appendChild(knopf('Alle offenen versenden', null, async () => {
+      meldung('Versand läuft …', 'info');
+      try {
+        const d = await api('/api/mitteilungen/senden', { method: 'POST', body: {
+          sprechtag_id: S.aktiverSprechtag.id,
+          benutzername: wert('mv-benutzer'), passwort: wert('mv-passwort') } });
+        await ladeMitteilungen();
+        meldung(d.grund + (d.variante ? ' (Variante: ' + d.variante + ')' : ''),
+          d.gesendet > 0 ? 'ok' : 'fehler');
+      } catch (f) { meldung(String(f.message), 'fehler'); }
+    }));
+    ziel.appendChild(kasten);
+  }
+
+  if (S.mitteilungen.length === 0) {
+    ziel.appendChild(el('p', 'hinweis', 'Noch keine Mitteilungen.'));
+    return;
+  }
+
+  const tab = el('table', 'tabelle');
+  const kopf = el('tr');
+  for (const t of ['Anlass', 'Betreff', 'Empfänger (User-ID)', 'Status', '']) {
+    kopf.appendChild(el('th', null, t));
+  }
+  tab.appendChild(kopf);
+
+  for (const m of S.mitteilungen) {
+    const tr = el('tr');
+    tr.appendChild(el('td', null, {
+      bestaetigung: 'Bestätigung', absage: 'Absage', hinweis: 'Hinweis',
+    }[m.anlass] || m.anlass));
+    tr.appendChild(el('td', null, m.betreff));
+    tr.appendChild(el('td', null, String(m.empfaenger_user_id)));
+
+    const tdS = el('td');
+    tdS.appendChild(el('span', 'status-' + m.status, {
+      offen: 'offen', gesendet: 'gesendet', verworfen: 'verworfen',
+    }[m.status] || m.status));
+    if (m.grund && m.status === 'offen') {
+      tdS.appendChild(el('div', 'hinweis-klein', m.grund));
+    }
+    tr.appendChild(tdS);
+
+    const tdA = el('td');
+    if (m.status === 'offen') {
+      tdA.appendChild(knopf('Verwerfen', 'klein gefahr', async () => {
+        try {
+          await api('/api/mitteilungen/' + m.id, { method: 'DELETE' });
+          await ladeMitteilungen();
+        } catch (f) { meldung(String(f.message), 'fehler'); }
+      }));
+    }
+    tr.appendChild(tdA);
+    tab.appendChild(tr);
+  }
+  ziel.appendChild(tab);
+  ziel.appendChild(knopf('Aktualisieren', 'klein', () => ladeMitteilungen()));
+}
+
+async function ladeMitteilungen() {
+  try {
+    const d = await api('/api/mitteilungen?sprechtag=' + S.aktiverSprechtag.id);
+    S.mitteilungen = d.mitteilungen || [];
+    meldung(null);
+  } catch (f) { meldung(String(f.message), 'fehler'); }
 }
 
 start();

@@ -7,6 +7,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/helfer.php';
+
 session_start();
 
 $configPfad = __DIR__ . '/config.php';
@@ -67,3 +69,5 @@ function req(array $b, string $feld): string
     if ($wert === '') json_err("Feld '$feld' fehlt");
     return $wert;
 }
+
+

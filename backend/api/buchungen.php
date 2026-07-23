@@ -333,6 +333,32 @@ if (($seg[0] ?? '') === 'buchungen') {
                            WHERE sprechtag_id = ? AND lehrer_id = ? AND schueler_id = ?')
                 ->execute([$sid, $lid, $kind]);
         }
+
+        // Bestätigung vormerken (Versand sammelt die Administration).
+        // Fehler hier dürfen die Buchung NICHT scheitern lassen.
+        try {
+            $st = $pdo->prepare(
+                'SELECT b.slot_beginn, l.kuerzel, l.name, r.kuerzel AS raum_kuerzel
+                 FROM buchungen b
+                 JOIN lehrer l ON l.id = b.lehrer_id
+                 LEFT JOIN sprechtag_lehrer sl
+                        ON sl.sprechtag_id = b.sprechtag_id AND sl.lehrer_id = b.lehrer_id
+                 LEFT JOIN raeume r ON r.id = sl.raum_id
+                 WHERE b.sprechtag_id = ? AND b.eltern_user_id = ?
+                 ORDER BY b.slot_beginn');
+            $st->execute([$sid, $elternUserId]);
+            $t = mit_text_bestaetigung((string)$s['name'], (string)$s['datum'],
+                $st->fetchAll());
+            // Ältere offene Bestätigungen ersetzen – es gilt der aktuelle Stand
+            $pdo->prepare("DELETE FROM mitteilungen WHERE sprechtag_id = ?
+                           AND empfaenger_user_id = ? AND anlass = 'bestaetigung'
+                           AND status = 'offen'")->execute([$sid, $elternUserId]);
+            mit_einreihen_und_senden($cfg, $pdo, $sid, (int)$elternUserId,
+                'bestaetigung', $t['betreff'], $t['text']);
+        } catch (Throwable $e) {
+            error_log('sprechtag: Bestaetigung nicht vorgemerkt: ' . $e->getMessage());
+        }
+
         json_ok(['ok' => true, 'id' => $neueId], 201);
     }
 
@@ -352,12 +378,32 @@ if (($seg[0] ?? '') === 'buchungen') {
 
         $pdo->prepare('DELETE FROM buchungen WHERE id = ?')->execute([$bid]);
 
-        // Freitext der Lehrkraft für die spätere WebUntis-Mitteilung
-        // (Versand folgt in Paket 3 – hier nur zurückgemeldet)
-        json_ok(['ok' => true,
-            'mitteilung_offen' => in_array($u['rolle'], ['lehrkraft', 'admin'], true),
-            'empfaenger_user_id' => (int)$b['eltern_user_id'],
-            'nachricht' => substr((string)($_GET['nachricht'] ?? ''), 0, 500)]);
+        // Sagt die LEHRKRAFT ab, werden die Eltern benachrichtigt.
+        // Sagen Eltern selbst ab, ist keine Mitteilung nötig.
+        $mitteilung = null;
+        if (in_array($u['rolle'], ['lehrkraft', 'admin'], true)) {
+            try {
+                $stS = $pdo->prepare('SELECT name, datum FROM sprechtage WHERE id = ?');
+                $stS->execute([(int)$b['sprechtag_id']]);
+                $sp = $stS->fetch() ?: ['name' => 'Elternsprechtag', 'datum' => ''];
+
+                $stL = $pdo->prepare('SELECT kuerzel, name FROM lehrer WHERE id = ?');
+                $stL->execute([(int)$b['lehrer_id']]);
+                $le = $stL->fetch() ?: [];
+                $lehrkraft = (string)($le['name'] ?: ($le['kuerzel'] ?? 'die Lehrkraft'));
+
+                $t = mit_text_absage((string)$sp['name'], (string)$sp['datum'],
+                    (string)$b['slot_beginn'], $lehrkraft,
+                    substr((string)($_GET['nachricht'] ?? ''), 0, 500));
+                $mitteilung = mit_einreihen_und_senden($cfg, $pdo,
+                    (int)$b['sprechtag_id'], (int)$b['eltern_user_id'],
+                    'absage', $t['betreff'], $t['text']);
+            } catch (Throwable $e) {
+                error_log('sprechtag: Absage nicht vorgemerkt: ' . $e->getMessage());
+            }
+        }
+
+        json_ok(['ok' => true, 'mitteilung' => $mitteilung]);
     }
 }
 
