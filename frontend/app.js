@@ -31,6 +31,10 @@ const S = {
   mitteilungen: null,
   meldung: null,
   offeneBloecke: {},   // merkt aufgeklappte <details> über Neuzeichnen hinweg
+  sondierung: {        // Eingaben und Ergebnis überleben das Neuzeichnen
+    benutzer: '', von: '', bis: '', schueler: '',
+    gruppen: ['basis', 'stammdaten'], bericht: null,
+  },
 };
 
 // ---------- API-Helfer ----------------------------------------------------
@@ -915,15 +919,18 @@ function ansichtSondierung(ziel) {
     + 'ab (nur lesend). Nach Abschluss der Einrichtung in der config.php '
     + 'abschalten (sondierung_freigeschaltet = false).'));
 
+  const S0 = S.sondierung;
+
+  // Eingaben aus dem Zustand vorbelegen, damit sie ein Neuzeichnen überleben
   const f = el('div');
   const z1 = el('div', 'zeile');
-  z1.appendChild(feld('Benutzername', 'so-benutzer'));
+  z1.appendChild(feld('Benutzername', 'so-benutzer', 'text', S0.benutzer));
   z1.appendChild(feld('Passwort', 'so-passwort', 'password'));
   f.appendChild(z1);
   const z2 = el('div', 'zeile');
-  z2.appendChild(feld('Zeitraum von (JJJJ-MM-TT)', 'so-von'));
-  z2.appendChild(feld('Zeitraum bis', 'so-bis'));
-  z2.appendChild(feld('Schüler-ID (optional)', 'so-schueler'));
+  z2.appendChild(feld('Zeitraum von (JJJJ-MM-TT)', 'so-von', 'text', S0.von));
+  z2.appendChild(feld('Zeitraum bis', 'so-bis', 'text', S0.bis));
+  z2.appendChild(feld('Schüler-ID (optional)', 'so-schueler', 'text', S0.schueler));
   f.appendChild(z2);
   ziel.appendChild(f);
 
@@ -934,135 +941,61 @@ function ansichtSondierung(ziel) {
     const l = el('label', 'inline');
     const cb = document.createElement('input');
     cb.type = 'checkbox'; cb.value = w; cb.className = 'so-gruppe';
-    if (w === 'basis' || w === 'stammdaten') cb.checked = true;
+    cb.checked = S0.gruppen.includes(w);
     l.appendChild(cb);
     l.appendChild(document.createTextNode(' ' + t));
     gruppen.appendChild(l);
   }
   ziel.appendChild(gruppen);
 
-  const ausgabe = el('pre', 'sondierung-ausgabe');
   ziel.appendChild(knopf('Sondierung starten', null, async () => {
-    // Werte VOR meldung() lesen (meldung() zeichnet die Ansicht neu)
-    const anfrage = {
-      benutzername: wert('so-benutzer'), passwort: wert('so-passwort'),
-      gruppen: Array.from(document.querySelectorAll('.so-gruppe:checked'))
-        .map((e) => e.value),
-      von: wert('so-von'), bis: wert('so-bis'),
-      schueler_id: wert('so-schueler'),
-    };
-    if (anfrage.benutzername === '' || anfrage.passwort === '') {
+    // Alle Eingaben in den Zustand übernehmen, BEVOR gezeichnet wird
+    S0.benutzer = wert('so-benutzer');
+    S0.von      = wert('so-von');
+    S0.bis      = wert('so-bis');
+    S0.schueler = wert('so-schueler');
+    S0.gruppen  = Array.from(document.querySelectorAll('.so-gruppe:checked'))
+      .map((e) => e.value);
+    const passwort = wert('so-passwort');
+
+    if (S0.benutzer === '' || passwort === '') {
       meldung('Bitte Benutzername und Passwort eingeben.', 'fehler');
       return;
     }
-    meldung('Sondierung läuft …', 'info');
+    meldung('Sondierung läuft … (kann bis zu einer Minute dauern)', 'info');
     try {
-      const d = await api('/api/sondierung', { method: 'POST', body: anfrage });
-      ausgabe.textContent = JSON.stringify(d.bericht, null, 2);
+      const d = await api('/api/sondierung', { method: 'POST', body: {
+        benutzername: S0.benutzer, passwort,
+        gruppen: S0.gruppen, von: S0.von, bis: S0.bis,
+        schueler_id: S0.schueler } });
+      S0.bericht = d.bericht;          // Bericht in den Zustand, nicht ins DOM
       meldung('Sondierung abgeschlossen.', 'ok');
-    } catch (f2) { meldung(String(f2.message), 'fehler'); }
+    } catch (f2) {
+      S0.bericht = null;
+      meldung(String(f2.message), 'fehler');
+    }
   }));
-  ziel.appendChild(ausgabe);
-}
 
-// ============================================================
-// ANSICHT: Mitteilungen
-// ============================================================
-function ansichtMitteilungen(ziel) {
-  ziel.appendChild(el('h2', null, 'Mitteilungen an Erziehungsberechtigte'));
-  ziel.appendChild(el('p', 'hinweis',
-    'Terminbestätigungen und Absagen werden hier gesammelt. Der Versand über '
-    + 'WebUntis wird von der Administration angestoßen und benötigt einmalig '
-    + 'deren Zugangsdaten (sie werden nicht gespeichert).'));
-  if (!sprechtagWaehler(ziel, () => ladeMitteilungen())) return;
-
-  if (S.mitteilungen === null) {
-    ziel.appendChild(knopf('Mitteilungen laden', null, () => ladeMitteilungen()));
-    return;
-  }
-
-  const offen = S.mitteilungen.filter((m) => m.status === 'offen');
-  const zusammenfassung = el('p', 'hinweis',
-    S.mitteilungen.length + ' Mitteilung(en), davon ' + offen.length + ' offen.');
-  ziel.appendChild(zusammenfassung);
-
-  // Versand nur für die Administration
-  if (S.user.rolle === 'admin' && offen.length > 0) {
-    const kasten = el('div', 'block');
-    kasten.appendChild(el('strong', null, 'Offene Mitteilungen versenden'));
-    kasten.appendChild(el('p', 'hinweis',
-      'Der Versandweg der WebUntis-Schnittstelle ist nicht dokumentiert. '
-      + 'Beim ersten Versand werden mehrere Feldstrukturen ausprobiert; '
-      + 'die funktionierende wird gemerkt. Schlägt alles fehl, bleiben die '
-      + 'Mitteilungen hier stehen und können manuell in WebUntis versendet werden.'));
-    const z = el('div', 'zeile');
-    z.appendChild(feld('WebUntis-Benutzername', 'mv-benutzer'));
-    z.appendChild(feld('Passwort', 'mv-passwort', 'password'));
-    kasten.appendChild(z);
-    kasten.appendChild(knopf('Alle offenen versenden', null, async () => {
-      // Werte VOR meldung() lesen (meldung() zeichnet die Ansicht neu)
-      const auftrag = { sprechtag_id: S.aktiverSprechtag.id,
-                        benutzername: wert('mv-benutzer'),
-                        passwort: wert('mv-passwort') };
-      if (auftrag.benutzername === '' || auftrag.passwort === '') {
-        meldung('Bitte Benutzername und Passwort eingeben.', 'fehler');
-        return;
-      }
-      meldung('Versand läuft …', 'info');
+  // Bericht aus dem Zustand anzeigen – überlebt jedes Neuzeichnen
+  if (S0.bericht !== null) {
+    const text = JSON.stringify(S0.bericht, null, 2);
+    const kopf = el('div', 'aktionen');
+    kopf.appendChild(knopf('Als Markdown kopieren', 'klein', async () => {
+      const md = '# Sondierungsbericht sprechtag\n\n```json\n' + text + '\n```\n';
       try {
-        const d = await api('/api/mitteilungen/senden',
-          { method: 'POST', body: auftrag });
-        await ladeMitteilungen();
-        meldung(d.grund + (d.variante ? ' (Variante: ' + d.variante + ')' : ''),
-          d.gesendet > 0 ? 'ok' : 'fehler');
-      } catch (f) { meldung(String(f.message), 'fehler'); }
+        await navigator.clipboard.writeText(md);
+        meldung('Bericht kopiert – bitte in den Chat einfügen.', 'ok');
+      } catch (e) {
+        meldung('Kopieren nicht möglich – bitte den Text unten markieren.', 'fehler');
+      }
     }));
-    ziel.appendChild(kasten);
+    kopf.appendChild(knopf('Bericht verwerfen', 'klein', () => {
+      S0.bericht = null;
+      zeichne();
+    }));
+    ziel.appendChild(kopf);
+    ziel.appendChild(el('pre', 'sondierung-ausgabe', text));
   }
-
-  if (S.mitteilungen.length === 0) {
-    ziel.appendChild(el('p', 'hinweis', 'Noch keine Mitteilungen.'));
-    return;
-  }
-
-  const tab = el('table', 'tabelle');
-  const kopf = el('tr');
-  for (const t of ['Anlass', 'Betreff', 'Empfänger (User-ID)', 'Status', '']) {
-    kopf.appendChild(el('th', null, t));
-  }
-  tab.appendChild(kopf);
-
-  for (const m of S.mitteilungen) {
-    const tr = el('tr');
-    tr.appendChild(el('td', null, {
-      bestaetigung: 'Bestätigung', absage: 'Absage', hinweis: 'Hinweis',
-    }[m.anlass] || m.anlass));
-    tr.appendChild(el('td', null, m.betreff));
-    tr.appendChild(el('td', null, String(m.empfaenger_user_id)));
-
-    const tdS = el('td');
-    tdS.appendChild(el('span', 'status-' + m.status, {
-      offen: 'offen', gesendet: 'gesendet', verworfen: 'verworfen',
-    }[m.status] || m.status));
-    if (m.grund && m.status === 'offen') {
-      tdS.appendChild(el('div', 'hinweis-klein', m.grund));
-    }
-    tr.appendChild(tdS);
-
-    const tdA = el('td');
-    if (m.status === 'offen') {
-      tdA.appendChild(knopf('Verwerfen', 'klein gefahr', async () => {
-        try {
-          await api('/api/mitteilungen/' + m.id, { method: 'DELETE' });
-          await ladeMitteilungen();
-        } catch (f) { meldung(String(f.message), 'fehler'); }
-      }));
-    }
-    tr.appendChild(tdA);
-    tab.appendChild(tr);
-  }
-  ziel.appendChild(tab);
-  ziel.appendChild(knopf('Aktualisieren', 'klein', () => ladeMitteilungen()));
 }
 
 async function ladeMitteilungen() {

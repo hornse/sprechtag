@@ -1,5 +1,28 @@
 # Changelog – sprechtag
 
+## v0.4.3 (Juli 2026) – Sondierungsansicht behält Eingaben und Bericht
+
+### Behoben
+- **Sondierung meldete „abgeschlossen", zeigte aber keinen Bericht, und
+  alle Eingaben verschwanden.** Ursache ist dasselbe Muster wie in v0.4.1,
+  nur an anderer Stelle: Der Bericht wurde in eine `<pre>`-Element-Referenz
+  geschrieben, die vor dem `meldung('… läuft')`-Aufruf geholt worden war.
+  `meldung()` ruft `zeichne()` auf und baut die Ansicht neu auf – die
+  Referenz zeigte danach auf ein Element, das nicht mehr im Dokument hing.
+  Der Bericht landete im Nichts, die Eingabefelder waren geleert.
+- Die Sondierungsansicht hält Benutzername, Zeitraum, Schüler-ID,
+  Gruppenauswahl und den Bericht jetzt in `S.sondierung` und stellt sie
+  bei jedem Neuzeichnen wieder her. **Das Passwort wird bewusst nicht
+  gemerkt** und muss je Lauf neu eingegeben werden.
+- Neuer Knopf „Als Markdown kopieren" (der Bericht ist oft zu lang zum
+  Markieren) und „Bericht verwerfen".
+
+### Tests
+- `tests/frontend_zustand_test.js`: prüft beide Fehlermuster (Eingabe vor
+  Meldung sichern, Ergebnis in den Zustand statt ins DOM) und stellt
+  sicher, dass kein Passwort im Zustand landet.
+
+
 ## v0.4.2 (Juli 2026) – Sondierung Klassen/Schüler:innen freigeschaltet
 
 ### Neu
