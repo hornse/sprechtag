@@ -1,0 +1,422 @@
+<?php
+// ============================================================
+// buchungen.php – Raster, Buchungen, Einladungen
+// Wird von api/index.php eingebunden ($cfg, $seg, $methode, $body).
+//
+// DATENSCHUTZ-REGELN (durchgängig geprüft):
+//  * Eltern sehen ausschließlich eigene Buchungen.
+//  * Eltern dürfen nur für Kinder buchen, die in ihrer Session
+//    stehen (auth_kind_erlaubt) – nie für fremde Kinder.
+//  * Lehrkräfte sehen nur Buchungen bei sich selbst.
+//  * Es werden keine Namen von Eltern/Kindern gespeichert.
+// ============================================================
+
+declare(strict_types=1);
+
+/** Lädt einen Sprechtag oder bricht ab. */
+function bu_sprechtag(PDO $pdo, int $id): array
+{
+    $st = $pdo->prepare('SELECT * FROM sprechtage WHERE id = ?');
+    $st->execute([$id]);
+    $s = $st->fetch();
+    if (!$s) json_err('Sprechtag nicht gefunden', 404);
+    return $s;
+}
+
+/** Anwesenheitsfenster einer Lehrkraft (NULL = ganzer Rahmen). */
+function bu_lehrer_fenster(PDO $pdo, int $sprechtagId, int $lehrerId): array
+{
+    $st = $pdo->prepare('SELECT anwesend_von, anwesend_bis, teilnahme
+                         FROM sprechtag_lehrer WHERE sprechtag_id = ? AND lehrer_id = ?');
+    $st->execute([$sprechtagId, $lehrerId]);
+    $r = $st->fetch();
+    return $r ?: ['anwesend_von' => null, 'anwesend_bis' => null, 'teilnahme' => 1];
+}
+
+/**
+ * Darf für dieses Kind bei dieser Lehrkraft gebucht werden?
+ * Erlaubt, wenn die Lehrkraft das Kind unterrichtet (Cache) ODER
+ * als Sonderlehrkraft für den Jahrgang freigegeben ist.
+ */
+function bu_lehrer_erlaubt(PDO $pdo, int $sprechtagId, int $schuelerId,
+                           int $lehrerId, string $jahrgang = ''): bool
+{
+    $st = $pdo->prepare('SELECT COUNT(*) FROM kind_lehrer_cache
+                         WHERE sprechtag_id = ? AND schueler_id = ? AND lehrer_id = ?');
+    $st->execute([$sprechtagId, $schuelerId, $lehrerId]);
+    if ((int)$st->fetchColumn() > 0) return true;
+
+    $st = $pdo->prepare('SELECT jahrgaenge FROM sprechtag_sonderlehrer
+                         WHERE sprechtag_id = ? AND lehrer_id = ?');
+    $st->execute([$sprechtagId, $lehrerId]);
+    foreach ($st->fetchAll() as $zeile) {
+        if (slot_sonderlehrer_passt((string)$zeile['jahrgaenge'], $jahrgang)) return true;
+    }
+    return false;
+}
+
+// ============================================================
+// GET /api/buchbare-lehrer?sprechtag=ID&kind=ID
+// ============================================================
+if ($methode === 'GET' && ($seg[0] ?? '') === 'buchbare-lehrer') {
+    $u   = auth_require();
+    $pdo = db($cfg);
+    $sid = (int)($_GET['sprechtag'] ?? 0);
+    $kind = (int)($_GET['kind'] ?? 0);
+
+    if (!in_array($u['rolle'], ['eltern', 'schueler', 'admin'], true)) {
+        json_err('Diese Ansicht ist für Erziehungsberechtigte bestimmt', 403);
+    }
+    if ($u['rolle'] !== 'admin' && !auth_kind_erlaubt($u, $kind)) {
+        json_err('Für dieses Kind besteht keine Berechtigung', 403);
+    }
+    bu_sprechtag($pdo, $sid);
+
+    // Unterrichtende Lehrkräfte (nach Stundenzahl sortiert = Hauptfächer zuerst)
+    $st = $pdo->prepare(
+        'SELECT l.id AS lehrer_id, l.kuerzel, l.name, c.faecher, c.stunden,
+                sl.anwesend_von, sl.anwesend_bis, r.kuerzel AS raum_kuerzel,
+                NULL AS rolle
+         FROM kind_lehrer_cache c
+         JOIN lehrer l ON l.id = c.lehrer_id
+         LEFT JOIN sprechtag_lehrer sl
+                ON sl.sprechtag_id = c.sprechtag_id AND sl.lehrer_id = l.id
+         LEFT JOIN raeume r ON r.id = sl.raum_id
+         WHERE c.sprechtag_id = ? AND c.schueler_id = ?
+           AND (sl.teilnahme IS NULL OR sl.teilnahme = 1)
+         ORDER BY c.stunden DESC, l.kuerzel');
+    $st->execute([$sid, $kind]);
+    $lehrer = $st->fetchAll();
+
+    // Sonderlehrkräfte (Jahrgangsfilter greift erst, wenn der Jahrgang bekannt ist)
+    $jahrgang = trim((string)($_GET['jahrgang'] ?? ''));
+    $st = $pdo->prepare(
+        'SELECT l.id AS lehrer_id, l.kuerzel, l.name, "" AS faecher, 0 AS stunden,
+                sl2.anwesend_von, sl2.anwesend_bis, r.kuerzel AS raum_kuerzel,
+                sr.bezeichnung AS rolle, s.jahrgaenge
+         FROM sprechtag_sonderlehrer s
+         JOIN lehrer l ON l.id = s.lehrer_id
+         JOIN sonderrollen sr ON sr.id = s.rolle_id
+         LEFT JOIN sprechtag_lehrer sl2
+                ON sl2.sprechtag_id = s.sprechtag_id AND sl2.lehrer_id = l.id
+         LEFT JOIN raeume r ON r.id = sl2.raum_id
+         WHERE s.sprechtag_id = ? AND (sl2.teilnahme IS NULL OR sl2.teilnahme = 1)
+         ORDER BY sr.reihenfolge, l.kuerzel');
+    $st->execute([$sid]);
+    $sonder = [];
+    $bekannt = array_column($lehrer, 'lehrer_id');
+    foreach ($st->fetchAll() as $z) {
+        if (!slot_sonderlehrer_passt((string)$z['jahrgaenge'], $jahrgang)) continue;
+        if (in_array($z['lehrer_id'], $bekannt)) continue;   // schon als Fachlehrkraft
+        unset($z['jahrgaenge']);
+        $sonder[] = $z;
+    }
+
+    json_ok(['unterrichtend' => $lehrer, 'sonderlehrer' => $sonder]);
+}
+
+// ============================================================
+// POST /api/lehrer-ermitteln  {sprechtag_id, kind_id, benutzername, passwort}
+// Füllt kind_lehrer_cache über den Referenzzeitraum.
+// ============================================================
+if ($methode === 'POST' && ($seg[0] ?? '') === 'lehrer-ermitteln') {
+    $u   = auth_require();
+    $pdo = db($cfg);
+    $sid  = (int)($body['sprechtag_id'] ?? 0);
+    $kind = (int)($body['kind_id'] ?? 0);
+
+    if ($u['rolle'] !== 'admin' && !auth_kind_erlaubt($u, $kind)) {
+        json_err('Für dieses Kind besteht keine Berechtigung', 403);
+    }
+    $s = bu_sprechtag($pdo, $sid);
+    $ref = ($s['referenz_von'] && $s['referenz_bis'])
+        ? ['von' => $s['referenz_von'], 'bis' => $s['referenz_bis']]
+        : wu_referenzzeitraum((string)$s['datum']);
+
+    // Eine frische WebUntis-Session ist nötig (Cookie lebt nicht in der PHP-Session)
+    $wcfg = $cfg['webuntis'];
+    $wu = new WebUntisAuth($wcfg['base_url'], $wcfg['school'], $wcfg['client']);
+    try {
+        $wu->authenticate(req($body, 'benutzername'), req($body, 'passwort'));
+        $rest = new WebUntisRest($wcfg['base_url'], $wcfg['school']);
+        $rest->mitSessionCookie((string)$wu->sessionCookie());
+        $rest->setzeTimeout(20);
+        if (!$rest->tokenHolen()) json_err('Kein REST-Zugang (JWT)', 502);
+        $rest->tenantErmitteln();
+        ignore_user_abort(true);
+        set_time_limit(0);
+        $anzahl = wu_kind_lehrer_ermitteln($cfg, $pdo, $rest, $sid, $kind,
+            (string)$ref['von'], (string)$ref['bis']);
+    } catch (RuntimeException $e) {
+        json_err('Ermittlung fehlgeschlagen: ' . $e->getMessage(), 502);
+    } finally {
+        $wu->logout();
+    }
+    json_ok(['ok' => true, 'lehrkraefte' => $anzahl,
+             'zeitraum' => $ref['von'] . ' bis ' . $ref['bis']]);
+}
+
+// ============================================================
+// GET /api/raster?sprechtag=ID&lehrer=ID
+// Zeitraster einer Lehrkraft samt Belegung.
+// ============================================================
+if ($methode === 'GET' && ($seg[0] ?? '') === 'raster') {
+    $u   = auth_require();
+    $pdo = db($cfg);
+    $sid = (int)($_GET['sprechtag'] ?? 0);
+    $lid = (int)($_GET['lehrer'] ?? 0);
+    $s   = bu_sprechtag($pdo, $sid);
+
+    $fenster = bu_lehrer_fenster($pdo, $sid, $lid);
+    $raster  = slot_raster($s, $fenster['anwesend_von'], $fenster['anwesend_bis']);
+
+    $st = $pdo->prepare('SELECT slot_beginn, eltern_user_id, schueler_id, phase
+                         FROM buchungen WHERE sprechtag_id = ? AND lehrer_id = ?');
+    $st->execute([$sid, $lid]);
+    $belegt = [];
+    foreach ($st->fetchAll() as $b) {
+        $belegt[substr((string)$b['slot_beginn'], 0, 5)] = $b;
+    }
+
+    // Eltern sehen nur "frei"/"belegt" – nie, WER gebucht hat.
+    $istLehrkraft = in_array($u['rolle'], ['lehrkraft', 'admin'], true)
+        && ($u['rolle'] === 'admin' || $u['lehrer_id'] === $lid);
+
+    $ausgabe = [];
+    foreach ($raster as $z) {
+        if ($z['typ'] === 'pause') { $ausgabe[] = $z; continue; }
+        $b = $belegt[$z['beginn']] ?? null;
+        $eintrag = $z + ['frei' => $b === null];
+        if ($b !== null) {
+            $eintrag['eigene'] = $u['user_id'] !== null
+                && (int)$b['eltern_user_id'] === $u['user_id'];
+            $eintrag['phase_gebucht'] = $b['phase'];
+            if ($istLehrkraft) $eintrag['schueler_id'] = (int)$b['schueler_id'];
+        }
+        $ausgabe[] = $eintrag;
+    }
+    json_ok(['raster' => $ausgabe, 'sprechtag' => [
+        'id' => (int)$s['id'], 'phase' => $s['phase'], 'datum' => $s['datum']]]);
+}
+
+// ============================================================
+// BUCHUNGEN
+// ============================================================
+if (($seg[0] ?? '') === 'buchungen') {
+    $u   = auth_require();
+    $pdo = db($cfg);
+
+    // ---- GET: eigene Buchungen bzw. die der Lehrkraft ----
+    if ($methode === 'GET' && !isset($seg[1])) {
+        $sid = (int)($_GET['sprechtag'] ?? 0);
+        if (in_array($u['rolle'], ['lehrkraft', 'admin'], true)
+            && ($_GET['sicht'] ?? '') === 'lehrkraft') {
+            $lid = $u['rolle'] === 'admin' && isset($_GET['lehrer'])
+                ? (int)$_GET['lehrer'] : (int)($u['lehrer_id'] ?? 0);
+            $st = $pdo->prepare(
+                'SELECT b.id, b.slot_beginn, b.schueler_id, b.phase, b.gebucht_von,
+                        b.gebucht_am
+                 FROM buchungen b
+                 WHERE b.sprechtag_id = ? AND b.lehrer_id = ?
+                 ORDER BY b.slot_beginn');
+            $st->execute([$sid, $lid]);
+            json_ok(['buchungen' => $st->fetchAll(), 'sicht' => 'lehrkraft']);
+        }
+
+        // Eltern/Schüler: ausschließlich eigene
+        if ($u['user_id'] === null) json_ok(['buchungen' => [], 'sicht' => 'eigene']);
+        $st = $pdo->prepare(
+            'SELECT b.id, b.slot_beginn, b.schueler_id, b.phase, b.lehrer_id,
+                    l.kuerzel, l.name, r.kuerzel AS raum_kuerzel
+             FROM buchungen b
+             JOIN lehrer l ON l.id = b.lehrer_id
+             LEFT JOIN sprechtag_lehrer sl
+                    ON sl.sprechtag_id = b.sprechtag_id AND sl.lehrer_id = b.lehrer_id
+             LEFT JOIN raeume r ON r.id = sl.raum_id
+             WHERE b.sprechtag_id = ? AND b.eltern_user_id = ?
+             ORDER BY b.slot_beginn');
+        $st->execute([$sid, $u['user_id']]);
+        json_ok(['buchungen' => $st->fetchAll(), 'sicht' => 'eigene']);
+    }
+
+    // ---- POST: buchen ----
+    if ($methode === 'POST' && !isset($seg[1])) {
+        $sid  = (int)($body['sprechtag_id'] ?? 0);
+        $lid  = (int)($body['lehrer_id'] ?? 0);
+        $kind = (int)($body['schueler_id'] ?? 0);
+        $slot = substr(trim((string)($body['slot_beginn'] ?? '')), 0, 5);
+        if (!preg_match('/^\d{2}:\d{2}$/', $slot)) {
+            json_err('slot_beginn muss das Format HH:MM haben');
+        }
+        $s = bu_sprechtag($pdo, $sid);
+
+        // Wer bucht für wen?
+        $rolle = $u['rolle'];
+        $elternUserId = $u['user_id'];
+        if (in_array($rolle, ['lehrkraft', 'admin'], true)) {
+            // Stellvertretende Buchung (Phase 1): Eltern-Konto wird angegeben
+            $elternUserId = isset($body['eltern_user_id'])
+                ? (int)$body['eltern_user_id'] : null;
+            if ($elternUserId === null || $elternUserId <= 0) {
+                json_err('Für eine stellvertretende Buchung wird die WebUntis-Benutzer-ID '
+                    . 'der Erziehungsberechtigten benötigt');
+            }
+            if ($rolle === 'lehrkraft' && $lid !== (int)($u['lehrer_id'] ?? 0)) {
+                json_err('Lehrkräfte können nur Termine bei sich selbst vergeben', 403);
+            }
+        } else {
+            if (!auth_kind_erlaubt($u, $kind)) {
+                json_err('Für dieses Kind besteht keine Berechtigung', 403);
+            }
+            if ($elternUserId === null) json_err('Konto unvollständig – bitte neu anmelden', 401);
+        }
+
+        // Regelprüfung
+        $fenster = bu_lehrer_fenster($pdo, $sid, $lid);
+        if ((int)$fenster['teilnahme'] !== 1) {
+            json_err('Diese Lehrkraft nimmt am Sprechtag nicht teil');
+        }
+        $raster = slot_raster($s, $fenster['anwesend_von'], $fenster['anwesend_bis']);
+        $imRaster = false;
+        foreach ($raster as $z) {
+            if ($z['typ'] === 'slot' && $z['beginn'] === $slot) { $imRaster = true; break; }
+        }
+
+        $st = $pdo->prepare('SELECT COUNT(*) FROM buchungen
+                             WHERE sprechtag_id = ? AND lehrer_id = ? AND slot_beginn = ?');
+        $st->execute([$sid, $lid, $slot . ':00']);
+        $frei = (int)$st->fetchColumn() === 0;
+
+        $st = $pdo->prepare('SELECT COUNT(*) FROM buchungen
+                             WHERE sprechtag_id = ? AND eltern_user_id = ?');
+        $st->execute([$sid, $elternUserId]);
+        $anzahl = (int)$st->fetchColumn();
+
+        $st = $pdo->prepare('SELECT COUNT(*) FROM einladungen
+                             WHERE sprechtag_id = ? AND lehrer_id = ? AND schueler_id = ?');
+        $st->execute([$sid, $lid, $kind]);
+        $eingeladen = (int)$st->fetchColumn() > 0;
+
+        $pruefung = slot_buchung_erlaubt([
+            'phase'          => (string)$s['phase'],
+            'rolle'          => $rolle,
+            'eingeladen'     => $eingeladen,
+            'darf_lehrkraft' => bu_lehrer_erlaubt($pdo, $sid, $kind, $lid,
+                                    (string)($body['jahrgang'] ?? '')),
+            'slot_frei'      => $frei,
+            'slot_im_raster' => $imRaster,
+            'anzahl_termine' => $anzahl,
+            'max_termine'    => (int)$s['max_termine_pro_eltern'],
+        ]);
+        if (!$pruefung['ok']) json_err($pruefung['grund'], 409);
+
+        // Schreiben – der UNIQUE KEY entscheidet bei gleichzeitigen Anfragen
+        try {
+            $pdo->prepare('INSERT INTO buchungen
+                (sprechtag_id, lehrer_id, slot_beginn, eltern_user_id, schueler_id,
+                 phase, gebucht_von)
+                VALUES (?, ?, ?, ?, ?, ?, ?)')
+                ->execute([$sid, $lid, $slot . ':00', $elternUserId, $kind,
+                    (string)$s['phase'] === 'phase1' ? 'phase1' : 'phase2', $rolle]);
+        } catch (PDOException $e) {
+            if ((int)$e->errorInfo[1] === 1062) {
+                json_err('Dieser Termin wurde soeben von jemand anderem gebucht', 409);
+            }
+            throw $e;
+        }
+        // ID sofort sichern: nachfolgende Statements überschreiben lastInsertId()
+        $neueId = (int)$pdo->lastInsertId();
+
+        // Einladung als erledigt markieren
+        if ($eingeladen) {
+            $pdo->prepare('UPDATE einladungen SET erledigt = 1
+                           WHERE sprechtag_id = ? AND lehrer_id = ? AND schueler_id = ?')
+                ->execute([$sid, $lid, $kind]);
+        }
+        json_ok(['ok' => true, 'id' => $neueId], 201);
+    }
+
+    // ---- DELETE: stornieren ----
+    if ($methode === 'DELETE' && isset($seg[1]) && ctype_digit($seg[1])) {
+        $bid = (int)$seg[1];
+        $st = $pdo->prepare('SELECT * FROM buchungen WHERE id = ?');
+        $st->execute([$bid]);
+        $b = $st->fetch();
+        if (!$b) json_err('Buchung nicht gefunden', 404);
+
+        if ($u['rolle'] === 'lehrkraft' && (int)$b['lehrer_id'] !== (int)($u['lehrer_id'] ?? 0)) {
+            json_err('Diese Buchung gehört zu einer anderen Lehrkraft', 403);
+        }
+        $pruefung = slot_storno_erlaubt($b, $u['rolle'], (int)($u['user_id'] ?? 0));
+        if (!$pruefung['ok']) json_err($pruefung['grund'], 403);
+
+        $pdo->prepare('DELETE FROM buchungen WHERE id = ?')->execute([$bid]);
+
+        // Freitext der Lehrkraft für die spätere WebUntis-Mitteilung
+        // (Versand folgt in Paket 3 – hier nur zurückgemeldet)
+        json_ok(['ok' => true,
+            'mitteilung_offen' => in_array($u['rolle'], ['lehrkraft', 'admin'], true),
+            'empfaenger_user_id' => (int)$b['eltern_user_id'],
+            'nachricht' => substr((string)($_GET['nachricht'] ?? ''), 0, 500)]);
+    }
+}
+
+// ============================================================
+// EINLADUNGEN (Phase 1)
+// ============================================================
+if (($seg[0] ?? '') === 'einladungen') {
+    $u   = auth_require();       // Guard VOR db()
+    $pdo = db($cfg);
+
+    if ($methode === 'GET') {
+        $sid = (int)($_GET['sprechtag'] ?? 0);
+
+        if (in_array($u['rolle'], ['lehrkraft', 'admin'], true)) {
+            $lid = $u['rolle'] === 'admin' && isset($_GET['lehrer'])
+                ? (int)$_GET['lehrer'] : (int)($u['lehrer_id'] ?? 0);
+            $st = $pdo->prepare('SELECT id, schueler_id, hinweis, erledigt, angelegt_am
+                                 FROM einladungen WHERE sprechtag_id = ? AND lehrer_id = ?
+                                 ORDER BY angelegt_am DESC');
+            $st->execute([$sid, $lid]);
+            json_ok(['einladungen' => $st->fetchAll()]);
+        }
+
+        // Eltern: nur Einladungen für die eigenen Kinder
+        $kinder = array_column($u['kinder'], 'id');
+        if ($kinder === []) json_ok(['einladungen' => []]);
+        $platzhalter = implode(',', array_fill(0, count($kinder), '?'));
+        $st = $pdo->prepare(
+            "SELECT e.id, e.schueler_id, e.hinweis, e.erledigt,
+                    l.id AS lehrer_id, l.kuerzel, l.name
+             FROM einladungen e JOIN lehrer l ON l.id = e.lehrer_id
+             WHERE e.sprechtag_id = ? AND e.schueler_id IN ($platzhalter)");
+        $st->execute(array_merge([$sid], $kinder));
+        json_ok(['einladungen' => $st->fetchAll()]);
+    }
+
+    if ($methode === 'POST') {
+        $u   = auth_require_lehrkraft();
+        $sid = (int)($body['sprechtag_id'] ?? 0);
+        $lid = $u['rolle'] === 'admin' && isset($body['lehrer_id'])
+            ? (int)$body['lehrer_id'] : (int)($u['lehrer_id'] ?? 0);
+        if ($lid <= 0) json_err('Kein Lehrkraft-Stammsatz zugeordnet – bitte Stammdaten synchronisieren');
+        $pdo->prepare('INSERT IGNORE INTO einladungen
+            (sprechtag_id, lehrer_id, schueler_id, hinweis) VALUES (?, ?, ?, ?)')
+            ->execute([$sid, $lid, (int)req($body, 'schueler_id'),
+                substr((string)($body['hinweis'] ?? ''), 0, 190)]);
+        json_ok(['ok' => true], 201);
+    }
+
+    if ($methode === 'DELETE' && isset($seg[1]) && ctype_digit($seg[1])) {
+        $u  = auth_require_lehrkraft();
+        $st = $pdo->prepare('SELECT lehrer_id FROM einladungen WHERE id = ?');
+        $st->execute([(int)$seg[1]]);
+        $ziel = $st->fetchColumn();
+        if ($ziel === false) json_err('Einladung nicht gefunden', 404);
+        if ($u['rolle'] === 'lehrkraft' && (int)$ziel !== (int)($u['lehrer_id'] ?? 0)) {
+            json_err('Diese Einladung gehört zu einer anderen Lehrkraft', 403);
+        }
+        $pdo->prepare('DELETE FROM einladungen WHERE id = ?')->execute([(int)$seg[1]]);
+        json_ok(['ok' => true]);
+    }
+}

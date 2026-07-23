@@ -19,15 +19,22 @@ if (!is_file($configPfad)) {
 }
 $cfg = require $configPfad;
 
-/** PDO-Verbindung (lazy – die Sondierung braucht sie nur für login_log). */
+/** PDO-Verbindung (lazy). Fehler werden als sauberes JSON gemeldet,
+ *  nicht als Fatal Error – sonst sieht der Browser nur einen 500er. */
 function db(array $cfg): PDO
 {
     static $pdo = null;
     if ($pdo === null) {
-        $pdo = new PDO($cfg['db']['dsn'], $cfg['db']['benutzer'], $cfg['db']['passwort'], [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]);
+        try {
+            $pdo = new PDO($cfg['db']['dsn'], $cfg['db']['benutzer'], $cfg['db']['passwort'], [
+                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            ]);
+        } catch (PDOException $e) {
+            error_log('sprechtag: DB-Verbindung fehlgeschlagen: ' . $e->getMessage());
+            json_err('Die Datenbank ist derzeit nicht erreichbar. '
+                . 'Bitte später erneut versuchen.', 503);
+        }
     }
     return $pdo;
 }

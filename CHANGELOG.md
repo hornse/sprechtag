@@ -1,5 +1,56 @@
 # Changelog – sprechtag
 
+## v0.3.0 (Juli 2026) – Paket 2: Datenmodell, Adapter, Buchung, Adminseite
+
+### Neu
+- **Datenmodell** (`sql/02_sprechtag.sql`, idempotent): Sprechtage mit allen
+  Adminparametern, teilnehmende Lehrkräfte mit Anwesenheitsfenster und Raum,
+  Sonderlehrkräfte mit Rollen und optionaler Jahrgangsbindung, Buchungen
+  (UNIQUE-Constraint gegen Doppelbuchung), Einladungen für Phase 1,
+  Kind-Lehrkraft-Cache, App-Administratoren, sieben Standard-Sonderrollen
+- **WebUntis-Adapter** (`webuntis_adapter.php`): Login mit Rollenerkennung
+  (personType 2/5/12/16), Kinder aus `app/data`, Lehrkraft-Ermittlung je Kind
+  über den Referenzzeitraum mit DB-Cache, Stammdaten-Sync (Lehrkräfte, Räume)
+- **Buchungslogik** als reine Funktionen (`slots.php`): Zeitraster mit
+  Slotlänge, automatischen Pausen und Teilzeitfenstern, Buchungs- und
+  Stornoregeln, Raumkonflikte, Jahrgangsfilter für Sonderlehrkräfte
+- **Adminseite**: Sprechtage anlegen/ändern/kopieren/archivieren, Lehrkräfte
+  mit Zeitfenster und Raum (Doppelbelegung rot markiert), Sonderlehrkräfte,
+  Stammdaten-Sync, Phasensteuerung
+- **Eltern-Ansicht**: Kind wählen, Lehrkräfte nach Wochenstunden sortiert
+  (Hauptfächer zuerst) mit Fach, Raum und Anwesenheitszeit, Zeitraster mit
+  freien/belegten/eigenen Slots, persönliche Terminübersicht
+- **Lehrkraft-Ansicht**: eigene Termine, Einladungen für Phase 1,
+  stellvertretende Buchung, Absage mit Nachrichtentext (Versand folgt)
+- **Modul-Erweiterung** für `hornse/webuntis-client-php` v1.2.0:
+  `rest_lehrkraefte_aus_entries()` (Lehrkräfte je Schüler, mit denselben
+  Filtern wie `rest_unterricht_aus_entries`: nur TEACHING-Einträge, nur
+  REGULAR/CANCELLED, nur `current`) und `rest_konto_aus_appdata()`
+
+### Datenschutz
+- Von Eltern wird ausschließlich die WebUntis-`user.id` gespeichert, kein
+  Name und keine E-Mail-Adresse; Namen leben nur in der Sitzung
+- Eltern sehen nur eigene Buchungen; belegte Slots zeigen keine Fremddaten
+- Archivieren löscht Buchungen, Einladungen und Kind-Lehrkraft-Zuordnung,
+  behält aber die wiederverwendbare Struktur
+
+### Behoben
+- DB-Verbindungsfehler führten zu einem nackten 500er; jetzt sauberes JSON
+  mit Status 503, Details im Server-Log
+- Guards standen teilweise nach `db()`; nicht angemeldete Zugriffe liefern
+  jetzt zuverlässig 401 statt 503 bei DB-Ausfall
+- `lastInsertId()` wurde nach Folge-Statements gelesen und lieferte 0;
+  Buchungs-ID wird jetzt sofort gesichert
+
+### Tests
+- `tests/run_slots.php`: 68 Offline-Prüfungen (Raster inkl. Pausen und
+  Teilzeit, Buchungs- und Stornoregeln je Rolle und Phase, Raumkonflikte,
+  Jahrgangsfilter, Extraktoren inkl. Vertretungs-/Aufsichts-Ausschluss,
+  app/data-Auswertung, Referenzzeitraum)
+- `tests/run.php`: 23 Prüfungen der Sondierungslogik (unverändert grün)
+- End-to-End gegen MariaDB: Rollen, Phase-1-Ablauf, Doppelbuchung,
+  Datenschutzgrenzen, Kopieren, Archivierung
+
 ## v0.2.0 (Juli 2026) – Sondierungsbefunde eingearbeitet
 
 Auswertung der Läufe vom 19.07.2026 (Eltern-, Lehrkraft-, Admin-Konto):

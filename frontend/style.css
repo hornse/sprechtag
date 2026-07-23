@@ -139,3 +139,85 @@ button:disabled { background: var(--grau); cursor: wait; }
   font-size: .75rem;
   padding: 1.5rem 0 2rem;
 }
+
+/* ---------- Paket 2: Navigation, Raster, Tabellen ---------- */
+
+.kopf-zeile { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.benutzer-box { display: flex; align-items: center; gap: .6rem; font-size: .85rem; }
+.benutzer-box .badge { background: rgba(255,255,255,.2); color: #fff; }
+
+.navigation { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .8rem; }
+.nav-knopf {
+  background: rgba(255,255,255,.15);
+  font-weight: 500;
+  padding: .4rem .9rem;
+  font-size: .85rem;
+}
+.nav-knopf.aktiv { background: #fff; color: var(--blau); }
+
+.meldung { padding: .7rem 1rem; border-radius: 6px; margin-bottom: 1rem; font-size: .9rem; }
+.meldung.info   { background: var(--blau-hell); color: var(--blau); }
+.meldung.ok     { background: #eaf7ee; color: var(--gruen); }
+.meldung.fehler { background: #fdecea; color: var(--rot); font-weight: 600; }
+
+.hinweis-wichtig {
+  background: #fff8e1; border-left: 4px solid var(--gelb);
+  padding: .7rem 1rem; border-radius: 4px; font-size: .9rem;
+}
+.hinweis-klein { font-size: .78rem; color: var(--grau); }
+
+.block { border: 1px solid var(--rand); border-radius: 6px; padding: .8rem 1rem; margin: .8rem 0; }
+.block > summary { cursor: pointer; font-weight: 600; font-size: .95rem; }
+.detail-bereich:not(:empty) { margin-top: 1rem; border-top: 1px solid var(--rand); padding-top: 1rem; }
+
+button.klein { padding: .3rem .7rem; font-size: .8rem; }
+button.gefahr { background: var(--rot); }
+
+label.inline { display: inline-flex; align-items: center; font-weight: 400; margin-right: 1rem; }
+.gruppen-zeile { margin: .6rem 0; }
+select { display: block; width: 100%; margin-top: .25rem; padding: .5rem .6rem;
+         font: inherit; font-weight: 400; border: 1px solid var(--rand); border-radius: 6px; }
+select.konflikt { border-color: var(--rot); background: #fdecea; }
+.zeit-feld { width: 5.5rem; }
+
+/* Lehrkraft-Auswahl */
+.lehrer-liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+                gap: .6rem; margin: .8rem 0; }
+.lehrer-karte {
+  border: 1px solid var(--rand); border-radius: 6px; padding: .6rem .8rem;
+  cursor: pointer; display: flex; flex-direction: column; gap: .2rem; background: #fff;
+}
+.lehrer-karte:hover { border-color: var(--blau); background: var(--blau-hell); }
+.lehrer-karte.gewaehlt { border-color: var(--blau); border-width: 2px; background: var(--blau-hell); }
+.lehrer-karte .faecher { font-size: .78rem; color: var(--grau); }
+.lehrer-karte .rolle-badge {
+  font-size: .7rem; background: var(--blau-hell); color: var(--blau);
+  border-radius: 999px; padding: .1rem .5rem; align-self: flex-start;
+}
+.lehrer-karte .raum, .lehrer-karte .zeitfenster { font-size: .75rem; color: var(--grau); }
+
+/* Zeitraster */
+.raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));
+          gap: .4rem; margin: .8rem 0; }
+.slot { padding: .5rem; text-align: center; border-radius: 5px; font-size: .85rem;
+        border: 1px solid var(--rand); }
+.slot.frei { background: #eaf7ee; border-color: #bfe3ca; color: var(--gruen);
+             cursor: pointer; font-weight: 600; }
+.slot.frei:hover { background: var(--gruen); color: #fff; }
+.slot.belegt { background: #f1f3f5; color: var(--grau); text-decoration: line-through; }
+.slot.eigene { background: var(--blau-hell); border-color: var(--blau); color: var(--blau);
+               font-weight: 600; }
+.slot.pause { background: #fff8e1; color: var(--gelb); font-size: .75rem; }
+
+/* Tabellen */
+.tabelle { width: 100%; border-collapse: collapse; margin: .8rem 0; font-size: .85rem; }
+.tabelle th { text-align: left; border-bottom: 2px solid var(--rand); padding: .4rem .5rem;
+              font-size: .78rem; color: var(--grau); }
+.tabelle td { border-bottom: 1px solid var(--rand); padding: .4rem .5rem; }
+.tabelle td.zeit { font-weight: 600; white-space: nowrap; }
+
+.sondierung-ausgabe {
+  background: #f7f8fa; border: 1px solid var(--rand); border-radius: 4px;
+  padding: .6rem; font-size: .72rem; max-height: 30rem; overflow: auto;
+  white-space: pre-wrap; word-break: break-all; margin-top: .8rem;
+}

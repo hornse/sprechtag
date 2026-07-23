@@ -7,9 +7,11 @@ zweiphasigem Ablauf (Phase 1: nur eingeladene Eltern, buchbar auch
 stellvertretend durch Lehrkräfte), Raumverteilung, Pausenautomatik,
 Teilzeit-Anwesenheitsfenstern und Archivierung.
 
-**Stand: Paket 1 (v0.1.0)** – Projektgerüst + WebUntis-Sondierwerkzeug.
-Die Buchungsfunktionen folgen nach Auswertung der Sondierungsberichte
-(siehe `docs/SONDIERUNG.md`).
+**Stand: Paket 2 (v0.3.0)** – vollständige Buchung, Adminseite und
+Rollenmodell. Offen für Paket 3: WebUntis-Mitteilungen an Eltern
+(Versandweg sondiert, aber noch nicht implementiert).
+
+Bedienung: `docs/BEDIENUNG.md` · Sondierungsbefunde: `docs/SONDIERUNG.md`
 
 ## Eckdaten
 
@@ -41,6 +43,7 @@ chmod +x ~/repos/sprechtag.git/hooks/post-receive
 # 2. Datenbank
 mysql -e "CREATE DATABASE IF NOT EXISTS hornse_sprechtag CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 mysql hornse_sprechtag < ~/sprechtag/sql/01_schema.sql   # nach erstem Push
+mysql hornse_sprechtag < ~/sprechtag/sql/02_sprechtag.sql
 
 # 3. Konfiguration
 cp ~/sprechtag/backend/config.example.php ~/sprechtag/backend/config.php

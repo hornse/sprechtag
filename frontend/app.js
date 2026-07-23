@@ -1,218 +1,941 @@
 // ============================================================
-// app.js – gesamtes Frontend-JavaScript (Paket 1: Sondierung)
+// app.js – gesamtes Frontend-JavaScript
 // Kein JS im HTML (Uberspace-Proxy: 63-KB-HTML-Limit).
+//
+// Ansichten je Rolle:
+//   eltern/schueler – Kind wählen, Lehrkraft wählen, Slot buchen,
+//                     eigene Termine als Übersicht
+//   lehrkraft       – eigene Termine, Einladungen (Phase 1),
+//                     stellvertretend buchen, stornieren
+//   admin           – Sprechtage, Parameter, Lehrkräfte/Räume,
+//                     Sonderlehrkräfte, Stammdaten-Sync, Sondierung
 // ============================================================
 'use strict';
 
 (function () {
 
-  const $ = (sel) => document.querySelector(sel);
-  let letzterBericht = null;
+const $ = (s) => document.querySelector(s);
 
-  // ---------- Sondierung ausführen ----------------------------------------
-  $('#sondierung-form').addEventListener('submit', async (ev) => {
+const S = {
+  user: null,
+  ansicht: 'login',
+  sprechtage: [],
+  aktiverSprechtag: null,
+  stammdaten: { lehrer: [], raeume: [], sonderrollen: [] },
+  kind: null,
+  lehrerListe: null,
+  gewaehlteLehrkraft: null,
+  raster: [],
+  meineBuchungen: [],
+  einladungen: [],
+  meldung: null,
+};
+
+// ---------- API-Helfer ----------------------------------------------------
+async function api(pfad, optionen = {}) {
+  const antwort = await fetch(pfad, {
+    method: optionen.method || 'GET',
+    headers: optionen.body ? { 'Content-Type': 'application/json' } : {},
+    body: optionen.body ? JSON.stringify(optionen.body) : undefined,
+  });
+  const daten = await antwort.json().catch(() => ({}));
+  if (!antwort.ok) throw new Error(daten.fehler || ('Fehler ' + antwort.status));
+  return daten;
+}
+
+function meldung(text, art = 'info') {
+  S.meldung = text ? { text, art } : null;
+  zeichne();
+}
+
+// ---------- kleine DOM-Helfer --------------------------------------------
+function el(tag, klasse, text) {
+  const e = document.createElement(tag);
+  if (klasse) e.className = klasse;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function knopf(text, klasse, aktion) {
+  const b = el('button', klasse, text);
+  b.type = 'button';
+  b.addEventListener('click', aktion);
+  return b;
+}
+function feld(label, id, typ = 'text', wert = '') {
+  const l = el('label', null, label);
+  const i = document.createElement('input');
+  i.type = typ; i.id = id; i.value = wert ?? '';
+  l.appendChild(i);
+  return l;
+}
+function auswahl(label, id, optionen, wert) {
+  const l = el('label', null, label);
+  const s = document.createElement('select');
+  s.id = id;
+  for (const o of optionen) {
+    const opt = document.createElement('option');
+    opt.value = o.wert; opt.textContent = o.text;
+    if (String(o.wert) === String(wert)) opt.selected = true;
+    s.appendChild(opt);
+  }
+  l.appendChild(s);
+  return l;
+}
+function wert(id) { const e = $('#' + id); return e ? e.value.trim() : ''; }
+
+// ---------- Start ---------------------------------------------------------
+async function start() {
+  try {
+    const me = await api('/api/auth/me');
+    S.user = me.angemeldet ? me : null;
+  } catch { S.user = null; }
+
+  if (S.user) {
+    await ladeSprechtage();
+    S.ansicht = S.user.rolle === 'admin' ? 'admin'
+      : S.user.rolle === 'lehrkraft' ? 'lehrkraft' : 'buchen';
+  } else {
+    S.ansicht = 'login';
+  }
+  zeichne();
+}
+
+async function ladeSprechtage() {
+  try {
+    const d = await api('/api/sprechtage');
+    S.sprechtage = d.sprechtage || [];
+    if (!S.aktiverSprechtag && S.sprechtage.length) {
+      const offen = S.sprechtage.find((s) => s.phase === 'phase1' || s.phase === 'phase2');
+      S.aktiverSprechtag = offen || S.sprechtage[0];
+    }
+  } catch { S.sprechtage = []; }
+}
+
+async function ladeStammdaten() {
+  try { S.stammdaten = await api('/api/stammdaten'); } catch { }
+}
+
+$('#abmelden').addEventListener('click', async () => {
+  await api('/api/auth/logout', { method: 'POST' });
+  S.user = null; S.ansicht = 'login'; S.aktiverSprechtag = null;
+  zeichne();
+});
+
+// ============================================================
+// Zeichnen
+// ============================================================
+function zeichne() {
+  // Kopfzeile
+  const box = $('#benutzer-box');
+  if (S.user) {
+    box.classList.remove('versteckt');
+    $('#benutzer-name').textContent = S.user.name || '';
+    $('#benutzer-rolle').textContent = {
+      admin: 'Administration', lehrkraft: 'Lehrkraft',
+      eltern: 'Erziehungsberechtigt', schueler: 'Schüler:in',
+    }[S.user.rolle] || S.user.rolle;
+  } else {
+    box.classList.add('versteckt');
+  }
+
+  zeichneNavigation();
+
+  const ziel = $('#ansicht');
+  ziel.textContent = '';
+
+  if (S.meldung) {
+    const m = el('div', 'meldung ' + S.meldung.art, S.meldung.text);
+    ziel.appendChild(m);
+  }
+
+  const ansichten = {
+    login: ansichtLogin,
+    buchen: ansichtBuchen,
+    meine: ansichtMeineTermine,
+    lehrkraft: ansichtLehrkraft,
+    einladungen: ansichtEinladungen,
+    admin: ansichtAdmin,
+    sondierung: ansichtSondierung,
+  };
+  (ansichten[S.ansicht] || ansichtLogin)(ziel);
+}
+
+function zeichneNavigation() {
+  const nav = $('#navigation');
+  nav.textContent = '';
+  if (!S.user) { nav.classList.add('versteckt'); return; }
+  nav.classList.remove('versteckt');
+
+  const punkte = [];
+  if (S.user.rolle === 'eltern' || S.user.rolle === 'schueler') {
+    punkte.push(['buchen', 'Termin buchen'], ['meine', 'Meine Termine']);
+  }
+  if (S.user.rolle === 'lehrkraft' || S.user.rolle === 'admin') {
+    punkte.push(['lehrkraft', 'Meine Termine'], ['einladungen', 'Einladungen']);
+  }
+  if (S.user.rolle === 'admin') {
+    punkte.push(['admin', 'Administration'], ['sondierung', 'Sondierung']);
+  }
+  for (const [ziel, text] of punkte) {
+    const b = knopf(text, 'nav-knopf' + (S.ansicht === ziel ? ' aktiv' : ''),
+      () => { S.ansicht = ziel; S.meldung = null; zeichne(); });
+    nav.appendChild(b);
+  }
+}
+
+// ---------- Sprechtag-Auswahl (in mehreren Ansichten genutzt) -------------
+function sprechtagWaehler(ziel, beiWechsel) {
+  if (S.sprechtage.length === 0) {
+    ziel.appendChild(el('p', 'hinweis',
+      'Zurzeit ist kein Sprechtag freigeschaltet.'));
+    return false;
+  }
+  const zeile = el('div', 'zeile');
+  const w = auswahl('Sprechtag', 'sprechtag-wahl',
+    S.sprechtage.map((s) => ({ wert: s.id,
+      text: s.name + ' (' + s.datum + ', ' + phaseText(s.phase) + ')' })),
+    S.aktiverSprechtag ? S.aktiverSprechtag.id : '');
+  w.querySelector('select').addEventListener('change', (e) => {
+    S.aktiverSprechtag = S.sprechtage.find((s) => String(s.id) === e.target.value);
+    S.lehrerListe = null; S.gewaehlteLehrkraft = null; S.raster = [];
+    if (beiWechsel) beiWechsel();
+    zeichne();
+  });
+  zeile.appendChild(w);
+  ziel.appendChild(zeile);
+  return true;
+}
+
+function phaseText(p) {
+  return { vorbereitung: 'in Vorbereitung', phase1: 'Phase 1 – nur auf Einladung',
+    phase2: 'Phase 2 – offen für alle', geschlossen: 'geschlossen',
+    archiviert: 'archiviert' }[p] || p;
+}
+
+// ============================================================
+// ANSICHT: Login
+// ============================================================
+function ansichtLogin(ziel) {
+  ziel.appendChild(el('h2', null, 'Anmeldung mit WebUntis'));
+  ziel.appendChild(el('p', 'hinweis',
+    'Bitte mit den WebUntis-Zugangsdaten anmelden. Erziehungsberechtigte '
+    + 'nutzen ihren eigenen Zugang – nicht den ihres Kindes.'));
+
+  const form = document.createElement('form');
+  form.appendChild(feld('WebUntis-Benutzername', 'login-benutzer'));
+  form.appendChild(feld('Passwort', 'login-passwort', 'password'));
+  const aktionen = el('div', 'aktionen');
+  const senden = el('button', null, 'Anmelden');
+  senden.type = 'submit';
+  aktionen.appendChild(senden);
+  form.appendChild(aktionen);
+
+  form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
+    senden.disabled = true;
+    try {
+      S.user = await api('/api/auth/login', { method: 'POST', body: {
+        benutzername: wert('login-benutzer'), passwort: wert('login-passwort') } });
+      await ladeSprechtage();
+      S.ansicht = S.user.rolle === 'admin' ? 'admin'
+        : S.user.rolle === 'lehrkraft' ? 'lehrkraft' : 'buchen';
+      meldung(null);
+    } catch (f) {
+      senden.disabled = false;
+      meldung(String(f.message), 'fehler');
+    }
+  });
+  ziel.appendChild(form);
+}
 
-    const gruppen = Array.from(
-      document.querySelectorAll('.gruppen input:checked')
-    ).map((el) => el.value);
+// ============================================================
+// ANSICHT: Termin buchen (Eltern/Schüler)
+// ============================================================
+function ansichtBuchen(ziel) {
+  ziel.appendChild(el('h2', null, 'Termin buchen'));
+  if (!sprechtagWaehler(ziel)) return;
 
-    const body = {
-      benutzername: $('#benutzername').value.trim(),
-      passwort:     $('#passwort').value,
-      gruppen,
-      schueler_id:  $('#schueler-id').value.trim(),
-      von:          $('#von').value.trim(),
-      bis:          $('#bis').value.trim(),
-      extra_pfade:  $('#extra-pfade').value,
+  const s = S.aktiverSprechtag;
+  if (s.phase === 'phase1') {
+    ziel.appendChild(el('p', 'hinweis-wichtig',
+      'Zurzeit läuft Phase 1: Termine können nur von Erziehungsberechtigten '
+      + 'gebucht werden, die von einer Lehrkraft ausdrücklich eingeladen wurden.'));
+  }
+
+  // Kind wählen
+  const kinder = S.user.kinder || [];
+  if (kinder.length === 0) {
+    ziel.appendChild(el('p', 'hinweis',
+      'Diesem Konto sind keine Kinder zugeordnet. Bitte im Sekretariat melden.'));
+    return;
+  }
+  if (!S.kind) S.kind = kinder[0].id;
+
+  const kw = auswahl('Kind', 'kind-wahl',
+    kinder.map((k) => ({ wert: k.id, text: k.name || ('Schüler-ID ' + k.id) })), S.kind);
+  kw.querySelector('select').addEventListener('change', (e) => {
+    S.kind = parseInt(e.target.value, 10);
+    S.lehrerListe = null; S.gewaehlteLehrkraft = null; S.raster = [];
+    zeichne();
+  });
+  ziel.appendChild(kw);
+
+  // Lehrkräfte laden
+  if (S.lehrerListe === null) {
+    ziel.appendChild(knopf('Lehrkräfte anzeigen', null, () => ladeLehrerListe()));
+    return;
+  }
+
+  const alle = (S.lehrerListe.unterrichtend || [])
+    .concat(S.lehrerListe.sonderlehrer || []);
+  if (alle.length === 0) {
+    ziel.appendChild(el('p', 'hinweis',
+      'Für dieses Kind konnten keine Lehrkräfte ermittelt werden. '
+      + 'Bitte im Sekretariat melden.'));
+    return;
+  }
+
+  ziel.appendChild(el('h3', null, 'Lehrkraft wählen'));
+  const liste = el('div', 'lehrer-liste');
+  for (const l of alle) {
+    const karte = el('div', 'lehrer-karte'
+      + (S.gewaehlteLehrkraft === l.lehrer_id ? ' gewaehlt' : ''));
+    karte.appendChild(el('strong', null, (l.name || l.kuerzel)));
+    if (l.faecher) karte.appendChild(el('span', 'faecher', l.faecher));
+    if (l.rolle) karte.appendChild(el('span', 'rolle-badge', l.rolle));
+    if (l.raum_kuerzel) karte.appendChild(el('span', 'raum', 'Raum ' + l.raum_kuerzel));
+    if (l.anwesend_von) {
+      karte.appendChild(el('span', 'zeitfenster',
+        'anwesend ' + l.anwesend_von.slice(0, 5) + '–' + (l.anwesend_bis || '').slice(0, 5)));
+    }
+    karte.addEventListener('click', () => ladeRaster(l.lehrer_id));
+    liste.appendChild(karte);
+  }
+  ziel.appendChild(liste);
+
+  if (S.gewaehlteLehrkraft && S.raster.length) {
+    zeichneRaster(ziel, S.gewaehlteLehrkraft);
+  }
+}
+
+async function ladeLehrerListe() {
+  try {
+    S.lehrerListe = await api('/api/buchbare-lehrer?sprechtag='
+      + S.aktiverSprechtag.id + '&kind=' + S.kind);
+    if ((S.lehrerListe.unterrichtend || []).length === 0) {
+      meldung('Für dieses Kind sind noch keine Lehrkräfte hinterlegt. '
+        + 'Die Zuordnung wird von der Schule vorbereitet.', 'info');
+    } else { meldung(null); }
+  } catch (f) { meldung(String(f.message), 'fehler'); }
+}
+
+async function ladeRaster(lehrerId) {
+  try {
+    const d = await api('/api/raster?sprechtag=' + S.aktiverSprechtag.id
+      + '&lehrer=' + lehrerId);
+    S.gewaehlteLehrkraft = lehrerId;
+    S.raster = d.raster || [];
+    meldung(null);
+  } catch (f) { meldung(String(f.message), 'fehler'); }
+}
+
+function zeichneRaster(ziel, lehrerId) {
+  ziel.appendChild(el('h3', null, 'Freie Zeiten'));
+  const raster = el('div', 'raster');
+  for (const z of S.raster) {
+    if (z.typ === 'pause') {
+      raster.appendChild(el('div', 'slot pause', 'Pause'));
+      continue;
+    }
+    const klasse = 'slot ' + (z.frei ? 'frei' : (z.eigene ? 'eigene' : 'belegt'));
+    const s = el('div', klasse, z.beginn);
+    if (z.frei) {
+      s.addEventListener('click', () => buchen(lehrerId, z.beginn));
+    } else if (z.eigene) {
+      s.title = 'Von Ihnen gebucht';
+    }
+    raster.appendChild(s);
+  }
+  ziel.appendChild(raster);
+}
+
+async function buchen(lehrerId, slot) {
+  try {
+    await api('/api/buchungen', { method: 'POST', body: {
+      sprechtag_id: S.aktiverSprechtag.id, lehrer_id: lehrerId,
+      schueler_id: S.kind, slot_beginn: slot } });
+    await ladeRaster(lehrerId);
+    meldung('Termin um ' + slot + ' Uhr gebucht.', 'ok');
+  } catch (f) { meldung(String(f.message), 'fehler'); }
+}
+
+// ============================================================
+// ANSICHT: Meine Termine (Eltern/Schüler)
+// ============================================================
+function ansichtMeineTermine(ziel) {
+  ziel.appendChild(el('h2', null, 'Meine Termine'));
+  if (!sprechtagWaehler(ziel, () => ladeMeineBuchungen())) return;
+
+  if (S.meineBuchungen === null) {
+    ziel.appendChild(knopf('Termine laden', null, () => ladeMeineBuchungen()));
+    return;
+  }
+  if (S.meineBuchungen.length === 0) {
+    ziel.appendChild(el('p', 'hinweis', 'Noch keine Termine gebucht.'));
+    ziel.appendChild(knopf('Aktualisieren', 'klein', () => ladeMeineBuchungen()));
+    return;
+  }
+
+  const kindName = (id) => {
+    const k = (S.user.kinder || []).find((x) => x.id === id);
+    return k ? (k.name || ('Schüler-ID ' + id)) : ('Schüler-ID ' + id);
+  };
+
+  const tab = el('table', 'tabelle');
+  const kopf = el('tr');
+  for (const t of ['Zeit', 'Lehrkraft', 'Raum', 'Kind', '']) {
+    kopf.appendChild(el('th', null, t));
+  }
+  tab.appendChild(kopf);
+
+  for (const b of S.meineBuchungen.slice().sort(
+      (a, c) => String(a.slot_beginn).localeCompare(String(c.slot_beginn)))) {
+    const tr = el('tr');
+    tr.appendChild(el('td', 'zeit', String(b.slot_beginn).slice(0, 5)));
+    tr.appendChild(el('td', null, b.name || b.kuerzel));
+    tr.appendChild(el('td', null, b.raum_kuerzel || '–'));
+    tr.appendChild(el('td', null, kindName(parseInt(b.schueler_id, 10))));
+    const td = el('td');
+    if (b.phase === 'phase1') {
+      td.appendChild(el('span', 'hinweis-klein',
+        'auf Einladung – Absage nur durch die Lehrkraft'));
+    } else {
+      td.appendChild(knopf('Absagen', 'klein gefahr', () => stornieren(b.id)));
+    }
+    tr.appendChild(td);
+    tab.appendChild(tr);
+  }
+  ziel.appendChild(tab);
+  ziel.appendChild(knopf('Aktualisieren', 'klein', () => ladeMeineBuchungen()));
+}
+
+async function ladeMeineBuchungen() {
+  try {
+    const d = await api('/api/buchungen?sprechtag=' + S.aktiverSprechtag.id);
+    S.meineBuchungen = d.buchungen || [];
+    meldung(null);
+  } catch (f) { meldung(String(f.message), 'fehler'); }
+}
+
+async function stornieren(id) {
+  if (!confirm('Diesen Termin wirklich absagen?')) return;
+  try {
+    await api('/api/buchungen/' + id, { method: 'DELETE' });
+    await ladeMeineBuchungen();
+    meldung('Termin abgesagt.', 'ok');
+  } catch (f) { meldung(String(f.message), 'fehler'); }
+}
+
+// ============================================================
+// ANSICHT: Lehrkraft – eigene Termine
+// ============================================================
+function ansichtLehrkraft(ziel) {
+  ziel.appendChild(el('h2', null, 'Meine Sprechtags-Termine'));
+  if (!sprechtagWaehler(ziel, () => ladeLehrkraftBuchungen())) return;
+
+  if (S.user.lehrer_id === null && S.user.rolle === 'lehrkraft') {
+    ziel.appendChild(el('p', 'hinweis-wichtig',
+      'Diesem Konto ist kein Lehrkraft-Stammsatz zugeordnet. '
+      + 'Bitte die Administration bitten, die Stammdaten zu synchronisieren.'));
+    return;
+  }
+
+  if (S.meineBuchungen === null) {
+    ziel.appendChild(knopf('Termine laden', null, () => ladeLehrkraftBuchungen()));
+    return;
+  }
+
+  if (S.meineBuchungen.length === 0) {
+    ziel.appendChild(el('p', 'hinweis', 'Noch keine Termine gebucht.'));
+  } else {
+    const tab = el('table', 'tabelle');
+    const kopf = el('tr');
+    for (const t of ['Zeit', 'Kind (Schüler-ID)', 'Phase', 'gebucht von', '']) {
+      kopf.appendChild(el('th', null, t));
+    }
+    tab.appendChild(kopf);
+    for (const b of S.meineBuchungen) {
+      const tr = el('tr');
+      tr.appendChild(el('td', 'zeit', String(b.slot_beginn).slice(0, 5)));
+      tr.appendChild(el('td', null, String(b.schueler_id)));
+      tr.appendChild(el('td', null, b.phase === 'phase1' ? 'Einladung' : 'offen'));
+      tr.appendChild(el('td', null, b.gebucht_von));
+      const td = el('td');
+      td.appendChild(knopf('Absagen', 'klein gefahr', () => lehrkraftStorno(b)));
+      tr.appendChild(td);
+      tab.appendChild(tr);
+    }
+    ziel.appendChild(tab);
+  }
+  ziel.appendChild(knopf('Aktualisieren', 'klein', () => ladeLehrkraftBuchungen()));
+}
+
+async function ladeLehrkraftBuchungen() {
+  try {
+    const d = await api('/api/buchungen?sicht=lehrkraft&sprechtag='
+      + S.aktiverSprechtag.id);
+    S.meineBuchungen = d.buchungen || [];
+    meldung(null);
+  } catch (f) { meldung(String(f.message), 'fehler'); }
+}
+
+async function lehrkraftStorno(b) {
+  const text = prompt('Absage – Nachricht an die Erziehungsberechtigten '
+    + '(wird in Paket 3 als WebUntis-Mitteilung versendet):',
+    'Der Termin um ' + String(b.slot_beginn).slice(0, 5) + ' Uhr muss leider entfallen.');
+  if (text === null) return;
+  try {
+    const d = await api('/api/buchungen/' + b.id
+      + '?nachricht=' + encodeURIComponent(text), { method: 'DELETE' });
+    await ladeLehrkraftBuchungen();
+    meldung('Termin abgesagt. Mitteilungsversand folgt in Paket 3 '
+      + '(Empfänger-ID ' + d.empfaenger_user_id + ').', 'ok');
+  } catch (f) { meldung(String(f.message), 'fehler'); }
+}
+
+// ============================================================
+// ANSICHT: Einladungen (Phase 1)
+// ============================================================
+function ansichtEinladungen(ziel) {
+  ziel.appendChild(el('h2', null, 'Einladungen für Phase 1'));
+  ziel.appendChild(el('p', 'hinweis',
+    'In Phase 1 können nur eingeladene Erziehungsberechtigte buchen. '
+    + 'Die Schüler-ID des Kindes steht in WebUntis; alternativ kann hier '
+    + 'auch direkt stellvertretend gebucht werden.'));
+  if (!sprechtagWaehler(ziel, () => ladeEinladungen())) return;
+
+  const form = el('div', 'zeile');
+  form.appendChild(feld('Schüler-ID', 'einl-schueler'));
+  form.appendChild(feld('Hinweis (optional)', 'einl-hinweis'));
+  ziel.appendChild(form);
+  ziel.appendChild(knopf('Einladung anlegen', null, async () => {
+    try {
+      await api('/api/einladungen', { method: 'POST', body: {
+        sprechtag_id: S.aktiverSprechtag.id,
+        schueler_id: parseInt(wert('einl-schueler'), 10),
+        hinweis: wert('einl-hinweis') } });
+      await ladeEinladungen();
+      meldung('Einladung angelegt.', 'ok');
+    } catch (f) { meldung(String(f.message), 'fehler'); }
+  }));
+
+  if (S.einladungen === null) {
+    ziel.appendChild(knopf('Einladungen laden', 'klein', () => ladeEinladungen()));
+    return;
+  }
+  if (S.einladungen.length === 0) {
+    ziel.appendChild(el('p', 'hinweis', 'Noch keine Einladungen angelegt.'));
+    return;
+  }
+
+  const tab = el('table', 'tabelle');
+  const kopf = el('tr');
+  for (const t of ['Schüler-ID', 'Hinweis', 'Status', '']) kopf.appendChild(el('th', null, t));
+  tab.appendChild(kopf);
+  for (const e of S.einladungen) {
+    const tr = el('tr');
+    tr.appendChild(el('td', null, String(e.schueler_id)));
+    tr.appendChild(el('td', null, e.hinweis || '–'));
+    tr.appendChild(el('td', null,
+      parseInt(e.erledigt, 10) === 1 ? 'Termin gebucht' : 'offen'));
+    const td = el('td');
+    td.appendChild(knopf('Löschen', 'klein gefahr', async () => {
+      try {
+        await api('/api/einladungen/' + e.id, { method: 'DELETE' });
+        await ladeEinladungen();
+      } catch (f) { meldung(String(f.message), 'fehler'); }
+    }));
+    tr.appendChild(td);
+    tab.appendChild(tr);
+  }
+  ziel.appendChild(tab);
+}
+
+async function ladeEinladungen() {
+  try {
+    const d = await api('/api/einladungen?sprechtag=' + S.aktiverSprechtag.id);
+    S.einladungen = d.einladungen || [];
+    meldung(null);
+  } catch (f) { meldung(String(f.message), 'fehler'); }
+}
+
+// ============================================================
+// ANSICHT: Administration
+// ============================================================
+function ansichtAdmin(ziel) {
+  ziel.appendChild(el('h2', null, 'Administration'));
+
+  // ---- Stammdaten-Sync -------------------------------------------------
+  const sync = el('details', 'block');
+  sync.appendChild(el('summary', null, 'Stammdaten aus WebUntis übernehmen'));
+  sync.appendChild(el('p', 'hinweis',
+    'Holt Lehrkräfte und Räume aus WebUntis. Zugangsdaten werden nur für '
+    + 'diesen Abruf verwendet und nicht gespeichert. Beim ersten Lauf bitte '
+    + 'prüfen, ob die Zahlen zum Kollegium passen.'));
+  const sf = el('div', 'zeile');
+  sf.appendChild(feld('WebUntis-Benutzername', 'sync-benutzer'));
+  sf.appendChild(feld('Passwort', 'sync-passwort', 'password'));
+  sync.appendChild(sf);
+  sync.appendChild(knopf('Synchronisieren', null, async () => {
+    meldung('Synchronisierung läuft …', 'info');
+    try {
+      const d = await api('/api/stammdaten/sync', { method: 'POST', body: {
+        benutzername: wert('sync-benutzer'), passwort: wert('sync-passwort') } });
+      await ladeStammdaten();
+      meldung('Übernommen: ' + d.lehrer + ' Lehrkräfte, ' + d.raeume + ' Räume.', 'ok');
+    } catch (f) { meldung(String(f.message), 'fehler'); }
+  }));
+  ziel.appendChild(sync);
+
+  // ---- Sprechtag anlegen ------------------------------------------------
+  const neu = el('details', 'block');
+  neu.appendChild(el('summary', null, 'Neuen Sprechtag anlegen'));
+  const nf = el('div');
+  nf.appendChild(feld('Bezeichnung', 'neu-name', 'text',
+    'Elternsprechtag ' + new Date().getFullYear()));
+  const z1 = el('div', 'zeile');
+  z1.appendChild(feld('Datum (JJJJ-MM-TT)', 'neu-datum'));
+  z1.appendChild(feld('Beginn', 'neu-beginn', 'text', '15:00'));
+  z1.appendChild(feld('Ende', 'neu-ende', 'text', '19:00'));
+  nf.appendChild(z1);
+  const z2 = el('div', 'zeile');
+  z2.appendChild(feld('Slotlänge (Minuten)', 'neu-slot', 'text', '10'));
+  z2.appendChild(feld('Max. Termine je Elternteil', 'neu-max', 'text', '6'));
+  nf.appendChild(z2);
+  const z3 = el('div', 'zeile');
+  z3.appendChild(feld('Pause nach x Terminen (0 = keine)', 'neu-pausen', 'text', '0'));
+  z3.appendChild(feld('Pausenlänge (Minuten)', 'neu-pausenlang', 'text', '10'));
+  nf.appendChild(z3);
+  neu.appendChild(nf);
+  neu.appendChild(knopf('Anlegen', null, async () => {
+    try {
+      await api('/api/sprechtage', { method: 'POST', body: {
+        name: wert('neu-name'), datum: wert('neu-datum'),
+        beginn: wert('neu-beginn'), ende: wert('neu-ende'),
+        slot_minuten: parseInt(wert('neu-slot'), 10) || 10,
+        max_termine_pro_eltern: parseInt(wert('neu-max'), 10) || 6,
+        pause_nach_terminen: parseInt(wert('neu-pausen'), 10) || 0,
+        pause_minuten: parseInt(wert('neu-pausenlang'), 10) || 10 } });
+      await ladeSprechtage();
+      meldung('Sprechtag angelegt.', 'ok');
+    } catch (f) { meldung(String(f.message), 'fehler'); }
+  }));
+  ziel.appendChild(neu);
+
+  // ---- Vorhandene Sprechtage --------------------------------------------
+  ziel.appendChild(el('h3', null, 'Sprechtage'));
+  if (S.sprechtage.length === 0) {
+    ziel.appendChild(el('p', 'hinweis', 'Noch kein Sprechtag angelegt.'));
+  }
+  for (const s of S.sprechtage) {
+    ziel.appendChild(sprechtagKarte(s));
+  }
+}
+
+function sprechtagKarte(s) {
+  const k = el('details', 'block');
+  const summe = el('summary', null,
+    s.name + ' – ' + s.datum + ' (' + phaseText(s.phase) + ')');
+  k.appendChild(summe);
+
+  // Parameter
+  const p = el('div');
+  const z1 = el('div', 'zeile');
+  z1.appendChild(feld('Bezeichnung', 'e-name-' + s.id, 'text', s.name));
+  z1.appendChild(feld('Datum', 'e-datum-' + s.id, 'text', s.datum));
+  p.appendChild(z1);
+  const z2 = el('div', 'zeile');
+  z2.appendChild(feld('Beginn', 'e-beginn-' + s.id, 'text', String(s.beginn).slice(0, 5)));
+  z2.appendChild(feld('Ende', 'e-ende-' + s.id, 'text', String(s.ende).slice(0, 5)));
+  z2.appendChild(feld('Slot (Min.)', 'e-slot-' + s.id, 'text', s.slot_minuten));
+  p.appendChild(z2);
+  const z3 = el('div', 'zeile');
+  z3.appendChild(feld('Max. Termine/Eltern', 'e-max-' + s.id, 'text',
+    s.max_termine_pro_eltern));
+  z3.appendChild(feld('Pause nach x', 'e-pausen-' + s.id, 'text', s.pause_nach_terminen));
+  z3.appendChild(feld('Pause (Min.)', 'e-pausenlang-' + s.id, 'text', s.pause_minuten));
+  p.appendChild(z3);
+  const z4 = el('div', 'zeile');
+  z4.appendChild(feld('Referenz von', 'e-refvon-' + s.id, 'text', s.referenz_von || ''));
+  z4.appendChild(feld('Referenz bis', 'e-refbis-' + s.id, 'text', s.referenz_bis || ''));
+  z4.appendChild(auswahl('Phase', 'e-phase-' + s.id, [
+    { wert: 'vorbereitung', text: 'in Vorbereitung' },
+    { wert: 'phase1', text: 'Phase 1 – nur auf Einladung' },
+    { wert: 'phase2', text: 'Phase 2 – offen für alle' },
+    { wert: 'geschlossen', text: 'geschlossen' },
+    { wert: 'archiviert', text: 'archiviert (löscht Buchungen!)' },
+  ], s.phase));
+  p.appendChild(z4);
+  k.appendChild(p);
+
+  const a = el('div', 'aktionen');
+  a.appendChild(knopf('Speichern', null, async () => {
+    const neuePhase = wert('e-phase-' + s.id);
+    if (neuePhase === 'archiviert' && s.phase !== 'archiviert') {
+      if (!confirm('Archivieren löscht alle Buchungen, Einladungen und die '
+        + 'Lehrkraft-Zuordnung dieses Sprechtags (Datenschutz). '
+        + 'Die Struktur (Lehrkräfte, Räume, Sonderrollen) bleibt erhalten. '
+        + 'Fortfahren?')) return;
+    }
+    try {
+      await api('/api/sprechtage/' + s.id, { method: 'PATCH', body: {
+        name: wert('e-name-' + s.id), datum: wert('e-datum-' + s.id),
+        beginn: wert('e-beginn-' + s.id), ende: wert('e-ende-' + s.id),
+        slot_minuten: parseInt(wert('e-slot-' + s.id), 10),
+        max_termine_pro_eltern: parseInt(wert('e-max-' + s.id), 10),
+        pause_nach_terminen: parseInt(wert('e-pausen-' + s.id), 10),
+        pause_minuten: parseInt(wert('e-pausenlang-' + s.id), 10),
+        referenz_von: wert('e-refvon-' + s.id) || null,
+        referenz_bis: wert('e-refbis-' + s.id) || null,
+        phase: neuePhase } });
+      await ladeSprechtage();
+      meldung('Gespeichert.', 'ok');
+    } catch (f) { meldung(String(f.message), 'fehler'); }
+  }));
+  a.appendChild(knopf('Kopieren', 'klein', async () => {
+    const datum = prompt('Datum des neuen Sprechtags (JJJJ-MM-TT):', s.datum);
+    if (!datum) return;
+    try {
+      await api('/api/sprechtage/' + s.id + '/kopieren', { method: 'POST',
+        body: { datum } });
+      await ladeSprechtage();
+      meldung('Kopie angelegt (ohne Buchungen).', 'ok');
+    } catch (f) { meldung(String(f.message), 'fehler'); }
+  }));
+  a.appendChild(knopf('Lehrkräfte & Räume', 'klein', () => oeffneLehrerVerwaltung(s)));
+  a.appendChild(knopf('Sonderlehrkräfte', 'klein', () => oeffneSonderlehrer(s)));
+  a.appendChild(knopf('Löschen', 'klein gefahr', async () => {
+    if (!confirm('Sprechtag "' + s.name + '" endgültig löschen?')) return;
+    try {
+      await api('/api/sprechtage/' + s.id, { method: 'DELETE' });
+      await ladeSprechtage();
+      meldung('Gelöscht.', 'ok');
+    } catch (f) { meldung(String(f.message), 'fehler'); }
+  }));
+  k.appendChild(a);
+
+  const detail = el('div', 'detail-bereich');
+  detail.id = 'detail-' + s.id;
+  k.appendChild(detail);
+  return k;
+}
+
+// ---- Lehrkräfte: Teilnahme, Zeitfenster, Räume ---------------------------
+async function oeffneLehrerVerwaltung(s) {
+  const ziel = $('#detail-' + s.id);
+  if (!ziel) return;
+  ziel.textContent = '';
+  if (S.stammdaten.raeume.length === 0) await ladeStammdaten();
+
+  let daten;
+  try {
+    daten = await api('/api/sprechtage/' + s.id + '/lehrer');
+  } catch (f) { meldung(String(f.message), 'fehler'); return; }
+
+  let konflikte = {};
+  try {
+    konflikte = (await api('/api/sprechtage/' + s.id + '/raumkonflikte')).konflikte || {};
+  } catch { }
+
+  ziel.appendChild(el('h4', null, 'Lehrkräfte, Anwesenheit und Räume'));
+  ziel.appendChild(el('p', 'hinweis',
+    'Anwesenheitszeiten leer lassen = ganzer Zeitraum. Doppelt belegte Räume '
+    + 'sind zulässig, werden aber farblich markiert.'));
+
+  const tab = el('table', 'tabelle');
+  const kopf = el('tr');
+  for (const t of ['Kürzel', 'Name', 'dabei', 'von', 'bis', 'Raum', '']) {
+    kopf.appendChild(el('th', null, t));
+  }
+  tab.appendChild(kopf);
+
+  for (const l of daten.lehrer) {
+    const tr = el('tr');
+    tr.appendChild(el('td', null, l.kuerzel));
+    tr.appendChild(el('td', null, l.name || ''));
+
+    const tdD = el('td');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.id = 'tn-' + s.id + '-' + l.lehrer_id;
+    cb.checked = l.zuweisung_id === null ? false : parseInt(l.teilnahme, 10) === 1;
+    tdD.appendChild(cb);
+    tr.appendChild(tdD);
+
+    const mkZeit = (id, w) => {
+      const td = el('td');
+      const i = document.createElement('input');
+      i.type = 'text'; i.id = id; i.className = 'zeit-feld';
+      i.value = w ? String(w).slice(0, 5) : '';
+      i.placeholder = '--:--';
+      td.appendChild(i);
+      return td;
     };
+    tr.appendChild(mkZeit('von-' + s.id + '-' + l.lehrer_id, l.anwesend_von));
+    tr.appendChild(mkZeit('bis-' + s.id + '-' + l.lehrer_id, l.anwesend_bis));
 
-    const knopf  = $('#starten');
-    const status = $('#status');
-    knopf.disabled = true;
-    status.className = '';
-    status.textContent = 'Sondierung läuft – je nach Probengruppen bis ~1 Minute …';
+    const tdR = el('td');
+    const sel = document.createElement('select');
+    sel.id = 'raum-' + s.id + '-' + l.lehrer_id;
+    const leer = document.createElement('option');
+    leer.value = ''; leer.textContent = '– kein Raum –';
+    sel.appendChild(leer);
+    for (const r of S.stammdaten.raeume) {
+      const o = document.createElement('option');
+      o.value = r.id;
+      o.textContent = r.kuerzel + (konflikte[r.id] ? ' (' + konflikte[r.id] + '×)' : '');
+      if (String(r.id) === String(l.raum_id)) o.selected = true;
+      sel.appendChild(o);
+    }
+    if (l.raum_id && konflikte[l.raum_id]) sel.classList.add('konflikt');
+    tdR.appendChild(sel);
+    tr.appendChild(tdR);
 
+    const tdA = el('td');
+    tdA.appendChild(knopf('Speichern', 'klein', async () => {
+      try {
+        await api('/api/sprechtage/' + s.id + '/lehrer/' + l.lehrer_id,
+          { method: 'PATCH', body: {
+            teilnahme: cb.checked ? 1 : 0,
+            anwesend_von: wert('von-' + s.id + '-' + l.lehrer_id),
+            anwesend_bis: wert('bis-' + s.id + '-' + l.lehrer_id),
+            raum_id: wert('raum-' + s.id + '-' + l.lehrer_id) } });
+        meldung('Gespeichert: ' + l.kuerzel, 'ok');
+        oeffneLehrerVerwaltung(s);
+      } catch (f) { meldung(String(f.message), 'fehler'); }
+    }));
+    tr.appendChild(tdA);
+    tab.appendChild(tr);
+  }
+  ziel.appendChild(tab);
+}
+
+// ---- Sonderlehrkräfte ----------------------------------------------------
+async function oeffneSonderlehrer(s) {
+  const ziel = $('#detail-' + s.id);
+  if (!ziel) return;
+  ziel.textContent = '';
+  if (S.stammdaten.lehrer.length === 0) await ladeStammdaten();
+
+  ziel.appendChild(el('h4', null, 'Zusätzlich buchbare Lehrkräfte'));
+  ziel.appendChild(el('p', 'hinweis',
+    'Diese Lehrkräfte können unabhängig davon gebucht werden, ob sie das Kind '
+    + 'unterrichten. Jahrgänge leer lassen = für alle buchbar; sonst z. B. "EF, Q1, Q2".'));
+
+  const z = el('div', 'zeile');
+  z.appendChild(auswahl('Lehrkraft', 'sl-lehrer',
+    S.stammdaten.lehrer.map((l) => ({ wert: l.id,
+      text: l.kuerzel + (l.name ? ' – ' + l.name : '') })), ''));
+  z.appendChild(auswahl('Rolle', 'sl-rolle',
+    S.stammdaten.sonderrollen.map((r) => ({ wert: r.id, text: r.bezeichnung })), ''));
+  z.appendChild(feld('Jahrgänge (optional)', 'sl-jahrgaenge'));
+  ziel.appendChild(z);
+  ziel.appendChild(knopf('Hinzufügen', null, async () => {
     try {
-      const antwort = await fetch('/api/sondierung', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const daten = await antwort.json().catch(() => null);
-      if (!antwort.ok || !daten || !daten.bericht) {
-        throw new Error((daten && daten.fehler) || ('HTTP ' + antwort.status));
-      }
-      letzterBericht = daten.bericht;
-      status.className = 'ok';
-      status.textContent = 'Fertig.';
-      berichtAnzeigen(daten.bericht);
-    } catch (fehler) {
-      status.className = 'fehler';
-      status.textContent = String(fehler.message || fehler);
-    } finally {
-      knopf.disabled = false;
-      $('#passwort').value = '';   // Passwort nie stehen lassen
-    }
-  });
+      await api('/api/sonderlehrer', { method: 'POST', body: {
+        sprechtag_id: s.id,
+        lehrer_id: parseInt(wert('sl-lehrer'), 10),
+        rolle_id: parseInt(wert('sl-rolle'), 10),
+        jahrgaenge: wert('sl-jahrgaenge') } });
+      oeffneSonderlehrer(s);
+      meldung('Hinzugefügt.', 'ok');
+    } catch (f) { meldung(String(f.message), 'fehler'); }
+  }));
 
-  // ---------- Bericht rendern ----------------------------------------------
-  function berichtAnzeigen(b) {
-    const ziel = $('#bericht');
-    ziel.textContent = '';
-    $('#bericht-karte').classList.remove('versteckt');
+  let liste = [];
+  try {
+    liste = (await api('/api/sonderlehrer?sprechtag=' + s.id)).sonderlehrer || [];
+  } catch (f) { meldung(String(f.message), 'fehler'); }
 
-    // authenticate-Befund prominent
-    if (b.authenticate) {
-      const a = b.authenticate;
-      const box = el('div', 'probe ' + (a.personType != null ? 'ok' : 'fehlt'));
-      box.appendChild(el('h4', null, 'authenticate (JSON-RPC)'));
-      box.appendChild(absatz(
-        'personType: ' + a.personType + ' → ' + a.rolle_bekannt +
-        ' · personId: ' + a.personId +
-        (a.klasseId != null ? ' · klasseId: ' + a.klasseId : '')
-      ));
-      box.appendChild(vorformatiert('Felder: ' + (a.alle_schluessel || []).join(', ')));
-      ziel.appendChild(box);
-    }
-
-    if (b.rest_zugang) {
-      const box = el('div', 'probe ' + (b.rest_zugang.jwt ? 'ok' : 'fehlt'));
-      box.appendChild(el('h4', null, 'REST-Zugang (/api/token/new)'));
-      box.appendChild(absatz(b.rest_zugang.jwt
-        ? 'JWT erhalten – interne REST-API erreichbar.'
-        : 'KEIN JWT – ' + (b.rest_zugang.hinweis || '')));
-      ziel.appendChild(box);
-    }
-
-    if (b.app_data) probeAnzeigen(ziel, 'app/data (Basis)', b.app_data);
-
-    for (const gruppe of ['sprechtag', 'stundenplan', 'mitteilungen', 'eigene_pfade']) {
-      if (!Array.isArray(b[gruppe])) continue;
-      ziel.appendChild(el('h3', null, ueberschrift(gruppe)));
-      for (const probe of b[gruppe]) probeAnzeigen(ziel, probe.pfad, probe);
-    }
+  if (liste.length === 0) {
+    ziel.appendChild(el('p', 'hinweis', 'Noch keine zusätzlichen Lehrkräfte.'));
+    return;
   }
-
-  function probeAnzeigen(ziel, titel, p) {
-    const status = p.uebersprungen ? -1 : (p.status || 0);
-    // 405 bei Mitteilungen = Endpunkt existiert, will POST -> positiv werten
-    const klasse = p.uebersprungen ? 'warn'
-      : (status >= 200 && status < 300) || status === 405 ? 'ok'
-      : status === 403 || status === 401 ? 'warn' : 'fehlt';
-
-    const box = el('div', 'probe ' + klasse);
-    box.appendChild(el('h4', null, titel));
-
-    if (p.uebersprungen) {
-      box.appendChild(absatz('Übersprungen: ' + p.uebersprungen));
-      ziel.appendChild(box);
-      return;
-    }
-
-    const st = el('span', 'st', 'HTTP ' + status);
-    const zeile = el('p');
-    zeile.appendChild(st);
-    if (p.query) zeile.appendChild(document.createTextNode(
-      '  ·  Query: ' + JSON.stringify(p.query)));
-    box.appendChild(zeile);
-
-    if (p.json_schluessel && p.json_schluessel.length) {
-      box.appendChild(absatz('JSON-Schlüssel: ' + p.json_schluessel.join(', ')));
-    }
-    if (p.fehler_details) {
-      box.appendChild(vorformatiert(JSON.stringify(p.fehler_details, null, 2)));
-    }
-    if (p.lehrer_gefunden) {
-      const treffer = el('div', 'treffer');
-      treffer.appendChild(absatz(p.lehrer_gefunden.length
-        ? '🧑‍🏫 Lehrkräfte im Zeitraum: ' + p.lehrer_gefunden.join(', ')
-        : '🧑‍🏫 Antwort ok, aber keine TEACHER-Elemente im Zeitraum – anderen Zeitraum (normale Schulwoche) wählen.'));
-      box.appendChild(treffer);
-    }
-    if (p.kind_strukturen && p.kind_strukturen.length) {
-      for (const f of p.kind_strukturen) {
-        const treffer = el('div', 'treffer');
-        treffer.appendChild(absatz(
-          '👪 Kind-/Personen-Struktur: ' + f.pfad + ' (Anzahl: ' + f.anzahl +
-          (f.ids && f.ids.length ? ', IDs: ' + f.ids.join(', ') : '') + ')'
-        ));
-        if (f.schluessel_erstes && f.schluessel_erstes.length) {
-          treffer.appendChild(absatz('Felder: ' + f.schluessel_erstes.join(', ')));
-        }
-        box.appendChild(treffer);
-      }
-    }
-    if (p.roh_auszug) {
-      const details = document.createElement('details');
-      details.appendChild(el('summary', null, 'Roh-Auszug'));
-      details.appendChild(vorformatiert(p.roh_auszug));
-      box.appendChild(details);
-    }
-    ziel.appendChild(box);
+  const tab = el('table', 'tabelle');
+  const kopf = el('tr');
+  for (const t of ['Kürzel', 'Name', 'Rolle', 'Jahrgänge', '']) kopf.appendChild(el('th', null, t));
+  tab.appendChild(kopf);
+  for (const e of liste) {
+    const tr = el('tr');
+    tr.appendChild(el('td', null, e.kuerzel));
+    tr.appendChild(el('td', null, e.name || ''));
+    tr.appendChild(el('td', null, e.rolle));
+    tr.appendChild(el('td', null, e.jahrgaenge || 'alle'));
+    const td = el('td');
+    td.appendChild(knopf('Entfernen', 'klein gefahr', async () => {
+      try {
+        await api('/api/sonderlehrer/' + e.id, { method: 'DELETE' });
+        oeffneSonderlehrer(s);
+      } catch (f) { meldung(String(f.message), 'fehler'); }
+    }));
+    tr.appendChild(td);
+    tab.appendChild(tr);
   }
+  ziel.appendChild(tab);
+}
 
-  // ---------- Markdown-Export ----------------------------------------------
-  $('#kopieren').addEventListener('click', async () => {
-    if (!letzterBericht) return;
-    const md = alsMarkdown(letzterBericht);
+// ============================================================
+// ANSICHT: Sondierung (Werkzeug aus Paket 1)
+// ============================================================
+function ansichtSondierung(ziel) {
+  ziel.appendChild(el('h2', null, 'WebUntis-Sondierung'));
+  ziel.appendChild(el('p', 'hinweis',
+    'Diagnosewerkzeug: klopft die WebUntis-Instanz mit einem beliebigen Konto '
+    + 'ab (nur lesend). Nach Abschluss der Einrichtung in der config.php '
+    + 'abschalten (sondierung_freigeschaltet = false).'));
+
+  const f = el('div');
+  const z1 = el('div', 'zeile');
+  z1.appendChild(feld('Benutzername', 'so-benutzer'));
+  z1.appendChild(feld('Passwort', 'so-passwort', 'password'));
+  f.appendChild(z1);
+  const z2 = el('div', 'zeile');
+  z2.appendChild(feld('Zeitraum von (JJJJ-MM-TT)', 'so-von'));
+  z2.appendChild(feld('Zeitraum bis', 'so-bis'));
+  z2.appendChild(feld('Schüler-ID (optional)', 'so-schueler'));
+  f.appendChild(z2);
+  ziel.appendChild(f);
+
+  const gruppen = el('div', 'gruppen-zeile');
+  for (const [w, t] of [['basis', 'Basis'], ['sprechtag', 'Sprechtag-Endpunkte'],
+      ['stundenplan', 'Stundenplan'], ['mitteilungen', 'Mitteilungen']]) {
+    const l = el('label', 'inline');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.value = w; cb.className = 'so-gruppe';
+    if (w === 'basis' || w === 'stundenplan') cb.checked = true;
+    l.appendChild(cb);
+    l.appendChild(document.createTextNode(' ' + t));
+    gruppen.appendChild(l);
+  }
+  ziel.appendChild(gruppen);
+
+  const ausgabe = el('pre', 'sondierung-ausgabe');
+  ziel.appendChild(knopf('Sondierung starten', null, async () => {
+    meldung('Sondierung läuft …', 'info');
+    const gew = Array.from(document.querySelectorAll('.so-gruppe:checked'))
+      .map((e) => e.value);
     try {
-      await navigator.clipboard.writeText(md);
-      $('#kopier-status').textContent = 'Kopiert – bitte in den Chat einfügen.';
-    } catch (fehler) {
-      $('#kopier-status').textContent = 'Kopieren fehlgeschlagen: ' + fehler;
-    }
-  });
+      const d = await api('/api/sondierung', { method: 'POST', body: {
+        benutzername: wert('so-benutzer'), passwort: wert('so-passwort'),
+        gruppen: gew, von: wert('so-von'), bis: wert('so-bis'),
+        schueler_id: wert('so-schueler') } });
+      ausgabe.textContent = JSON.stringify(d.bericht, null, 2);
+      meldung('Sondierung abgeschlossen.', 'ok');
+    } catch (f2) { meldung(String(f2.message), 'fehler'); }
+  }));
+  ziel.appendChild(ausgabe);
+}
 
-  function alsMarkdown(b) {
-    const zeilen = [
-      '# Sondierungsbericht sprechtag',
-      '',
-      '- Instanz: ' + b.instanz + ' (' + b.schule + ')',
-      '- Zeit: ' + b.zeit,
-      '- Gruppen: ' + (b.gruppen || []).join(', '),
-      '- ' + (b.hinweis || ''),
-      '',
-    ];
-    if (b.authenticate) {
-      zeilen.push('## authenticate', '```json',
-        JSON.stringify(b.authenticate, null, 2), '```', '');
-    }
-    if (b.rest_zugang) {
-      zeilen.push('## REST-Zugang: JWT ' +
-        (b.rest_zugang.jwt ? 'erhalten' : 'FEHLT'), '');
-    }
-    if (b.app_data) {
-      zeilen.push('## app/data', '```json',
-        JSON.stringify(b.app_data, null, 2), '```', '');
-    }
-    for (const gruppe of ['sprechtag', 'stundenplan', 'mitteilungen', 'eigene_pfade']) {
-      if (!Array.isArray(b[gruppe])) continue;
-      zeilen.push('## ' + ueberschrift(gruppe), '');
-      for (const p of b[gruppe]) {
-        zeilen.push('### `' + (p.pfad || '?') + '`', '```json',
-          JSON.stringify(p, null, 2), '```', '');
-      }
-    }
-    return zeilen.join('\n');
-  }
-
-  // ---------- kleine Helfer -------------------------------------------------
-  function ueberschrift(gruppe) {
-    return {
-      sprechtag:    'Sprechtag-Endpunkte',
-      stundenplan:  'Stundenplan-Proben',
-      mitteilungen: 'Mitteilungs-Endpunkte (nur GET)',
-      eigene_pfade: 'Eigene Zusatzpfade',
-    }[gruppe] || gruppe;
-  }
-  function el(tag, klasse, text) {
-    const e = document.createElement(tag);
-    if (klasse) e.className = klasse;
-    if (text != null) e.textContent = text;
-    return e;
-  }
-  function absatz(text) { return el('p', null, text); }
-  function vorformatiert(text) { return el('pre', null, text); }
+start();
 
 })();
