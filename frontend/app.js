@@ -29,6 +29,7 @@ const S = {
   meineBuchungen: [],
   einladungen: [],
   mitteilungen: null,
+  dienstkonto: null,   // Status des hinterlegten Dienstkontos
   meldung: null,
   offeneBloecke: {},   // merkt aufgeklappte <details> über Neuzeichnen hinweg
   sondierung: {        // Eingaben und Ergebnis überleben das Neuzeichnen
@@ -596,6 +597,78 @@ async function ladeEinladungen() {
 // ============================================================
 function ansichtAdmin(ziel) {
   ziel.appendChild(el('h2', null, 'Administration'));
+
+  // ---- Dienstkonto ------------------------------------------------------
+  const dk = block('dienstkonto', 'Dienstkonto für die Lehrkraft-Ermittlung');
+  dk.appendChild(el('p', 'hinweis',
+    'Damit Eltern beim Buchen sofort ihre Lehrkräfte sehen, ermittelt das '
+    + 'System sie im Hintergrund aus dem Stundenplan. Dafür wird ein '
+    + 'WebUntis-Konto mit Leserecht auf Schülerstundenpläne benötigt. '
+    + 'Die Zugangsdaten werden verschlüsselt gespeichert.'));
+  dk.appendChild(el('p', 'hinweis-wichtig',
+    'Bitte möglichst ein eigenes Dienstkonto mit minimalen Rechten verwenden, '
+    + 'nicht das persönliche Konto. Wer Zugriff auf Server und Datenbank hat, '
+    + 'kann die Zugangsdaten entschlüsseln – das lässt sich nicht vermeiden, '
+    + 'weil der Server sie im Klartext zum Anmelden braucht.'));
+  const dkStatus = el('div', 'dk-status');
+  dk.appendChild(dkStatus);
+  const dkZeile = el('div', 'zeile');
+  dkZeile.appendChild(feld('WebUntis-Benutzername', 'dk-benutzer'));
+  dkZeile.appendChild(feld('Passwort', 'dk-passwort', 'password'));
+  dk.appendChild(dkZeile);
+  const dkAktionen = el('div', 'aktionen');
+  dkAktionen.appendChild(knopf('Speichern und prüfen', null, async () => {
+    const daten = { benutzername: wert('dk-benutzer'), passwort: wert('dk-passwort') };
+    if (daten.benutzername === '' || daten.passwort === '') {
+      meldung('Bitte Benutzername und Passwort eingeben.', 'fehler');
+      return;
+    }
+    meldung('Zugangsdaten werden gespeichert …', 'info');
+    try {
+      const d = await api('/api/dienstkonto', { method: 'POST', body: daten });
+      S.dienstkonto = d;
+      meldung(d.grund + (d.entschluesselbar
+        ? ' Verschlüsselung funktioniert.'
+        : ' ACHTUNG: Entschlüsselung schlug fehl – Schlüssel prüfen.'),
+        d.entschluesselbar ? 'ok' : 'fehler');
+    } catch (f) { meldung(String(f.message), 'fehler'); }
+  }));
+  dkAktionen.appendChild(knopf('Entfernen', 'klein gefahr', async () => {
+    if (!confirm('Zugangsdaten des Dienstkontos löschen? Die Lehrkraft-'
+      + 'Ermittlung läuft danach nicht mehr automatisch.')) return;
+    try {
+      await api('/api/dienstkonto', { method: 'DELETE' });
+      S.dienstkonto = null;
+      meldung('Dienstkonto entfernt.', 'ok');
+    } catch (f) { meldung(String(f.message), 'fehler'); }
+  }));
+  dk.appendChild(dkAktionen);
+  ziel.appendChild(dk);
+
+  // Status anzeigen (aus dem Zustand, sonst nachladen)
+  if (S.dienstkonto === null) {
+    dkStatus.appendChild(el('p', 'hinweis', 'Status wird geladen …'));
+    api('/api/dienstkonto').then((d) => { S.dienstkonto = d; zeichne(); })
+      .catch(() => { S.dienstkonto = { hinterlegt: false, schluessel_ok: false }; });
+  } else {
+    const d = S.dienstkonto;
+    if (!d.schluessel_ok) {
+      dkStatus.appendChild(el('p', 'meldung fehler',
+        'Kein Verschlüsselungsschlüssel in config.php hinterlegt '
+        + '(dienstkonto_schluessel, mindestens 32 Zeichen). Solange er fehlt, '
+        + 'können keine Zugangsdaten gespeichert werden.'));
+    } else if (d.hinterlegt) {
+      dkStatus.appendChild(el('p', 'meldung ok',
+        'Dienstkonto hinterlegt: ' + d.benutzer
+        + ' · Verfahren: ' + d.verfahren
+        + (d.entschluesselbar ? ' · entschlüsselbar'
+                              : ' · NICHT entschlüsselbar (Schlüssel geändert?)')));
+    } else {
+      dkStatus.appendChild(el('p', 'hinweis',
+        'Noch kein Dienstkonto hinterlegt. Ohne eines müssen Eltern beim '
+        + 'ersten Besuch selbst ermitteln lassen.'));
+    }
+  }
 
   // ---- Stammdaten-Sync -------------------------------------------------
   const sync = block('sync', 'Stammdaten aus WebUntis übernehmen');

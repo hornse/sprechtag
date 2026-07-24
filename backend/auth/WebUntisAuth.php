@@ -50,8 +50,36 @@ class WebUntisAuth
     public function getSubjects(): array { return $this->rpc('getSubjects'); }
     public function getRooms(): array    { return $this->rpc('getRooms'); }
 
-    /** Alle Klassen des aktuellen Schuljahres (Ergänzung v1.4.0). */
-    public function getKlassen(): array { return $this->rpc('getKlassen'); }
+    /**
+     * Alle Klassen (Ergänzung v1.4.0, Parameter ab v1.5.0).
+     *
+     * WICHTIG: Ohne Parameter bezieht sich der Aufruf auf das AKTUELLE
+     * Schuljahr. Zwischen zwei Schuljahren (Sommerferien) gibt es keines –
+     * WebUntis antwortet dann mit Fehler -8998 ("schoolyear is null").
+     * In dem Fall eine schoolyearId aus getSchoolyears() übergeben.
+     */
+    public function getKlassen(?int $schoolyearId = null): array
+    {
+        return $this->rpc('getKlassen',
+            $schoolyearId === null ? [] : ['schoolyearId' => $schoolyearId]);
+    }
+
+    /** Alle Schuljahre mit id, name, startDate, endDate (Ergänzung v1.5.0). */
+    public function getSchoolyears(): array { return $this->rpc('getSchoolYears'); }
+
+    /**
+     * Aktuelles Schuljahr oder [] in den Ferien (Ergänzung v1.5.0).
+     * Fängt den Fehler -8998 ab und liefert dann ein leeres Array.
+     */
+    public function getCurrentSchoolyear(): array
+    {
+        try {
+            $r = $this->rpc('getCurrentSchoolyear');
+            return is_array($r) ? $r : [];
+        } catch (RuntimeException $e) {
+            return [];
+        }
+    }
 
     /**
      * Alle Schüler:innen (Ergänzung v1.4.0).

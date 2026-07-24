@@ -32,6 +32,13 @@ return [
         'lockout_minutes'   => 15,
     ],
 
+    // Schlüssel für die verschlüsselte Ablage der Dienstkonto-Zugangsdaten.
+    // Mindestens 32 zufällige Zeichen, z. B. erzeugen mit:
+    //   php -r 'echo bin2hex(random_bytes(24)), PHP_EOL;'
+    // Wird der Schlüssel geändert, müssen die Zugangsdaten neu eingetragen
+    // werden. Ohne Schlüssel ist kein Dienstkonto speicherbar.
+    'dienstkonto_schluessel' => 'HIER_32_ZUFAELLIGE_ZEICHEN_EINTRAGEN',
+
     // Das Sondierwerkzeug nach Abschluss der Sondierung abschalten!
     'sondierung_freigeschaltet' => true,
 

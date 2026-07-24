@@ -13,6 +13,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/dienstkonto.php';
+
 /** Lädt einen Sprechtag oder bricht ab. */
 function bu_sprechtag(PDO $pdo, int $id): array
 {
@@ -72,6 +74,45 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'buchbare-lehrer') {
     }
     bu_sprechtag($pdo, $sid);
 
+    // Cache leer? Dann einmalig mit dem Dienstkonto ermitteln.
+    // Das passiert genau einmal je Kind und Sprechtag und dauert
+    // ein bis zwei Sekunden; danach kommt alles aus der Datenbank.
+    $st = $pdo->prepare('SELECT COUNT(*) FROM kind_lehrer_cache
+                         WHERE sprechtag_id = ? AND schueler_id = ?');
+    $st->execute([$sid, $kind]);
+    $ermittelt = null;
+    if ((int)$st->fetchColumn() === 0) {
+        $zugang = dk_lesen($cfg, $pdo);
+        if ($zugang !== null) {
+            $stS = $pdo->prepare('SELECT datum, referenz_von, referenz_bis
+                                  FROM sprechtage WHERE id = ?');
+            $stS->execute([$sid]);
+            $sp = $stS->fetch() ?: [];
+            $ref = (!empty($sp['referenz_von']) && !empty($sp['referenz_bis']))
+                ? ['von' => $sp['referenz_von'], 'bis' => $sp['referenz_bis']]
+                : wu_referenzzeitraum((string)($sp['datum'] ?? date('Y-m-d')));
+
+            $wcfg = $cfg['webuntis'];
+            $wu = new WebUntisAuth($wcfg['base_url'], $wcfg['school'], $wcfg['client']);
+            try {
+                $wu->authenticate($zugang['benutzer'], $zugang['passwort']);
+                $rest = new WebUntisRest($wcfg['base_url'], $wcfg['school']);
+                $rest->mitSessionCookie((string)$wu->sessionCookie());
+                $rest->setzeTimeout(20);
+                if ($rest->tokenHolen()) {
+                    $rest->tenantErmitteln();
+                    $ermittelt = wu_kind_lehrer_ermitteln($cfg, $pdo, $rest,
+                        $sid, $kind, (string)$ref['von'], (string)$ref['bis']);
+                }
+            } catch (Throwable $e) {
+                // Ermittlung darf die Ansicht nicht scheitern lassen
+                error_log('sprechtag: Auto-Ermittlung fehlgeschlagen: ' . $e->getMessage());
+            } finally {
+                $wu->logout();
+            }
+        }
+    }
+
     // Unterrichtende Lehrkräfte (nach Stundenzahl sortiert = Hauptfächer zuerst)
     $st = $pdo->prepare(
         'SELECT l.id AS lehrer_id, l.kuerzel, l.name, c.faecher, c.stunden,
@@ -112,12 +153,17 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'buchbare-lehrer') {
         $sonder[] = $z;
     }
 
-    json_ok(['unterrichtend' => $lehrer, 'sonderlehrer' => $sonder]);
+    json_ok(['unterrichtend' => $lehrer, 'sonderlehrer' => $sonder,
+             'automatisch_ermittelt' => $ermittelt]);
 }
 
 // ============================================================
-// POST /api/lehrer-ermitteln  {sprechtag_id, kind_id, benutzername, passwort}
+// POST /api/lehrer-ermitteln  {sprechtag_id, kind_id[, benutzername, passwort]}
 // Füllt kind_lehrer_cache über den Referenzzeitraum.
+//
+// Zugangsdaten: Ohne Angabe wird das hinterlegte Dienstkonto genutzt
+// (verschlüsselt in `einstellungen`). Nur wenn keines hinterlegt ist,
+// müssen Zugangsdaten mitgeschickt werden.
 // ============================================================
 if ($methode === 'POST' && ($seg[0] ?? '') === 'lehrer-ermitteln') {
     $u   = auth_require();
@@ -133,11 +179,24 @@ if ($methode === 'POST' && ($seg[0] ?? '') === 'lehrer-ermitteln') {
         ? ['von' => $s['referenz_von'], 'bis' => $s['referenz_bis']]
         : wu_referenzzeitraum((string)$s['datum']);
 
+    // Zugangsdaten: übergeben > Dienstkonto
+    $zugang = null;
+    if (($body['benutzername'] ?? '') !== '' && ($body['passwort'] ?? '') !== '') {
+        $zugang = ['benutzer' => (string)$body['benutzername'],
+                   'passwort' => (string)$body['passwort']];
+    } else {
+        $zugang = dk_lesen($cfg, $pdo);
+    }
+    if ($zugang === null) {
+        json_err('Kein Dienstkonto hinterlegt. Die Administration kann es '
+            . 'unter „Administration → Dienstkonto" eintragen.', 409);
+    }
+
     // Eine frische WebUntis-Session ist nötig (Cookie lebt nicht in der PHP-Session)
     $wcfg = $cfg['webuntis'];
     $wu = new WebUntisAuth($wcfg['base_url'], $wcfg['school'], $wcfg['client']);
     try {
-        $wu->authenticate(req($body, 'benutzername'), req($body, 'passwort'));
+        $wu->authenticate($zugang['benutzer'], $zugang['passwort']);
         $rest = new WebUntisRest($wcfg['base_url'], $wcfg['school']);
         $rest->mitSessionCookie((string)$wu->sessionCookie());
         $rest->setzeTimeout(20);

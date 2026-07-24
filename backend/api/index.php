@@ -33,6 +33,7 @@ require_once __DIR__ . '/slots.php';
 require_once __DIR__ . '/webuntis_adapter.php';
 require_once __DIR__ . '/sondierung.php';
 require_once __DIR__ . '/mitteilungen.php';
+require_once __DIR__ . '/dienstkonto.php';
 
 $methode = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $pfad    = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
@@ -44,7 +45,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.4.4', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.5.0', 'db' => $db]);
 }
 
 // ============================================================
@@ -471,6 +472,30 @@ if (($seg[0] ?? '') === 'mitteilungen') {
     if ($methode === 'DELETE' && isset($seg[1]) && ctype_digit($seg[1])) {
         $pdo->prepare("UPDATE mitteilungen SET status = 'verworfen' WHERE id = ?")
             ->execute([(int)$seg[1]]);
+        json_ok(['ok' => true]);
+    }
+}
+
+// ============================================================
+// DIENSTKONTO (verschlüsselt gespeicherte Zugangsdaten)
+//   GET    /api/dienstkonto          Status (nie das Passwort!)
+//   POST   /api/dienstkonto          {benutzername, passwort}
+//   DELETE /api/dienstkonto          entfernen
+// ============================================================
+if (($seg[0] ?? '') === 'dienstkonto') {
+    auth_require_admin();
+    $pdo = db($cfg);
+
+    if ($methode === 'GET') {
+        json_ok(dk_status($cfg, $pdo));
+    }
+    if ($methode === 'POST') {
+        $e = dk_speichern($cfg, $pdo, req($body, 'benutzername'), req($body, 'passwort'));
+        if (!$e['ok']) json_err($e['grund'], 409);
+        json_ok(['ok' => true, 'grund' => $e['grund']] + dk_status($cfg, $pdo));
+    }
+    if ($methode === 'DELETE') {
+        dk_loeschen($pdo);
         json_ok(['ok' => true]);
     }
 }

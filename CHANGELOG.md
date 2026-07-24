@@ -1,5 +1,50 @@
 # Changelog – sprechtag
 
+## v0.5.0 (Juli 2026) – Dienstkonto und automatische Lehrkraft-Ermittlung
+
+### Neu
+- **Verschlüsselte Dienstkonto-Ablage** (`backend/api/dienstkonto.php`):
+  Zugangsdaten eines WebUntis-Kontos mit Leserecht auf Schülerstundenpläne
+  werden mit libsodium (ersatzweise OpenSSL AES-256-GCM) verschlüsselt in
+  `einstellungen` gespeichert. Der Schlüssel steht in `config.php`, also
+  nicht in der Datenbank. Verwaltung über Administration → „Dienstkonto".
+- **Automatische Ermittlung bei Bedarf**: Öffnen Eltern die Buchungsseite
+  und ist der Cache für dieses Kind leer, ermittelt das System die
+  Lehrkräfte im Hintergrund mit dem Dienstkonto – einmal je Kind und
+  Sprechtag. Schlägt das fehl, bleibt die Ansicht bedienbar.
+- `POST /api/lehrer-ermitteln` nutzt das Dienstkonto, wenn keine
+  Zugangsdaten übergeben werden.
+- Neue API-Routen: `GET/POST/DELETE /api/dienstkonto` (der Status gibt
+  niemals das Passwort preis, nur Benutzername und Verfahren).
+
+### Sondierung erweitert
+- `getSchoolyears()` und `getCurrentSchoolyear()` im Client ergänzt;
+  `getKlassen()` nimmt jetzt optional eine `schoolyearId`.
+- Die Stammdaten-Sondierung probiert `getKlassen` bei Fehlschlag erneut
+  mit expliziter Schuljahres-ID und prüft anschließend, ob ein
+  Klassenstundenplan die Lehrkräfte liefert (Grundlage für die spätere
+  Sammelvorbereitung).
+
+### Befunde der Sondierung vom 24.07.2026
+- In den Sommerferien ist **kein Schuljahr aktiv**; `getKlassen()` scheitert
+  dann mit Fehler -8998. Die Sammelvorbereitung über Klassenstundenpläne
+  ist deshalb erst nach Beginn des neuen Schuljahres testbar.
+- `getStudents()` liefert 3563 Einträge, aber **keine Klassenzuordnung**
+  (nur id, key, name, foreName, longName, gender) – eine Vorauswahl der
+  Oberstufe ist damit nicht möglich.
+- Kein Gruppenfeld für „SuS über 18" in der API sichtbar.
+
+### Behoben
+- `sondierung.php` nutzte `rest_lehrkraefte_aus_entries()`, ohne
+  `extractors.php` einzubinden – wäre zur Laufzeit gescheitert.
+
+### Tests
+- `tests/run_dienstkonto.php` (12 Prüfungen): Verschlüsselung, Nonce-
+  Variation, UTF-8, falscher Schlüssel, manipulierte Chiffre.
+- `tests/run_dienstkonto_db.php` (14 Prüfungen): Speichern, Lesen, Status
+  ohne Passwortpreisgabe, Schlüsselwechsel, Löschen.
+
+
 ## v0.4.4 (Juli 2026) – Seite blieb nach v0.4.3 komplett leer
 
 ### Behoben

@@ -21,6 +21,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../auth/WebUntisAuth.php';
 require_once __DIR__ . '/../auth/WebUntisRest.php';
+require_once __DIR__ . '/../auth/extractors.php';
 
 /** Kandidaten-Endpunkte je Probengruppe. {SCHUELER_ID} und {KLASSE_ID}
  *  werden zur Laufzeit ersetzt, sofern die Basis-Proben IDs gefunden haben. */
@@ -124,10 +125,41 @@ function sondierung_stammdaten(WebUntisAuth $wu, WebUntisRest $rest): array
 {
     $bericht = [];
 
+    // ---- Schuljahre: welche gibt es, ist gerade eines aktiv? ---------
+    // Befund 24.07.2026: In den Sommerferien ist KEIN Schuljahr aktiv;
+    // getKlassen() scheitert dann mit -8998 ("schoolyear is null").
+    $schuljahre = [];
+    try {
+        $schuljahre = $wu->getSchoolyears();
+        $bericht['getSchoolyears'] = [
+            'anzahl'    => count($schuljahre),
+            'felder'    => $schuljahre === [] ? [] : array_keys($schuljahre[0]),
+            'eintraege' => array_map(fn($s) => [
+                'id'        => $s['id'] ?? null,
+                'name'      => $s['name'] ?? '',
+                'startDate' => $s['startDate'] ?? null,
+                'endDate'   => $s['endDate'] ?? null,
+            ], array_slice($schuljahre, -4)),   // die vier jüngsten
+        ];
+    } catch (Throwable $e) {
+        $bericht['getSchoolyears'] = ['fehler' => $e->getMessage()];
+    }
+
+    $aktuell = $wu->getCurrentSchoolyear();
+    $bericht['getCurrentSchoolyear'] = $aktuell === []
+        ? ['aktiv' => false,
+           'hinweis' => 'Kein aktives Schuljahr (Ferien zwischen zwei '
+               . 'Schuljahren) – Aufrufe ohne schoolyearId scheitern.']
+        : ['aktiv' => true, 'id' => $aktuell['id'] ?? null,
+           'name' => $aktuell['name'] ?? ''];
+
     // ---- Klassen (Grundlage für Weg A) ------------------------------
+    // Erst ohne Parameter, dann – falls das scheitert – mit der ID des
+    // jüngsten bekannten Schuljahres.
     try {
         $klassen = $wu->getKlassen();
         $bericht['getKlassen'] = [
+            'variante'        => 'ohne schoolyearId',
             'anzahl'          => count($klassen),
             'felder'          => $klassen === [] ? [] : array_keys($klassen[0]),
             'beispiele'       => array_slice(array_map(
@@ -135,7 +167,65 @@ function sondierung_stammdaten(WebUntisAuth $wu, WebUntisRest $rest): array
                 $klassen), 0, 8),
         ];
     } catch (Throwable $e) {
-        $bericht['getKlassen'] = ['fehler' => $e->getMessage()];
+        $bericht['getKlassen'] = ['variante' => 'ohne schoolyearId',
+                                  'fehler' => $e->getMessage()];
+
+        // Rückfall: mit expliziter Schuljahres-ID erneut versuchen
+        $ids = array_values(array_filter(array_map(
+            fn($s) => isset($s['id']) ? (int)$s['id'] : null, $schuljahre)));
+        $probeId = $ids === [] ? null : max($ids);
+        if ($probeId !== null) {
+            try {
+                $klassen2 = $wu->getKlassen($probeId);
+                $bericht['getKlassen_mit_id'] = [
+                    'schoolyearId' => $probeId,
+                    'anzahl'       => count($klassen2),
+                    'felder'       => $klassen2 === [] ? [] : array_keys($klassen2[0]),
+                    'beispiele'    => array_slice(array_map(
+                        fn($k) => ['id' => $k['id'] ?? null, 'name' => $k['name'] ?? ''],
+                        $klassen2), 0, 12),
+                    'bewertung'    => $klassen2 === []
+                        ? 'Leere Liste – Weg A so nicht nutzbar.'
+                        : 'Weg A funktioniert mit expliziter Schuljahres-ID.',
+                ];
+            } catch (Throwable $e2) {
+                $bericht['getKlassen_mit_id'] = ['schoolyearId' => $probeId,
+                    'fehler' => $e2->getMessage(),
+                    'bewertung' => 'Auch mit Schuljahres-ID nicht abrufbar – '
+                        . 'Weg A erst nach Beginn des neuen Schuljahres testbar.'];
+            }
+        }
+    }
+
+    // ---- Klassenstundenplan: liefert er die Lehrkräfte? -------------
+    // Entscheidende Probe für Weg A: eine Klasse, eine Woche des
+    // vergangenen Schuljahres.
+    $klasseId = null;
+    foreach (['getKlassen', 'getKlassen_mit_id'] as $quelle) {
+        $b = $bericht[$quelle] ?? null;
+        if (is_array($b) && !empty($b['beispiele'][0]['id'])) {
+            $klasseId = (int)$b['beispiele'][0]['id'];
+            break;
+        }
+    }
+    if ($klasseId !== null) {
+        $r = $rest->get('/WebUntis/api/rest/view/v1/timetable/entries', [
+            'start' => '2026-06-15', 'end' => '2026-06-19',
+            'resourceType' => 'CLASS', 'resources' => $klasseId,
+        ]);
+        $probe = ['klasse_id' => $klasseId, 'status' => $r['status']];
+        if ($r['status'] === 200 && $r['json'] !== null) {
+            $ex = rest_lehrkraefte_aus_entries($r['json']);
+            $probe['lehrkraefte_gefunden'] = count($ex['lehrkraefte']);
+            $probe['beispiel_kuerzel'] = array_slice(
+                array_keys($ex['lehrkraefte']), 0, 10);
+            $probe['bewertung'] = $ex['lehrkraefte'] === []
+                ? 'Keine Lehrkräfte im Zeitraum – anderen Zeitraum probieren.'
+                : 'Weg A tragfähig: Klassenstundenplan liefert Lehrkräfte.';
+        } else {
+            $probe['roh_auszug'] = sondierung_kuerzen($r['text'], 300);
+        }
+        $bericht['klassenstundenplan'] = $probe;
     }
 
     // ---- Schüler:innen (Grundlage für Weg B) ------------------------
@@ -155,7 +245,7 @@ function sondierung_stammdaten(WebUntisAuth $wu, WebUntisRest $rest): array
 
         // Gibt es Hinweise auf Gruppen-/Zusatzmerkmale?
         $gruppenfelder = array_values(array_filter($felder,
-            fn($f) => preg_match('/group|gruppe|category|kategorie|type|typ|flag/i', $f)));
+            fn($f) => preg_match('/group|gruppe|category|kategorie|type|typ|flag|klass|class|year|jahr/i', $f)));
 
         $bericht['getStudents'] = [
             'anzahl'            => count($schueler),
@@ -163,9 +253,10 @@ function sondierung_stammdaten(WebUntisAuth $wu, WebUntisRest $rest): array
             'beispiel_anonym'   => $beispiel,
             'gruppen_verdacht'  => $gruppenfelder,
             'hinweis'           => $gruppenfelder === []
-                ? 'Keine Gruppenfelder erkennbar – Volljährigkeit muss anders '
-                    . 'ermittelt werden (z. B. über personType 5 beim Login).'
-                : 'Mögliche Gruppenfelder gefunden – Werte prüfen.',
+                ? 'Keine Gruppen-/Klassenfelder – Weg B kann Oberstufenschüler '
+                    . 'nicht vorab bestimmen; Volljährigkeit nur über '
+                    . 'personType 5 beim Login erkennbar.'
+                : 'Mögliche Gruppen-/Klassenfelder gefunden – Werte prüfen.',
         ];
     } catch (Throwable $e) {
         $bericht['getStudents'] = ['fehler' => $e->getMessage()];
