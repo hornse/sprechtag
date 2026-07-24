@@ -6,6 +6,17 @@ function pruefe(string $n, bool $ok): void { global $f; echo ($ok?'  ✓ ':'  �
 echo "Erweiterte Variantenliste\n";
 $v = mit_varianten();
 pruefe('sieben Varianten', count($v) === 7);
+pruefe('belegter Weg steht an erster Stelle',
+    array_key_first($v) === 'v2_users_multipart');
+pruefe('belegter Weg ist multipart',
+    ($v['v2_users_multipart']['multipart'] ?? false) === true);
+pruefe('belegter Pfad korrekt',
+    $v['v2_users_multipart']['pfad'] === '/WebUntis/api/rest/view/v2/messages/users');
+$b = ($v['v2_users_multipart']['body'])(5984, 'B', 'T');
+pruefe('recipientUserIds als Feld', $b['recipientUserIds'] === [5984]);
+pruefe('alle Pflichtfelder des Mitschnitts vorhanden',
+    isset($b['subject'], $b['content'], $b['requestConfirmation'],
+          $b['recipientUserIds'], $b['oneDriveAttachments'], $b['forbidReply']));
 $ok = true; $ids = true;
 foreach ($v as $name => $e) {
     if (!str_starts_with($e['pfad'], '/WebUntis/')) $ok = false;
@@ -14,10 +25,10 @@ foreach ($v as $name => $e) {
 }
 pruefe('alle Pfade unter /WebUntis/', $ok);
 pruefe('alle Bodies enthalten die Empfänger-ID', $ids);
-pruefe('recipientIds-Variante vorhanden', isset($v['v1_recipientids']));
-pruefe('message-Wrapper vorhanden', isset($v['v1_message_wrapper']));
-pruefe('Wrapper kapselt korrekt',
-    isset(($v['v1_message_wrapper']['body'])(1,'B','T')['message']['subject']));
+pruefe('recipientIds-Rückfall vorhanden', isset($v['v1_recipientids']));
+pruefe('JSON-Rückfall für denselben Pfad', isset($v['v2_users_json']));
+pruefe('JSON-Rückfall NICHT multipart',
+    ($v['v2_users_json']['multipart'] ?? false) === false);
 
 echo "Detailmeldungen bei Fehlschlag\n";
 // Simuliert vier abgelehnte Varianten

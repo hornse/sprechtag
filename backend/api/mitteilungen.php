@@ -9,13 +9,20 @@
 //         -> 400 "parameter 'recipients' is no valid value for the
 //            expected type: 'class java.lang.Long'"
 //     => Endpunkt existiert und erwartet eine USER-ID (Long), nicht personId.
-//   * Der VERSANDWEG (POST) ist NICHT dokumentiert und war zum Zeitpunkt
-//     der Entwicklung nicht erprobbar.
+//   * VERSANDWEG (belegt am 24.07.2026 durch Mitschnitt der
+//     WebUntis-Weboberfläche):
+//         POST /WebUntis/api/rest/view/v2/messages/users
+//         Content-Type: multipart/form-data
+//         Teil name="request", filename="blob", Content-Type: application/json
+//         {"subject":"…","content":"…","requestConfirmation":false,
+//          "recipientUserIds":[5984],"oneDriveAttachments":[],
+//          "forbidReply":false}
+//     Entscheidend: KEIN reiner JSON-Body, sondern ein Multipart-Teil.
+//     Empfänger werden über recipientUserIds (user.id) adressiert.
 //
-// DESHALB: Der Versand probiert mehrere plausible Feldstrukturen durch
-// und meldet ehrlich, welche (falls überhaupt) funktioniert hat. Die
-// erfolgreiche Variante wird in den Einstellungen gemerkt, sodass ab
-// dann direkt der richtige Weg genommen wird.
+// Die übrigen Varianten bleiben als Rückfall erhalten, falls eine
+// andere Instanz oder WebUntis-Version abweicht. Die erfolgreiche
+// Variante wird in den Einstellungen gemerkt.
 //
 // FALLBACK: Schlägt der Versand fehl, wird die Mitteilung in der
 // Tabelle `mitteilungen` als 'offen' gespeichert. Die Lehrkraft sieht
@@ -38,6 +45,49 @@ require_once __DIR__ . '/../auth/WebUntisRest.php';
 function mit_varianten(): array
 {
     return [
+        // ---- BELEGT (Mitschnitt der Weboberfläche, 24.07.2026) --------
+        'v2_users_multipart' => [
+            'pfad'      => '/WebUntis/api/rest/view/v2/messages/users',
+            'multipart' => true,
+            'body' => fn(int $empfaenger, string $betreff, string $text) => [
+                'subject'             => $betreff,
+                'content'             => $text,
+                'requestConfirmation' => false,
+                'recipientUserIds'    => [$empfaenger],
+                'oneDriveAttachments' => [],
+                'forbidReply'         => false,
+            ],
+        ],
+
+        // ---- Rückfälle für abweichende Instanzen/Versionen ------------
+        'v2_users_json' => [
+            'pfad' => '/WebUntis/api/rest/view/v2/messages/users',
+            'body' => fn(int $empfaenger, string $betreff, string $text) => [
+                'subject'             => $betreff,
+                'content'             => $text,
+                'requestConfirmation' => false,
+                'recipientUserIds'    => [$empfaenger],
+                'oneDriveAttachments' => [],
+                'forbidReply'         => false,
+            ],
+        ],
+        'v1_messages_multipart' => [
+            'pfad'      => '/WebUntis/api/rest/view/v1/messages',
+            'multipart' => true,
+            'body' => fn(int $empfaenger, string $betreff, string $text) => [
+                'subject'          => $betreff,
+                'content'          => $text,
+                'recipientUserIds' => [$empfaenger],
+            ],
+        ],
+        'v1_recipientids' => [
+            'pfad' => '/WebUntis/api/rest/view/v1/messages',
+            'body' => fn(int $empfaenger, string $betreff, string $text) => [
+                'subject'      => $betreff,
+                'content'      => $text,
+                'recipientIds' => [$empfaenger],
+            ],
+        ],
         'v1_recipients_ids' => [
             'pfad' => '/WebUntis/api/rest/view/v1/messages',
             'body' => fn(int $empfaenger, string $betreff, string $text) => [
@@ -52,49 +102,6 @@ function mit_varianten(): array
                 'subject'    => $betreff,
                 'content'    => $text,
                 'recipients' => [['userId' => $empfaenger]],
-            ],
-        ],
-        'v1_recipientoption' => [
-            'pfad' => '/WebUntis/api/rest/view/v1/messages',
-            'body' => fn(int $empfaenger, string $betreff, string $text) => [
-                'subject'          => $betreff,
-                'content'          => $text,
-                'recipientOption'  => 'SPECIFIC',
-                'recipientUserIds' => [$empfaenger],
-            ],
-        ],
-        // Befund 07/2026: /messages/recipients erwartet einen Long –
-        // vermutlich adressiert die API Empfänger über 'recipientIds'.
-        'v1_recipientids' => [
-            'pfad' => '/WebUntis/api/rest/view/v1/messages',
-            'body' => fn(int $empfaenger, string $betreff, string $text) => [
-                'subject'      => $betreff,
-                'content'      => $text,
-                'recipientIds' => [$empfaenger],
-            ],
-        ],
-        // Manche Untis-Endpunkte kapseln die Nutzlast in 'message'
-        'v1_message_wrapper' => [
-            'pfad' => '/WebUntis/api/rest/view/v1/messages',
-            'body' => fn(int $empfaenger, string $betreff, string $text) => [
-                'message' => [
-                    'subject'    => $betreff,
-                    'content'    => $text,
-                    'recipients' => [['id' => $empfaenger, 'type' => 'USER']],
-                ],
-            ],
-        ],
-        // Vollständigeres Objekt mit den Feldern, die GET /messages zeigt
-        'v1_voll' => [
-            'pfad' => '/WebUntis/api/rest/view/v1/messages',
-            'body' => fn(int $empfaenger, string $betreff, string $text) => [
-                'subject'            => $betreff,
-                'content'            => $text,
-                'recipients'         => [['userId' => $empfaenger,
-                                          'displayName' => '']],
-                'isReplyAllowed'     => false,
-                'requestReadConfirmation' => false,
-                'hasAttachments'     => false,
             ],
         ],
         'v2_messages' => [
@@ -167,7 +174,10 @@ function mit_senden(WebUntisRest $rest, int $empfaengerUserId,
 
     $versuche = [];
     foreach ($varianten as $name => $v) {
-        $antwort  = $rest->post($v['pfad'], ($v['body'])($empfaengerUserId, $betreff, $text));
+        $daten = ($v['body'])($empfaengerUserId, $betreff, $text);
+        $antwort = ($v['multipart'] ?? false)
+            ? $rest->postMultipart($v['pfad'], $daten)
+            : $rest->post($v['pfad'], $daten);
         $bewertet = mit_antwort_bewerten($antwort);
         $versuche[] = ['variante' => $name, 'grund' => $bewertet['grund']];
 

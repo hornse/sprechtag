@@ -1,5 +1,34 @@
 # Changelog – sprechtag
 
+## v0.8.0 (Juli 2026) – Mitteilungsversand: der echte Weg
+
+### Neu
+- **Der Versandweg ist belegt** (Mitschnitt der WebUntis-Weboberfläche
+  vom 24.07.2026). Drei Punkte, die vorher falsch geraten wurden:
+  - Pfad ist `/WebUntis/api/rest/view/v2/messages/users`, nicht `/v1/messages`
+  - Der JSON-Block ist **kein Request-Body**, sondern ein
+    **Multipart-Teil** mit `name="request"` und `filename="blob"` –
+    deshalb konnte kein einziger reiner JSON-POST funktionieren
+  - Empfänger über `recipientUserIds` (user.id)
+- Neue Methode `WebUntisRest::postMultipart()`. Der Aufbau wurde gegen
+  einen echten HTTP-Server geprüft: PHP erkennt den Teil als Datei
+  `request` mit Dateiname `blob` und Typ `application/json`, die Nutzlast
+  kommt zeichengleich an (inklusive Umlauten und Zeilenumbrüchen).
+- Der belegte Weg steht an erster Stelle der Variantenliste; sechs
+  Rückfälle bleiben für abweichende Instanzen erhalten.
+- **Scope-Diagnose**: `WebUntisRest::jwtScopes()` liest die Rechte aus
+  dem Token. Trägt es nur `mg:r` (nur lesen), weist die Fehlermeldung
+  ausdrücklich darauf hin – im Mitschnitt hatte das Admin-Token genau
+  diesen Scope, was ein wahrscheinlicher Stolperstein ist.
+
+### Tests
+- `tests/run_jwt_scopes.php` (7 Prüfungen): JWT-Auswertung mit dem
+  Aufbau aus dem echten Mitschnitt, Erkennung von Lese- und
+  Schreibrechten.
+- `tests/run_varianten.php` erweitert: belegter Weg an erster Stelle,
+  Multipart-Kennzeichnung, alle Pflichtfelder des Mitschnitts.
+
+
 ## v0.7.2 (Juli 2026) – Ehemalige Schüler ausblenden
 
 ### Neu

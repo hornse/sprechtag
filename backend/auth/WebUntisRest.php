@@ -58,6 +58,43 @@ class WebUntisRest
         return false;
     }
 
+    /**
+     * Liest die Nutzlast des JWT aus (ohne Signaturprüfung – rein
+     * informativ). Nützlich für die Diagnose: Das Feld 'scopes' bzw.
+     * 'per' zeigt, welche Rechte das Token trägt. Beispiel: "mg:r"
+     * bedeutet nur LESEN von Mitteilungen, "mg:rw" auch Schreiben.
+     * Ohne Schreibrecht scheitert der Mitteilungsversand mit 403.
+     */
+    public function jwtDaten(): ?array
+    {
+        if ($this->jwt === null) return null;
+        $teile = explode('.', $this->jwt);
+        if (count($teile) !== 3) return null;
+        $roh = base64_decode(strtr($teile[1], '-_', '+/'), false);
+        if ($roh === false) return null;
+        $daten = json_decode($roh, true);
+        return is_array($daten) ? $daten : null;
+    }
+
+    /** Kurzform für die Diagnose: welche Rechte trägt das Token? */
+    public function jwtScopes(): array
+    {
+        $d = $this->jwtDaten();
+        if ($d === null) return [];
+        $scopes = [];
+        if (isset($d['scopes'])) {
+            if (is_array($d['scopes'])) {
+                $scopes = $d['scopes'];
+            } else {
+                $scopes = preg_split('/[\s,]+/', (string)$d['scopes']) ?: [];
+            }
+        }
+        if (isset($d['per']) && is_array($d['per'])) {
+            $scopes = array_merge($scopes, $d['per']);
+        }
+        return array_values(array_unique(array_filter($scopes)));
+    }
+
     /** Versucht, die tenant-id aus app/data zu ermitteln (optional). */
     public function tenantErmitteln(): void
     {
@@ -106,6 +143,65 @@ class WebUntisRest
             $fehler = curl_error($ch);
             curl_close($ch);
             return ['status' => 0, 'contentType' => '', 'text' => 'cURL: ' . $fehler, 'json' => null];
+        }
+        $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $ct     = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        curl_close($ch);
+
+        $json = json_decode($text, true);
+        return ['status' => $status, 'contentType' => $ct,
+                'text' => $text, 'json' => is_array($json) ? $json : null];
+    }
+
+    /**
+     * POST mit Bearer-Auth und multipart/form-data-Body.
+     *
+     * Manche WebUntis-Endpunkte erwarten den JSON-Block NICHT als
+     * Request-Body, sondern als Datei-Teil einer Multipart-Nachricht –
+     * so verschickt die Weboberfläche z. B. Mitteilungen:
+     *
+     *   Content-Disposition: form-data; name="request"; filename="blob"
+     *   Content-Type: application/json
+     *   {"subject":"…","content":"…","recipientUserIds":[123]}
+     *
+     * @param string $pfad     z. B. '/WebUntis/api/rest/view/v2/messages/users'
+     * @param array  $daten    wird als JSON in den Teil geschrieben
+     * @param string $feldname Name des Teils (Standard 'request')
+     * @return array{status:int, contentType:string, text:string, json:?array}
+     */
+    public function postMultipart(string $pfad, array $daten,
+                                  string $feldname = 'request'): array
+    {
+        $grenze = '----WebUntisBoundary' . bin2hex(random_bytes(8));
+        $json = json_encode($daten, JSON_UNESCAPED_UNICODE);
+
+        $koerper = "--$grenze\r\n"
+            . 'Content-Disposition: form-data; name="' . $feldname
+            . '"; filename="blob"' . "\r\n"
+            . "Content-Type: application/json\r\n\r\n"
+            . $json . "\r\n"
+            . "--$grenze--\r\n";
+
+        $headers = ['Accept: application/json, text/plain, */*',
+                    'Content-Type: multipart/form-data; boundary=' . $grenze];
+        if ($this->jwt !== null)      $headers[] = 'Authorization: Bearer ' . $this->jwt;
+        if ($this->tenantId !== null) $headers[] = 'tenant-id: ' . $this->tenantId;
+        if ($this->cookie !== null)   $headers[] = 'Cookie: ' . $this->cookie;
+
+        $ch = curl_init($this->baseUrl . $pfad);
+        curl_setopt_array($ch, [
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $koerper,
+            CURLOPT_HTTPHEADER     => $headers,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => $this->timeout,
+        ]);
+        $text = curl_exec($ch);
+        if ($text === false) {
+            $fehler = curl_error($ch);
+            curl_close($ch);
+            return ['status' => 0, 'contentType' => '',
+                    'text' => 'cURL: ' . $fehler, 'json' => null];
         }
         $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         $ct     = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);

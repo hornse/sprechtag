@@ -1,49 +1,65 @@
 # WebUntis-Mitteilungen
 
-## Was gesichert ist – und was nicht
+## Der Versandweg (belegt am 24.07.2026)
 
-Die Sondierung vom 19.07.2026 hat gezeigt:
+Der Weg wurde durch Mitschnitt der WebUntis-Weboberfläche ermittelt
+(Entwicklerwerkzeuge → Netzwerk → Nachricht senden):
 
-| Endpunkt | Befund |
+```
+POST /WebUntis/api/rest/view/v2/messages/users
+Content-Type: multipart/form-data; boundary=----…
+
+------…
+Content-Disposition: form-data; name="request"; filename="blob"
+Content-Type: application/json
+
+{"subject":"…","content":"…","requestConfirmation":false,
+ "recipientUserIds":[5984],"oneDriveAttachments":[],"forbidReply":false}
+------…--
+```
+
+Drei Punkte, die vorher falsch geraten wurden:
+
+* Der Pfad lautet **`/v2/messages/users`**, nicht `/v1/messages`.
+* Der JSON-Block ist **kein Request-Body**, sondern ein **Multipart-Teil**
+  mit `name="request"` und `filename="blob"`. Reine JSON-POSTs scheitern.
+* Empfänger werden über **`recipientUserIds`** adressiert – mit der
+  `user.id` aus `app/data`, nicht der `personId` aus `authenticate`.
+
+## Rechte: der wahrscheinlichste Stolperstein
+
+Das JWT aus `/WebUntis/api/token/new` trägt einen Scope für Mitteilungen:
+
+| Scope | Bedeutung |
 |---|---|
-| `GET /api/rest/view/v1/messages` | 200 für Eltern **und** Lehrkräfte |
-| `GET /api/rest/view/v1/messages/status` | 200, liefert Anzahl ungelesener |
-| `GET /api/rest/view/v1/messages/recipients` | 400: `parameter 'recipients' is no valid value for the expected type: 'class java.lang.Long'` |
+| `mg:r` | nur **lesen** |
+| `mg:rw` | lesen und **senden** |
 
-Der letzte Punkt ist der wichtigste Hinweis: Der Endpunkt existiert und
-erwartet eine **User-ID** (`user.id` aus `app/data`, z. B. 5984) – **nicht**
-die `personId` aus `authenticate`. Beide Werte liegen dem System vor.
+Im Mitschnitt vom 24.07.2026 trug das Admin-Token nur `mg:r`. Falls der
+Versand mit 403 scheitert, ist das die Ursache – das Konto braucht in
+WebUntis das Recht, Mitteilungen zu senden. Das System liest den Scope aus
+und weist in der Fehlermeldung darauf hin.
 
-**Nicht gesichert ist der Versandweg selbst.** Die Schnittstelle ist
-undokumentiert, und ein Versandversuch hätte eine echte Nachricht an eine
-echte Person erzeugt – das war ohne Testempfänger nicht verantwortbar.
+## Wie das System vorgeht
 
-## Wie das System damit umgeht
+Der belegte Weg wird zuerst probiert. Schlägt er fehl, folgen sechs
+Rückfall-Varianten (andere Pfade, JSON statt Multipart, abweichende
+Feldnamen) – falls eine andere Instanz oder WebUntis-Version abweicht.
+Die erfolgreiche Variante wird in `einstellungen` gemerkt und künftig
+zuerst genutzt.
 
-Statt einen geratenen Weg als sicher auszugeben, probiert der Versand
-mehrere plausible Feldstrukturen der Reihe nach durch:
+Die Antwort auf jede Variante steht danach unter „Mitteilungen" im
+Bereich **Diagnose des letzten Versands**.
 
-1. `recipients: [5984]` (IDs als Zahlen)
-2. `recipients: [{userId: 5984}]` (Objekte)
-3. `recipientOption: "SPECIFIC"` + `recipientUserIds: [...]`
-4. `/v2/messages` mit `recipients: [{id, type: "USER"}]`
+Bewertung der Antworten:
 
-Die Antwort entscheidet, wie es weitergeht:
-
-* **2xx** → Erfolg. Die funktionierende Variante wird in der Tabelle
-  `einstellungen` gemerkt und künftig zuerst probiert (dann nur noch ein
-  Aufruf je Mitteilung).
-* **401/403** → Abbruch. Das ist ein Rechteproblem, kein Strukturproblem;
-  weitere Varianten wären sinnlos. Meldung verweist auf das WebUntis-Recht
-  „Mitteilungen senden".
+* **2xx** → Erfolg, Variante wird gemerkt.
+* **401/403** → Abbruch. Rechteproblem, weitere Varianten wären sinnlos.
 * **400/404/405/500** → nächste Variante probieren.
 
 **Schlägt alles fehl, geht nichts verloren:** Die Mitteilung bleibt mit
-Status `offen` und der letzten Fehlermeldung in der Warteschlange stehen.
-Die Administration sieht sie unter „Mitteilungen" und kann den Text
-manuell in WebUntis versenden. Buchungen und Absagen sind davon unabhängig
-– ein abgesagter Termin ist auch dann korrekt storniert, wenn die
-Benachrichtigung nicht durchging.
+Status `offen` und der Fehlermeldung stehen. Buchungen und Absagen sind
+davon unabhängig und immer korrekt.
 
 ## Wann Mitteilungen entstehen
 
