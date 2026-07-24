@@ -1,5 +1,27 @@
 # Changelog – sprechtag
 
+## v0.4.4 (Juli 2026) – Seite blieb nach v0.4.3 komplett leer
+
+### Behoben
+- **Kritisch: Nach dem Deploy von v0.4.3 war die Anwendung nicht mehr
+  bedienbar** – weiße Seite, kein Login. Beim Umbau der Sondierungsansicht
+  in v0.4.3 wurde der Codeblock von `ansichtSondierung` bis
+  `ladeMitteilungen` ersetzt und dabei die dazwischenliegende Funktion
+  `ansichtMitteilungen` versehentlich mitgelöscht. Da sie in der
+  Ansichten-Registrierung weiterhin referenziert wurde, brach das Skript
+  beim Start mit einem ReferenceError ab, bevor irgendetwas gezeichnet
+  werden konnte. Die Funktion ist wiederhergestellt.
+
+### Tests
+- `tests/frontend_vollstaendig_test.js`: statische Prüfung, dass jede in
+  `ansichten` registrierte Funktion und jede aufgerufene Hilfs- und
+  Ladefunktion tatsächlich definiert ist; prüft außerdem Klammerbilanz
+  und Abschluss der IIFE.
+- `tests/frontend_laufzeit_test.js`: führt `app.js` in einem minimalen
+  DOM-Ersatz aus und stellt sicher, dass `start()` ohne ReferenceError
+  durchläuft. Dieser Test hätte den Fehler sofort gefunden.
+
+
 ## v0.4.3 (Juli 2026) – Sondierungsansicht behält Eingaben und Bericht
 
 ### Behoben
