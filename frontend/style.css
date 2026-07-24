@@ -208,6 +208,9 @@ select.konflikt { border-color: var(--rot); background: #fdecea; }
 .slot.eigene { background: var(--blau-hell); border-color: var(--blau); color: var(--blau);
                font-weight: 600; }
 .slot.pause { background: #fff8e1; color: var(--gelb); font-size: .75rem; }
+.slot.frei-passiv { background: #eaf7ee; border-color: #bfe3ca; color: var(--gruen);
+                    padding: .5rem; text-align: center; border-radius: 5px;
+                    font-size: .85rem; border: 1px solid #bfe3ca; }
 
 /* Lehrkraft-Raster: breitere Kacheln, damit Name + Zeit hineinpassen */
 .raster-breit { grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); }

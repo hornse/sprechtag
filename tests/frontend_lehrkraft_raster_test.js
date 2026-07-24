@@ -50,12 +50,15 @@ pruefe('belegte Slots bieten Absage',
   raster.includes('lehrkraftStorno'));
 pruefe('freie Slots lösen stellvertretende Buchung aus',
   raster.includes('stellvertretendBuchen'));
+const kopf = koerper('zeichneStellvertreterKopf');
 pruefe('Kind-Auswahl per Suchfeld statt Dropdown',
-  raster.includes('sv-suche') && raster.includes('svSucheAnstossen'));
+  kopf.includes('sv-suche') && kopf.includes('svSucheAnstossen'));
 pruefe('Suche fragt das Backend ab (volle DB, nicht die geteilte Liste)',
   src.includes('function svKindSuchen') && src.includes('/api/schueler?suche='));
 pruefe('Suche ist entprellt',
   src.includes('svSucheTimer') && src.includes('setTimeout'));
+pruefe('Stellvertretend buchen nur im eigenen Raster',
+  raster.includes('eigenesRaster') && raster.includes('S.user.lehrer_id'));
 pruefe('Trefferliste ist begrenzt (keine endlose Liste)',
   treffer.includes('grenze') && treffer.includes('slice'));
 pruefe('Buchung nutzt den richtigen Endpunkt',
@@ -80,7 +83,7 @@ pruefe('Guard wird nach dem Laden immer zurückgesetzt',
 
 // Die alte Darstellung darf nicht mehr existieren (sonst zwei Wege).
 pruefe('alte Funktion zeichneStellvertreter entfernt',
-  !src.includes('function zeichneStellvertreter'));
+  !src.includes('function zeichneStellvertreter('));
 pruefe('alte Funktion ladeLehrkraftBuchungen entfernt',
   !src.includes('function ladeLehrkraftBuchungen'));
 

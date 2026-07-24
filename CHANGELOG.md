@@ -1,5 +1,34 @@
 # Changelog – sprechtag
 
+## v0.9.7 (Juli 2026) – Doppelbuchung verhindert, Auto-Load, Buchungsrechte
+
+### Behoben
+- **Doppelbuchung eines Elternteils zur selben Uhrzeit** (über Lehrergrenzen
+  hinweg) wird jetzt verhindert. Der UNIQUE-Key sperrte nur „ein Lehrer, ein
+  Slot"; buchten zwei Lehrkräfte dasselbe Elternteil für 15:30, ging beides
+  durch. Neu wird in einer Transaktion mit Zeilensperre (gegen Race
+  Conditions) geprüft, ob das Elternteil zu dieser Uhrzeit schon woanders
+  gebucht ist – gilt für normale und stellvertretende Buchung.
+- **Dasselbe Kind bei derselben Lehrkraft doppelt** (Fremdbuchung) wird
+  ebenfalls abgewiesen.
+
+### Geändert
+- **Einladungen und Mitteilungen laden automatisch.** Die „…laden"-Knöpfe
+  entfallen; die Listen erscheinen beim Öffnen. Mit Guard gegen Doppelladen
+  und Fehler-Fallback gegen Auto-Load-Schleifen.
+- **Stellvertretend buchen nur im eigenen Raster.** Ein Admin, der die
+  Termine einer anderen Lehrkraft ansieht, bekommt nur die Übersicht – nicht
+  das Recht, in fremdem Namen Eltern einzutragen. Doppelt abgesichert: das
+  Frontend blendet die Buchung aus, das Backend lehnt ein fremdes lehrer_id
+  mit 403 ab (auch für Admins).
+
+### Hinweis (kein Code)
+- **Versand-Absender:** Bestätigt, dass Mitteilungen über das Dienstkonto
+  aus config.php versendet werden (frischer Login → eigenes JWT), nicht über
+  das angemeldete Konto. Dessen mg:r-Scope ist für den Versand irrelevant.
+  In WebUntis gesetzte Mitteilungsrechte erzeugen kein mg:rw im JWT – „vom
+  Lehrerkonto senden" ist damit endgültig ausgeschlossen.
+
 ## v0.9.6 (Juli 2026) – Kind-Suche findet wieder alle
 
 ### Behoben

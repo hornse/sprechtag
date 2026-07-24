@@ -27,8 +27,10 @@ const S = {
   gewaehlteLehrkraft: null,
   raster: [],
   meineBuchungen: [],
-  einladungen: [],
+  einladungen: null,
+  einlLaedt: false,                  // Auto-Load-Guard Einladungen
   mitteilungen: null,
+  mittLaedt: false,                  // Auto-Load-Guard Mitteilungen
   dienstkonto: null,   // Status des hinterlegten Dienstkontos
   gewaehlteLehrkraftAnsicht: null,   // Admin: wessen Termine werden gezeigt
   schuelerListe: null,               // Klassenliste für Einladungen
@@ -228,7 +230,9 @@ function zeichneNavigation() {
         // Zurückwechseln veraltete Daten (z. B. gelöschte Einladungen).
         if (S.ansicht !== ziel) {
           S.einladungen = null;
+          S.einlLaedt = false;
           S.mitteilungen = null;
+          S.mittLaedt = false;
           S.meineBuchungen = null;
           S.lehrerListe = null;
           S.raster = [];
@@ -591,7 +595,66 @@ function zeichneLehrkraftRaster(ziel, lehrerId) {
   const belegte = slots.filter((r) => !r.frei);
   const freie   = slots.filter((r) => r.frei);
 
-  // ---- Kopfzeile mit Kind-Auswahl für die stellvertretende Buchung -----
+  // Stellvertretend buchen darf man nur im EIGENEN Raster. Ein Admin, der
+  // die Termine einer anderen Lehrkraft ansieht, bekommt nur die Übersicht
+  // – nicht das Recht, in fremdem Namen Eltern einzutragen.
+  const eigenesRaster = lehrerId === S.user.lehrer_id;
+
+  if (eigenesRaster) {
+    zeichneStellvertreterKopf(ziel, lehrerId);
+  } else {
+    ziel.appendChild(el('p', 'hinweis',
+      'Ansicht der Termine einer anderen Lehrkraft. Stellvertretend buchen '
+      + 'kann nur die Lehrkraft selbst in ihrer eigenen Ansicht.'));
+  }
+
+  // ---- Das Raster ------------------------------------------------------
+  ziel.appendChild(el('h3', null, 'Zeitraster'
+    + ' – ' + belegte.length + ' belegt, ' + freie.length + ' frei'));
+  const raster = el('div', 'raster raster-breit');
+  for (const z of S.svRaster) {
+    if (z.typ === 'pause') {
+      raster.appendChild(el('div', 'slot pause', 'Pause'));
+      continue;
+    }
+    if (z.frei) {
+      const s = el('div', 'slot frei', z.beginn);
+      if (eigenesRaster) {
+        s.title = 'Freien Termin stellvertretend buchen';
+        s.addEventListener('click', () => stellvertretendBuchen(lehrerId, z.beginn));
+      } else {
+        // Fremde Ansicht: freie Slots nur zeigen, nicht buchbar machen.
+        s.classList.remove('frei');
+        s.classList.add('frei-passiv');
+      }
+      raster.appendChild(s);
+    } else {
+      // Belegter Slot: Zeit + Kind (+ Klasse), plus Absage-Möglichkeit.
+      const s = el('div', 'slot belegt-info');
+      s.appendChild(el('div', 'slot-zeit', z.beginn));
+      s.appendChild(el('div', 'slot-kind',
+        z.kind_name || ('ID ' + (z.schueler_id || '?'))));
+      if (z.klasse) s.appendChild(el('div', 'slot-klasse', z.klasse));
+      // Absagen darf ebenfalls nur die Lehrkraft im eigenen Raster.
+      if (eigenesRaster) {
+        const ab = el('span', 'slot-absage', 'absagen');
+        ab.title = 'Diesen Termin absagen';
+        ab.addEventListener('click', () => lehrkraftStorno({
+          id: z.buchung_id, slot_beginn: z.beginn,
+          sprechtag_id: S.aktiverSprechtag.id }));
+        s.appendChild(ab);
+      }
+      raster.appendChild(s);
+    }
+  }
+  ziel.appendChild(raster);
+  ziel.appendChild(knopf('Aktualisieren', 'klein',
+    () => { S.svRaster = null; ladeSvRaster(lehrerId); }));
+}
+
+// Kopfzeile der eigenen Ansicht: Kind wählen (Suchfeld) für die
+// stellvertretende Buchung. Nur im eigenen Raster sichtbar.
+function zeichneStellvertreterKopf(ziel, lehrerId) {
   const kopf = block('lk-sv', 'Stellvertretend für Eltern buchen');
   kopf.appendChild(el('p', 'hinweis',
     'Für Erziehungsberechtigte, die nicht selbst buchen können: erst das '
@@ -630,40 +693,6 @@ function zeichneLehrkraftRaster(ziel, lehrerId) {
     setTimeout(zeichneSvTreffer, 0);   // Erstbefüllung nach dem Anhängen
   }
   ziel.appendChild(kopf);
-
-  // ---- Das Raster ------------------------------------------------------
-  ziel.appendChild(el('h3', null, 'Zeitraster'
-    + ' – ' + belegte.length + ' belegt, ' + freie.length + ' frei'));
-  const raster = el('div', 'raster raster-breit');
-  for (const z of S.svRaster) {
-    if (z.typ === 'pause') {
-      raster.appendChild(el('div', 'slot pause', 'Pause'));
-      continue;
-    }
-    if (z.frei) {
-      const s = el('div', 'slot frei', z.beginn);
-      s.title = 'Freien Termin stellvertretend buchen';
-      s.addEventListener('click', () => stellvertretendBuchen(lehrerId, z.beginn));
-      raster.appendChild(s);
-    } else {
-      // Belegter Slot: Zeit + Kind (+ Klasse), plus Absage-Möglichkeit.
-      const s = el('div', 'slot belegt-info');
-      s.appendChild(el('div', 'slot-zeit', z.beginn));
-      s.appendChild(el('div', 'slot-kind',
-        z.kind_name || ('ID ' + (z.schueler_id || '?'))));
-      if (z.klasse) s.appendChild(el('div', 'slot-klasse', z.klasse));
-      const ab = el('span', 'slot-absage', 'absagen');
-      ab.title = 'Diesen Termin absagen';
-      ab.addEventListener('click', () => lehrkraftStorno({
-        id: z.buchung_id, slot_beginn: z.beginn,
-        sprechtag_id: S.aktiverSprechtag.id }));
-      s.appendChild(ab);
-      raster.appendChild(s);
-    }
-  }
-  ziel.appendChild(raster);
-  ziel.appendChild(knopf('Aktualisieren', 'klein',
-    () => { S.svRaster = null; ladeSvRaster(lehrerId); }));
 }
 
 // Stößt die Kind-Suche entprellt an: erst 250 ms nach dem letzten
@@ -824,7 +853,7 @@ async function lehrkraftStorno(b) {
 // ============================================================
 function ansichtEinladungen(ziel) {
   ziel.appendChild(el('h2', null, 'Einladungen'));
-  if (!sprechtagWaehler(ziel, () => { S.einladungen = null; ladeEinladungen(); })) return;
+  if (!sprechtagWaehler(ziel, () => { S.einladungen = null; S.einlLaedt = false; })) return;
 
   // Hinweis abhängig von der Phase des gewählten Sprechtags: In Phase 1
   // sind Einladungen der reguläre Weg; in Phase 2 kann ohnehin jeder
@@ -966,7 +995,8 @@ function ansichtEinladungen(ziel) {
   // ---- Bestehende Einladungen ------------------------------------------
   ziel.appendChild(el('h3', null, 'Angelegte Einladungen'));
   if (S.einladungen === null) {
-    ziel.appendChild(knopf('Einladungen laden', 'klein', () => ladeEinladungen()));
+    ziel.appendChild(el('p', 'hinweis', 'Einladungen werden geladen …'));
+    if (!S.einlLaedt) { S.einlLaedt = true; ladeEinladungen(); }
     return;
   }
   if (S.einladungen.length === 0) {
@@ -1014,8 +1044,17 @@ async function ladeEinladungen() {
   try {
     const d = await api('/api/einladungen?sprechtag=' + S.aktiverSprechtag.id);
     S.einladungen = d.einladungen || [];
+    S.einlFehler = null;
     meldung(null);
-  } catch (f) { meldung(String(f.message), 'fehler'); }
+  } catch (f) {
+    // Leere Liste statt null, damit die Ansicht nicht endlos neu lädt.
+    S.einladungen = [];
+    S.einlFehler = String(f.message);
+    meldung(String(f.message), 'fehler');
+  } finally {
+    S.einlLaedt = false;
+    zeichne();
+  }
 }
 
 // ============================================================
@@ -1617,10 +1656,11 @@ function ansichtMitteilungen(ziel) {
     'Terminbestätigungen und Absagen werden hier gesammelt. Ist ein '
     + 'Dienstkonto hinterlegt, versendet das System sie automatisch beim '
     + 'Buchen und Absagen; hier lassen sich liegengebliebene nachsenden.'));
-  if (!sprechtagWaehler(ziel, () => ladeMitteilungen())) return;
+  if (!sprechtagWaehler(ziel, () => { S.mitteilungen = null; S.mittLaedt = false; })) return;
 
   if (S.mitteilungen === null) {
-    ziel.appendChild(knopf('Mitteilungen laden', null, () => ladeMitteilungen()));
+    ziel.appendChild(el('p', 'hinweis', 'Mitteilungen werden geladen …'));
+    if (!S.mittLaedt) { S.mittLaedt = true; ladeMitteilungen(); }
     return;
   }
 
@@ -1782,7 +1822,13 @@ async function ladeMitteilungen() {
     const d = await api('/api/mitteilungen?sprechtag=' + S.aktiverSprechtag.id);
     S.mitteilungen = d.mitteilungen || [];
     meldung(null);
-  } catch (f) { meldung(String(f.message), 'fehler'); }
+  } catch (f) {
+    S.mitteilungen = [];   // leere Liste statt null: keine Auto-Load-Schleife
+    meldung(String(f.message), 'fehler');
+  } finally {
+    S.mittLaedt = false;
+    zeichne();
+  }
 }
 
 start();

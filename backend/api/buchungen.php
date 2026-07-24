@@ -344,9 +344,14 @@ if (($seg[0] ?? '') === 'buchungen') {
         $sid  = (int)($body['sprechtag_id'] ?? 0);
         $kind = (int)($body['schueler_id'] ?? 0);
         $slot = substr(trim((string)($body['slot_beginn'] ?? '')), 0, 5);
-        // Admins dürfen für eine beliebige Lehrkraft, Lehrkräfte nur für sich
-        $lid = $u['rolle'] === 'admin' && isset($body['lehrer_id'])
-            ? (int)$body['lehrer_id'] : (int)($u['lehrer_id'] ?? 0);
+        // Stellvertretend buchen darf man nur bei SICH SELBST – auch ein
+        // Admin nicht in fremdem Namen. Ein optional übergebenes lehrer_id
+        // muss daher mit dem eigenen Stammsatz übereinstimmen.
+        $lid = (int)($u['lehrer_id'] ?? 0);
+        if (isset($body['lehrer_id']) && (int)$body['lehrer_id'] !== $lid) {
+            json_err('Es kann nur bei der eigenen Lehrkraft stellvertretend '
+                . 'gebucht werden, nicht im Namen einer anderen.', 403);
+        }
 
         if ($lid <= 0) {
             json_err('Diesem Konto ist keine Lehrkraft zugeordnet. Bitte die '
@@ -384,8 +389,48 @@ if (($seg[0] ?? '') === 'buchungen') {
         }
         if (!$imRaster) json_err('Dieser Zeitpunkt gehört nicht zum Raster.');
 
-        // Schreiben – der UNIQUE KEY sperrt den Slot für alle anderen.
+        // ---- Doppelbuchung verhindern (zwei Fälle) -----------------------
+        // Beides in einer Transaktion mit Zeilensperre, damit zwei parallele
+        // Buchungen sich nicht gegenseitig überholen (Race Condition).
+        $pdo->beginTransaction();
         try {
+            // Fall A: Ist dieses Elternteil zu DIESER Uhrzeit schon bei einer
+            // (anderen) Lehrkraft gebucht? Ein Elternteil kann nicht an zwei
+            // Orten gleichzeitig sein. Der UNIQUE-Key deckt das NICHT ab, weil
+            // er nur (sprechtag, lehrer, slot) sperrt – hier geht es über
+            // Lehrergrenzen hinweg.
+            $stKoll = $pdo->prepare(
+                'SELECT b.id, l.kuerzel FROM buchungen b
+                 JOIN lehrer l ON l.id = b.lehrer_id
+                 WHERE b.sprechtag_id = ? AND b.eltern_user_id = ?
+                   AND b.slot_beginn = ?
+                 FOR UPDATE');
+            $stKoll->execute([$sid, $elternUserId, $slot . ':00']);
+            $koll = $stKoll->fetch();
+            if ($koll !== false) {
+                $pdo->rollBack();
+                json_err('Dieses Elternteil ist um ' . $slot . ' Uhr bereits '
+                    . 'bei ' . ($koll['kuerzel'] ?? 'einer anderen Lehrkraft')
+                    . ' gebucht. Bitte einen anderen Zeitpunkt wählen.', 409);
+            }
+
+            // Fall B: Ist dieses Kind bei DIESER Lehrkraft schon gebucht?
+            // Ein zweites Gespräch über dasselbe Kind bei derselben Lehrkraft
+            // ergibt keinen Sinn.
+            $stKind = $pdo->prepare(
+                'SELECT slot_beginn FROM buchungen
+                 WHERE sprechtag_id = ? AND lehrer_id = ? AND schueler_id = ?
+                 FOR UPDATE');
+            $stKind->execute([$sid, $lid, $kind]);
+            $vorhanden = $stKind->fetch();
+            if ($vorhanden !== false) {
+                $pdo->rollBack();
+                json_err('Für dieses Kind besteht bei dieser Lehrkraft bereits '
+                    . 'ein Termin um ' . substr((string)$vorhanden['slot_beginn'], 0, 5)
+                    . ' Uhr.', 409);
+            }
+
+            // Schreiben – der UNIQUE KEY sperrt den Slot zusätzlich ab.
             $pdo->prepare('INSERT INTO buchungen
                 (sprechtag_id, lehrer_id, slot_beginn, eltern_user_id, schueler_id,
                  phase, gebucht_von)
@@ -393,13 +438,15 @@ if (($seg[0] ?? '') === 'buchungen') {
                 ->execute([$sid, $lid, $slot . ':00', $elternUserId, $kind,
                     (string)$s['phase'] === 'phase1' ? 'phase1' : 'phase2',
                     $u['rolle']]);
+            $neueId = (int)$pdo->lastInsertId();
+            $pdo->commit();
         } catch (PDOException $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
             if ((int)$e->errorInfo[1] === 1062) {
                 json_err('Dieser Termin ist bereits vergeben.', 409);
             }
             throw $e;
         }
-        $neueId = (int)$pdo->lastInsertId();
 
         // Einladung (falls vorhanden) als erledigt markieren
         $pdo->prepare('UPDATE einladungen SET erledigt = 1
@@ -466,8 +513,11 @@ if (($seg[0] ?? '') === 'buchungen') {
                 json_err('Für eine stellvertretende Buchung wird die WebUntis-Benutzer-ID '
                     . 'der Erziehungsberechtigten benötigt');
             }
-            if ($rolle === 'lehrkraft' && $lid !== (int)($u['lehrer_id'] ?? 0)) {
-                json_err('Lehrkräfte können nur Termine bei sich selbst vergeben', 403);
+            // Nur bei der EIGENEN Lehrkraft – auch ein Admin nicht in fremdem
+            // Namen. Der übergebene lehrer_id muss dem eigenen Stammsatz gleichen.
+            if ($lid !== (int)($u['lehrer_id'] ?? 0)) {
+                json_err('Es kann nur bei der eigenen Lehrkraft stellvertretend '
+                    . 'gebucht werden, nicht im Namen einer anderen.', 403);
             }
         } else {
             if (!auth_kind_erlaubt($u, $kind)) {
@@ -515,22 +565,44 @@ if (($seg[0] ?? '') === 'buchungen') {
         ]);
         if (!$pruefung['ok']) json_err($pruefung['grund'], 409);
 
-        // Schreiben – der UNIQUE KEY entscheidet bei gleichzeitigen Anfragen
+        // Schreiben – der UNIQUE KEY entscheidet bei gleichzeitigen Anfragen.
+        // Zusätzlich prüfen wir in derselben Transaktion, ob dieses Elternteil
+        // zur selben Uhrzeit schon bei einer ANDEREN Lehrkraft gebucht ist –
+        // das deckt der UNIQUE-Key nicht ab, ein Elternteil kann aber nicht an
+        // zwei Orten gleichzeitig sein.
+        $pdo->beginTransaction();
         try {
+            $stKoll = $pdo->prepare(
+                'SELECT l.kuerzel FROM buchungen b
+                 JOIN lehrer l ON l.id = b.lehrer_id
+                 WHERE b.sprechtag_id = ? AND b.eltern_user_id = ?
+                   AND b.slot_beginn = ?
+                 FOR UPDATE');
+            $stKoll->execute([$sid, $elternUserId, $slot . ':00']);
+            $koll = $stKoll->fetch();
+            if ($koll !== false) {
+                $pdo->rollBack();
+                json_err('Sie haben um ' . $slot . ' Uhr bereits einen Termin bei '
+                    . ($koll['kuerzel'] ?? 'einer anderen Lehrkraft')
+                    . '. Bitte einen anderen Zeitpunkt wählen.', 409);
+            }
+
             $pdo->prepare('INSERT INTO buchungen
                 (sprechtag_id, lehrer_id, slot_beginn, eltern_user_id, schueler_id,
                  phase, gebucht_von)
                 VALUES (?, ?, ?, ?, ?, ?, ?)')
                 ->execute([$sid, $lid, $slot . ':00', $elternUserId, $kind,
                     (string)$s['phase'] === 'phase1' ? 'phase1' : 'phase2', $rolle]);
+            // ID sofort sichern: nachfolgende Statements überschreiben lastInsertId()
+            $neueId = (int)$pdo->lastInsertId();
+            $pdo->commit();
         } catch (PDOException $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
             if ((int)$e->errorInfo[1] === 1062) {
                 json_err('Dieser Termin wurde soeben von jemand anderem gebucht', 409);
             }
             throw $e;
         }
-        // ID sofort sichern: nachfolgende Statements überschreiben lastInsertId()
-        $neueId = (int)$pdo->lastInsertId();
 
         // Einladung als erledigt markieren
         if ($eingeladen) {
