@@ -223,6 +223,18 @@ select.konflikt { border-color: var(--rot); background: #fdecea; }
 .slot.belegt-info .slot-absage:hover { color: #fff; background: var(--rot, #c0392b);
                     padding: 0 .3rem; border-radius: 3px; text-decoration: none; }
 
+/* Kind-Suche für die stellvertretende Buchung */
+.sv-treffer { margin: .3rem 0 .6rem; }
+.sv-treffer-liste { display: flex; flex-direction: column; gap: .2rem;
+                    max-height: 14rem; overflow-y: auto; border: 1px solid var(--rand);
+                    border-radius: 5px; padding: .3rem; }
+.sv-treffer-zeile { text-align: left; background: #fff; border: 1px solid transparent;
+                    border-radius: 4px; padding: .35rem .5rem; cursor: pointer;
+                    font-size: .9rem; color: var(--text); }
+.sv-treffer-zeile:hover { background: var(--blau-hell); border-color: var(--blau); }
+.sv-gewaehlt { align-items: center; gap: .6rem; }
+.sv-gewaehlt-name { font-weight: 600; color: var(--blau); }
+
 /* Tabellen */
 .tabelle { width: 100%; border-collapse: collapse; margin: .8rem 0; font-size: .85rem; }
 .tabelle th { text-align: left; border-bottom: 2px solid var(--rand); padding: .4rem .5rem;

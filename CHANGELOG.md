@@ -1,5 +1,23 @@
 # Changelog – sprechtag
 
+## v0.9.4 (Juli 2026) – Kind-Suche, Absender-Frage geklärt
+
+### Neu
+- **Suchfeld für die stellvertretende Buchung.** Statt einer langen
+  Dropdown-Liste (die bei vielen Schülern unbrauchbar wurde und
+  abgeschnitten wirkte) wird jetzt über Name oder Klasse gesucht; die
+  Trefferliste ist anklickbar und auf 40 Einträge begrenzt. Das gewählte
+  Kind wird kompakt angezeigt und lässt sich mit einem Klick wechseln.
+
+### Geklärt (kein Code)
+- **Mitteilungen unter dem eigenen Lehrer-Konto sind nicht möglich.** Die
+  Sondierung mit dem Lehrer-Konto (`ho`, personType 2) ergab JWT-Scope
+  `mg:r` – nur lesen, nicht senden. WebUntis gibt Lehrkräften das
+  Senderecht per API nicht. Damit bleibt das Dienstkonto (mit `mg:rw`) der
+  einzige Absender; die Idee der Session-Wiederverwendung ist damit vom
+  Tisch. Die Sondierung hat ihren Zweck erfüllt: eine Sackgasse belegt,
+  bevor sie gebaut wurde.
+
 ## v0.9.3 (Juli 2026) – Slot-Ansicht für Lehrkräfte, Scope-Sondierung
 
 ### Neu

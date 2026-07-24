@@ -38,9 +38,11 @@ function koerper(name) {
 
 const raster = koerper('zeichneLehrkraftRaster');
 const buchen = koerper('stellvertretendBuchen');
+const treffer = koerper('zeichneSvTreffer');
 
 pruefe('zeichneLehrkraftRaster existiert', raster !== '');
 pruefe('stellvertretendBuchen existiert', buchen !== '');
+pruefe('zeichneSvTreffer existiert', treffer !== '');
 
 pruefe('belegte Slots zeigen den Kindnamen',
   raster.includes('kind_name'));
@@ -48,6 +50,12 @@ pruefe('belegte Slots bieten Absage',
   raster.includes('lehrkraftStorno'));
 pruefe('freie Slots lösen stellvertretende Buchung aus',
   raster.includes('stellvertretendBuchen'));
+pruefe('Kind-Auswahl per Suchfeld statt Dropdown',
+  raster.includes('sv-suche') && raster.includes('zeichneSvTreffer'));
+pruefe('Suche filtert über Name und Klasse',
+  treffer.includes('.name') && treffer.includes('.klasse'));
+pruefe('Trefferliste ist begrenzt (keine endlose Liste)',
+  treffer.includes('grenze') && treffer.includes('slice'));
 pruefe('Buchung nutzt den richtigen Endpunkt',
   buchen.includes('/api/buchungen/stellvertretend'));
 pruefe('vor der Buchung wird ein Kind verlangt',
