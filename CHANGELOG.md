@@ -1,5 +1,35 @@
 # Changelog – sprechtag
 
+## v0.9.1 (Juli 2026) – Elternkonten automatisch ermitteln
+
+### Neu
+- **Die Zuordnung Kind → Elternkonto ist gelöst.** Über die
+  Empfängersuche des WebUntis-Nachrichtenzentrums (belegt durch
+  Mitschnitt am 24.07.2026) werden die Erziehungsberechtigten eines
+  Kindes gefunden – auch dann, wenn noch niemand gebucht hat. Damit
+  funktionieren Einladungen ab dem ersten Sprechtag.
+  - Lehrkraft: `GET /v1/messages/recipients/PARENTS/search?searchText=…`
+  - Admin: `POST /v2/messages/recipients/CUSTOM/filter`
+- Neue Methode `WebUntisRest::empfaengerSuchen()` (probiert beide Wege).
+- Neue Funktion `mit_eltern_zu_kind()` wertet die Antwort aus.
+
+### Wichtige Einschränkungen, bewusst behandelt
+- **Die Verknüpfung läuft über Namen**, nicht über IDs: WebUntis führt
+  unter `tags` die Namen der Kinder auf. Der Abgleich ist deshalb streng
+  (normalisiert, aber exakt) – Teiltreffer wie „Paulowski" allein werden
+  nicht gewertet, damit keine fremden Konten angeschrieben werden.
+- **Mehrere Erziehungsberechtigte pro Kind** sind der Normalfall (im
+  Testfall drei für ein Kind). Alle werden benachrichtigt.
+- **Konten mit `role: "STUDENT"` werden ausgeschlossen** – eine an die
+  Eltern gerichtete Einladung darf nicht beim Kind landen.
+
+### Tests
+- `tests/run_elternzuordnung.php` (21 Prüfungen) gegen die **echten**
+  Antwortdaten aus dem Mitschnitt: korrekte Zuordnung beider Kinder,
+  Ausschluss von Schülerkonten, keine Fehltreffer bei Teilnamen,
+  Schreibweisen-Toleranz (Reihenfolge, Komma, Groß-/Kleinschreibung).
+
+
 ## v0.9.0 (Juli 2026) – Einladungen benachrichtigen, Kind statt User-ID
 
 ### Behoben

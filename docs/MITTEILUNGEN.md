@@ -61,6 +61,50 @@ Bewertung der Antworten:
 Status `offen` und der Fehlermeldung stehen. Buchungen und Absagen sind
 davon unabhängig und immer korrekt.
 
+## Empfänger ermitteln: Kind → Elternkonto
+
+Für den Versand wird die WebUntis-**User-ID** der Eltern gebraucht. Sie
+lässt sich über die Empfängersuche des Nachrichtenzentrums auflösen
+(belegt am 24.07.2026):
+
+```
+# Als Lehrkraft – filtert serverseitig auf Erziehungsberechtigte:
+GET /WebUntis/api/rest/view/v1/messages/recipients/PARENTS/search?searchText=Paulow
+
+# Als Admin – liefert alle Rollen:
+POST /WebUntis/api/rest/view/v2/messages/recipients/CUSTOM/filter
+     {"filters":[],"searchText":"Paulow"}
+```
+
+Antwort:
+
+```json
+{"users":[
+  {"id":5984,"displayName":"…","role":"LEGAL_GUARDIAN",
+   "tags":["Paulowski Paul","Paulowski Petra"]},
+  {"id":7480,"displayName":"Paulowski Paul","role":"STUDENT","tags":[]}
+]}
+```
+
+Drei Dinge sind dabei wichtig:
+
+* **Die Verknüpfung läuft über Namen, nicht über IDs.** Unter `tags`
+  stehen die Namen der Kinder als Text. Der Abgleich mit der
+  Schülerliste ist deshalb bewusst streng (normalisiert, aber exakt) –
+  Teiltreffer werden nicht gewertet, damit keine fremden Konten
+  angeschrieben werden.
+* **Mehrere Erziehungsberechtigte pro Kind sind der Normalfall.** Im
+  Beispiel hat ein Kind drei Konten. Die Einladung geht an alle, sonst
+  erführe womöglich nur ein Elternteil davon.
+* **Konten mit `role: "STUDENT"` werden ignoriert.** Eine Einladung an
+  die Eltern darf nicht beim Kind landen. Die dort genannten IDs sind
+  ohnehin andere als die Schüler-IDs aus `app/data`.
+
+Findet die Suche nichts, greift als Rückfall die Eltern-ID aus einer
+früheren Buchung desselben Kindes. Bleibt auch das erfolglos, wird die
+Einladung angelegt und die Lehrkraft ausdrücklich darauf hingewiesen,
+die Eltern auf anderem Weg zu informieren.
+
 ## Wann Mitteilungen entstehen
 
 | Anlass | Auslöser | Inhalt |

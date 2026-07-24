@@ -228,6 +228,83 @@ function mit_text_bestaetigung(string $sprechtagName, string $datum,
 }
 
 /**
+ * Filtert aus einer Empfängersuche die Erziehungsberechtigten heraus,
+ * die zu einem bestimmten Kind gehören.
+ *
+ * ACHTUNG – die Verknüpfung läuft über NAMEN, nicht über IDs: Die
+ * WebUntis-Antwort führt bei Erziehungsberechtigten unter 'tags' die
+ * Namen ihrer Kinder auf (z. B. ["Paulowski Paul", "Paulowski Petra"]).
+ * Eine Schüler-ID steht dort nicht. Deshalb:
+ *
+ *  - Der Vergleich ist bewusst STRENG (normalisiert, aber exakt), damit
+ *    nicht versehentlich fremde Konten getroffen werden.
+ *  - Bei gleichnamigen Kindern ist die Zuordnung grundsätzlich
+ *    mehrdeutig; das meldet die Funktion über 'eindeutig' => false.
+ *    Der Aufrufer muss dann entscheiden (im Zweifel: nicht versenden).
+ *  - Einträge mit role 'STUDENT' werden ignoriert – eine Einladung an
+ *    die Eltern darf nicht beim Kind landen.
+ *
+ * Reine Funktion – offline testbar.
+ *
+ * @param array  $users     users[] aus der Empfängersuche
+ * @param string $kindName  "Nachname Vorname" oder "Vorname Nachname"
+ * @return array{konten:array<int,array{id:int,name:string}>, eindeutig:bool,
+ *               geprueft:int}
+ */
+function mit_eltern_zu_kind(array $users, string $kindName): array
+{
+    $gesucht = mit_name_normieren($kindName);
+    if ($gesucht === '') {
+        return ['konten' => [], 'eindeutig' => false, 'geprueft' => 0];
+    }
+
+    $konten = [];
+    $geprueft = 0;
+    foreach ($users as $u) {
+        if (!is_array($u)) continue;
+        if ((string)($u['role'] ?? '') !== 'LEGAL_GUARDIAN') continue;
+        $geprueft++;
+
+        foreach ((array)($u['tags'] ?? []) as $tag) {
+            if (mit_name_normieren((string)$tag) !== $gesucht) continue;
+            $id = (int)($u['id'] ?? 0);
+            if ($id <= 0) continue;
+            $konten[$id] = ['id' => $id,
+                            'name' => (string)($u['displayName'] ?? '')];
+            break;
+        }
+    }
+
+    return ['konten' => array_values($konten), 'eindeutig' => true,
+            'geprueft' => $geprueft];
+}
+
+/**
+ * Normalisiert einen Personennamen für den Vergleich: Kleinschreibung,
+ * Mehrfach-Leerzeichen zusammengefasst, Wortreihenfolge sortiert
+ * (damit "Paulowski Paul" und "Paul Paulowski" gleich sind).
+ * Reine Funktion – offline testbar.
+ */
+function mit_name_normieren(string $name): string
+{
+    $n = trim(preg_replace('/\s+/', ' ', $name) ?? $name);
+    if ($n === '') return '';
+    $n = str_replace(',', '', $n);
+    $teile = array_filter(explode(' ', mb_strtolower_sicher($n)));
+    sort($teile);
+    return implode(' ', $teile);
+}
+
+/** Kleinschreibung auch ohne mbstring-Erweiterung. */
+function mb_strtolower_sicher(string $s): string
+{
+    if (function_exists('mb_strtolower')) return mb_strtolower($s, 'UTF-8');
+    // Umlaute von Hand, dann der Rest
+    $s = strtr($s, ['Ä' => 'ä', 'Ö' => 'ö', 'Ü' => 'ü']);
+    return strtolower($s);
+}
+
+/**
  * Baut Betreff und Text einer Einladung zum Sprechtag.
  * Reine Funktion – offline testbar.
  */

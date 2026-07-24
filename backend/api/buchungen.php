@@ -564,16 +564,56 @@ if (($seg[0] ?? '') === 'einladungen') {
                 substr((string)($body['hinweis'] ?? ''), 0, 190)]);
 
         // ---- Benachrichtigung der Eltern --------------------------------
-        // Der Versand braucht die WebUntis-USER-ID der Eltern. Die kennt
-        // das System nur, wenn sich das Elternkonto schon einmal
-        // angemeldet und gebucht hat – eine Auflösung Kind -> Elternkonto
-        // bietet die API nach bisherigem Kenntnisstand nicht.
+        // Zwei Wege, die Eltern-USER-ID zu finden:
+        //  1. Empfängersuche in WebUntis (seit v0.9.1) – funktioniert auch
+        //     beim ersten Sprechtag, bevor jemand gebucht hat
+        //  2. Rückfall: aus früheren Buchungen desselben Kindes
         $mitteilung = null;
-        $stE = $pdo->prepare(
-            'SELECT DISTINCT eltern_user_id FROM buchungen
-             WHERE schueler_id = ? AND eltern_user_id > 0');
-        $stE->execute([$kind]);
-        $elternIds = array_map('intval', array_column($stE->fetchAll(), 'eltern_user_id'));
+        $elternIds = [];
+        $quelle = null;
+
+        // Kindnamen für Suche und Anrede
+        $stK = $pdo->prepare(
+            'SELECT vorname, nachname FROM schueler WHERE webuntis_id = ? LIMIT 1');
+        $stK->execute([$kind]);
+        $kd = $stK->fetch() ?: [];
+        $kindName = trim(((string)($kd['vorname'] ?? '')) . ' '
+            . ((string)($kd['nachname'] ?? '')));
+
+        $zugang = dk_lesen($cfg, $pdo);
+        if ($kindName !== '' && $zugang !== null) {
+            $wcfg = $cfg['webuntis'];
+            $wu = new WebUntisAuth($wcfg['base_url'], $wcfg['school'], $wcfg['client']);
+            try {
+                $wu->authenticate($zugang['benutzer'], $zugang['passwort']);
+                $rest = new WebUntisRest($wcfg['base_url'], $wcfg['school']);
+                $rest->mitSessionCookie((string)$wu->sessionCookie());
+                $rest->setzeTimeout(15);
+                if ($rest->tokenHolen()) {
+                    $rest->tenantErmitteln();
+                    // Nach dem Nachnamen suchen, dann exakt zuordnen
+                    $suche = (string)($kd['nachname'] ?? $kindName);
+                    $treffer = $rest->empfaengerSuchen($suche);
+                    $zuord = mit_eltern_zu_kind($treffer['users'], $kindName);
+                    $elternIds = array_column($zuord['konten'], 'id');
+                    if ($elternIds !== []) $quelle = 'webuntis';
+                }
+            } catch (Throwable $e) {
+                error_log('sprechtag: Empfängersuche fehlgeschlagen: ' . $e->getMessage());
+            } finally {
+                $wu->logout();
+            }
+        }
+
+        if ($elternIds === []) {
+            $stE = $pdo->prepare(
+                'SELECT DISTINCT eltern_user_id FROM buchungen
+                 WHERE schueler_id = ? AND eltern_user_id > 0');
+            $stE->execute([$kind]);
+            $elternIds = array_map('intval',
+                array_column($stE->fetchAll(), 'eltern_user_id'));
+            if ($elternIds !== []) $quelle = 'buchung';
+        }
 
         if ($elternIds !== []) {
             try {
@@ -586,19 +626,12 @@ if (($seg[0] ?? '') === 'einladungen') {
                 $le = $stL->fetch() ?: [];
                 $lehrkraft = (string)($le['name'] ?: ($le['kuerzel'] ?? 'die Lehrkraft'));
 
-                $stK = $pdo->prepare(
-                    'SELECT TRIM(CONCAT(vorname, " ", nachname)) AS n
-                     FROM schueler WHERE webuntis_id = ? LIMIT 1');
-                $stK->execute([$kind]);
-                $kindName = (string)($stK->fetchColumn() ?: '');
-
                 $t = mit_text_einladung((string)$sp['name'], (string)$sp['datum'],
                     $lehrkraft, $kindName,
                     substr((string)($body['hinweis'] ?? ''), 0, 500));
 
-                $zugang = dk_lesen($cfg, $pdo);
                 foreach ($elternIds as $eid) {
-                    $mitteilung = mit_einreihen_und_senden($cfg, $pdo, $sid, $eid,
+                    $mitteilung = mit_einreihen_und_senden($cfg, $pdo, $sid, (int)$eid,
                         'einladung', $t['betreff'], $t['text'],
                         $zugang['benutzer'] ?? null, $zugang['passwort'] ?? null,
                         $kind);
@@ -612,12 +645,14 @@ if (($seg[0] ?? '') === 'einladungen') {
         json_ok(['ok' => true,
             'mitteilung' => $mitteilung,
             'eltern_bekannt' => $elternIds !== [],
+            'eltern_anzahl' => count($elternIds),
+            'quelle' => $quelle,
             'hinweis' => $elternIds === []
                 ? 'Einladung angelegt. Eine automatische Benachrichtigung war '
-                    . 'nicht möglich, weil zu diesem Kind noch kein '
-                    . 'Elternkonto bekannt ist – bitte die Eltern auf anderem '
-                    . 'Weg informieren.'
-                : 'Einladung angelegt und Benachrichtigung ausgelöst.'], 201);
+                    . 'nicht möglich, weil kein Elternkonto gefunden wurde – '
+                    . 'bitte die Eltern auf anderem Weg informieren.'
+                : 'Einladung angelegt, ' . count($elternIds)
+                    . ' Erziehungsberechtigte(r) benachrichtigt.'], 201);
     }
 
     if ($methode === 'DELETE' && isset($seg[1]) && ctype_digit($seg[1])) {

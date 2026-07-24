@@ -212,6 +212,43 @@ class WebUntisRest
                 'text' => $text, 'json' => is_array($json) ? $json : null];
     }
 
+    /**
+     * Sucht Nachrichten-Empfänger. Belegt am 24.07.2026 durch Mitschnitt
+     * der WebUntis-Weboberfläche.
+     *
+     * Zwei Wege, je nach Rechten des angemeldeten Kontos:
+     *   Lehrkraft: GET  /v1/messages/recipients/PARENTS/search?searchText=…
+     *              (filtert serverseitig auf Erziehungsberechtigte)
+     *   Admin:     POST /v2/messages/recipients/CUSTOM/filter
+     *              {"filters":[],"searchText":"…"}  (liefert alle Rollen)
+     *
+     * Antwortstruktur (beide):
+     *   users[] mit id (USER-ID!), displayName, role
+     *   ("LEGAL_GUARDIAN" oder "STUDENT") und tags[] – bei
+     *   Erziehungsberechtigten enthalten die tags die NAMEN der Kinder.
+     *
+     * @return array{status:int, users:array}
+     */
+    public function empfaengerSuchen(string $suchtext): array
+    {
+        // 1. Lehrkraft-Weg (liefert nur Erziehungsberechtigte)
+        $r = $this->get('/WebUntis/api/rest/view/v1/messages/recipients/PARENTS/search',
+            ['searchText' => $suchtext]);
+        if ($r['status'] === 200 && isset($r['json']['users'])) {
+            return ['status' => 200, 'users' => (array)$r['json']['users']];
+        }
+
+        // 2. Admin-Weg (liefert alle Rollen, wird unten gefiltert)
+        $r2 = $this->post('/WebUntis/api/rest/view/v2/messages/recipients/CUSTOM/filter',
+            ['filters' => [], 'searchText' => $suchtext]);
+        if ($r2['status'] === 200 && isset($r2['json']['users'])) {
+            return ['status' => 200, 'users' => (array)$r2['json']['users']];
+        }
+
+        return ['status' => $r2['status'] !== 0 ? $r2['status'] : $r['status'],
+                'users' => []];
+    }
+
     private function rohGet(string $pfadMitQuery, array $extraHeader = []): array
     {
         $headers = array_merge(['Accept: application/json, text/plain'], $extraHeader);

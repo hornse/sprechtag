@@ -655,7 +655,7 @@ function ansichtEinladungen(ziel) {
         return;
       }
       meldung(ids.length + ' Einladung(en) werden angelegt …', 'info');
-      let ok = 0; let ohneKonto = 0;
+      let ok = 0; let ohneKonto = 0; let benachrichtigt = 0;
       const probleme = [];
       for (const id of ids) {
         try {
@@ -664,6 +664,7 @@ function ansichtEinladungen(ziel) {
             hinweis } });
           ok++;
           if (d.eltern_bekannt === false) ohneKonto++;
+          else benachrichtigt += (d.eltern_anzahl || 0);
         } catch (f) {
           // Fehler NICHT verschlucken – sonst bleibt unklar, warum
           // nichts passiert ist.
@@ -672,7 +673,11 @@ function ansichtEinladungen(ziel) {
       }
       await ladeEinladungen();
       if (probleme.length === 0) {
-        let text = ok + ' Einladung(en) angelegt.';
+        let text = ok + ' Einladung(en) angelegt';
+        if (benachrichtigt > 0) {
+          text += ', ' + benachrichtigt + ' Erziehungsberechtigte benachrichtigt';
+        }
+        text += '.';
         if (ohneKonto > 0) {
           text += ' Bei ' + ohneKonto + ' davon war keine automatische '
             + 'Benachrichtigung möglich, weil noch kein Elternkonto bekannt '
