@@ -20,7 +20,14 @@ require_once __DIR__ . '/../auth/WebUntisAuth.php';
  * Zerlegt CSV-Text in Schülerzeilen. Reine Funktion – offline testbar.
  *
  * Erwartetes Format je Zeile (Trenner ; , oder Tab):
- *   Nachname;Vorname;Klasse[;Schild-ID]
+ *   Nachname;Vorname;Klasse[;Schild-ID[;Austrittsdatum]]
+ *
+ * Das Austrittsdatum ist optional. Liegt es in der Vergangenheit, gilt
+ * der Schüler als nicht mehr an der Schule und erscheint nicht in der
+ * Auswahlliste. Grund: Der Schild-Export enthält immer ALLE Schüler,
+ * auch ehemalige – ohne dieses Feld wäre die Liste unbrauchbar lang.
+ * Akzeptierte Formate: 31.07.2029, 2029-07-31.
+ *
  * Leerzeilen und Zeilen mit # werden übersprungen, eine Kopfzeile
  * wird erkannt (wenn das dritte Feld "klasse" heißt).
  *
@@ -49,6 +56,7 @@ function schueler_csv_parsen(string $csv): array
         $vorname  = $teile[1];
         $klasse   = $teile[2];
         $schildId = $teile[3] ?? '';
+        $austritt = schueler_datum_normieren($teile[4] ?? '');
 
         if ($nachname === '' || $klasse === '') {
             $uebersprungen[] = 'Zeile ' . ($nr + 1) . ': Nachname oder Klasse leer';
@@ -60,10 +68,40 @@ function schueler_csv_parsen(string $csv): array
             'vorname'   => kuerze($vorname, 80),
             'klasse'    => kuerze(schueler_klasse_normieren($klasse), 20),
             'schild_id' => kuerze($schildId, 30),
+            'austritt'  => $austritt,
+            'aktiv'     => schueler_ist_aktiv($austritt) ? 1 : 0,
         ];
     }
 
     return ['zeilen' => $zeilen, 'uebersprungen' => $uebersprungen];
+}
+
+/**
+ * Wandelt ein Datum in das Format JJJJ-MM-TT oder liefert '' zurück.
+ * Akzeptiert 31.07.2029 und 2029-07-31. Reine Funktion – testbar.
+ */
+function schueler_datum_normieren(string $datum): string
+{
+    $d = trim($datum);
+    if ($d === '') return '';
+    if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $d)) return $d;
+    if (preg_match('/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/', $d, $m)) {
+        return sprintf('%04d-%02d-%02d', (int)$m[3], (int)$m[2], (int)$m[1]);
+    }
+    return '';
+}
+
+/**
+ * Ist ein Schüler noch an der Schule? Ohne Austrittsdatum: ja.
+ * Mit Datum in der Zukunft: ja (WebUntis trägt oft das planmäßige
+ * Schulende ein, z. B. 31.07.2029 für einen aktuellen Fünftklässler).
+ * Reine Funktion – testbar.
+ */
+function schueler_ist_aktiv(string $austritt, ?string $heute = null): bool
+{
+    if ($austritt === '') return true;
+    $stichtag = $heute ?? date('Y-m-d');
+    return $austritt >= $stichtag;
 }
 
 /**
@@ -101,11 +139,13 @@ function schueler_csv_importieren(PDO $pdo, array $zeilen): array
         'SELECT id FROM schueler WHERE nachname = ? AND vorname = ? LIMIT 1');
     $update = $pdo->prepare(
         'UPDATE schueler SET nachname = ?, vorname = ?, klasse = ?,
-                schild_id = IF(? <> "", ?, schild_id), aktiv = 1
+                schild_id = IF(? <> "", ?, schild_id),
+                austritt = ?, aktiv = ?
          WHERE id = ?');
     $insert = $pdo->prepare(
-        'INSERT INTO schueler (schild_id, vorname, nachname, klasse, quelle, aktiv)
-         VALUES (?, ?, ?, ?, "csv", 1)');
+        'INSERT INTO schueler (schild_id, vorname, nachname, klasse,
+                               austritt, quelle, aktiv)
+         VALUES (?, ?, ?, ?, ?, "csv", ?)');
 
     foreach ($zeilen as $z) {
         $id = false;
@@ -119,16 +159,20 @@ function schueler_csv_importieren(PDO $pdo, array $zeilen): array
         }
 
         if ($id === false) {
-            $insert->execute([$z['schild_id'], $z['vorname'], $z['nachname'], $z['klasse']]);
+            $insert->execute([$z['schild_id'], $z['vorname'], $z['nachname'],
+                $z['klasse'], $z['austritt'] ?: null, $z['aktiv']]);
             $neu++;
         } else {
             $update->execute([$z['nachname'], $z['vorname'], $z['klasse'],
-                $z['schild_id'], $z['schild_id'], (int)$id]);
+                $z['schild_id'], $z['schild_id'],
+                $z['austritt'] ?: null, $z['aktiv'], (int)$id]);
             $aktualisiert++;
         }
     }
 
-    return ['neu' => $neu, 'aktualisiert' => $aktualisiert];
+    $inaktiv = count(array_filter($zeilen, fn($z) => $z['aktiv'] === 0));
+    return ['neu' => $neu, 'aktualisiert' => $aktualisiert,
+            'inaktiv' => $inaktiv];
 }
 
 /**
@@ -200,10 +244,14 @@ function schueler_webuntis_sync(array $cfg, PDO $pdo,
  * Liefert die Schülerliste, nach Klassen gruppiert.
  * $suche filtert über Name oder Klasse.
  */
-function schueler_liste(PDO $pdo, string $suche = '', int $grenze = 2000): array
+function schueler_liste(PDO $pdo, string $suche = '', int $grenze = 2000,
+                        bool $auchEhemalige = false): array
 {
-    $sql = 'SELECT id, webuntis_id, schild_id, vorname, nachname, klasse
-            FROM schueler WHERE aktiv = 1';
+    // Standardmäßig nur Schüler, die noch an der Schule sind – der
+    // Schild-Export enthält auch alle ehemaligen.
+    $sql = 'SELECT id, webuntis_id, schild_id, vorname, nachname, klasse, austritt
+            FROM schueler WHERE 1=1';
+    if (!$auchEhemalige) $sql .= ' AND aktiv = 1';
     $werte = [];
     if ($suche !== '') {
         $sql .= ' AND (nachname LIKE ? OR vorname LIKE ? OR klasse LIKE ?)';

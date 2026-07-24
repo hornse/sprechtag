@@ -34,6 +34,7 @@ const S = {
   schuelerListe: null,               // Klassenliste für Einladungen
   schuelerSuche: '',
   schuelerAnzahl: null,
+  versandProtokoll: null,
   schuelerKlassen: 0,
   meldung: null,
   offeneBloecke: {},   // merkt aufgeklappte <details> über Neuzeichnen hinweg
@@ -859,13 +860,17 @@ function ansichtAdmin(ziel) {
 
   sl.appendChild(el('h4', null, '2. Klassen aus Schild-NRW ergänzen'));
   sl.appendChild(el('p', 'hinweis-klein',
-    'Eine Zeile je Kind: Nachname;Vorname;Klasse[;Schild-ID]. '
+    'Eine Zeile je Kind: Nachname;Vorname;Klasse;Schild-ID;Austrittsdatum. '
     + 'Trenner ; , oder Tab. Kopf- und Kommentarzeilen (#) werden übersprungen. '
-    + 'Die Schild-ID verknüpft mit WebUntis (dort das Feld „key").'));
+    + 'Die Schild-ID verknüpft mit WebUntis (dort das Feld „Externe Id"). '
+    + 'Das Austrittsdatum ist wichtig, weil der Schild-Export auch alle '
+    + 'ehemaligen Schüler enthält – wer bereits ausgetreten ist, erscheint '
+    + 'nicht in der Auswahlliste.'));
   const ta = document.createElement('textarea');
   ta.id = 'sl-csv';
   ta.rows = 5;
-  ta.placeholder = 'Paulowski;Paul;06B;007\nMuster;Maxi;6b;008';
+  ta.placeholder = 'Aahan;Aahan;06B;1101130;31.07.2029\n'
+    + 'Muster;Maxi;6b;1101131;31.07.2030';
   sl.appendChild(ta);
   sl.appendChild(knopf('CSV importieren', 'klein', async () => {
     const csv = wert('sl-csv');
@@ -877,7 +882,11 @@ function ansichtAdmin(ziel) {
     try {
       const d = await api('/api/schueler/csv', { method: 'POST', body: { csv } });
       S.schuelerAnzahl = null;
-      let text = d.neu + ' neu, ' + d.aktualisiert + ' aktualisiert.';
+      let text = d.neu + ' neu, ' + d.aktualisiert + ' aktualisiert';
+      if (d.inaktiv > 0) {
+        text += ', davon ' + d.inaktiv + ' bereits ausgetreten (nicht in der Auswahl)';
+      }
+      text += '.';
       if ((d.uebersprungen || []).length > 0) {
         text += ' Übersprungen: ' + d.uebersprungen.slice(0, 5).join('; ');
         if (d.uebersprungen.length > 5) text += ' …';
@@ -1374,6 +1383,7 @@ function ansichtMitteilungen(ziel) {
       try {
         const d = await api('/api/mitteilungen/senden',
           { method: 'POST', body: auftrag });
+        S.versandProtokoll = d.protokoll || null;
         await ladeMitteilungen();
         meldung(d.grund + (d.variante ? ' (Variante: ' + d.variante + ')' : ''),
           d.gesendet > 0 ? 'ok' : 'fehler');
@@ -1425,6 +1435,33 @@ function ansichtMitteilungen(ziel) {
   }
   ziel.appendChild(tab);
   ziel.appendChild(knopf('Aktualisieren', 'klein', () => ladeMitteilungen()));
+
+  // Diagnose: Was hat WebUntis auf welche Feldstruktur geantwortet?
+  if (S.versandProtokoll !== null && S.versandProtokoll.length > 0) {
+    const dia = block('versand-protokoll', 'Diagnose des letzten Versands');
+    dia.appendChild(el('p', 'hinweis',
+      'Der Versandweg der WebUntis-Schnittstelle ist nicht dokumentiert. '
+      + 'Hier steht, was die Instanz auf jede probierte Feldstruktur '
+      + 'geantwortet hat – hilfreich für die Fehlersuche.'));
+    for (const p of S.versandProtokoll) {
+      const kasten = el('div', 'probe ' + (p.ok ? 'ok' : 'fehlt'));
+      kasten.appendChild(el('h4', null, 'Mitteilung ' + p.id
+        + (p.ok ? ' – versendet' : ' – fehlgeschlagen')));
+      for (const v of (p.versuche || [])) {
+        kasten.appendChild(el('div', 'hinweis-klein',
+          v.variante + ' → ' + v.grund));
+      }
+      dia.appendChild(kasten);
+    }
+    dia.appendChild(knopf('Diagnose als Text kopieren', 'klein', async () => {
+      const text = JSON.stringify(S.versandProtokoll, null, 2);
+      try {
+        await navigator.clipboard.writeText(text);
+        meldung('Diagnose kopiert.', 'ok');
+      } catch { meldung('Kopieren nicht möglich.', 'fehler'); }
+    }));
+    ziel.appendChild(dia);
+  }
 }
 
 async function ladeMitteilungen() {

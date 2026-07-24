@@ -46,7 +46,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.7.0', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.7.2', 'db' => $db]);
 }
 
 // ============================================================
@@ -491,8 +491,11 @@ if (($seg[0] ?? '') === 'mitteilungen') {
 
         ignore_user_abort(true);
         set_time_limit(0);
-        json_ok(mit_versand_ausfuehren($cfg, $pdo, $ids,
-            $zugang['benutzer'], $zugang['passwort']));
+        $e = mit_versand_ausfuehren($cfg, $pdo, $ids,
+            $zugang['benutzer'], $zugang['passwort']);
+        // Protokoll je Variante mitgeben – ohne diese Details lässt sich
+        // der undokumentierte Versandweg nicht kalibrieren.
+        json_ok($e);
     }
 
     // Freie Mitteilung vormerken

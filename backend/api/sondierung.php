@@ -262,30 +262,50 @@ function sondierung_stammdaten(WebUntisAuth $wu, WebUntisRest $rest): array
         $bericht['getStudents'] = ['fehler' => $e->getMessage()];
     }
 
-    // ---- REST-Varianten: liefern sie mehr (z. B. Gruppen)? ----------
+    // ---- REST-Varianten: liefern sie mehr (z. B. aktiv/Austritt)? ----
+    // Die WebUntis-Oberfläche zeigt in der Schülerverwaltung "aktiv",
+    // "Austrittsdatum" und "Externe Id" – irgendein Endpunkt muss diese
+    // Daten liefern. getStudents() (JSON-RPC) tut es nicht.
     foreach ([
-        '/WebUntis/api/rest/view/v1/students',
-        '/WebUntis/api/rest/view/v1/persons',
-        '/WebUntis/api/rest/view/v1/student-groups',
-        '/WebUntis/api/rest/view/v1/groups',
-    ] as $pfad) {
-        $r = $rest->get($pfad);
-        $zeile = ['pfad' => $pfad, 'status' => $r['status']];
+        ['pfad' => '/WebUntis/api/rest/view/v1/students'],
+        ['pfad' => '/WebUntis/api/rest/view/v1/students',
+         'query' => ['start' => 0, 'limit' => 3]],
+        ['pfad' => '/WebUntis/api/rest/view/v2/students'],
+        ['pfad' => '/WebUntis/api/rest/view/v1/master-data/students'],
+        ['pfad' => '/WebUntis/api/rest/view/v1/masterdata/students'],
+        ['pfad' => '/WebUntis/api/rest/view/v1/students/list'],
+        ['pfad' => '/WebUntis/api/students'],
+        ['pfad' => '/WebUntis/api/public/timetable/weekly/pageconfig',
+         'query' => ['type' => 5]],   // liefert oft die Schülerliste
+        ['pfad' => '/WebUntis/api/rest/view/v1/persons'],
+        ['pfad' => '/WebUntis/api/rest/view/v1/student-groups'],
+        ['pfad' => '/WebUntis/api/rest/view/v1/groups'],
+        ['pfad' => '/WebUntis/api/rest/view/v1/classes'],
+    ] as $kandidat) {
+        $r = $rest->get($kandidat['pfad'], $kandidat['query'] ?? []);
+        $zeile = ['pfad' => $kandidat['pfad'],
+                  'query' => $kandidat['query'] ?? null,
+                  'status' => $r['status']];
         if ($r['json'] !== null) {
             $zeile['json_schluessel'] = array_slice(array_keys($r['json']), 0, 12);
             if ($r['status'] >= 400) {
                 $zeile['fehler_details'] = [
                     'errorCode' => $r['json']['errorCode'] ?? null,
-                    'message'   => $r['json']['errorMessage'] ?? null,
+                    'errorMessage' => $r['json']['errorMessage'] ?? null,
+                    'validationErrors' => $r['json']['validationErrors'] ?? null,
                 ];
+            } else {
+                // Erste Datensatz-Struktur suchen und auf die gesuchten
+                // Felder prüfen (aktiv, Austritt, externe ID)
+                $zeile['gefundene_felder'] = sondierung_felder_finden($r['json']);
             }
         }
-        // Roh-Auszug nur bei Fehlern (sonst stünden hier Klarnamen!)
+        // Roh-Auszug NUR bei Fehlern – bei Erfolg stünden hier Klarnamen.
         if ($r['status'] >= 400) {
-            $zeile['roh_auszug'] = sondierung_kuerzen($r['text'], 300);
+            $zeile['roh_auszug'] = sondierung_kuerzen($r['text'], 400);
         } else {
             $zeile['hinweis'] = 'Antwort erfolgreich – Inhalt aus '
-                . 'Datenschutzgründen nicht abgedruckt.';
+                . 'Datenschutzgründen nicht abgedruckt, nur Feldnamen oben.';
         }
         $bericht['rest_varianten'][] = $zeile;
     }
@@ -353,6 +373,49 @@ function sondierung_eintragstypen(mixed $json): array
         $typen[$k]['faecher']     = array_keys($v['faecher']);
     }
     return $typen;
+}
+
+/**
+ * Durchsucht eine REST-Antwort nach Datensatz-Strukturen und meldet,
+ * welche Felder vorkommen – insbesondere die für die Schülerverwaltung
+ * gesuchten: aktiv-Kennzeichen, Austrittsdatum, externe ID (Schild).
+ *
+ * Gibt NUR Feldnamen und Anzahlen zurück, KEINE Werte – die Antwort
+ * enthält Klarnamen. Reine Funktion – offline testbar.
+ */
+function sondierung_felder_finden(mixed $json, int $tiefe = 0): array
+{
+    if (!is_array($json) || $tiefe > 4) return [];
+
+    // Erste Liste von Objekten suchen
+    foreach ($json as $wert) {
+        if (!is_array($wert)) continue;
+        if (array_is_list($wert) && isset($wert[0]) && is_array($wert[0])) {
+            $felder = array_keys($wert[0]);
+            return [
+                'anzahl_datensaetze' => count($wert),
+                'felder'             => array_slice($felder, 0, 25),
+                'aktiv_feld'         => sondierung_feld_treffer($felder,
+                    '/^(active|aktiv|isActive|enabled|status)$/i'),
+                'austritt_feld'      => sondierung_feld_treffer($felder,
+                    '/(exit|austritt|leaving|until|end).*(date|datum)?|^validTo$/i'),
+                'externe_id_feld'    => sondierung_feld_treffer($felder,
+                    '/(extern|schild|foreign).*(id)?|^key$/i'),
+                'klassen_feld'       => sondierung_feld_treffer($felder,
+                    '/klass|class|grade|jahrgang|year/i'),
+            ];
+        }
+        $tiefer = sondierung_felder_finden($wert, $tiefe + 1);
+        if ($tiefer !== []) return $tiefer;
+    }
+    return [];
+}
+
+/** Liefert alle Feldnamen, die auf ein Muster passen. */
+function sondierung_feld_treffer(array $felder, string $muster): array
+{
+    return array_values(array_filter($felder,
+        fn($f) => (bool)preg_match($muster, (string)$f)));
 }
 
 /**

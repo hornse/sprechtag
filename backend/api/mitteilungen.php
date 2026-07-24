@@ -63,6 +63,40 @@ function mit_varianten(): array
                 'recipientUserIds' => [$empfaenger],
             ],
         ],
+        // Befund 07/2026: /messages/recipients erwartet einen Long –
+        // vermutlich adressiert die API Empfänger über 'recipientIds'.
+        'v1_recipientids' => [
+            'pfad' => '/WebUntis/api/rest/view/v1/messages',
+            'body' => fn(int $empfaenger, string $betreff, string $text) => [
+                'subject'      => $betreff,
+                'content'      => $text,
+                'recipientIds' => [$empfaenger],
+            ],
+        ],
+        // Manche Untis-Endpunkte kapseln die Nutzlast in 'message'
+        'v1_message_wrapper' => [
+            'pfad' => '/WebUntis/api/rest/view/v1/messages',
+            'body' => fn(int $empfaenger, string $betreff, string $text) => [
+                'message' => [
+                    'subject'    => $betreff,
+                    'content'    => $text,
+                    'recipients' => [['id' => $empfaenger, 'type' => 'USER']],
+                ],
+            ],
+        ],
+        // Vollständigeres Objekt mit den Feldern, die GET /messages zeigt
+        'v1_voll' => [
+            'pfad' => '/WebUntis/api/rest/view/v1/messages',
+            'body' => fn(int $empfaenger, string $betreff, string $text) => [
+                'subject'            => $betreff,
+                'content'            => $text,
+                'recipients'         => [['userId' => $empfaenger,
+                                          'displayName' => '']],
+                'isReplyAllowed'     => false,
+                'requestReadConfirmation' => false,
+                'hasAttachments'     => false,
+            ],
+        ],
         'v2_messages' => [
             'pfad' => '/WebUntis/api/rest/view/v2/messages',
             'body' => fn(int $empfaenger, string $betreff, string $text) => [
@@ -147,9 +181,15 @@ function mit_senden(WebUntisRest $rest, int $empfaengerUserId,
         }
     }
 
+    // Alle Fehlermeldungen aufnehmen – nur so ist später erkennbar,
+    // WARUM jede Variante abgelehnt wurde. Eine reine Sammelmeldung
+    // ("keine akzeptiert") hilft bei der Diagnose nicht weiter.
+    $details = [];
+    foreach ($versuche as $v) {
+        $details[] = $v['variante'] . ': ' . $v['grund'];
+    }
     return ['ok' => false, 'variante' => null,
-            'grund' => 'Keine der bekannten Feldstrukturen wurde akzeptiert. '
-                . 'Die Mitteilung wurde zum manuellen Versand vorgemerkt.',
+            'grund' => 'Keine Feldstruktur akzeptiert. ' . implode(' | ', $details),
             'versuche' => $versuche];
 }
 
@@ -296,7 +336,7 @@ function mit_versand_ausfuehren(array $cfg, PDO $pdo, array $ids,
                 $update->execute(['gesendet', $e['grund'], date('Y-m-d H:i:s'), (int)$m['id']]);
             } else {
                 $fehlgeschlagen++;
-                $update->execute(['offen', kuerze($e['grund'], 500), null, (int)$m['id']]);
+                $update->execute(['offen', kuerze($e['grund'], 4000), null, (int)$m['id']]);
             }
             $protokoll[] = ['id' => (int)$m['id'], 'ok' => $e['ok'],
                             'grund' => $e['grund'], 'versuche' => $e['versuche']];

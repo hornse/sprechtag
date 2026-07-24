@@ -1,5 +1,69 @@
 # Changelog – sprechtag
 
+## v0.7.2 (Juli 2026) – Ehemalige Schüler ausblenden
+
+### Neu
+- **Austrittsdatum im CSV-Import** (fünfte Spalte, optional). Liegt es in
+  der Vergangenheit, erscheint der Schüler nicht in der Auswahlliste.
+  Hintergrund: Der Schild-Export enthält immer alle Schüler, auch längst
+  abgegangene – rund 3500 statt der etwa 1000 aktuellen. Ohne Filter wäre
+  die Auswahl unbrauchbar.
+- Akzeptierte Datumsformate: `31.07.2029` und `2029-07-31`. Fehlt die
+  Angabe, gilt der Schüler als aktuell. Planmäßige Schulenden in der
+  Zukunft (WebUntis trägt sie oft ein) gelten korrekt als aktiv.
+- Der Import meldet zurück, wie viele Einträge als ausgetreten erkannt
+  wurden. Gespeichert werden alle; ausgeblendet wird nur in der Auswahl.
+- Neue Spalte `schueler.austritt` und Index `idx_aktiv_klasse`
+  (`sql/07_austritt.sql`, idempotent).
+
+### Sondierung erweitert
+- Die Gruppe „Klassen & Schüler:innen" prüft jetzt zwölf REST-Kandidaten
+  darauf, ob einer die Felder liefert, die die WebUntis-Oberfläche in der
+  Schülerverwaltung zeigt: **aktiv**, **Austrittsdatum** und
+  **Externe Id** (= Schild-ID). `getStudents()` (JSON-RPC) tut das nicht.
+- Neue Funktion `sondierung_felder_finden()` meldet je Antwort, welche
+  Felder auf diese Kategorien passen – und gibt dabei **nur Feldnamen
+  aus, keine Werte**, weil die Antworten Klarnamen enthalten.
+
+### Tests
+- `tests/run_austritt.php` (18 Prüfungen): Datumsnormierung, Aktiv-Logik
+  am Stichtag, CSV mit gemischten Austrittsdaten.
+- `tests/run_felderfindung.php` (13 Prüfungen): Erkennung der Feldnamen
+  in verschiedenen Schreibweisen, Nachweis, dass keine Werte im Bericht
+  landen.
+
+
+## v0.7.1 (Juli 2026) – Diagnose des Mitteilungsversands
+
+### Behoben
+- **Bei fehlgeschlagenem Versand ging die eigentliche Information
+  verloren.** Gespeichert wurde nur „Keine der bekannten Feldstrukturen
+  wurde akzeptiert" – die Antworten der einzelnen Varianten, also genau
+  das, was man zur Kalibrierung braucht, wurden verworfen. Jetzt steht je
+  Variante die Antwort der Instanz im Feld `grund`.
+- Spalte `mitteilungen.grund` von VARCHAR(500) auf TEXT erweitert
+  (`sql/06_diagnose.sql`, idempotent) – vier bis sieben Fehlermeldungen
+  passen sonst nicht hinein.
+
+### Neu
+- **Diagnoseansicht** unter „Mitteilungen": Nach einem Versand steht dort
+  je Mitteilung und Variante, was WebUntis geantwortet hat, mit Knopf zum
+  Kopieren.
+- **Drei zusätzliche Feldstrukturen** (jetzt sieben statt vier),
+  abgeleitet aus dem Befund, dass `/messages/recipients` einen Long
+  erwartet: `recipientIds`, ein `message`-Wrapper und eine vollständigere
+  Variante mit den Feldern, die `GET /messages` zeigt.
+- `docs/VERSANDWEG_ERMITTELN.md`: Anleitung, wie sich der echte
+  Versandweg in fünf Minuten aus den Browser-Entwicklerwerkzeugen ablesen
+  lässt. Das ist der verlässlichste Weg – Raten hat bisher nicht
+  funktioniert.
+
+### Tests
+- `tests/run_varianten.php` (10 Prüfungen): Struktur aller sieben
+  Varianten, Empfänger-ID in jedem Body, Unterscheidbarkeit der
+  Fehlermeldungen.
+
+
 ## v0.7.0 (Juli 2026) – Schülerliste, Lehrkraft-Auswahl, Versand ohne Zugangsdaten
 
 ### Neu

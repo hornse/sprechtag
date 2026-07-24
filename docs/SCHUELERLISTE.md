@@ -41,6 +41,27 @@ Administration → „Schülerliste für die Einladungsauswahl":
 
 Reihenfolge egal – der Import erkennt vorhandene Einträge und ergänzt sie.
 
+## Ehemalige Schüler ausblenden
+
+Der Schild-Export enthält **alle** Schüler, auch längst abgegangene – bei
+einem Gymnasium schnell das Drei- bis Vierfache der aktuellen Zahl. Ohne
+Filter wäre die Auswahlliste unbrauchbar.
+
+Deshalb wertet der Import das **Austrittsdatum** aus (fünfte Spalte):
+Liegt es in der Vergangenheit, erscheint der Schüler nicht in der
+Auswahlliste. Fehlt die Angabe, gilt der Schüler als aktuell.
+
+WebUntis pflegt dieselbe Information in der Schülerverwaltung („aktiv"
+und „Austrittsdatum"), gibt sie über `getStudents()` aber nicht heraus –
+dort kommen nur id, key, name, foreName, longName, gender. Ob ein
+REST-Endpunkt mehr liefert, prüft die Sondierungsgruppe
+„Klassen & Schüler:innen"; sie meldet gezielt, ob ein Feld für
+Aktiv-Status, Austrittsdatum oder externe ID gefunden wurde.
+
+Beachten: WebUntis trägt oft das **planmäßige** Schulende ein (etwa
+31.07.2029 für einen aktuellen Fünftklässler). Solche Daten liegen in der
+Zukunft und gelten korrekt als aktiv.
+
 ## Klassenbezeichnungen
 
 Damit `06B` aus WebUntis und `6b` aus Schild dieselbe Klasse sind, werden
