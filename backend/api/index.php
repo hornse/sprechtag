@@ -35,6 +35,7 @@ require_once __DIR__ . '/sondierung.php';
 require_once __DIR__ . '/mitteilungen.php';
 require_once __DIR__ . '/dienstkonto.php';
 require_once __DIR__ . '/schueler.php';
+require_once __DIR__ . '/einstellungen.php';
 
 $methode = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $pfad    = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
@@ -46,7 +47,13 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.7', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.8', 'db' => $db]);
+}
+
+// ---- /api/einstellungen (Branding) -------------------------
+// Eigene Guards je Route (GET öffentlich, POST/DELETE admin).
+if (marke_route($seg, $methode, $body, $cfg)) {
+    // marke_route hat bereits geantwortet und beendet.
 }
 
 // ============================================================

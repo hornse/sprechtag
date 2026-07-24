@@ -1,5 +1,30 @@
 # Changelog – sprechtag
 
+## v0.9.8 (Juli 2026) – Individualisierung (Logo, Farben, Texte)
+
+### Neu
+- **Erscheinungsbild anpassbar (Administration → Erscheinungsbild).** Schule
+  kann Schulname, Titel, Untertitel, Fußzeile, zwei Akzentfarben und ein
+  Logo setzen. Änderungen gelten sofort für alle und werden bereits vor dem
+  Login angewandt. Muster übernommen aus hornse/schulprozesse, angepasst an
+  sprechtag (MariaDB, db()/json_*-Helfer).
+  - Farben steuern über die CSS-Variablen `--akzent`/`--akzent2` den Kopf,
+    die Primärbuttons und die aktive Navigation.
+  - Logo als Datei unter backend/data/logos/, ausgeliefert nur über
+    `GET /api/einstellungen/logo`. Upload per Base64 (umgeht das
+    63-KB-Proxylimit), max. 500 KB, PNG/JPG/SVG.
+  - Sicherheit: MIME-Prüfung per finfo (nicht Client-Angabe), SVG-Scan auf
+    Skripte/Event-Handler/iframes, Speicherort außerhalb der statisch
+    ausgelieferten Pfade, Zufallsdateiname.
+  - Alles über die bestehende `einstellungen`-Tabelle (Präfix `marke_`),
+    Standardwerte idempotent per `sql/10_branding.sql`.
+
+### Routen
+- `GET /api/einstellungen` (öffentlich, ohne Logo-Pfad),
+  `POST /api/einstellungen` (admin), `POST|DELETE /api/einstellungen/logo`,
+  `GET /api/einstellungen/logo` (öffentlich),
+  `POST /api/einstellungen/zuruecksetzen`.
+
 ## v0.9.7 (Juli 2026) – Doppelbuchung verhindert, Auto-Load, Buchungsrechte
 
 ### Behoben

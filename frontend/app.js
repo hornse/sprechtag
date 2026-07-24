@@ -32,6 +32,7 @@ const S = {
   mitteilungen: null,
   mittLaedt: false,                  // Auto-Load-Guard Mitteilungen
   dienstkonto: null,   // Status des hinterlegten Dienstkontos
+  marke: null,         // Branding: Schulname, Titel, Farben, Logo
   gewaehlteLehrkraftAnsicht: null,   // Admin: wessen Termine werden gezeigt
   schuelerListe: null,               // Klassenliste für Einladungen
   svRaster: null,                    // Zeitraster der Lehrkraft (frei + belegt)
@@ -130,6 +131,13 @@ function zeitstempel(iso) {
 
 // ---------- Start ---------------------------------------------------------
 async function start() {
+  // Marke zuerst laden und anwenden (öffentlich, auch vor dem Login) –
+  // so erscheint die Seite gleich im richtigen Gewand.
+  try {
+    S.marke = await api('/api/einstellungen');
+    wendeMarkeAn(S.marke);
+  } catch { }
+
   try {
     const me = await api('/api/auth/me');
     S.user = me.angemeldet ? me : null;
@@ -143,6 +151,32 @@ async function start() {
     S.ansicht = 'login';
   }
   zeichne();
+}
+
+// Wendet die Marke auf Kopf, Titel, Fußzeile und Akzentfarben an.
+function wendeMarkeAn(m) {
+  if (!m) return;
+  const root = document.documentElement;
+  if (m.marke_farbe)  root.style.setProperty('--akzent', m.marke_farbe);
+  if (m.marke_farbe2) root.style.setProperty('--akzent2', m.marke_farbe2);
+
+  const titel = $('#marke-titel');
+  if (titel && m.marke_titel) titel.textContent = m.marke_titel;
+  const unter = $('#marke-untertitel');
+  if (unter && m.marke_untertitel) unter.textContent = m.marke_untertitel;
+  const fuss = $('#marke-fusszeile');
+  if (fuss && m.marke_fusszeile) fuss.textContent = m.marke_fusszeile;
+  if (m.marke_titel) document.title = m.marke_titel;
+
+  const logo = $('#marke-logo');
+  if (logo) {
+    if (m.hat_logo) {
+      logo.src = '/api/einstellungen/logo?' + Date.now();  // Cache-Busting
+      logo.classList.remove('versteckt');
+    } else {
+      logo.classList.add('versteckt');
+    }
+  }
 }
 
 async function ladeSprechtage() {
@@ -1060,8 +1094,131 @@ async function ladeEinladungen() {
 // ============================================================
 // ANSICHT: Administration
 // ============================================================
+// ---- Branding / Individualisierung --------------------------------------
+function zeichneMarkeBlock(ziel) {
+  const m = S.marke || {};
+  const b = block('marke', 'Erscheinungsbild (Logo, Farben, Texte)');
+  b.appendChild(el('p', 'hinweis',
+    'Passen Sie den Auftritt an Ihre Schule an. Änderungen gelten sofort '
+    + 'für alle. Das Logo wird als Datei gespeichert (PNG, JPG oder SVG, '
+    + 'max. 500 KB).'));
+
+  b.appendChild(feld('Schulname', 'marke-schulname', 'text', m.marke_schulname || ''));
+  b.appendChild(feld('Titel (Kopf und Browser-Tab)', 'marke-titel', 'text', m.marke_titel || ''));
+  b.appendChild(feld('Untertitel', 'marke-untertitel', 'text', m.marke_untertitel || ''));
+  b.appendChild(feld('Fußzeile', 'marke-fusszeile', 'text', m.marke_fusszeile || ''));
+
+  const farben = el('div', 'zeile');
+  farben.appendChild(feld('Akzentfarbe', 'marke-farbe', 'color', m.marke_farbe || '#1d4e89'));
+  farben.appendChild(feld('Sekundärfarbe', 'marke-farbe2', 'color', m.marke_farbe2 || '#1e7d3e'));
+  b.appendChild(farben);
+
+  // ---- Logo: Vorschau + Upload + Entfernen ----
+  const logoZeile = el('div', 'marke-logo-zeile');
+  if (m.hat_logo) {
+    const img = document.createElement('img');
+    img.src = '/api/einstellungen/logo?' + Date.now();
+    img.alt = 'Aktuelles Logo';
+    img.className = 'marke-logo-vorschau';
+    logoZeile.appendChild(img);
+  } else {
+    logoZeile.appendChild(el('span', 'hinweis-klein', 'Kein Logo hinterlegt.'));
+  }
+  b.appendChild(logoZeile);
+
+  const datei = feld('Logo hochladen (PNG, JPG, SVG)', 'marke-logo-datei', 'file');
+  datei.querySelector('input').accept = 'image/png,image/jpeg,image/svg+xml';
+  b.appendChild(datei);
+
+  const knoepfe = el('div', 'zeile');
+  knoepfe.appendChild(knopf('Speichern', null, () => markeSpeichern()));
+  knoepfe.appendChild(knopf('Logo hochladen', 'klein', () => markeLogoHochladen()));
+  if (m.hat_logo) {
+    knoepfe.appendChild(knopf('Logo entfernen', 'klein gefahr', () => markeLogoEntfernen()));
+  }
+  knoepfe.appendChild(knopf('Auf Standard zurücksetzen', 'klein', () => markeZuruecksetzen()));
+  b.appendChild(knoepfe);
+
+  ziel.appendChild(b);
+}
+
+async function markeSpeichern() {
+  const daten = {
+    marke_schulname:  wert('marke-schulname'),
+    marke_titel:      wert('marke-titel'),
+    marke_untertitel: wert('marke-untertitel'),
+    marke_fusszeile:  wert('marke-fusszeile'),
+    marke_farbe:      wert('marke-farbe'),
+    marke_farbe2:     wert('marke-farbe2'),
+  };
+  try {
+    await api('/api/einstellungen', { method: 'POST', body: daten });
+    S.marke = await api('/api/einstellungen');
+    wendeMarkeAn(S.marke);
+    meldung('Erscheinungsbild gespeichert.', 'ok');
+    zeichne();
+  } catch (f) { meldung(String(f.message), 'fehler'); }
+}
+
+async function markeLogoHochladen() {
+  const inp = $('#marke-logo-datei');
+  const datei = inp && inp.files && inp.files[0];
+  if (!datei) { meldung('Bitte zuerst eine Bilddatei wählen.', 'fehler'); return; }
+  if (datei.size > 500 * 1024) {
+    meldung('Das Logo darf maximal 500 KB groß sein.', 'fehler'); return;
+  }
+  meldung('Logo wird hochgeladen …', 'info');
+  try {
+    const base64 = await dateiAlsBase64(datei);
+    await api('/api/einstellungen/logo', { method: 'POST', body: {
+      daten: base64, mime_type: datei.type, dateiname: datei.name } });
+    S.marke = await api('/api/einstellungen');
+    wendeMarkeAn(S.marke);
+    meldung('Logo hochgeladen.', 'ok');
+    zeichne();
+  } catch (f) { meldung(String(f.message), 'fehler'); }
+}
+
+async function markeLogoEntfernen() {
+  if (!confirm('Logo wirklich entfernen?')) return;
+  try {
+    await api('/api/einstellungen/logo', { method: 'DELETE' });
+    S.marke = await api('/api/einstellungen');
+    wendeMarkeAn(S.marke);
+    meldung('Logo entfernt.', 'ok');
+    zeichne();
+  } catch (f) { meldung(String(f.message), 'fehler'); }
+}
+
+async function markeZuruecksetzen() {
+  if (!confirm('Erscheinungsbild auf Standardwerte zurücksetzen?')) return;
+  try {
+    const d = await api('/api/einstellungen/zuruecksetzen', { method: 'POST' });
+    S.marke = d.marke || await api('/api/einstellungen');
+    wendeMarkeAn(S.marke);
+    meldung('Auf Standard zurückgesetzt.', 'ok');
+    zeichne();
+  } catch (f) { meldung(String(f.message), 'fehler'); }
+}
+
+// Liest eine Datei als reines Base64 (ohne data:-Präfix).
+function dateiAlsBase64(datei) {
+  return new Promise((ok, fehler) => {
+    const r = new FileReader();
+    r.onload = () => {
+      const s = String(r.result);
+      const komma = s.indexOf(',');
+      ok(komma >= 0 ? s.slice(komma + 1) : s);
+    };
+    r.onerror = () => fehler(new Error('Datei konnte nicht gelesen werden.'));
+    r.readAsDataURL(datei);
+  });
+}
+
 function ansichtAdmin(ziel) {
   ziel.appendChild(el('h2', null, 'Administration'));
+
+  zeichneMarkeBlock(ziel);
 
   // ---- Dienstkonto ------------------------------------------------------
   const dk = block('dienstkonto', 'Dienstkonto für die Lehrkraft-Ermittlung');

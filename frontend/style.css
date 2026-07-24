@@ -9,6 +9,10 @@
   --rand: #d5dbe3;
   --text: #1c2733;
   --grau: #5b6773;
+  /* Akzentfarben – per Branding überschreibbar (JS setzt sie auf
+     documentElement). Standard = die festen Hausfarben oben. */
+  --akzent: var(--blau);
+  --akzent2: var(--gruen);
 }
 
 * { box-sizing: border-box; }
@@ -22,10 +26,17 @@ body {
 }
 
 .kopf {
-  background: var(--blau);
+  background: var(--akzent);
   color: #fff;
   padding: 1rem 1.5rem;
 }
+.kopf-marke { display: flex; align-items: center; gap: .9rem; }
+.marke-logo { height: 44px; width: auto; max-width: 160px; display: block;
+              background: #fff; border-radius: 6px; padding: 3px; }
+.marke-logo.versteckt { display: none; }
+.marke-logo-zeile { margin: .6rem 0; }
+.marke-logo-vorschau { max-height: 64px; max-width: 200px; border: 1px solid var(--rand);
+                       border-radius: 6px; padding: 4px; background: #fff; }
 .kopf h1 { margin: 0; font-size: 1.4rem; }
 .kopf .frg { font-weight: 300; opacity: .85; }
 .untertitel { margin: .2rem 0 0; font-size: .85rem; opacity: .85; }
@@ -81,7 +92,7 @@ button {
   font: inherit;
   font-weight: 600;
   color: #fff;
-  background: var(--blau);
+  background: var(--akzent);
   border: 0;
   border-radius: 6px;
   padding: .55rem 1.2rem;
@@ -153,7 +164,7 @@ button:disabled { background: var(--grau); cursor: wait; }
   padding: .4rem .9rem;
   font-size: .85rem;
 }
-.nav-knopf.aktiv { background: #fff; color: var(--blau); }
+.nav-knopf.aktiv { background: #fff; color: var(--akzent); }
 
 .meldung { padding: .7rem 1rem; border-radius: 6px; margin-bottom: 1rem; font-size: .9rem; }
 .meldung.info   { background: var(--blau-hell); color: var(--blau); }
