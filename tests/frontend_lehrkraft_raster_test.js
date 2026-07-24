@@ -63,6 +63,21 @@ pruefe('vor der Buchung wird ein Kind verlangt',
 pruefe('Doppelklick-Schutz vorhanden',
   buchen.includes('S.svLaeuft'));
 
+// Auto-Load: kein manueller „Termine laden"-Knopf mehr, dafür ein Guard
+// gegen Mehrfachladen und ein Fehlerzustand gegen Endlosschleifen.
+const ansicht = koerper('ansichtLehrkraft');
+pruefe('kein manueller „Termine laden"-Knopf mehr',
+  !ansicht.includes("knopf('Termine laden'"));
+pruefe('Auto-Load mit Guard (svLaedt)',
+  ansicht.includes('S.svLaedt') && ansicht.includes('ladeSvRaster'));
+pruefe('Fehlerzustand bricht Auto-Load-Schleife',
+  ansicht.includes('S.svFehler'));
+const lade = koerper('ladeSvRaster');
+pruefe('Schülerliste wird automatisch mitgeladen',
+  lade.includes('/api/schueler') && lade.includes('S.schuelerListe'));
+pruefe('Guard wird nach dem Laden immer zurückgesetzt',
+  lade.includes('finally') && lade.includes('S.svLaedt = false'));
+
 // Die alte Darstellung darf nicht mehr existieren (sonst zwei Wege).
 pruefe('alte Funktion zeichneStellvertreter entfernt',
   !src.includes('function zeichneStellvertreter'));

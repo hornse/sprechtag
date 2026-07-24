@@ -33,6 +33,8 @@ const S = {
   gewaehlteLehrkraftAnsicht: null,   // Admin: wessen Termine werden gezeigt
   schuelerListe: null,               // Klassenliste für Einladungen
   svRaster: null,                    // Zeitraster der Lehrkraft (frei + belegt)
+  svLaedt: false,                    // Auto-Load läuft gerade (verhindert Doppelladen)
+  svFehler: null,                    // Fehlermeldung, falls Auto-Load scheiterte
   svKind: null,                      // gewähltes Kind für stellvertretende Buchung
   svKindName: '',                    // Anzeigename des gewählten Kindes
   svKindSuche: '',                   // Suchbegriff im Kind-Suchfeld
@@ -229,6 +231,8 @@ function zeichneNavigation() {
           S.lehrerListe = null;
           S.raster = [];
           S.svRaster = null;
+          S.svLaedt = false;
+          S.svFehler = null;
           S.gewaehlteLehrkraft = null;
         }
         S.ansicht = ziel;
@@ -515,7 +519,7 @@ function ansichtLehrkraft(ziel) {
 
   ziel.appendChild(el('h2', null, istAdmin && gezeigteId !== eigeneId
     ? 'Sprechtags-Termine einer Lehrkraft' : 'Meine Sprechtags-Termine'));
-  if (!sprechtagWaehler(ziel, () => { S.svRaster = null; ladeSvRaster(gezeigteId); })) return;
+  if (!sprechtagWaehler(ziel, () => { S.svRaster = null; S.svLaedt = false; })) return;
 
   // Admins sehen sonst immer nur die Termine der Lehrkraft, die in
   // admin_kuerzel hinterlegt ist – das ist ohne Auswahl irreführend.
@@ -533,6 +537,8 @@ function ansichtLehrkraft(ziel) {
         S.gewaehlteLehrkraftAnsicht = e.target.value === ''
           ? null : parseInt(e.target.value, 10);
         S.svRaster = null;
+        S.svLaedt = false;
+        S.svFehler = null;
         zeichne();
       });
       ziel.appendChild(w);
@@ -551,7 +557,23 @@ function ansichtLehrkraft(ziel) {
   }
 
   if (S.svRaster === null) {
-    ziel.appendChild(knopf('Termine laden', null, () => ladeSvRaster(gezeigteId)));
+    // Bei einem vorherigen Fehler nicht endlos neu laden, sondern die
+    // Fehlermeldung zeigen und einen Wiederholen-Knopf anbieten.
+    if (S.svFehler !== null) {
+      ziel.appendChild(el('p', 'meldung fehler', S.svFehler));
+      ziel.appendChild(knopf('Erneut versuchen', null, () => {
+        S.svFehler = null; S.svLaedt = true; ladeSvRaster(gezeigteId);
+      }));
+      return;
+    }
+    // Automatisch laden, sobald die Ansicht sichtbar ist – kein Knopfdruck
+    // mehr nötig. Der Guard verhindert Mehrfachladen (ladeSvRaster ruft
+    // zeichne(), das diese Ansicht erneut aufbaut).
+    ziel.appendChild(el('p', 'hinweis', 'Termine werden geladen …'));
+    if (!S.svLaedt) {
+      S.svLaedt = true;
+      ladeSvRaster(gezeigteId);
+    }
     return;
   }
 
@@ -749,9 +771,25 @@ async function ladeSvRaster(lehrerId) {
     const d = await api('/api/raster?sprechtag=' + S.aktiverSprechtag.id
       + '&lehrer=' + lehrerId);
     S.svRaster = d.raster || [];
+    S.svFehler = null;
+    // Schülerliste gleich mitladen, falls noch nicht vorhanden – dann ist
+    // die Kind-Suche für die Fremdbuchung sofort einsatzbereit, ohne dass
+    // erst ein zweiter Knopf gedrückt werden muss.
+    if (S.schuelerListe === null) {
+      try {
+        const s = await api('/api/schueler');
+        S.schuelerListe = s.klassen || {};
+      } catch { S.schuelerListe = {}; }
+    }
     meldung(null);
+  } catch (f) {
+    // Fehler merken, damit die Ansicht ihn zeigt statt in einer
+    // Auto-Load-Schleife zu hängen.
+    S.svFehler = String(f.message);
+  } finally {
+    S.svLaedt = false;
     zeichne();
-  } catch (f) { meldung(String(f.message), 'fehler'); }
+  }
 }
 
 async function lehrkraftStorno(b) {

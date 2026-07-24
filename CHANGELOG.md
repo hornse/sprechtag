@@ -1,5 +1,18 @@
 # Changelog – sprechtag
 
+## v0.9.5 (Juli 2026) – Termine laden automatisch, Schülerliste sofort bereit
+
+### Geändert
+- **„Meine Termine" lädt automatisch.** Der Knopf „Termine laden" entfällt;
+  das Raster wird beim Öffnen der Ansicht bzw. nach einem Seitenwechsel
+  selbst geladen. Ein Guard verhindert Mehrfachladen, ein Fehlerzustand
+  verhindert eine Auto-Load-Schleife (bei einem Fehler erscheint stattdessen
+  „Erneut versuchen").
+- **Schülerliste ist sofort einsatzbereit.** Sie wird zusammen mit dem
+  Raster geladen, sodass die Kind-Suche für die Fremdbuchung ohne zweiten
+  Knopfdruck sofort funktioniert – das Auffinden eines Kindes (z. B.
+  „Paulowski, Petra") geht damit ohne Umweg.
+
 ## v0.9.4 (Juli 2026) – Kind-Suche, Absender-Frage geklärt
 
 ### Neu
