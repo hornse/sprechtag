@@ -1,5 +1,17 @@
 # Changelog – sprechtag
 
+## v0.9.6 (Juli 2026) – Kind-Suche findet wieder alle
+
+### Behoben
+- **Fremdbuchungs-Suche fand nicht alle Kinder** (z. B. „Paulowski"), obwohl
+  die Einladungsansicht sie sofort fand. Ursache: Beide teilten sich
+  `S.schuelerListe`, die von der Einladungsansicht auf einen gefilterten
+  Teilbestand eingeschränkt werden kann – die Fremdbuchung filterte dann
+  nur innerhalb dieses Restes. Die Kind-Suche fragt jetzt das Backend
+  eigenständig ab (`/api/schueler?suche=…`, entprellt) und durchsucht damit
+  immer die volle Datenbank – dieselbe Quelle wie die Einladung. Die
+  Vorab-Ladung der kompletten Schülerliste entfällt dadurch.
+
 ## v0.9.5 (Juli 2026) – Termine laden automatisch, Schülerliste sofort bereit
 
 ### Geändert

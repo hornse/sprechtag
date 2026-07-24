@@ -38,6 +38,8 @@ const S = {
   svKind: null,                      // gewähltes Kind für stellvertretende Buchung
   svKindName: '',                    // Anzeigename des gewählten Kindes
   svKindSuche: '',                   // Suchbegriff im Kind-Suchfeld
+  svTreffer: null,                   // Suchergebnisse der Fremdbuchung (eigene Abfrage)
+  svSucheLaeuft: false,              // Suchabfrage im Gange
   svLaeuft: false,                   // Buchung im Gange (Doppelklick-Schutz)
   schuelerSuche: '',
   schuelerAnzahl: null,
@@ -597,61 +599,35 @@ function zeichneLehrkraftRaster(ziel, lehrerId) {
     + 'Elternkonto wird automatisch ermittelt; der Termin ist danach für '
     + 'andere gesperrt und alle Erziehungsberechtigten werden benachrichtigt.'));
 
-  if (S.schuelerListe === null) {
-    kopf.appendChild(knopf('Schülerliste laden', 'klein', () => ladeSchueler()));
+  if (S.svKind !== null) {
+    // Ein Kind ist gewählt – kompakt anzeigen, mit Möglichkeit zu wechseln.
+    const z = el('div', 'zeile sv-gewaehlt');
+    z.appendChild(el('span', 'sv-gewaehlt-name',
+      'Gewählt: ' + (S.svKindName || ('ID ' + S.svKind))));
+    z.appendChild(knopf('Anderes Kind', 'klein', () => {
+      S.svKind = null; S.svKindName = ''; S.svTreffer = null; zeichne();
+    }));
+    kopf.appendChild(z);
   } else {
-    // Alle Kinder mit WebUntis-Zuordnung flach sammeln (für die Suche).
-    const kinder = [];
-    for (const [klasse, ks] of Object.entries(S.schuelerListe)) {
-      for (const k of ks) {
-        if (!k.webuntis_id) continue;
-        kinder.push({
-          id: k.webuntis_id,
-          name: k.nachname + (k.vorname ? ', ' + k.vorname : ''),
-          klasse: klasse,
-        });
-      }
-    }
+    // Suchfeld mit EIGENER Backend-Abfrage (/api/schueler?suche=…). Bewusst
+    // NICHT über die geteilte S.schuelerListe gefiltert: die kann durch die
+    // Einladungsansicht auf einen Teilbestand eingeschränkt sein, wodurch
+    // hier Treffer fehlten (z. B. "Paulowski"). Die eigene Abfrage sucht
+    // immer die volle Datenbank – dieselbe Quelle wie die Einladung.
+    const z = el('div', 'zeile');
+    const f = feld('Kind suchen (Name oder Klasse)', 'sv-suche', 'text',
+      S.svKindSuche || '');
+    f.querySelector('input').addEventListener('input', (e) => {
+      S.svKindSuche = e.target.value;
+      svSucheAnstossen();       // entprellt die Backend-Abfrage
+    });
+    z.appendChild(f);
+    kopf.appendChild(z);
 
-    if (kinder.length === 0) {
-      kopf.appendChild(el('p', 'hinweis-wichtig',
-        'Keine Schülerliste mit WebUntis-Zuordnung vorhanden. Die '
-        + 'Administration kann sie unter „Administration → Schülerliste" '
-        + 'einrichten. Ohne Liste ist die stellvertretende Buchung nicht möglich.'));
-    } else if (S.svKind !== null) {
-      // Ein Kind ist gewählt – kompakt anzeigen, mit Möglichkeit zu wechseln.
-      const z = el('div', 'zeile sv-gewaehlt');
-      z.appendChild(el('span', 'sv-gewaehlt-name',
-        'Gewählt: ' + (S.svKindName || ('ID ' + S.svKind))));
-      z.appendChild(knopf('Anderes Kind', 'klein', () => {
-        S.svKind = null; S.svKindName = ''; zeichne();
-      }));
-      kopf.appendChild(z);
-    } else {
-      // Suchfeld statt langer Dropdown-Liste: Bei mehreren hundert
-      // Schülern ist ein <select> unbrauchbar (und kann clientseitig
-      // abgeschnitten wirken). Getippt wird über Name oder Klasse.
-      const z = el('div', 'zeile');
-      const f = feld('Kind suchen (Name oder Klasse)', 'sv-suche', 'text',
-        S.svKindSuche || '');
-      // Live-Filter: Zustand halten und neu zeichnen bei jeder Eingabe.
-      f.querySelector('input').addEventListener('input', (e) => {
-        S.svKindSuche = e.target.value;
-        zeichneSvTreffer();
-      });
-      z.appendChild(f);
-      kopf.appendChild(z);
-
-      // Container für die Trefferliste (wird von zeichneSvTreffer gefüllt).
-      const treffer = el('div', 'sv-treffer');
-      treffer.id = 'sv-treffer';
-      kopf.appendChild(treffer);
-      // Kinderliste am Container merken, damit der Live-Filter sie findet,
-      // ohne S.schuelerListe erneut zu durchlaufen.
-      S._svKinder = kinder;
-      // Erstbefüllung (füllt #sv-treffer nach dem Anhängen).
-      setTimeout(zeichneSvTreffer, 0);
-    }
+    const treffer = el('div', 'sv-treffer');
+    treffer.id = 'sv-treffer';
+    kopf.appendChild(treffer);
+    setTimeout(zeichneSvTreffer, 0);   // Erstbefüllung nach dem Anhängen
   }
   ziel.appendChild(kopf);
 
@@ -690,44 +666,85 @@ function zeichneLehrkraftRaster(ziel, lehrerId) {
     () => { S.svRaster = null; ladeSvRaster(lehrerId); }));
 }
 
-// Füllt die Trefferliste (#sv-treffer) anhand des Suchbegriffs, ohne die
-// ganze Ansicht neu zu zeichnen – so behält das Suchfeld den Fokus und das
-// Tippen bleibt flüssig. Gesucht wird über Name und Klasse.
+// Stößt die Kind-Suche entprellt an: erst 250 ms nach dem letzten
+// Tastendruck wird das Backend gefragt – so entsteht nicht pro Zeichen
+// eine Abfrage, das Feld bleibt flüssig.
+let svSucheTimer = null;
+function svSucheAnstossen() {
+  if (svSucheTimer) clearTimeout(svSucheTimer);
+  const q = (S.svKindSuche || '').trim();
+  if (q === '') { S.svTreffer = null; zeichneSvTreffer(); return; }
+  // Sofort einen "sucht …"-Zustand zeigen, dann verzögert abfragen.
+  zeichneSvTreffer();
+  svSucheTimer = setTimeout(() => svKindSuchen(q), 250);
+}
+
+async function svKindSuchen(q) {
+  S.svSucheLaeuft = true;
+  zeichneSvTreffer();
+  try {
+    const d = await api('/api/schueler?suche=' + encodeURIComponent(q));
+    // Backend liefert nach Klassen gruppiert – flach klopfen und nur
+    // Kinder mit WebUntis-Zuordnung übernehmen (nur die sind buchbar).
+    const flach = [];
+    for (const [klasse, ks] of Object.entries(d.klassen || {})) {
+      for (const k of ks) {
+        if (!k.webuntis_id) continue;
+        flach.push({ id: k.webuntis_id,
+          name: k.nachname + (k.vorname ? ', ' + k.vorname : ''),
+          klasse: klasse });
+      }
+    }
+    // Nur übernehmen, wenn der Suchbegriff noch aktuell ist (der Nutzer
+    // könnte inzwischen weitergetippt haben).
+    if ((S.svKindSuche || '').trim() === q) S.svTreffer = flach;
+  } catch (f) {
+    S.svTreffer = { fehler: String(f.message) };
+  } finally {
+    S.svSucheLaeuft = false;
+    zeichneSvTreffer();
+  }
+}
+
+// Füllt die Trefferliste (#sv-treffer), ohne die ganze Ansicht neu zu
+// zeichnen – so behält das Suchfeld den Fokus. Quelle ist S.svTreffer,
+// das aus der Backend-Abfrage stammt (volle Datenbank).
 function zeichneSvTreffer() {
   const ziel = $('#sv-treffer');
   if (!ziel) return;
   ziel.textContent = '';
-  const kinder = S._svKinder || [];
-  const q = (S.svKindSuche || '').trim().toLowerCase();
+  const q = (S.svKindSuche || '').trim();
 
   if (q === '') {
     ziel.appendChild(el('p', 'hinweis-klein',
-      'Zum Suchen tippen – Name oder Klasse. ' + kinder.length
-      + ' Kinder in der Liste.'));
+      'Zum Suchen tippen – Name oder Klasse.'));
     return;
   }
-
-  const treffer = kinder.filter((k) =>
-    k.name.toLowerCase().includes(q) || k.klasse.toLowerCase().includes(q));
-
+  if (S.svSucheLaeuft) {
+    ziel.appendChild(el('p', 'hinweis-klein', 'Sucht …'));
+    return;
+  }
+  if (S.svTreffer && S.svTreffer.fehler) {
+    ziel.appendChild(el('p', 'meldung fehler', S.svTreffer.fehler));
+    return;
+  }
+  const treffer = Array.isArray(S.svTreffer) ? S.svTreffer : [];
   if (treffer.length === 0) {
-    ziel.appendChild(el('p', 'hinweis-klein', 'Keine Treffer.'));
+    ziel.appendChild(el('p', 'hinweis-klein',
+      'Keine Treffer. (Nur Kinder mit WebUntis-Zuordnung sind buchbar.)'));
     return;
   }
 
-  // Bei sehr vielen Treffern nur die ersten zeigen und zum Verfeinern bitten
-  // – eine endlose Liste hilft niemandem.
   const grenze = 40;
-  const zeigen = treffer.slice(0, grenze);
   const liste = el('div', 'sv-treffer-liste');
-  for (const k of zeigen) {
-    const b = el('button', 'sv-treffer-zeile',
-      k.name + '  ·  ' + k.klasse);
+  for (const k of treffer.slice(0, grenze)) {
+    const b = el('button', 'sv-treffer-zeile', k.name + '  ·  ' + k.klasse);
     b.type = 'button';
     b.addEventListener('click', () => {
       S.svKind = parseInt(k.id, 10);
       S.svKindName = k.name + ' (' + k.klasse + ')';
       S.svKindSuche = '';
+      S.svTreffer = null;
       zeichne();
     });
     liste.appendChild(b);
@@ -772,15 +789,6 @@ async function ladeSvRaster(lehrerId) {
       + '&lehrer=' + lehrerId);
     S.svRaster = d.raster || [];
     S.svFehler = null;
-    // Schülerliste gleich mitladen, falls noch nicht vorhanden – dann ist
-    // die Kind-Suche für die Fremdbuchung sofort einsatzbereit, ohne dass
-    // erst ein zweiter Knopf gedrückt werden muss.
-    if (S.schuelerListe === null) {
-      try {
-        const s = await api('/api/schueler');
-        S.schuelerListe = s.klassen || {};
-      } catch { S.schuelerListe = {}; }
-    }
     meldung(null);
   } catch (f) {
     // Fehler merken, damit die Ansicht ihn zeigt statt in einer

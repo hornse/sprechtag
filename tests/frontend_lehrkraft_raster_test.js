@@ -51,9 +51,11 @@ pruefe('belegte Slots bieten Absage',
 pruefe('freie Slots lösen stellvertretende Buchung aus',
   raster.includes('stellvertretendBuchen'));
 pruefe('Kind-Auswahl per Suchfeld statt Dropdown',
-  raster.includes('sv-suche') && raster.includes('zeichneSvTreffer'));
-pruefe('Suche filtert über Name und Klasse',
-  treffer.includes('.name') && treffer.includes('.klasse'));
+  raster.includes('sv-suche') && raster.includes('svSucheAnstossen'));
+pruefe('Suche fragt das Backend ab (volle DB, nicht die geteilte Liste)',
+  src.includes('function svKindSuchen') && src.includes('/api/schueler?suche='));
+pruefe('Suche ist entprellt',
+  src.includes('svSucheTimer') && src.includes('setTimeout'));
 pruefe('Trefferliste ist begrenzt (keine endlose Liste)',
   treffer.includes('grenze') && treffer.includes('slice'));
 pruefe('Buchung nutzt den richtigen Endpunkt',
@@ -73,8 +75,6 @@ pruefe('Auto-Load mit Guard (svLaedt)',
 pruefe('Fehlerzustand bricht Auto-Load-Schleife',
   ansicht.includes('S.svFehler'));
 const lade = koerper('ladeSvRaster');
-pruefe('Schülerliste wird automatisch mitgeladen',
-  lade.includes('/api/schueler') && lade.includes('S.schuelerListe'));
 pruefe('Guard wird nach dem Laden immer zurückgesetzt',
   lade.includes('finally') && lade.includes('S.svLaedt = false'));
 
