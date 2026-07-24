@@ -91,3 +91,18 @@ wird die WebUntis-ID gebraucht. Solche Einträge sind gekennzeichnet.
 Sobald das neue Schuljahr aktiv ist, ließe sich die Klassenzuordnung auch
 direkt aus WebUntis gewinnen (über `getKlassen` und die
 Klassenstundenpläne). Der CSV-Weg bleibt als Fallback bestehen.
+
+## Ausblick: Schuljahr 2026/27 und die REST-API
+
+Sobald das Schuljahr 2026/27 in WebUntis aktiv ist, sollte sich die
+**Klassenzuordnung** ohne Schild-Import gewinnen lassen: über `getKlassen`
+die Klassen holen und je Klasse den Stundenplan abfragen – daraus ergibt
+sich, welcher Schüler zu welcher Klasse gehört. Das ersetzt den Schild-CSV
+für die Sortierung.
+
+Offen bleibt das **Ausblenden ehemaliger Schüler**: ob ein REST-Endpunkt
+Aktiv-Status bzw. Austrittsdatum herausgibt, ist nicht belegt. Genau das
+prüft die Sondierungsgruppe „Klassen & Schüler:innen". Fällt sie negativ
+aus, bleibt der Schild-Import für den Ehemaligen-Filter nötig – nur eben
+nicht mehr für die Klasse. Vor einer Umstellung also erst die Sondierung
+fahren und den Befund hier festhalten.

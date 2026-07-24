@@ -518,6 +518,25 @@ function sondierung_ausfuehren(
                 'Kein JWT von /api/token/new – REST-Proben entfallen.';
             return $bericht;
         }
+
+        // ---- 2b. JWT-Scopes: darf DIESES Konto Mitteilungen SENDEN? --------
+        // Entscheidet, ob Mitteilungen unter dem angemeldeten (Lehrer-)Konto
+        // versendet werden können oder ob dafür das Dienstkonto nötig bleibt.
+        //   mg:rw = lesen UND senden   |   mg:r = nur lesen
+        $scopes = $rest->jwtScopes();
+        $darfSenden = in_array('mg:rw', $scopes, true);
+        $bericht['rest_zugang']['scopes'] = $scopes;
+        $bericht['rest_zugang']['mitteilungen_senden'] = $darfSenden;
+        $bericht['rest_zugang']['scope_hinweis'] = $darfSenden
+            ? 'Dieses Konto darf Mitteilungen senden (mg:rw). Versand unter '
+                . 'eigenem Namen ist damit grundsätzlich möglich.'
+            : (in_array('mg:r', $scopes, true)
+                ? 'Dieses Konto darf Mitteilungen nur LESEN (mg:r), nicht '
+                    . 'senden. Für den Versand ist ein Konto mit „Nachrichten '
+                    . 'senden"-Recht nötig (z. B. das Dienstkonto).'
+                : 'Kein Mitteilungs-Scope (mg:r/mg:rw) im JWT gefunden. Prüfen, '
+                    . 'ob das Konto Zugriff auf das Nachrichtenzentrum hat.');
+
         $rest->tenantErmitteln();
 
         // ---- 3. app/data IMMER intern abrufen (liefert die IDs für alle

@@ -241,8 +241,16 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'raster') {
     $fenster = bu_lehrer_fenster($pdo, $sid, $lid);
     $raster  = slot_raster($s, $fenster['anwesend_von'], $fenster['anwesend_bis']);
 
-    $st = $pdo->prepare('SELECT slot_beginn, eltern_user_id, schueler_id, phase
-                         FROM buchungen WHERE sprechtag_id = ? AND lehrer_id = ?');
+    $st = $pdo->prepare(
+        'SELECT b.id, b.slot_beginn, b.eltern_user_id, b.schueler_id, b.phase,
+                b.gebucht_von,
+                TRIM(CONCAT(COALESCE(s.nachname,""),
+                     IF(s.vorname IS NULL OR s.vorname = "", "",
+                        CONCAT(", ", s.vorname)))) AS kind_name,
+                s.klasse
+         FROM buchungen b
+         LEFT JOIN schueler s ON s.webuntis_id = b.schueler_id
+         WHERE b.sprechtag_id = ? AND b.lehrer_id = ?');
     $st->execute([$sid, $lid]);
     $belegt = [];
     foreach ($st->fetchAll() as $b) {
@@ -262,7 +270,14 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'raster') {
             $eintrag['eigene'] = $u['user_id'] !== null
                 && (int)$b['eltern_user_id'] === $u['user_id'];
             $eintrag['phase_gebucht'] = $b['phase'];
-            if ($istLehrkraft) $eintrag['schueler_id'] = (int)$b['schueler_id'];
+            // Nur die Lehrkraft (bzw. Admin) sieht, WER gebucht hat.
+            if ($istLehrkraft) {
+                $eintrag['buchung_id']  = (int)$b['id'];
+                $eintrag['schueler_id'] = (int)$b['schueler_id'];
+                $eintrag['kind_name']   = (string)($b['kind_name'] ?? '');
+                $eintrag['klasse']      = (string)($b['klasse'] ?? '');
+                $eintrag['gebucht_von'] = (string)($b['gebucht_von'] ?? '');
+            }
         }
         $ausgabe[] = $eintrag;
     }

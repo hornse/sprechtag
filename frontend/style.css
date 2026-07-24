@@ -209,6 +209,20 @@ select.konflikt { border-color: var(--rot); background: #fdecea; }
                font-weight: 600; }
 .slot.pause { background: #fff8e1; color: var(--gelb); font-size: .75rem; }
 
+/* Lehrkraft-Raster: breitere Kacheln, damit Name + Zeit hineinpassen */
+.raster-breit { grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); }
+.slot.belegt-info { background: var(--blau-hell); border-color: var(--blau);
+                    color: var(--text); text-align: left; padding: .45rem .55rem;
+                    display: flex; flex-direction: column; gap: .1rem; }
+.slot.belegt-info .slot-zeit { font-weight: 600; color: var(--blau); }
+.slot.belegt-info .slot-kind { font-size: .9rem; }
+.slot.belegt-info .slot-klasse { font-size: .72rem; color: var(--grau); }
+.slot.belegt-info .slot-absage { align-self: flex-end; margin-top: .15rem;
+                    font-size: .72rem; color: var(--rot, #c0392b); cursor: pointer;
+                    text-decoration: underline; }
+.slot.belegt-info .slot-absage:hover { color: #fff; background: var(--rot, #c0392b);
+                    padding: 0 .3rem; border-radius: 3px; text-decoration: none; }
+
 /* Tabellen */
 .tabelle { width: 100%; border-collapse: collapse; margin: .8rem 0; font-size: .85rem; }
 .tabelle th { text-align: left; border-bottom: 2px solid var(--rand); padding: .4rem .5rem;

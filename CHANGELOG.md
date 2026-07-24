@@ -1,5 +1,26 @@
 # Changelog – sprechtag
 
+## v0.9.3 (Juli 2026) – Slot-Ansicht für Lehrkräfte, Scope-Sondierung
+
+### Neu
+- **„Meine Termine" ist jetzt eine Zeitraster-Ansicht** – dieselbe optische
+  Sprache wie bei den Eltern. Belegte Slots zeigen Zeit + Kind (+ Klasse)
+  und lassen sich direkt absagen; freie Slots sind anklickbar und werden
+  stellvertretend gebucht. Die frühere Tabelle und das separate
+  Buchungsformular entfallen – ein Raster für Übersicht und Notfallbuchung.
+  - Erst oben das Kind wählen, dann auf einen freien Slot tippen.
+  - `/api/raster` liefert für Lehrkräfte/Admins nun zusätzlich `buchung_id`,
+    `kind_name`, `klasse` und `gebucht_von` je belegtem Slot. Für Eltern
+    bleibt es bei „frei/belegt" ohne Namen (Datensparsamkeit unverändert).
+
+### Vorbereitung (Absender von Mitteilungen)
+- **Sondierung meldet jetzt die JWT-Scopes.** Der Bericht zeigt unter
+  `rest_zugang`, ob das angemeldete Konto Mitteilungen senden darf
+  (`mg:rw`) oder nur lesen (`mg:r`). Das beantwortet die offene Frage,
+  ob Mitteilungen unter dem eigenen Lehrer-Konto versendet werden können
+  oder das Dienstkonto nötig bleibt – zu prüfen mit einem **Lehrer-Konto**,
+  nicht mit dem Admin (dessen Token trug im Mitschnitt nur `mg:r`).
+
 ## v0.9.2 (Juli 2026) – Zeitstempel, phasengerechte Einladungen, Notfallbuchung
 
 ### Neu
