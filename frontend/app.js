@@ -343,7 +343,15 @@ async function ladeLehrerListe() {
   try {
     S.lehrerListe = await api('/api/buchbare-lehrer?sprechtag='
       + S.aktiverSprechtag.id + '&kind=' + S.kind);
-    if ((S.lehrerListe.unterrichtend || []).length === 0) {
+
+    // Lehrkräfte aus dem Stundenplan ohne Stammsatz: Das ist fast immer
+    // ein veralteter Stammdaten-Sync und würde sonst unbemerkt bleiben.
+    const fehlend = S.lehrerListe.ohne_stammsatz || [];
+    if (fehlend.length > 0) {
+      meldung('Hinweis: Für diese Lehrkräfte aus dem Stundenplan fehlt ein '
+        + 'Stammsatz und sie sind deshalb nicht buchbar: ' + fehlend.join(', ')
+        + '. Bitte in der Administration die Stammdaten synchronisieren.', 'fehler');
+    } else if ((S.lehrerListe.unterrichtend || []).length === 0) {
       meldung('Für dieses Kind sind noch keine Lehrkräfte hinterlegt. '
         + 'Die Zuordnung wird von der Schule vorbereitet.', 'info');
     } else { meldung(null); }

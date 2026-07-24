@@ -1,5 +1,33 @@
 # Changelog – sprechtag
 
+## v0.5.1 (Juli 2026) – Fehlende Lehrkräfte werden gemeldet
+
+### Behoben
+- **Lehrkräfte aus dem Stundenplan, zu denen kein Stammsatz existiert,
+  verschwanden stillschweigend.** `wu_kind_lehrer_ermitteln()` übersprang
+  sie mit einem kommentarlosen `continue`. Für Eltern sah es so aus, als
+  unterrichte die Lehrkraft das Kind gar nicht. Aufgefallen bei einem
+  Testschüler, dessen Informatik-Lehrkraft in der Buchungsliste fehlte,
+  obwohl die Sondierung sie fand.
+- Die Funktion liefert jetzt `['anzahl' => int, 'uebersprungen' => string[]]`.
+  Übersprungene Kürzel werden ins Server-Log geschrieben **und** den
+  Eltern angezeigt, mit Hinweis auf die Stammdaten-Synchronisierung.
+
+### Neu
+- Sondierung: `sondierung_eintragstypen()` listet je Stundenplan-Abfrage
+  alle vorkommenden Kombinationen aus `type` und `status` auf, samt der
+  daran hängenden Lehrkräfte und der Angabe, ob der Produktivfilter sie
+  werten würde. Damit lässt sich belegen statt vermuten, welche
+  Eintragstypen eine Instanz verwendet (Klassen- vs. Kursunterricht).
+- Der Stundenplan-Bericht zeigt zusätzlich, was der Produktiv-Extraktor
+  findet – direkt vergleichbar mit der ungefilterten Sondier-Liste.
+
+### Tests
+- `tests/run_stammsatz.php`: bildet den Fehlerfall nach (drei Lehrkräfte
+  im Stundenplan, eine ohne Stammsatz) und prüft, dass die fehlende
+  gemeldet und nicht verschluckt wird.
+
+
 ## v0.5.0 (Juli 2026) – Dienstkonto und automatische Lehrkraft-Ermittlung
 
 ### Neu

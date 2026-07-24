@@ -81,6 +81,7 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'buchbare-lehrer') {
                          WHERE sprechtag_id = ? AND schueler_id = ?');
     $st->execute([$sid, $kind]);
     $ermittelt = null;
+    $fehlendeStammdaten = [];
     if ((int)$st->fetchColumn() === 0) {
         $zugang = dk_lesen($cfg, $pdo);
         if ($zugang !== null) {
@@ -101,8 +102,10 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'buchbare-lehrer') {
                 $rest->setzeTimeout(20);
                 if ($rest->tokenHolen()) {
                     $rest->tenantErmitteln();
-                    $ermittelt = wu_kind_lehrer_ermitteln($cfg, $pdo, $rest,
+                    $e = wu_kind_lehrer_ermitteln($cfg, $pdo, $rest,
                         $sid, $kind, (string)$ref['von'], (string)$ref['bis']);
+                    $ermittelt = $e['anzahl'];
+                    $fehlendeStammdaten = $e['uebersprungen'];
                 }
             } catch (Throwable $e) {
                 // Ermittlung darf die Ansicht nicht scheitern lassen
@@ -154,7 +157,8 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'buchbare-lehrer') {
     }
 
     json_ok(['unterrichtend' => $lehrer, 'sonderlehrer' => $sonder,
-             'automatisch_ermittelt' => $ermittelt]);
+             'automatisch_ermittelt' => $ermittelt,
+             'ohne_stammsatz' => $fehlendeStammdaten]);
 }
 
 // ============================================================
@@ -204,14 +208,17 @@ if ($methode === 'POST' && ($seg[0] ?? '') === 'lehrer-ermitteln') {
         $rest->tenantErmitteln();
         ignore_user_abort(true);
         set_time_limit(0);
-        $anzahl = wu_kind_lehrer_ermitteln($cfg, $pdo, $rest, $sid, $kind,
+        $e = wu_kind_lehrer_ermitteln($cfg, $pdo, $rest, $sid, $kind,
             (string)$ref['von'], (string)$ref['bis']);
+        $anzahl = $e['anzahl'];
+        $fehlend = $e['uebersprungen'];
     } catch (RuntimeException $e) {
         json_err('Ermittlung fehlgeschlagen: ' . $e->getMessage(), 502);
     } finally {
         $wu->logout();
     }
     json_ok(['ok' => true, 'lehrkraefte' => $anzahl,
+             'ohne_stammsatz' => $fehlend ?? [],
              'zeitraum' => $ref['von'] . ' bis ' . $ref['bis']]);
 }
 

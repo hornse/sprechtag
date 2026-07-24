@@ -304,6 +304,58 @@ function sondierung_kuerzen(string $text, int $max = 900): string
 }
 
 /**
+ * Listet alle vorkommenden Eintragstypen samt Status und den daran
+ * hängenden Lehrkräften auf. Dient der Kalibrierung des Filters in
+ * rest_lehrkraefte_aus_entries(): Nur so ist belegbar, welche
+ * type-Werte die Instanz tatsächlich verwendet (Kursunterricht,
+ * Klassenunterricht, Vertretung …). Reine Funktion – testbar.
+ */
+function sondierung_eintragstypen(mixed $json): array
+{
+    $typen = [];
+    $lauf = function ($knoten) use (&$lauf, &$typen): void {
+        if (!is_array($knoten)) return;
+        if (array_key_exists('position1', $knoten)) {
+            $typ    = (string)($knoten['type'] ?? '(ohne)');
+            $status = (string)($knoten['status'] ?? '(ohne)');
+            $schluessel = $typ . ' / ' . $status;
+            if (!isset($typen[$schluessel])) {
+                $typen[$schluessel] = ['anzahl' => 0, 'lehrkraefte' => [],
+                    'faecher' => [], 'wuerde_gewertet' =>
+                        stripos($typ, 'TEACHING') !== false
+                        && in_array($status, ['REGULAR', 'CANCELLED'], true)];
+            }
+            $typen[$schluessel]['anzahl']++;
+            for ($i = 1; $i <= 7; $i++) {
+                foreach ((array)($knoten['position' . $i] ?? []) as $el) {
+                    $c = $el['current'] ?? null;
+                    if (!is_array($c)) continue;
+                    $kuerzel = (string)($c['shortName'] ?? '');
+                    if ($kuerzel === '') continue;
+                    if (($c['type'] ?? '') === 'TEACHER') {
+                        $typen[$schluessel]['lehrkraefte'][$kuerzel] = true;
+                    } elseif (($c['type'] ?? '') === 'SUBJECT') {
+                        $typen[$schluessel]['faecher'][$kuerzel] = true;
+                    }
+                }
+            }
+            return;
+        }
+        foreach ($knoten as $wert) {
+            if (is_array($wert)) $lauf($wert);
+        }
+    };
+    $lauf($json);
+
+    // Mengen in Listen wandeln (kompakter im Bericht)
+    foreach ($typen as $k => $v) {
+        $typen[$k]['lehrkraefte'] = array_keys($v['lehrkraefte']);
+        $typen[$k]['faecher']     = array_keys($v['faecher']);
+    }
+    return $typen;
+}
+
+/**
  * Sammelt aus einer timetable/entries-Antwort alle TEACHER-Elemente
  * (defensiv-rekursiv: Positionsbedeutung ist formatabhängig, daher wird
  * NUR current.type gelesen – siehe Modul-README). Beweisführung für
@@ -466,6 +518,13 @@ function sondierung_ausfuehren(
                     } else {
                         $probe['lehrer_gefunden'] =
                             sondierung_lehrer_aus_entries($voll['json']);
+                        // Kalibrierung des Produktivfilters: welche
+                        // Eintragstypen kommen vor, welche werden gewertet?
+                        $probe['eintragstypen'] =
+                            sondierung_eintragstypen($voll['json']);
+                        $probe['produktiv_extraktor'] =
+                            array_keys(rest_lehrkraefte_aus_entries(
+                                $voll['json'])['lehrkraefte']);
                     }
                 }
                 $probe['roh_auszug'] = sondierung_kuerzen($voll['text']);

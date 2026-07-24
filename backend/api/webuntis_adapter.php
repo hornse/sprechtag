@@ -136,21 +136,25 @@ function wu_login(array $cfg, PDO $pdo, string $benutzer, string $passwort): arr
  * Braucht eine ANGEMELDETE REST-Session mit Leseberechtigung für den
  * Stundenplan des Kindes (Eltern-Session reicht für das eigene Kind).
  *
- * Rückgabe: Anzahl gefundener Lehrkräfte.
+ * Rückgabe: ['anzahl' => int, 'uebersprungen' => string[]]
+ * 'uebersprungen' enthält Kürzel aus dem Stundenplan, zu denen kein
+ * Stammsatz existiert – fast immer ein Zeichen für veraltete Stammdaten.
  */
 function wu_kind_lehrer_ermitteln(
     array $cfg, PDO $pdo, WebUntisRest $rest,
     int $sprechtagId, int $schuelerId, string $von, string $bis
-): int {
+): array {
     $r = $rest->get('/WebUntis/api/rest/view/v1/timetable/entries', [
         'start' => $von, 'end' => $bis,
         'resourceType' => 'STUDENT', 'resources' => $schuelerId,
         // KEIN format-Parameter! (unbekannte Format-ID -> 404)
     ]);
-    if ($r['status'] !== 200 || $r['json'] === null) return 0;
+    if ($r['status'] !== 200 || $r['json'] === null) {
+        return ['anzahl' => 0, 'uebersprungen' => []];
+    }
 
     $ex = rest_lehrkraefte_aus_entries($r['json']);
-    if ($ex['lehrkraefte'] === []) return 0;
+    if ($ex['lehrkraefte'] === []) return ['anzahl' => 0, 'uebersprungen' => []];
 
     // Kürzel -> lokale Lehrer-ID
     $stmtLehrer = $pdo->prepare('SELECT id FROM lehrer WHERE kuerzel = ? LIMIT 1');
@@ -162,16 +166,26 @@ function wu_kind_lehrer_ermitteln(
             stunden = VALUES(stunden), ermittelt_am = NOW()');
 
     $anzahl = 0;
+    $uebersprungen = [];
     foreach ($ex['lehrkraefte'] as $kuerzel => $info) {
         $stmtLehrer->execute([$kuerzel]);
         $lehrerId = $stmtLehrer->fetchColumn();
-        if ($lehrerId === false) continue;   // Lehrkraft nicht in Stammdaten
+        if ($lehrerId === false) {
+            // Lehrkraft nicht in den Stammdaten – NICHT stillschweigend
+            // verwerfen, sonst fehlt sie später kommentarlos in der
+            // Buchungsliste. Ursache ist meist ein veralteter Sync.
+            $uebersprungen[] = $kuerzel;
+            error_log('sprechtag: Lehrkraft "' . $kuerzel . '" aus dem Stundenplan '
+                . 'von Schüler ' . $schuelerId . ' fehlt in der Tabelle lehrer – '
+                . 'Stammdaten synchronisieren.');
+            continue;
+        }
         $faecher = implode(', ', array_slice(array_keys($info['faecher']), 0, 6));
         $stmtCache->execute([$sprechtagId, $schuelerId, (int)$lehrerId,
             kuerze($faecher, 190), (int)$info['stunden']]);
         $anzahl++;
     }
-    return $anzahl;
+    return ['anzahl' => $anzahl, 'uebersprungen' => $uebersprungen];
 }
 
 /**
