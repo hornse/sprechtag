@@ -36,6 +36,8 @@ const S = {
   gewaehlteLehrkraftAnsicht: null,   // Admin: wessen Termine werden gezeigt
   schuelerListe: null,               // Klassenliste für Einladungen
   svRaster: null,                    // Zeitraster der Lehrkraft (frei + belegt)
+  svLehrer: null,                    // halbtags + Fenster der gezeigten Lehrkraft
+  svSprechtag: null,                 // beginn/ende für die Hälften-Berechnung
   svLaedt: false,                    // Auto-Load läuft gerade (verhindert Doppelladen)
   svFehler: null,                    // Fehlermeldung, falls Auto-Load scheiterte
   svKind: null,                      // gewähltes Kind für stellvertretende Buchung
@@ -634,6 +636,11 @@ function zeichneLehrkraftRaster(ziel, lehrerId) {
   // – nicht das Recht, in fremdem Namen Eltern einzutragen.
   const eigenesRaster = lehrerId === S.user.lehrer_id;
 
+  // Halbtagskräfte wählen im eigenen Raster ihre Hälfte selbst.
+  if (eigenesRaster && S.svLehrer && parseInt(S.svLehrer.halbtags, 10) === 1) {
+    zeichneHaelfteWahl(ziel, lehrerId);
+  }
+
   if (eigenesRaster) {
     zeichneStellvertreterKopf(ziel, lehrerId);
   } else {
@@ -727,6 +734,51 @@ function zeichneStellvertreterKopf(ziel, lehrerId) {
     setTimeout(zeichneSvTreffer, 0);   // Erstbefüllung nach dem Anhängen
   }
   ziel.appendChild(kopf);
+}
+
+// Selbstbedienung für Halbtagskräfte: erste/zweite Hälfte oder ganzer Tag.
+// Nur im eigenen Raster sichtbar. Speichert über denselben PATCH-Endpunkt
+// wie die Administration – der Server berechnet das Fenster aus der Hälfte.
+function zeichneHaelfteWahl(ziel, lehrerId) {
+  const k = block('haelfte', 'Ihre Anwesenheit (Halbtagskraft)');
+  k.appendChild(el('p', 'hinweis',
+    'Als Halbtagskraft leisten Sie nur einen halben Sprechtag. Wählen Sie, '
+    + 'welche Hälfte Sie übernehmen – Ihr Zeitraster passt sich sofort an. '
+    + 'Bereits gebuchte Termine außerhalb der gewählten Hälfte bleiben '
+    + 'bestehen, prüfen Sie diese daher vor einer Änderung.'));
+
+  // Aktuelle Hälfte aus dem gelieferten Fenster erraten (nur Vorauswahl).
+  const le = S.svLehrer || {};
+  const sp = S.svSprechtag || {};
+  const von = String(le.anwesend_von || '').slice(0, 5);
+  const bis = String(le.anwesend_bis || '').slice(0, 5);
+  const beginn = String(sp.beginn || '').slice(0, 5);
+  const ende = String(sp.ende || '').slice(0, 5);
+  let aktuell = 'ganz';
+  if (von && bis) {
+    if (von === beginn && bis !== ende) aktuell = 'erste';
+    else if (von !== beginn && bis === ende) aktuell = 'zweite';
+  }
+
+  const z = el('div', 'zeile');
+  const sel = auswahl('Meine Hälfte', 'haelfte-eigen',
+    [{ wert: 'ganz', text: 'ganzer Tag' },
+     { wert: 'erste', text: 'erste Hälfte' },
+     { wert: 'zweite', text: 'zweite Hälfte' }], aktuell);
+  z.appendChild(sel);
+  k.appendChild(z);
+
+  k.appendChild(knopf('Übernehmen', 'klein', async () => {
+    const h = wert('haelfte-eigen');
+    try {
+      await api('/api/sprechtage/' + S.aktiverSprechtag.id + '/lehrer/' + lehrerId,
+        { method: 'PATCH', body: { haelfte: h } });
+      S.svRaster = null;   // Raster neu laden – Fenster hat sich geändert
+      await ladeSvRaster(lehrerId);
+      meldung('Anwesenheit gespeichert.', 'ok');
+    } catch (f) { meldung(String(f.message), 'fehler'); }
+  }));
+  ziel.appendChild(k);
 }
 
 // Stößt die Kind-Suche entprellt an: erst 250 ms nach dem letzten
@@ -851,6 +903,8 @@ async function ladeSvRaster(lehrerId) {
     const d = await api('/api/raster?sprechtag=' + S.aktiverSprechtag.id
       + '&lehrer=' + lehrerId);
     S.svRaster = d.raster || [];
+    S.svLehrer = d.lehrer || null;   // halbtags + Fenster für die Selbstbedienung
+    S.svSprechtag = d.sprechtag || null;
     S.svFehler = null;
     meldung(null);
   } catch (f) {
@@ -1411,6 +1465,43 @@ function ansichtAdmin(ziel) {
   }));
   ziel.appendChild(sync);
 
+  // ---- Halbtagskräfte markieren ----------------------------------------
+  const ht = block('halbtags', 'Halbtagskräfte und Referendar:innen');
+  ht.appendChild(el('p', 'hinweis',
+    'Markierte Lehrkräfte müssen nur einen halben Sprechtag leisten. Sie '
+    + 'können danach je Sprechtag die erste oder zweite Hälfte wählen – '
+    + 'entweder hier über die Administration oder selbst unter „Meine Termine".'));
+  if ((S.stammdaten.lehrer || []).length === 0) {
+    ht.appendChild(knopf('Lehrkräfte laden', 'klein',
+      () => ladeStammdaten().then(() => zeichne())));
+  } else {
+    const liste = el('div', 'halbtags-liste');
+    for (const l of S.stammdaten.lehrer) {
+      const label = el('label', 'halbtags-eintrag');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = parseInt(l.halbtags, 10) === 1;
+      cb.addEventListener('change', async () => {
+        try {
+          await api('/api/stammdaten/lehrer/' + l.id,
+            { method: 'PATCH', body: { halbtags: cb.checked ? 1 : 0 } });
+          l.halbtags = cb.checked ? 1 : 0;
+          meldung((cb.checked ? 'Als Halbtagskraft markiert: '
+            : 'Markierung entfernt: ') + l.kuerzel, 'ok');
+        } catch (f) {
+          cb.checked = !cb.checked;
+          meldung(String(f.message), 'fehler');
+        }
+      });
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(' ' + l.kuerzel
+        + (l.name ? ' – ' + l.name : '')));
+      liste.appendChild(label);
+    }
+    ht.appendChild(liste);
+  }
+  ziel.appendChild(ht);
+
   // ---- Sprechtag anlegen ------------------------------------------------
   const neu = block('neu', 'Neuen Sprechtag anlegen');
   const nf = el('div');
@@ -1580,19 +1671,21 @@ async function oeffneLehrerVerwaltung(s) {
 
   ziel.appendChild(el('h4', null, 'Lehrkräfte, Anwesenheit und Räume'));
   ziel.appendChild(el('p', 'hinweis',
-    'Anwesenheitszeiten leer lassen = ganzer Zeitraum. Doppelt belegte Räume '
-    + 'sind zulässig, werden aber farblich markiert.'));
+    'Anwesenheitszeiten leer lassen = ganzer Zeitraum. Halbtagskräfte '
+    + '(in der Lehrerliste markiert) wählen stattdessen eine Hälfte. Doppelt '
+    + 'belegte Räume sind zulässig, werden aber farblich markiert.'));
 
   const tab = el('table', 'tabelle');
   const kopf = el('tr');
-  for (const t of ['Kürzel', 'Name', 'dabei', 'von', 'bis', 'Raum', '']) {
+  for (const t of ['Kürzel', 'Name', 'dabei', 'Anwesenheit', 'Raum', '']) {
     kopf.appendChild(el('th', null, t));
   }
   tab.appendChild(kopf);
 
   for (const l of daten.lehrer) {
     const tr = el('tr');
-    tr.appendChild(el('td', null, l.kuerzel));
+    tr.appendChild(el('td', null, l.kuerzel
+      + (parseInt(l.halbtags, 10) === 1 ? ' ½' : '')));
     tr.appendChild(el('td', null, l.name || ''));
 
     const tdD = el('td');
@@ -1603,17 +1696,44 @@ async function oeffneLehrerVerwaltung(s) {
     tdD.appendChild(cb);
     tr.appendChild(tdD);
 
-    const mkZeit = (id, w) => {
-      const td = el('td');
-      const i = document.createElement('input');
-      i.type = 'text'; i.id = id; i.className = 'zeit-feld';
-      i.value = w ? String(w).slice(0, 5) : '';
-      i.placeholder = '--:--';
-      td.appendChild(i);
-      return td;
-    };
-    tr.appendChild(mkZeit('von-' + s.id + '-' + l.lehrer_id, l.anwesend_von));
-    tr.appendChild(mkZeit('bis-' + s.id + '-' + l.lehrer_id, l.anwesend_bis));
+    // Anwesenheit: Halbtagskräfte -> Hälfte-Dropdown; sonst von/bis-Felder.
+    const halbtags = parseInt(l.halbtags, 10) === 1;
+    const tdZeit = el('td');
+    if (halbtags) {
+      const sel = document.createElement('select');
+      sel.id = 'haelfte-' + s.id + '-' + l.lehrer_id;
+      // Aktuelle Hälfte aus dem gespeicherten Fenster erraten (nur Vorauswahl;
+      // maßgeblich ist die Server-Berechnung beim Speichern).
+      const von = String(l.anwesend_von || '').slice(0, 5);
+      const bis = String(l.anwesend_bis || '').slice(0, 5);
+      const beginn = String(s.beginn || '').slice(0, 5);
+      const ende = String(s.ende || '').slice(0, 5);
+      let aktuell = 'ganz';
+      if (von && bis) {
+        if (von === beginn && bis !== ende) aktuell = 'erste';
+        else if (von !== beginn && bis === ende) aktuell = 'zweite';
+      }
+      for (const [w, t] of [['ganz', 'ganzer Tag'], ['erste', 'erste Hälfte'],
+                            ['zweite', 'zweite Hälfte']]) {
+        const o = document.createElement('option');
+        o.value = w; o.textContent = t;
+        if (w === aktuell) o.selected = true;
+        sel.appendChild(o);
+      }
+      tdZeit.appendChild(sel);
+    } else {
+      const mkZeit = (id, w) => {
+        const i = document.createElement('input');
+        i.type = 'text'; i.id = id; i.className = 'zeit-feld';
+        i.value = w ? String(w).slice(0, 5) : '';
+        i.placeholder = '--:--';
+        return i;
+      };
+      tdZeit.appendChild(mkZeit('von-' + s.id + '-' + l.lehrer_id, l.anwesend_von));
+      tdZeit.appendChild(document.createTextNode(' – '));
+      tdZeit.appendChild(mkZeit('bis-' + s.id + '-' + l.lehrer_id, l.anwesend_bis));
+    }
+    tr.appendChild(tdZeit);
 
     const tdR = el('td');
     const sel = document.createElement('select');
@@ -1634,21 +1754,45 @@ async function oeffneLehrerVerwaltung(s) {
 
     const tdA = el('td');
     tdA.appendChild(knopf('Speichern', 'klein', async () => {
+      const koerper = {
+        teilnahme: cb.checked ? 1 : 0,
+        raum_id: wert('raum-' + s.id + '-' + l.lehrer_id),
+      };
+      if (halbtags) {
+        koerper.haelfte = wert('haelfte-' + s.id + '-' + l.lehrer_id);
+      } else {
+        koerper.anwesend_von = wert('von-' + s.id + '-' + l.lehrer_id);
+        koerper.anwesend_bis = wert('bis-' + s.id + '-' + l.lehrer_id);
+      }
       try {
         await api('/api/sprechtage/' + s.id + '/lehrer/' + l.lehrer_id,
-          { method: 'PATCH', body: {
-            teilnahme: cb.checked ? 1 : 0,
-            anwesend_von: wert('von-' + s.id + '-' + l.lehrer_id),
-            anwesend_bis: wert('bis-' + s.id + '-' + l.lehrer_id),
-            raum_id: wert('raum-' + s.id + '-' + l.lehrer_id) } });
+          { method: 'PATCH', body: koerper });
         meldung('Gespeichert: ' + l.kuerzel, 'ok');
         oeffneLehrerVerwaltung(s);
       } catch (f) { meldung(String(f.message), 'fehler'); }
     }));
+    // Krankheitsausfall: Termine freigeben + Eltern benachrichtigen.
+    tdA.appendChild(knopf('Ausfall', 'klein gefahr', () => lehrerAusfall(s, l)));
     tr.appendChild(tdA);
     tab.appendChild(tr);
   }
   ziel.appendChild(tab);
+}
+
+// Krankheitsausfall: Termine freigeben + Eltern benachrichtigen.
+async function lehrerAusfall(s, l) {
+  const nachricht = prompt('Ausfall von ' + (l.name || l.kuerzel)
+    + ' – Nachricht an die betroffenen Eltern:',
+    'Der Termin muss leider entfallen, da die Lehrkraft erkrankt ist.');
+  if (nachricht === null) return;
+  if (!confirm('Alle Termine von ' + (l.name || l.kuerzel)
+    + ' werden freigegeben und die Eltern benachrichtigt. Fortfahren?')) return;
+  try {
+    const d = await api('/api/sprechtage/' + s.id + '/lehrer/' + l.lehrer_id
+      + '/ausfall', { method: 'POST', body: { nachricht } });
+    meldung(d.hinweis || 'Ausfall eingetragen.', 'ok');
+    oeffneLehrerVerwaltung(s);
+  } catch (f) { meldung(String(f.message), 'fehler'); }
 }
 
 // ---- Sonderlehrkräfte ----------------------------------------------------

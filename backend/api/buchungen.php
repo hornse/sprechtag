@@ -281,8 +281,18 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'raster') {
         }
         $ausgabe[] = $eintrag;
     }
-    json_ok(['raster' => $ausgabe, 'sprechtag' => [
-        'id' => (int)$s['id'], 'phase' => $s['phase'], 'datum' => $s['datum']]]);
+    // Halbtags-Kennzeichen der Lehrkraft für die Selbstbedienung.
+    $stH = $pdo->prepare('SELECT halbtags FROM lehrer WHERE id = ?');
+    $stH->execute([$lid]);
+    $halbtags = (int)($stH->fetchColumn() ?: 0);
+
+    json_ok(['raster' => $ausgabe,
+        'lehrer' => ['id' => $lid, 'halbtags' => $halbtags,
+            'anwesend_von' => $fenster['anwesend_von'],
+            'anwesend_bis' => $fenster['anwesend_bis']],
+        'sprechtag' => [
+            'id' => (int)$s['id'], 'phase' => $s['phase'], 'datum' => $s['datum'],
+            'beginn' => $s['beginn'], 'ende' => $s['ende']]]);
 }
 
 // ============================================================

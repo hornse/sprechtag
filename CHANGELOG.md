@@ -1,5 +1,41 @@
 # Changelog – sprechtag
 
+## v0.9.9 (Juli 2026) – Halbtagskräfte und Krankheitsausfall
+
+### Neu
+- **Halbtagskräfte / Referendar:innen.** In der Administration lassen sich
+  Lehrkräfte als Halbtagskraft markieren (`lehrer.halbtags`). Sie leisten
+  nur einen halben Sprechtag und wählen je Sprechtag eine Hälfte:
+  - Die **Lehrkraft selbst** wählt unter „Meine Termine" erste/zweite Hälfte
+    oder ganzen Tag – das Raster passt sich sofort an.
+  - Die **Administration** kann die Hälfte in der Lehrer-Zuweisung ebenfalls
+    vorgeben (Dropdown statt Uhrzeitfelder).
+  - Die Hälfte bildet sich über das bestehende Fenster `anwesend_von/bis` ab;
+    `slot_haelfte_fenster()` rundet die Mitte auf eine echte Slotgrenze, damit
+    kein halber Slot und keine Lücke entsteht.
+- **Krankheitsausfall.** In der Lehrer-Zuweisung gibt es je Lehrkraft einen
+  „Ausfall"-Knopf: Er schaltet die Teilnahme ab, gibt alle gebuchten Termine
+  wieder frei und benachrichtigt die betroffenen Eltern per Mitteilung, dass
+  ihr Termin entfällt. Danach ist die Lehrkraft für Eltern nicht mehr buchbar.
+
+### Backend
+- `POST /api/sprechtage/{id}/lehrer/{lid}/ausfall` (admin).
+- PATCH der Lehrer-Zuweisung akzeptiert `haelfte` (erste/zweite/ganz) und
+  erlaubt der Lehrkraft, ihren eigenen Eintrag zu ändern (Selbstbedienung).
+- `PATCH /api/stammdaten/lehrer/{id}` setzt das Halbtags-Kennzeichen.
+- `/api/raster` liefert zusätzlich das Halbtags-Flag und das Fenster der
+  Lehrkraft.
+- Bug beim Bauen gefunden und behoben: `bu_sprechtag()` wird erst am
+  Dateiende geladen und stand in den neuen Sprechtag-Routen noch nicht zur
+  Verfügung – durch einen lokalen Fetch ersetzt.
+
+### Migration
+- `sql/11_halbtags.sql` (idempotent: `ADD COLUMN IF NOT EXISTS halbtags`).
+
+### Tests
+- `tests/frontend_halbtags_test.js`; `slot_haelfte_fenster`-Fälle in
+  `run_slots.php` (u. a. lückenloser Übergang, Rundung bei ungerader Spanne).
+
 ## v0.9.8 (Juli 2026) – Individualisierung (Logo, Farben, Texte)
 
 ### Neu

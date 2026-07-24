@@ -28,6 +28,26 @@ pruefe('erster Slot 15:00-15:10',
     $r[0]['beginn'] === '15:00' && $r[0]['ende'] === '15:10');
 pruefe('letzter Slot endet 16:00', end($r)['ende'] === '16:00');
 
+// ------------------------------------------------------------
+echo "slot_haelfte_fenster\n";
+$sp = ['beginn' => '15:00', 'ende' => '19:00', 'slot_minuten' => 10];
+$e = slot_haelfte_fenster($sp, 'erste');
+pruefe('erste Hälfte 15:00-17:00',
+    $e['von'] === '15:00' && $e['bis'] === '17:00');
+$z = slot_haelfte_fenster($sp, 'zweite');
+pruefe('zweite Hälfte 17:00-19:00',
+    $z['von'] === '17:00' && $z['bis'] === '19:00');
+$g = slot_haelfte_fenster($sp, 'ganz');
+pruefe('ganz = kein Fenster', $g['von'] === null && $g['bis'] === null);
+pruefe('Hälften stoßen lückenlos aneinander', $e['bis'] === $z['von']);
+// Ungerade Spanne: Mitte wird auf einen echten Slot-Anfang gerundet.
+$sp2 = ['beginn' => '15:00', 'ende' => '18:30', 'slot_minuten' => 10];
+$e2 = slot_haelfte_fenster($sp2, 'erste');
+pruefe('ungerade Spanne rundet Mitte auf Slotgrenze (16:50)',
+    $e2['bis'] === '16:50');
+$z2 = slot_haelfte_fenster($sp2, 'zweite');
+pruefe('zweite Hälfte beginnt an derselben Grenze', $z2['von'] === '16:50');
+
 // Pausen
 $st2 = $st + [];
 $st2['pause_nach_terminen'] = 3;
