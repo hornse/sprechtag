@@ -142,7 +142,8 @@ function wu_login(array $cfg, PDO $pdo, string $benutzer, string $passwort): arr
  */
 function wu_kind_lehrer_ermitteln(
     array $cfg, PDO $pdo, WebUntisRest $rest,
-    int $sprechtagId, int $schuelerId, string $von, string $bis
+    int $sprechtagId, int $schuelerId, string $von, string $bis,
+    bool $mitKlausuren = true
 ): array {
     $r = $rest->get('/WebUntis/api/rest/view/v1/timetable/entries', [
         'start' => $von, 'end' => $bis,
@@ -153,17 +154,19 @@ function wu_kind_lehrer_ermitteln(
         return ['anzahl' => 0, 'uebersprungen' => []];
     }
 
-    $ex = rest_lehrkraefte_aus_entries($r['json']);
+    $ex = rest_lehrkraefte_aus_entries($r['json'], $mitKlausuren);
     if ($ex['lehrkraefte'] === []) return ['anzahl' => 0, 'uebersprungen' => []];
 
     // Kürzel -> lokale Lehrer-ID
     $stmtLehrer = $pdo->prepare('SELECT id FROM lehrer WHERE kuerzel = ? LIMIT 1');
     $stmtCache  = $pdo->prepare(
         'INSERT INTO kind_lehrer_cache
-            (sprechtag_id, schueler_id, lehrer_id, faecher, stunden, ermittelt_am)
-         VALUES (?, ?, ?, ?, ?, NOW())
+            (sprechtag_id, schueler_id, lehrer_id, faecher, stunden,
+             klausuren, ermittelt_am)
+         VALUES (?, ?, ?, ?, ?, ?, NOW())
          ON DUPLICATE KEY UPDATE faecher = VALUES(faecher),
-            stunden = VALUES(stunden), ermittelt_am = NOW()');
+            stunden = VALUES(stunden), klausuren = VALUES(klausuren),
+            ermittelt_am = NOW()');
 
     $anzahl = 0;
     $uebersprungen = [];
@@ -182,7 +185,8 @@ function wu_kind_lehrer_ermitteln(
         }
         $faecher = implode(', ', array_slice(array_keys($info['faecher']), 0, 6));
         $stmtCache->execute([$sprechtagId, $schuelerId, (int)$lehrerId,
-            kuerze($faecher, 190), (int)$info['stunden']]);
+            kuerze($faecher, 190), (int)$info['stunden'],
+            (int)($info['klausuren'] ?? 0)]);
         $anzahl++;
     }
     return ['anzahl' => $anzahl, 'uebersprungen' => $uebersprungen];

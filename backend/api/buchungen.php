@@ -85,7 +85,8 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'buchbare-lehrer') {
     if ((int)$st->fetchColumn() === 0) {
         $zugang = dk_lesen($cfg, $pdo);
         if ($zugang !== null) {
-            $stS = $pdo->prepare('SELECT datum, referenz_von, referenz_bis
+            $stS = $pdo->prepare('SELECT datum, referenz_von, referenz_bis,
+                                         klausuren_werten
                                   FROM sprechtage WHERE id = ?');
             $stS->execute([$sid]);
             $sp = $stS->fetch() ?: [];
@@ -103,7 +104,8 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'buchbare-lehrer') {
                 if ($rest->tokenHolen()) {
                     $rest->tenantErmitteln();
                     $e = wu_kind_lehrer_ermitteln($cfg, $pdo, $rest,
-                        $sid, $kind, (string)$ref['von'], (string)$ref['bis']);
+                        $sid, $kind, (string)$ref['von'], (string)$ref['bis'],
+                        (int)($sp['klausuren_werten'] ?? 1) === 1);
                     $ermittelt = $e['anzahl'];
                     $fehlendeStammdaten = $e['uebersprungen'];
                 }
@@ -119,6 +121,7 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'buchbare-lehrer') {
     // Unterrichtende Lehrkräfte (nach Stundenzahl sortiert = Hauptfächer zuerst)
     $st = $pdo->prepare(
         'SELECT l.id AS lehrer_id, l.kuerzel, l.name, c.faecher, c.stunden,
+                c.klausuren,
                 sl.anwesend_von, sl.anwesend_bis, r.kuerzel AS raum_kuerzel,
                 NULL AS rolle
          FROM kind_lehrer_cache c
@@ -136,6 +139,7 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'buchbare-lehrer') {
     $jahrgang = trim((string)($_GET['jahrgang'] ?? ''));
     $st = $pdo->prepare(
         'SELECT l.id AS lehrer_id, l.kuerzel, l.name, "" AS faecher, 0 AS stunden,
+                0 AS klausuren,
                 sl2.anwesend_von, sl2.anwesend_bis, r.kuerzel AS raum_kuerzel,
                 sr.bezeichnung AS rolle, s.jahrgaenge
          FROM sprechtag_sonderlehrer s
@@ -209,7 +213,8 @@ if ($methode === 'POST' && ($seg[0] ?? '') === 'lehrer-ermitteln') {
         ignore_user_abort(true);
         set_time_limit(0);
         $e = wu_kind_lehrer_ermitteln($cfg, $pdo, $rest, $sid, $kind,
-            (string)$ref['von'], (string)$ref['bis']);
+            (string)$ref['von'], (string)$ref['bis'],
+            (int)($s['klausuren_werten'] ?? 1) === 1);
         $anzahl = $e['anzahl'];
         $fehlend = $e['uebersprungen'];
     } catch (RuntimeException $e) {

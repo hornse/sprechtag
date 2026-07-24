@@ -323,6 +323,10 @@ function ansichtBuchen(ziel) {
       + (S.gewaehlteLehrkraft === l.lehrer_id ? ' gewaehlt' : ''));
     karte.appendChild(el('strong', null, (l.name || l.kuerzel)));
     if (l.faecher) karte.appendChild(el('span', 'faecher', l.faecher));
+    if (parseInt(l.stunden, 10) === 0 && parseInt(l.klausuren, 10) > 0) {
+      karte.appendChild(el('span', 'hinweis-klein',
+        'im Referenzzeitraum nur Klausurtermin'));
+    }
     if (l.rolle) karte.appendChild(el('span', 'rolle-badge', l.rolle));
     if (l.raum_kuerzel) karte.appendChild(el('span', 'raum', 'Raum ' + l.raum_kuerzel));
     if (l.anwesend_von) {
@@ -774,14 +778,33 @@ function sprechtagKarte(s) {
   const z4 = el('div', 'zeile');
   z4.appendChild(feld('Referenz von', 'e-refvon-' + s.id, 'text', s.referenz_von || ''));
   z4.appendChild(feld('Referenz bis', 'e-refbis-' + s.id, 'text', s.referenz_bis || ''));
-  z4.appendChild(auswahl('Phase', 'e-phase-' + s.id, [
+  p.appendChild(z4);
+
+  // Klausur-Schalter
+  const z5 = el('div', 'zeile');
+  const lKl = el('label', 'inline');
+  const cbKl = document.createElement('input');
+  cbKl.type = 'checkbox';
+  cbKl.id = 'e-klausuren-' + s.id;
+  cbKl.checked = parseInt(s.klausuren_werten, 10) !== 0;
+  lKl.appendChild(cbKl);
+  lKl.appendChild(document.createTextNode(
+    ' Klausurtermine bei der Lehrkraftermittlung mitwerten'));
+  z5.appendChild(lKl);
+  p.appendChild(z5);
+  p.appendChild(el('p', 'hinweis-klein',
+    'Sinnvoll, wenn Fachlehrkräfte ihre eigenen Arbeiten beaufsichtigen. '
+    + 'Abschalten, wenn Aufsichten bei Ihnen fachfremd verteilt werden.'));
+
+  const z4b = el('div', 'zeile');
+  z4b.appendChild(auswahl('Phase', 'e-phase-' + s.id, [
     { wert: 'vorbereitung', text: 'in Vorbereitung' },
     { wert: 'phase1', text: 'Phase 1 – nur auf Einladung' },
     { wert: 'phase2', text: 'Phase 2 – offen für alle' },
     { wert: 'geschlossen', text: 'geschlossen' },
     { wert: 'archiviert', text: 'archiviert (löscht Buchungen!)' },
   ], s.phase));
-  p.appendChild(z4);
+  p.appendChild(z4b);
   k.appendChild(p);
 
   const a = el('div', 'aktionen');
@@ -803,6 +826,7 @@ function sprechtagKarte(s) {
         pause_minuten: parseInt(wert('e-pausenlang-' + s.id), 10),
         referenz_von: wert('e-refvon-' + s.id) || null,
         referenz_bis: wert('e-refbis-' + s.id) || null,
+        klausuren_werten: cbKl.checked ? 1 : 0,
         phase: neuePhase } });
       await ladeSprechtage();
       meldung('Gespeichert.', 'ok');

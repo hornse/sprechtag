@@ -25,7 +25,7 @@ declare(strict_types=1);
  *
  * Filterregeln (identisch zu rest_unterricht_aus_entries):
  *  - nur Einträge, deren type 'TEACHING' enthält
- *    (schließt BREAK_SUPERVISION, EVENT, EXAM etc. aus)
+ *    (schließt BREAK_SUPERVISION, EVENT etc. aus)
  *  - nur Status REGULAR oder CANCELLED; ein Ausfall ändert nichts
  *    daran, WER regulär unterrichtet
  *  - SUBSTITUTION/CHANGED werden übersprungen, damit Vertretungen
@@ -34,27 +34,39 @@ declare(strict_types=1);
  *  - Positionsnummern sind formatabhängig und werden IGNORIERT;
  *    die Elemente beschreiben sich über current.type selbst
  *
+ * $mitKlausuren (ab v1.6.0): Wertet zusätzlich Einträge vom Typ EXAM
+ * mit Status REGULAR. Hintergrund: In Unter- und Mittelstufe beaufsichtigen
+ * die Fachlehrkräfte ihre eigenen Klassenarbeiten. Fällt der gesamte
+ * reguläre Unterricht einer Lehrkraft im Abfragezeitraum aus oder wird
+ * vertreten, ist der Klausurtermin der einzige Beleg für die Zuordnung.
+ * EXAM-Stunden zählen NICHT in 'stunden' – die Sortierung richtet sich
+ * weiter nach regulärem Unterricht; sie erscheinen in 'klausuren'.
+ *
  * Rückgabe:
  *   eintraege   – Zahl gewerteter Unterrichts-Einträge
  *   lehrkraefte – Kürzel => ['name' => longName, 'stunden' => int,
- *                            'faecher' => [Fachkürzel => Anzahl]]
- *
- * Sortierung nach 'stunden' (absteigend) ergibt eine sinnvolle
- * Reihenfolge für Buchungslisten: Hauptfachlehrkräfte zuerst.
+ *                            'klausuren' => int, 'faecher' => [Kürzel => Anzahl]]
  */
-function rest_lehrkraefte_aus_entries($json): array
+function rest_lehrkraefte_aus_entries($json, bool $mitKlausuren = true): array
 {
     $ergebnis = ['eintraege' => 0, 'lehrkraefte' => []];
 
-    $lauf = function ($knoten) use (&$lauf, &$ergebnis): void {
+    $lauf = function ($knoten) use (&$lauf, &$ergebnis, $mitKlausuren): void {
         if (!is_array($knoten)) return;
 
         if (array_key_exists('position1', $knoten)) {
             $typ    = (string)($knoten['type'] ?? '');
             $status = (string)($knoten['status'] ?? 'REGULAR');
-            if (stripos($typ, 'TEACHING') !== false
-                && in_array($status, ['REGULAR', 'CANCELLED'], true)) {
 
+            $istUnterricht = stripos($typ, 'TEACHING') !== false
+                && in_array($status, ['REGULAR', 'CANCELLED'], true);
+            // Klausur nur bei Status REGULAR: bei CHANGED steht die
+            // Lehrkraft unter 'removed' (Termin verlegt/ausgefallen).
+            $istKlausur = $mitKlausuren
+                && stripos($typ, 'EXAM') !== false
+                && $status === 'REGULAR';
+
+            if ($istUnterricht || $istKlausur) {
                 $faecher = []; $lehrer = [];
                 for ($i = 1; $i <= 7; $i++) {
                     foreach ((array)($knoten['position' . $i] ?? []) as $el) {
@@ -76,9 +88,14 @@ function rest_lehrkraefte_aus_entries($json): array
                     foreach ($lehrer as $kuerzel => $name) {
                         if (!isset($ergebnis['lehrkraefte'][$kuerzel])) {
                             $ergebnis['lehrkraefte'][$kuerzel] =
-                                ['name' => $name, 'stunden' => 0, 'faecher' => []];
+                                ['name' => $name, 'stunden' => 0,
+                                 'klausuren' => 0, 'faecher' => []];
                         }
-                        $ergebnis['lehrkraefte'][$kuerzel]['stunden']++;
+                        if ($istUnterricht) {
+                            $ergebnis['lehrkraefte'][$kuerzel]['stunden']++;
+                        } else {
+                            $ergebnis['lehrkraefte'][$kuerzel]['klausuren']++;
+                        }
                         foreach (array_keys($faecher) as $f) {
                             $ergebnis['lehrkraefte'][$kuerzel]['faecher'][$f] =
                                 ($ergebnis['lehrkraefte'][$kuerzel]['faecher'][$f] ?? 0) + 1;
@@ -94,7 +111,9 @@ function rest_lehrkraefte_aus_entries($json): array
     };
     $lauf($json);
 
-    uasort($ergebnis['lehrkraefte'], fn($a, $b) => $b['stunden'] <=> $a['stunden']);
+    // Sortierung nach regulären Stunden; bei Gleichstand nach Klausuren.
+    uasort($ergebnis['lehrkraefte'], fn($a, $b) =>
+        [$b['stunden'], $b['klausuren']] <=> [$a['stunden'], $a['klausuren']]);
     return $ergebnis;
 }
 

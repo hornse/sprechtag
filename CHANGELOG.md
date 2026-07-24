@@ -1,5 +1,45 @@
 # Changelog – sprechtag
 
+## v0.6.0 (Juli 2026) – Klausurtermine als Beleg für die Lehrkraft-Zuordnung
+
+### Neu
+- **Einträge vom Typ `EXAM` mit Status `REGULAR` werden mitgewertet.**
+  Hintergrund (Sondierung 24.07.2026): In Unter- und Mittelstufe
+  beaufsichtigen die Fachlehrkräfte ihre eigenen Klassenarbeiten. Fällt
+  der reguläre Unterricht einer Lehrkraft im Referenzzeitraum aus oder
+  wird vertreten, ist der Klausurtermin der einzige Beleg dafür, dass sie
+  das Kind unterrichtet – ohne ihn fehlt sie in der Buchungsliste.
+- **Klausurstunden zählen nicht als Unterrichtsstunden.** Die Sortierung
+  richtet sich weiter nach regulärem Unterricht; Hauptfachlehrkräfte
+  stehen also weiterhin oben. Lehrkräfte, die nur über einen Klausurtermin
+  gefunden wurden, sind in der Auswahl gekennzeichnet.
+- **Schalter je Sprechtag** („Klausurtermine bei der Lehrkraftermittlung
+  mitwerten", Voreinstellung an). Wo Aufsichten fachfremd verteilt werden,
+  lässt sich das abschalten.
+- `EXAM / CHANGED` bleibt ausgeschlossen: Bei verlegten Arbeiten steht die
+  Lehrkraft nur unter `removed`.
+- Neue Spalten `sprechtage.klausuren_werten` und
+  `kind_lehrer_cache.klausuren` (`sql/04_klausuren.sql`, idempotent).
+
+### Befunde der Sondierung vom 24.07.2026
+Drei Läufe mit wachsendem Referenzzeitraum für dasselbe Kind zeigten,
+warum der Zeitraum großzügig gewählt sein sollte:
+
+| Zeitraum | Informatik-Lehrkraft im Plan | Extraktor findet |
+|---|---|---|
+| 1 Woche | nur Klassenarbeit | Gr, Kl |
+| 2 Wochen | Vertretung + Arbeit | Gr, Kl |
+| 4 Wochen | regulärer Unterricht dabei | Gr, Kl, **Ew** |
+
+Vertretungen (`NORMAL_TEACHING_PERIOD / CHANGED`) wurden in allen Läufen
+korrekt ignoriert – die Vertretungslehrkräfte tauchen nirgends auf.
+
+### Tests
+- `tests/run_klausuren.php` (14 Prüfungen): Nachbau der echten
+  Instanzdaten, Klausur-Wertung an und aus, Vertretungsausschluss,
+  Sortierung, Rückwärtskompatibilität der Extraktor-Signatur.
+
+
 ## v0.5.1 (Juli 2026) – Fehlende Lehrkräfte werden gemeldet
 
 ### Behoben

@@ -45,7 +45,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.5.1', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.6.0', 'db' => $db]);
 }
 
 // ============================================================
@@ -212,7 +212,7 @@ if (($seg[0] ?? '') === 'sprechtage') {
         auth_require_admin();
         $erlaubt = ['name', 'datum', 'beginn', 'ende', 'slot_minuten',
             'max_termine_pro_eltern', 'pause_nach_terminen', 'pause_minuten',
-            'phase', 'referenz_von', 'referenz_bis'];
+            'phase', 'referenz_von', 'referenz_bis', 'klausuren_werten'];
         $sets = []; $werte = [];
         foreach ($erlaubt as $feld) {
             if (!array_key_exists($feld, $body)) continue;
