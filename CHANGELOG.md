@@ -1,5 +1,30 @@
 # Changelog – sprechtag
 
+## v0.8.1 (Juli 2026) – Einladungen prüfen, Rückmeldungen verbessern
+
+### Behoben
+- **Einladungen mit ungültiger Schüler-ID wurden kommentarlos angelegt.**
+  So entstand eine Einladung für „Schüler-ID 7" – ein Tippfehler, der
+  erst beim Buchen aufgefallen wäre. Der Endpunkt prüft jetzt: Existiert
+  der Sprechtag? Ist die Schüler-ID plausibel (sofern eine Schülerliste
+  gepflegt ist)? Ist dem Konto eine Lehrkraft zugeordnet? Jeder Fall
+  liefert eine eigene, verständliche Meldung.
+- **Fehler beim Sammel-Einladen wurden verschluckt.** Der Ablauf zählte
+  Fehlschläge nur, ohne den Grund zu zeigen (`catch { fehler++ }`).
+  Jetzt erscheinen die Meldungen in der Oberfläche.
+- **„Aktualisieren" bei den Mitteilungen wirkte folgenlos.** Der Knopf
+  lud zwar neu, gab aber keine Rückmeldung – bei bereits versendeten
+  Mitteilungen sah es aus, als passiere nichts. Jetzt meldet er den
+  Stand, und die Ansicht sagt ausdrücklich, wenn alles versendet ist.
+- Veralteter Hinweistext bei den Mitteilungen: Mit hinterlegtem
+  Dienstkonto sind keine Zugangsdaten mehr nötig.
+
+### Bestätigt
+Der Mitteilungsversand funktioniert: `v2_users_multipart` → HTTP 200.
+Der am 24.07.2026 aus der Weboberfläche ermittelte Weg ist damit im
+Echtbetrieb belegt.
+
+
 ## v0.8.0 (Juli 2026) – Mitteilungsversand: der echte Weg
 
 ### Neu

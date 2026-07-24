@@ -532,10 +532,33 @@ if (($seg[0] ?? '') === 'einladungen') {
         $sid = (int)($body['sprechtag_id'] ?? 0);
         $lid = $u['rolle'] === 'admin' && isset($body['lehrer_id'])
             ? (int)$body['lehrer_id'] : (int)($u['lehrer_id'] ?? 0);
-        if ($lid <= 0) json_err('Kein Lehrkraft-Stammsatz zugeordnet – bitte Stammdaten synchronisieren');
+        if ($lid <= 0) {
+            json_err('Diesem Konto ist keine Lehrkraft zugeordnet. Bitte die '
+                . 'Administration bitten, die Stammdaten zu synchronisieren.', 409);
+        }
+        if ($sid <= 0) json_err('Kein Sprechtag ausgewählt');
+        bu_sprechtag($pdo, $sid);   // bricht mit 404 ab, wenn es ihn nicht gibt
+
+        $kind = (int)req($body, 'schueler_id');
+        if ($kind <= 0) json_err('Ungültige Schüler-ID');
+
+        // Ist die ID plausibel? Wenn eine Schülerliste gepflegt ist,
+        // muss die ID darin vorkommen – sonst entstehen Einladungen für
+        // Kinder, die nie buchen können (z. B. Tippfehler wie "7").
+        $st = $pdo->query('SELECT COUNT(*) FROM schueler WHERE webuntis_id IS NOT NULL');
+        if ((int)$st->fetchColumn() > 0) {
+            $st = $pdo->prepare('SELECT COUNT(*) FROM schueler WHERE webuntis_id = ?');
+            $st->execute([$kind]);
+            if ((int)$st->fetchColumn() === 0) {
+                json_err('Zu dieser Schüler-ID gibt es keinen Eintrag in der '
+                    . 'Schülerliste. Bitte über die Klassenauswahl einladen '
+                    . 'oder die Liste aktualisieren.', 404);
+            }
+        }
+
         $pdo->prepare('INSERT IGNORE INTO einladungen
             (sprechtag_id, lehrer_id, schueler_id, hinweis) VALUES (?, ?, ?, ?)')
-            ->execute([$sid, $lid, (int)req($body, 'schueler_id'),
+            ->execute([$sid, $lid, $kind,
                 substr((string)($body['hinweis'] ?? ''), 0, 190)]);
         json_ok(['ok' => true], 201);
     }

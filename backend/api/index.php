@@ -46,7 +46,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.8.0', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.8.1', 'db' => $db]);
 }
 
 // ============================================================

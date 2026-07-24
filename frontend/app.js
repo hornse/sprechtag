@@ -641,19 +641,28 @@ function ansichtEinladungen(ziel) {
         return;
       }
       meldung(ids.length + ' Einladung(en) werden angelegt …', 'info');
-      let ok = 0; let fehler = 0;
+      let ok = 0;
+      const probleme = [];
       for (const id of ids) {
         try {
           await api('/api/einladungen', { method: 'POST', body: {
             sprechtag_id: S.aktiverSprechtag.id, schueler_id: id,
             hinweis } });
           ok++;
-        } catch { fehler++; }
+        } catch (f) {
+          // Fehler NICHT verschlucken – sonst bleibt unklar, warum
+          // nichts passiert ist.
+          probleme.push(String(f.message));
+        }
       }
       await ladeEinladungen();
-      meldung(ok + ' Einladung(en) angelegt'
-        + (fehler > 0 ? ', ' + fehler + ' fehlgeschlagen' : '') + '.',
-        fehler > 0 ? 'fehler' : 'ok');
+      if (probleme.length === 0) {
+        meldung(ok + ' Einladung(en) angelegt.', 'ok');
+      } else {
+        const einmalig = [...new Set(probleme)];
+        meldung(ok + ' angelegt, ' + probleme.length + ' fehlgeschlagen: '
+          + einmalig.slice(0, 2).join(' | '), 'fehler');
+      }
     }));
   }
   ziel.appendChild(aus);
@@ -1334,9 +1343,9 @@ function ansichtSondierung(ziel) {
 function ansichtMitteilungen(ziel) {
   ziel.appendChild(el('h2', null, 'Mitteilungen an Erziehungsberechtigte'));
   ziel.appendChild(el('p', 'hinweis',
-    'Terminbestätigungen und Absagen werden hier gesammelt. Der Versand über '
-    + 'WebUntis wird von der Administration angestoßen und benötigt einmalig '
-    + 'deren Zugangsdaten (sie werden nicht gespeichert).'));
+    'Terminbestätigungen und Absagen werden hier gesammelt. Ist ein '
+    + 'Dienstkonto hinterlegt, versendet das System sie automatisch beim '
+    + 'Buchen und Absagen; hier lassen sich liegengebliebene nachsenden.'));
   if (!sprechtagWaehler(ziel, () => ladeMitteilungen())) return;
 
   if (S.mitteilungen === null) {
@@ -1345,8 +1354,14 @@ function ansichtMitteilungen(ziel) {
   }
 
   const offen = S.mitteilungen.filter((m) => m.status === 'offen');
+  const gesendet = S.mitteilungen.filter((m) => m.status === 'gesendet');
   ziel.appendChild(el('p', 'hinweis',
-    S.mitteilungen.length + ' Mitteilung(en), davon ' + offen.length + ' offen.'));
+    S.mitteilungen.length + ' Mitteilung(en): ' + offen.length + ' offen, '
+    + gesendet.length + ' gesendet.'));
+  if (offen.length === 0 && S.mitteilungen.length > 0) {
+    ziel.appendChild(el('p', 'meldung ok',
+      'Alle Mitteilungen sind versendet – nichts zu tun.'));
+  }
 
   // Versand nur für die Administration
   if (offen.length > 0) {
@@ -1434,7 +1449,12 @@ function ansichtMitteilungen(ziel) {
     tab.appendChild(tr);
   }
   ziel.appendChild(tab);
-  ziel.appendChild(knopf('Aktualisieren', 'klein', () => ladeMitteilungen()));
+  ziel.appendChild(knopf('Aktualisieren', 'klein', async () => {
+    await ladeMitteilungen();
+    const o = (S.mitteilungen || []).filter((m) => m.status === 'offen').length;
+    meldung('Liste aktualisiert: ' + (S.mitteilungen || []).length
+      + ' Mitteilung(en), ' + o + ' offen.', 'info');
+  }));
 
   // Diagnose: Was hat WebUntis auf welche Feldstruktur geantwortet?
   if (S.versandProtokoll !== null && S.versandProtokoll.length > 0) {
