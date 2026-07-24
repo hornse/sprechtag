@@ -315,6 +315,120 @@ if (($seg[0] ?? '') === 'buchungen') {
         json_ok(['buchungen' => $st->fetchAll(), 'sicht' => 'eigene']);
     }
 
+    // ---- POST /api/buchungen/stellvertretend ----
+    // Notfallbuchung durch die Lehrkraft: Eltern, die aus welchem Grund
+    // auch immer nicht selbst buchen können, bekommen von der Lehrkraft
+    // einen Termin bei sich selbst eingetragen. Das Kind wird ausgewählt,
+    // das Elternkonto ermittelt das System automatisch (wie bei der
+    // Einladung). Der Slot ist danach über den UNIQUE-Key für alle anderen
+    // gesperrt. Alle Erziehungsberechtigten werden per Mitteilung über den
+    // gebuchten Termin informiert.
+    if ($methode === 'POST' && ($seg[1] ?? '') === 'stellvertretend') {
+        $u = auth_require_lehrkraft();
+
+        $sid  = (int)($body['sprechtag_id'] ?? 0);
+        $kind = (int)($body['schueler_id'] ?? 0);
+        $slot = substr(trim((string)($body['slot_beginn'] ?? '')), 0, 5);
+        // Admins dürfen für eine beliebige Lehrkraft, Lehrkräfte nur für sich
+        $lid = $u['rolle'] === 'admin' && isset($body['lehrer_id'])
+            ? (int)$body['lehrer_id'] : (int)($u['lehrer_id'] ?? 0);
+
+        if ($lid <= 0) {
+            json_err('Diesem Konto ist keine Lehrkraft zugeordnet. Bitte die '
+                . 'Administration bitten, die Stammdaten zu synchronisieren.', 409);
+        }
+        if ($kind <= 0) json_err('Bitte ein Kind auswählen');
+        if (!preg_match('/^\d{2}:\d{2}$/', $slot)) {
+            json_err('Bitte einen freien Zeitpunkt auswählen');
+        }
+        $s = bu_sprechtag($pdo, $sid);
+
+        // Elternkonten ermitteln (gemeinsamer Helfer). Für die Buchung
+        // selbst wird EIN Konto benötigt – wir nehmen das erste; alle
+        // werden anschließend über den Termin informiert.
+        $aufl = mit_eltern_ids_ermitteln($cfg, $pdo, $kind);
+        if ($aufl['ids'] === []) {
+            json_err('Zu diesem Kind ließ sich kein Elternkonto ermitteln. '
+                . 'Ist die Schülerliste gepflegt und ein Dienstkonto '
+                . 'hinterlegt? Ersatzweise bleibt die Einladung, mit der die '
+                . 'Eltern selbst buchen.', 409);
+        }
+        $elternIds    = $aufl['ids'];
+        $elternUserId = (int)$elternIds[0];
+        $kindName     = $aufl['kind_name'];
+
+        // Der Slot muss zum Raster der Lehrkraft gehören und frei sein.
+        $fenster = bu_lehrer_fenster($pdo, $sid, $lid);
+        if ((int)$fenster['teilnahme'] !== 1) {
+            json_err('Diese Lehrkraft nimmt am Sprechtag nicht teil');
+        }
+        $raster = slot_raster($s, $fenster['anwesend_von'], $fenster['anwesend_bis']);
+        $imRaster = false;
+        foreach ($raster as $z) {
+            if ($z['typ'] === 'slot' && $z['beginn'] === $slot) { $imRaster = true; break; }
+        }
+        if (!$imRaster) json_err('Dieser Zeitpunkt gehört nicht zum Raster.');
+
+        // Schreiben – der UNIQUE KEY sperrt den Slot für alle anderen.
+        try {
+            $pdo->prepare('INSERT INTO buchungen
+                (sprechtag_id, lehrer_id, slot_beginn, eltern_user_id, schueler_id,
+                 phase, gebucht_von)
+                VALUES (?, ?, ?, ?, ?, ?, ?)')
+                ->execute([$sid, $lid, $slot . ':00', $elternUserId, $kind,
+                    (string)$s['phase'] === 'phase1' ? 'phase1' : 'phase2',
+                    $u['rolle']]);
+        } catch (PDOException $e) {
+            if ((int)$e->errorInfo[1] === 1062) {
+                json_err('Dieser Termin ist bereits vergeben.', 409);
+            }
+            throw $e;
+        }
+        $neueId = (int)$pdo->lastInsertId();
+
+        // Einladung (falls vorhanden) als erledigt markieren
+        $pdo->prepare('UPDATE einladungen SET erledigt = 1
+                       WHERE sprechtag_id = ? AND lehrer_id = ? AND schueler_id = ?')
+            ->execute([$sid, $lid, $kind]);
+
+        // ---- Alle Erziehungsberechtigten über den Termin informieren ----
+        $mitteilung = null;
+        try {
+            $stL = $pdo->prepare('SELECT l.kuerzel, l.name, r.kuerzel AS raum_kuerzel
+                FROM lehrer l
+                LEFT JOIN sprechtag_lehrer sl
+                       ON sl.sprechtag_id = ? AND sl.lehrer_id = l.id
+                LEFT JOIN raeume r ON r.id = sl.raum_id
+                WHERE l.id = ?');
+            $stL->execute([$sid, $lid]);
+            $le = $stL->fetch() ?: [];
+
+            $t = mit_text_bestaetigung((string)$s['name'], (string)$s['datum'], [[
+                'slot_beginn' => $slot,
+                'name'        => (string)($le['name'] ?: ($le['kuerzel'] ?? '')),
+                'raum_kuerzel'=> (string)($le['raum_kuerzel'] ?? ''),
+            ]]);
+            $zugang = dk_lesen($cfg, $pdo);
+            foreach ($elternIds as $eid) {
+                $mitteilung = mit_einreihen_und_senden($cfg, $pdo, $sid, (int)$eid,
+                    'bestaetigung', $t['betreff'], $t['text'],
+                    $zugang['benutzer'] ?? null, $zugang['passwort'] ?? null,
+                    $kind);
+            }
+        } catch (Throwable $e) {
+            error_log('sprechtag: Bestätigung (stellvertretend) fehlgeschlagen: '
+                . $e->getMessage());
+        }
+
+        json_ok(['ok' => true, 'id' => $neueId,
+            'kind_name'     => $kindName,
+            'eltern_anzahl' => count($elternIds),
+            'mitteilung'    => $mitteilung,
+            'hinweis' => 'Termin um ' . $slot . ' Uhr für ' . ($kindName ?: 'das Kind')
+                . ' eingetragen. ' . count($elternIds)
+                . ' Erziehungsberechtigte(r) benachrichtigt.'], 201);
+    }
+
     // ---- POST: buchen ----
     if ($methode === 'POST' && !isset($seg[1])) {
         $sid  = (int)($body['sprechtag_id'] ?? 0);
@@ -564,56 +678,15 @@ if (($seg[0] ?? '') === 'einladungen') {
                 substr((string)($body['hinweis'] ?? ''), 0, 190)]);
 
         // ---- Benachrichtigung der Eltern --------------------------------
-        // Zwei Wege, die Eltern-USER-ID zu finden:
-        //  1. Empfängersuche in WebUntis (seit v0.9.1) – funktioniert auch
-        //     beim ersten Sprechtag, bevor jemand gebucht hat
-        //  2. Rückfall: aus früheren Buchungen desselben Kindes
+        // Elternkonten über den gemeinsamen Helfer ermitteln (WebUntis-
+        // Suche mit Rückfall auf frühere Buchungen). Dieselbe Logik nutzt
+        // auch die stellvertretende Buchung.
         $mitteilung = null;
-        $elternIds = [];
-        $quelle = null;
-
-        // Kindnamen für Suche und Anrede
-        $stK = $pdo->prepare(
-            'SELECT vorname, nachname FROM schueler WHERE webuntis_id = ? LIMIT 1');
-        $stK->execute([$kind]);
-        $kd = $stK->fetch() ?: [];
-        $kindName = trim(((string)($kd['vorname'] ?? '')) . ' '
-            . ((string)($kd['nachname'] ?? '')));
-
-        $zugang = dk_lesen($cfg, $pdo);
-        if ($kindName !== '' && $zugang !== null) {
-            $wcfg = $cfg['webuntis'];
-            $wu = new WebUntisAuth($wcfg['base_url'], $wcfg['school'], $wcfg['client']);
-            try {
-                $wu->authenticate($zugang['benutzer'], $zugang['passwort']);
-                $rest = new WebUntisRest($wcfg['base_url'], $wcfg['school']);
-                $rest->mitSessionCookie((string)$wu->sessionCookie());
-                $rest->setzeTimeout(15);
-                if ($rest->tokenHolen()) {
-                    $rest->tenantErmitteln();
-                    // Nach dem Nachnamen suchen, dann exakt zuordnen
-                    $suche = (string)($kd['nachname'] ?? $kindName);
-                    $treffer = $rest->empfaengerSuchen($suche);
-                    $zuord = mit_eltern_zu_kind($treffer['users'], $kindName);
-                    $elternIds = array_column($zuord['konten'], 'id');
-                    if ($elternIds !== []) $quelle = 'webuntis';
-                }
-            } catch (Throwable $e) {
-                error_log('sprechtag: Empfängersuche fehlgeschlagen: ' . $e->getMessage());
-            } finally {
-                $wu->logout();
-            }
-        }
-
-        if ($elternIds === []) {
-            $stE = $pdo->prepare(
-                'SELECT DISTINCT eltern_user_id FROM buchungen
-                 WHERE schueler_id = ? AND eltern_user_id > 0');
-            $stE->execute([$kind]);
-            $elternIds = array_map('intval',
-                array_column($stE->fetchAll(), 'eltern_user_id'));
-            if ($elternIds !== []) $quelle = 'buchung';
-        }
+        $aufl = mit_eltern_ids_ermitteln($cfg, $pdo, $kind);
+        $elternIds = $aufl['ids'];
+        $quelle    = $aufl['quelle'];
+        $kindName  = $aufl['kind_name'];
+        $zugang    = dk_lesen($cfg, $pdo);
 
         if ($elternIds !== []) {
             try {

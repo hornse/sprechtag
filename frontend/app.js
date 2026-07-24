@@ -32,6 +32,8 @@ const S = {
   dienstkonto: null,   // Status des hinterlegten Dienstkontos
   gewaehlteLehrkraftAnsicht: null,   // Admin: wessen Termine werden gezeigt
   schuelerListe: null,               // Klassenliste für Einladungen
+  svRaster: null,                    // freie Slots für stellvertretende Buchung
+  svLaeuft: false,                   // Buchung im Gange (Doppelklick-Schutz)
   schuelerSuche: '',
   schuelerAnzahl: null,
   versandProtokoll: null,
@@ -107,6 +109,15 @@ function auswahl(label, id, optionen, wert) {
   return l;
 }
 function wert(id) { const e = $('#' + id); return e ? e.value.trim() : ''; }
+
+// Formatiert einen DB-Zeitstempel ("YYYY-MM-DD HH:MM:SS") als
+// "TT.MM. HH:MM". Leere/ungültige Werte ergeben einen Gedankenstrich.
+function zeitstempel(iso) {
+  if (!iso) return '–';
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+  if (!m) return String(iso);
+  return m[3] + '.' + m[2] + '. ' + m[4] + ':' + m[5];
+}
 
 // ---------- Start ---------------------------------------------------------
 async function start() {
@@ -214,6 +225,7 @@ function zeichneNavigation() {
           S.meineBuchungen = null;
           S.lehrerListe = null;
           S.raster = [];
+          S.svRaster = null;
           S.gewaehlteLehrkraft = null;
         }
         S.ansicht = ziel;
@@ -518,6 +530,7 @@ function ansichtLehrkraft(ziel) {
         S.gewaehlteLehrkraftAnsicht = e.target.value === ''
           ? null : parseInt(e.target.value, 10);
         S.meineBuchungen = null;
+        S.svRaster = null;
         zeichne();
       });
       ziel.appendChild(w);
@@ -565,11 +578,116 @@ function ansichtLehrkraft(ziel) {
     ziel.appendChild(tab);
   }
   ziel.appendChild(knopf('Aktualisieren', 'klein', () => ladeLehrkraftBuchungen()));
+
+  // ---- Notfall: stellvertretend für Eltern buchen ----------------------
+  // Für Eltern, die aus welchem Grund auch immer nicht selbst buchen
+  // können. Die Lehrkraft wählt Kind und freien Zeitpunkt; das Elternkonto
+  // ermittelt das System automatisch. Der Slot ist danach vergeben.
+  zeichneStellvertreter(ziel, gezeigteId);
+}
+
+function zeichneStellvertreter(ziel, lehrerId) {
+  const kasten = block('sv-buchung', 'Stellvertretend für Eltern buchen');
+  kasten.appendChild(el('p', 'hinweis',
+    'Für Erziehungsberechtigte, die nicht selbst buchen können. '
+    + 'Wählen Sie das Kind und einen freien Zeitpunkt – das Elternkonto '
+    + 'wird automatisch ermittelt (wie bei der Einladung). Der Termin ist '
+    + 'danach für andere gesperrt; alle Erziehungsberechtigten werden '
+    + 'benachrichtigt.'));
+
+  // Kind: Auswahl aus der Schülerliste (dieselbe Quelle wie Einladungen)
+  if (S.schuelerListe === null) {
+    kasten.appendChild(knopf('Schülerliste laden', 'klein', () => ladeSchueler()));
+    ziel.appendChild(kasten);
+    return;
+  }
+  const kinder = [];
+  for (const [klasse, ks] of Object.entries(S.schuelerListe)) {
+    for (const k of ks) {
+      if (!k.webuntis_id) continue;
+      kinder.push({ wert: k.webuntis_id,
+        text: k.nachname + (k.vorname ? ', ' + k.vorname : '')
+          + ' (' + klasse + ')' });
+    }
+  }
+  if (kinder.length === 0) {
+    kasten.appendChild(el('p', 'hinweis-wichtig',
+      'Keine Schülerliste mit WebUntis-Zuordnung vorhanden. Die '
+      + 'Administration kann sie unter „Administration → Schülerliste" '
+      + 'einrichten.'));
+    ziel.appendChild(kasten);
+    return;
+  }
+
+  const z1 = el('div', 'zeile');
+  z1.appendChild(auswahl('Kind', 'sv-kind',
+    [{ wert: '', text: '– Kind wählen –' }].concat(kinder), ''));
+  kasten.appendChild(z1);
+
+  // Freie Zeitpunkte: aus dem Raster der gezeigten Lehrkraft
+  const z2 = el('div', 'zeile');
+  if (S.svRaster === null) {
+    z2.appendChild(knopf('Freie Zeiten laden', 'klein',
+      () => ladeSvRaster(lehrerId)));
+  } else {
+    const frei = S.svRaster.filter((r) => r.typ === 'slot' && r.frei);
+    if (frei.length === 0) {
+      z2.appendChild(el('p', 'hinweis', 'Zurzeit sind keine Zeitpunkte frei.'));
+    } else {
+      z2.appendChild(auswahl('Freier Zeitpunkt', 'sv-slot',
+        [{ wert: '', text: '– Zeitpunkt wählen –' }].concat(
+          frei.map((r) => ({ wert: r.beginn,
+            text: r.beginn + '–' + r.ende + ' Uhr' }))), ''));
+    }
+    z2.appendChild(knopf('Aktualisieren', 'klein',
+      () => { S.svRaster = null; ladeSvRaster(lehrerId); }));
+  }
+  kasten.appendChild(z2);
+
+  if (S.svRaster !== null
+      && S.svRaster.some((r) => r.typ === 'slot' && r.frei)) {
+    kasten.appendChild(knopf(
+      S.svLaeuft ? 'Wird gebucht …' : 'Termin eintragen',
+      null, async () => {
+        if (S.svLaeuft) return;
+        const kind = parseInt(wert('sv-kind'), 10);
+        const slot = wert('sv-slot');
+        if (!(kind > 0)) { meldung('Bitte ein Kind wählen.', 'fehler'); return; }
+        if (!slot) { meldung('Bitte einen Zeitpunkt wählen.', 'fehler'); return; }
+        S.svLaeuft = true;
+        meldung('Termin wird eingetragen …', 'info');
+        try {
+          const d = await api('/api/buchungen/stellvertretend',
+            { method: 'POST', body: {
+              sprechtag_id: S.aktiverSprechtag.id,
+              lehrer_id: lehrerId, schueler_id: kind, slot_beginn: slot } });
+          S.svLaeuft = false;
+          S.svRaster = null;
+          S.meineBuchungen = null;
+          await ladeLehrkraftBuchungen();
+          meldung(d.hinweis || 'Termin eingetragen.', 'ok');
+        } catch (f) {
+          S.svLaeuft = false;
+          meldung(String(f.message), 'fehler');
+        }
+      }));
+  }
+  ziel.appendChild(kasten);
+}
+
+async function ladeSvRaster(lehrerId) {
+  try {
+    const d = await api('/api/raster?sprechtag=' + S.aktiverSprechtag.id
+      + '&lehrer=' + lehrerId);
+    S.svRaster = d.raster || [];
+    zeichne();
+  } catch (f) { meldung(String(f.message), 'fehler'); }
 }
 
 async function ladeLehrkraftBuchungen() {
   try {
     const lid = S.gewaehlteLehrkraftAnsicht;
+    S.svRaster = null;   // freie Zeiten neu laden, sie hängen am Sprechtag
     const d = await api('/api/buchungen?sicht=lehrkraft&sprechtag='
       + S.aktiverSprechtag.id + (lid !== null ? '&lehrer=' + lid : ''));
     S.meineBuchungen = d.buchungen || [];
@@ -597,11 +715,30 @@ async function lehrkraftStorno(b) {
 // ANSICHT: Einladungen (Phase 1)
 // ============================================================
 function ansichtEinladungen(ziel) {
-  ziel.appendChild(el('h2', null, 'Einladungen für Phase 1'));
-  ziel.appendChild(el('p', 'hinweis',
-    'In Phase 1 können nur eingeladene Erziehungsberechtigte buchen. '
-    + 'Wählen Sie die Kinder aus, deren Eltern Sie zum Gespräch bitten möchten.'));
+  ziel.appendChild(el('h2', null, 'Einladungen'));
   if (!sprechtagWaehler(ziel, () => { S.einladungen = null; ladeEinladungen(); })) return;
+
+  // Hinweis abhängig von der Phase des gewählten Sprechtags: In Phase 1
+  // sind Einladungen der reguläre Weg; in Phase 2 kann ohnehin jeder
+  // buchen, deshalb sind sie normalerweise nicht nötig – bleiben aber
+  // möglich (z. B. um gezielt an ein Gespräch zu erinnern).
+  const phase = S.aktiverSprechtag ? S.aktiverSprechtag.phase : null;
+  if (phase === 'phase2') {
+    ziel.appendChild(el('p', 'hinweis-wichtig',
+      'Dieser Sprechtag ist in Phase 2 (offen für alle) – '
+      + 'Erziehungsberechtigte können bereits selbst buchen. Einladungen '
+      + 'sind hier nicht nötig, aber weiterhin möglich, um gezielt an ein '
+      + 'Gespräch zu erinnern.'));
+  } else if (phase === 'phase1') {
+    ziel.appendChild(el('p', 'hinweis',
+      'In Phase 1 können nur eingeladene Erziehungsberechtigte buchen. '
+      + 'Wählen Sie die Kinder aus, deren Eltern Sie zum Gespräch bitten möchten.'));
+  } else {
+    ziel.appendChild(el('p', 'hinweis',
+      'Dieser Sprechtag ist noch nicht für Buchungen freigeschaltet. '
+      + 'Einladungen lassen sich bereits vorbereiten und werden mit dem '
+      + 'Anlegen versendet.'));
+  }
 
   // ---- Auswahl über Klassenliste ---------------------------------------
   const aus = block('einl-auswahl', 'Kinder auswählen');
@@ -1440,7 +1577,7 @@ function ansichtMitteilungen(ziel) {
 
   const tab = el('table', 'tabelle');
   const kopf = el('tr');
-  for (const t of ['Anlass', 'Betreff', 'Kind', 'Status', '']) {
+  for (const t of ['Anlass', 'Betreff', 'Kind', 'Zeitpunkt', 'Status', '']) {
     kopf.appendChild(el('th', null, t));
   }
   tab.appendChild(kopf);
@@ -1458,6 +1595,19 @@ function ansichtMitteilungen(ziel) {
       ? m.kind_name + (m.klasse ? ' (' + m.klasse + ')' : '')
       : (m.schueler_id ? 'Schüler-ID ' + m.schueler_id
                        : 'Konto ' + m.empfaenger_user_id)));
+
+    // Zeitpunkt: gesendet_am, sobald versendet – sonst angelegt_am.
+    // Ein kleiner Zusatz sagt, worauf sich die Zeit bezieht, damit klar
+    // ist, ob die Mitteilung schon raus ist.
+    const tdZ = el('td', 'zeit');
+    if (m.status === 'gesendet' && m.gesendet_am) {
+      tdZ.appendChild(document.createTextNode(zeitstempel(m.gesendet_am)));
+      tdZ.appendChild(el('div', 'hinweis-klein', 'gesendet'));
+    } else {
+      tdZ.appendChild(document.createTextNode(zeitstempel(m.angelegt_am)));
+      tdZ.appendChild(el('div', 'hinweis-klein', 'angelegt'));
+    }
+    tr.appendChild(tdZ);
 
     const tdS = el('td');
     tdS.appendChild(el('span', 'status-' + m.status, {

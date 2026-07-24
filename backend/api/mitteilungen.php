@@ -280,6 +280,73 @@ function mit_eltern_zu_kind(array $users, string $kindName): array
 }
 
 /**
+ * Ermittelt die WebUntis-USER-IDs aller Erziehungsberechtigten eines
+ * Kindes – auf denselben zwei Wegen wie beim Einladungsversand:
+ *   1. WebUntis-Empfängersuche (funktioniert auch beim ersten Sprechtag,
+ *      bevor jemand gebucht hat)
+ *   2. Rückfall: aus früheren Buchungen desselben Kindes
+ *
+ * Bewusst als gemeinsamer Helfer, damit Einladung und stellvertretende
+ * Buchung exakt dieselbe (getestete) Logik nutzen und nicht auseinander-
+ * laufen. Fehler bei der WebUntis-Suche werden geloggt, nicht geworfen –
+ * der Rückfall greift dann.
+ *
+ * @return array{ids:int[], quelle:?string, kind_name:string}
+ *         quelle: 'webuntis' | 'buchung' | null (nichts gefunden)
+ */
+function mit_eltern_ids_ermitteln(array $cfg, PDO $pdo, int $schuelerId): array
+{
+    // Kindnamen aus der Schülerliste (für Suche und exakten Namensabgleich)
+    $stK = $pdo->prepare(
+        'SELECT vorname, nachname FROM schueler WHERE webuntis_id = ? LIMIT 1');
+    $stK->execute([$schuelerId]);
+    $kd = $stK->fetch() ?: [];
+    $kindName = trim(((string)($kd['vorname'] ?? '')) . ' '
+        . ((string)($kd['nachname'] ?? '')));
+
+    $ids = [];
+    $quelle = null;
+
+    // ---- Weg 1: WebUntis-Empfängersuche ----------------------------------
+    $zugang = dk_lesen($cfg, $pdo);
+    if ($kindName !== '' && $zugang !== null) {
+        $wcfg = $cfg['webuntis'];
+        $wu = new WebUntisAuth($wcfg['base_url'], $wcfg['school'], $wcfg['client']);
+        try {
+            $wu->authenticate($zugang['benutzer'], $zugang['passwort']);
+            $rest = new WebUntisRest($wcfg['base_url'], $wcfg['school']);
+            $rest->mitSessionCookie((string)$wu->sessionCookie());
+            $rest->setzeTimeout(15);
+            if ($rest->tokenHolen()) {
+                $rest->tenantErmitteln();
+                $suche = (string)($kd['nachname'] ?? $kindName);
+                $treffer = $rest->empfaengerSuchen($suche);
+                $zuord = mit_eltern_zu_kind($treffer['users'], $kindName);
+                $ids = array_map('intval', array_column($zuord['konten'], 'id'));
+                if ($ids !== []) $quelle = 'webuntis';
+            }
+        } catch (Throwable $e) {
+            error_log('sprechtag: Empfängersuche fehlgeschlagen: ' . $e->getMessage());
+        } finally {
+            $wu->logout();
+        }
+    }
+
+    // ---- Weg 2: Rückfall über frühere Buchungen --------------------------
+    if ($ids === []) {
+        $stE = $pdo->prepare(
+            'SELECT DISTINCT eltern_user_id FROM buchungen
+             WHERE schueler_id = ? AND eltern_user_id > 0');
+        $stE->execute([$schuelerId]);
+        $ids = array_map('intval',
+            array_column($stE->fetchAll(), 'eltern_user_id'));
+        if ($ids !== []) $quelle = 'buchung';
+    }
+
+    return ['ids' => $ids, 'quelle' => $quelle, 'kind_name' => $kindName];
+}
+
+/**
  * Normalisiert einen Personennamen für den Vergleich: Kleinschreibung,
  * Mehrfach-Leerzeichen zusammengefasst, Wortreihenfolge sortiert
  * (damit "Paulowski Paul" und "Paul Paulowski" gleich sind).

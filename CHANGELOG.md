@@ -1,5 +1,34 @@
 # Changelog – sprechtag
 
+## v0.9.2 (Juli 2026) – Zeitstempel, phasengerechte Einladungen, Notfallbuchung
+
+### Neu
+- **Stellvertretende Buchung durch die Lehrkraft.** Für Eltern, die nicht
+  selbst buchen können, trägt die Lehrkraft unter „Meine Termine" einen
+  Termin bei sich selbst ein: Kind auswählen, freien Zeitpunkt wählen –
+  das Elternkonto wird automatisch ermittelt (dieselbe Logik wie bei der
+  Einladung). Der Slot ist danach über den UNIQUE-Key für alle anderen
+  gesperrt; alle Erziehungsberechtigten erhalten eine Bestätigung.
+  - Neuer Endpunkt `POST /api/buchungen/stellvertretend`.
+  - Die Eltern-Ermittlung ist in `mit_eltern_ids_ermitteln()`
+    zusammengefasst und wird von Einladung und Notfallbuchung geteilt
+    (keine doppelte Logik mehr).
+- **Zeitpunkt in der Mitteilungsliste.** Jede Mitteilung zeigt jetzt, wann
+  sie versendet (`gesendet_am`) bzw. angelegt (`angelegt_am`) wurde – bisher
+  war unklar, von wann ein Eintrag ist. Die Werte lagen bereits in der DB
+  und wurden von der API geliefert; es fehlte nur die Anzeige.
+
+### Geändert
+- **Einladungsansicht ist phasengerecht.** In Phase 2 (offen für alle)
+  weist ein Hinweis darauf hin, dass Einladungen nicht nötig, aber weiter
+  möglich sind; in Phase 1 bleibt der bisherige Text. Die Überschrift ist
+  von „Einladungen für Phase 1" auf „Einladungen" neutralisiert. Die
+  Funktion wird nicht mehr entfernt/eingefügt, sondern passt sich an – so
+  ist sie bei Phasenwechsel sofort wieder im passenden Zustand.
+
+### Tests
+- `tests/frontend_zeitstempel_test.js` sichert die Zeitstempel-Formatierung.
+
 ## v0.9.1 (Juli 2026) – Elternkonten automatisch ermitteln
 
 ### Neu
