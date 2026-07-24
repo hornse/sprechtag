@@ -15,7 +15,7 @@ SET @typ := (
 );
 
 SET @sql := IF(@typ = 'varchar',
-    'ALTER TABLE mitteilungen MODIFY grund TEXT NOT NULL
+    'ALTER TABLE mitteilungen MODIFY grund TEXT NULL
      COMMENT "Fehlermeldungen aller Versandversuche"',
     'SELECT "Spalte grund ist bereits TEXT" AS hinweis');
 

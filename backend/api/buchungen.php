@@ -430,7 +430,8 @@ if (($seg[0] ?? '') === 'buchungen') {
                            AND empfaenger_user_id = ? AND anlass = 'bestaetigung'
                            AND status = 'offen'")->execute([$sid, $elternUserId]);
             mit_einreihen_und_senden($cfg, $pdo, $sid, (int)$elternUserId,
-                'bestaetigung', $t['betreff'], $t['text']);
+                'bestaetigung', $t['betreff'], $t['text'],
+                null, null, $kind);
         } catch (Throwable $e) {
             error_log('sprechtag: Bestaetigung nicht vorgemerkt: ' . $e->getMessage());
         }
@@ -477,7 +478,8 @@ if (($seg[0] ?? '') === 'buchungen') {
                 $mitteilung = mit_einreihen_und_senden($cfg, $pdo,
                     (int)$b['sprechtag_id'], (int)$b['eltern_user_id'],
                     'absage', $t['betreff'], $t['text'],
-                    $zugang['benutzer'] ?? null, $zugang['passwort'] ?? null);
+                    $zugang['benutzer'] ?? null, $zugang['passwort'] ?? null,
+                    (int)$b['schueler_id']);
             } catch (Throwable $e) {
                 error_log('sprechtag: Absage nicht vorgemerkt: ' . $e->getMessage());
             }
@@ -560,7 +562,62 @@ if (($seg[0] ?? '') === 'einladungen') {
             (sprechtag_id, lehrer_id, schueler_id, hinweis) VALUES (?, ?, ?, ?)')
             ->execute([$sid, $lid, $kind,
                 substr((string)($body['hinweis'] ?? ''), 0, 190)]);
-        json_ok(['ok' => true], 201);
+
+        // ---- Benachrichtigung der Eltern --------------------------------
+        // Der Versand braucht die WebUntis-USER-ID der Eltern. Die kennt
+        // das System nur, wenn sich das Elternkonto schon einmal
+        // angemeldet und gebucht hat – eine Auflösung Kind -> Elternkonto
+        // bietet die API nach bisherigem Kenntnisstand nicht.
+        $mitteilung = null;
+        $stE = $pdo->prepare(
+            'SELECT DISTINCT eltern_user_id FROM buchungen
+             WHERE schueler_id = ? AND eltern_user_id > 0');
+        $stE->execute([$kind]);
+        $elternIds = array_map('intval', array_column($stE->fetchAll(), 'eltern_user_id'));
+
+        if ($elternIds !== []) {
+            try {
+                $stS = $pdo->prepare('SELECT name, datum FROM sprechtage WHERE id = ?');
+                $stS->execute([$sid]);
+                $sp = $stS->fetch() ?: ['name' => 'Elternsprechtag', 'datum' => ''];
+
+                $stL = $pdo->prepare('SELECT kuerzel, name FROM lehrer WHERE id = ?');
+                $stL->execute([$lid]);
+                $le = $stL->fetch() ?: [];
+                $lehrkraft = (string)($le['name'] ?: ($le['kuerzel'] ?? 'die Lehrkraft'));
+
+                $stK = $pdo->prepare(
+                    'SELECT TRIM(CONCAT(vorname, " ", nachname)) AS n
+                     FROM schueler WHERE webuntis_id = ? LIMIT 1');
+                $stK->execute([$kind]);
+                $kindName = (string)($stK->fetchColumn() ?: '');
+
+                $t = mit_text_einladung((string)$sp['name'], (string)$sp['datum'],
+                    $lehrkraft, $kindName,
+                    substr((string)($body['hinweis'] ?? ''), 0, 500));
+
+                $zugang = dk_lesen($cfg, $pdo);
+                foreach ($elternIds as $eid) {
+                    $mitteilung = mit_einreihen_und_senden($cfg, $pdo, $sid, $eid,
+                        'einladung', $t['betreff'], $t['text'],
+                        $zugang['benutzer'] ?? null, $zugang['passwort'] ?? null,
+                        $kind);
+                }
+            } catch (Throwable $e) {
+                error_log('sprechtag: Einladungs-Mitteilung fehlgeschlagen: '
+                    . $e->getMessage());
+            }
+        }
+
+        json_ok(['ok' => true,
+            'mitteilung' => $mitteilung,
+            'eltern_bekannt' => $elternIds !== [],
+            'hinweis' => $elternIds === []
+                ? 'Einladung angelegt. Eine automatische Benachrichtigung war '
+                    . 'nicht möglich, weil zu diesem Kind noch kein '
+                    . 'Elternkonto bekannt ist – bitte die Eltern auf anderem '
+                    . 'Weg informieren.'
+                : 'Einladung angelegt und Benachrichtigung ausgelöst.'], 201);
     }
 
     if ($methode === 'DELETE' && isset($seg[1]) && ctype_digit($seg[1])) {

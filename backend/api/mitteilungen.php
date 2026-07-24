@@ -228,6 +228,31 @@ function mit_text_bestaetigung(string $sprechtagName, string $datum,
 }
 
 /**
+ * Baut Betreff und Text einer Einladung zum Sprechtag.
+ * Reine Funktion – offline testbar.
+ */
+function mit_text_einladung(string $sprechtagName, string $datum,
+                            string $lehrkraft, string $kind,
+                            string $freitext = ''): array
+{
+    $text = "Guten Tag,\n\n"
+        . "für den " . $sprechtagName . " am " . mit_datum_deutsch($datum)
+        . " möchte ich Sie gern zu einem Gespräch"
+        . ($kind !== '' ? " über " . $kind : "") . " einladen.\n";
+
+    if (trim($freitext) !== '') {
+        $text .= "\n" . trim($freitext) . "\n";
+    }
+
+    $text .= "\nBitte buchen Sie dafür im Buchungsportal einen Termin bei mir. "
+        . "In dieser ersten Phase ist die Buchung den eingeladenen "
+        . "Erziehungsberechtigten vorbehalten.\n\n"
+        . "Mit freundlichen Grüßen\n" . $lehrkraft;
+
+    return ['betreff' => 'Einladung zum ' . $sprechtagName, 'text' => $text];
+}
+
+/**
  * Baut Betreff und Text einer Absage.
  * $freitext: optionale eigene Nachricht der Lehrkraft.
  */
@@ -269,12 +294,14 @@ function mit_datum_deutsch(string $iso): string
 function mit_einreihen_und_senden(
     array $cfg, PDO $pdo, int $sprechtagId, int $empfaengerUserId,
     string $anlass, string $betreff, string $text,
-    ?string $benutzer = null, ?string $passwort = null
+    ?string $benutzer = null, ?string $passwort = null,
+    ?int $schuelerId = null
 ): array {
     $pdo->prepare('INSERT INTO mitteilungen
-        (sprechtag_id, empfaenger_user_id, anlass, betreff, text, status)
-        VALUES (?, ?, ?, ?, ?, "offen")')
-        ->execute([$sprechtagId, $empfaengerUserId, $anlass,
+        (sprechtag_id, empfaenger_user_id, schueler_id, anlass, betreff,
+         text, status, grund)
+        VALUES (?, ?, ?, ?, ?, ?, "offen", "")')
+        ->execute([$sprechtagId, $empfaengerUserId, $schuelerId, $anlass,
             kuerze($betreff, 190), $text]);
     $id = (int)$pdo->lastInsertId();
 

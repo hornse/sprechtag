@@ -1,5 +1,42 @@
 # Changelog – sprechtag
 
+## v0.9.0 (Juli 2026) – Einladungen benachrichtigen, Kind statt User-ID
+
+### Behoben
+- **Einladungen erzeugten überhaupt keine Benachrichtigung.** Das war
+  eine Lücke, kein Fehler im Detail: Der Endpunkt legte nur den
+  Datenbankeintrag an. Eingeladene Eltern erfuhren nichts von ihrer
+  Einladung – obwohl Phase 1 genau darauf beruht. Jetzt entsteht beim
+  Einladen eine Mitteilung, die mit hinterlegtem Dienstkonto **sofort**
+  versendet wird. Der Umweg „erst anlegen, dann versenden" entfällt.
+- **Die Mitteilungsliste zeigte nur die Eltern-User-ID** („5984"), was
+  für Lehrkräfte wertlos ist. Jetzt steht dort das betroffene **Kind mit
+  Klasse**. Das ist die fachlich relevantere Angabe und kommt ohne
+  zusätzliche personenbezogene Speicherung aus – der Name stammt aus der
+  Schülerliste, von Eltern wird weiterhin nur die User-ID gespeichert.
+- **Veraltete Anzeige nach Ansichtswechsel**: Gelöschte Einladungen
+  erschienen weiter, bis die Seite neu geladen wurde. Beim Wechsel
+  werden geladene Listen jetzt verworfen.
+- **`sql/06_diagnose.sql` setzte die Spalte `grund` auf TEXT NOT NULL.**
+  TEXT-Spalten können in MySQL keinen Standardwert haben, deshalb
+  scheiterte **jeder** neue Mitteilungs-Eintrag mit Fehler 1364.
+  Korrektur in `sql/09_grund_null.sql`; der Insert setzt den Wert jetzt
+  ausdrücklich.
+
+### Bekannte Grenze
+Die Benachrichtigung braucht die WebUntis-**User-ID** der Eltern. Diese
+kennt das System nur, wenn sich das Elternkonto bereits angemeldet und
+gebucht hat – eine Auflösung Kind → Elternkonto bietet die API nach
+bisherigem Kenntnisstand nicht. Ist kein Konto bekannt, wird die
+Einladung trotzdem angelegt, und die Lehrkraft erhält den ausdrücklichen
+Hinweis, die Eltern auf anderem Weg zu informieren. Ob ein REST-Endpunkt
+diese Auflösung erlaubt, ist noch zu klären.
+
+### Tests
+- `tests/run_einladungstext.php` (10 Prüfungen): Textbaustein der
+  Einladung mit und ohne Kindnamen, mit und ohne Freitext.
+
+
 ## v0.8.1 (Juli 2026) – Einladungen prüfen, Rückmeldungen verbessern
 
 ### Behoben

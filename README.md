@@ -52,6 +52,8 @@ mysql hornse_sprechtag < ~/sprechtag/sql/04_klausuren.sql
 mysql hornse_sprechtag < ~/sprechtag/sql/05_schueler.sql
 mysql hornse_sprechtag < ~/sprechtag/sql/06_diagnose.sql
 mysql hornse_sprechtag < ~/sprechtag/sql/07_austritt.sql
+mysql hornse_sprechtag < ~/sprechtag/sql/08_mitteilung_kind.sql
+mysql hornse_sprechtag < ~/sprechtag/sql/09_grund_null.sql
 
 # 3. Konfiguration
 cp ~/sprechtag/backend/config.example.php ~/sprechtag/backend/config.php

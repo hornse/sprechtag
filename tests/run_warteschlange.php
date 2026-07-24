@@ -13,7 +13,8 @@ function pruefe(string $n, bool $ok): void {
 $pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
 $pdo->exec('CREATE TABLE mitteilungen (id INTEGER PRIMARY KEY AUTOINCREMENT,
-  sprechtag_id INT, empfaenger_user_id INT, anlass TEXT, betreff TEXT, text TEXT,
+  sprechtag_id INT, empfaenger_user_id INT, schueler_id INT, anlass TEXT,
+  betreff TEXT, text TEXT,
   status TEXT DEFAULT "offen", grund TEXT DEFAULT "", versuche INT DEFAULT 0,
   angelegt_am TEXT DEFAULT CURRENT_TIMESTAMP, gesendet_am TEXT)');
 $pdo->exec('CREATE TABLE einstellungen (schluessel TEXT PRIMARY KEY, wert TEXT)');

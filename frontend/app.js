@@ -205,7 +205,21 @@ function zeichneNavigation() {
   }
   for (const [ziel, text] of punkte) {
     const b = knopf(text, 'nav-knopf' + (S.ansicht === ziel ? ' aktiv' : ''),
-      () => { S.ansicht = ziel; S.meldung = null; zeichne(); });
+      () => {
+        // Geladene Listen verwerfen – sonst zeigt die Ansicht beim
+        // Zurückwechseln veraltete Daten (z. B. gelöschte Einladungen).
+        if (S.ansicht !== ziel) {
+          S.einladungen = null;
+          S.mitteilungen = null;
+          S.meineBuchungen = null;
+          S.lehrerListe = null;
+          S.raster = [];
+          S.gewaehlteLehrkraft = null;
+        }
+        S.ansicht = ziel;
+        S.meldung = null;
+        zeichne();
+      });
     nav.appendChild(b);
   }
 }
@@ -641,14 +655,15 @@ function ansichtEinladungen(ziel) {
         return;
       }
       meldung(ids.length + ' Einladung(en) werden angelegt …', 'info');
-      let ok = 0;
+      let ok = 0; let ohneKonto = 0;
       const probleme = [];
       for (const id of ids) {
         try {
-          await api('/api/einladungen', { method: 'POST', body: {
+          const d = await api('/api/einladungen', { method: 'POST', body: {
             sprechtag_id: S.aktiverSprechtag.id, schueler_id: id,
             hinweis } });
           ok++;
+          if (d.eltern_bekannt === false) ohneKonto++;
         } catch (f) {
           // Fehler NICHT verschlucken – sonst bleibt unklar, warum
           // nichts passiert ist.
@@ -657,7 +672,13 @@ function ansichtEinladungen(ziel) {
       }
       await ladeEinladungen();
       if (probleme.length === 0) {
-        meldung(ok + ' Einladung(en) angelegt.', 'ok');
+        let text = ok + ' Einladung(en) angelegt.';
+        if (ohneKonto > 0) {
+          text += ' Bei ' + ohneKonto + ' davon war keine automatische '
+            + 'Benachrichtigung möglich, weil noch kein Elternkonto bekannt '
+            + 'ist – bitte auf anderem Weg informieren.';
+        }
+        meldung(text, ohneKonto > 0 ? 'info' : 'ok');
       } else {
         const einmalig = [...new Set(probleme)];
         meldung(ok + ' angelegt, ' + probleme.length + ' fehlgeschlagen: '
@@ -1414,7 +1435,7 @@ function ansichtMitteilungen(ziel) {
 
   const tab = el('table', 'tabelle');
   const kopf = el('tr');
-  for (const t of ['Anlass', 'Betreff', 'Empfänger (User-ID)', 'Status', '']) {
+  for (const t of ['Anlass', 'Betreff', 'Kind', 'Status', '']) {
     kopf.appendChild(el('th', null, t));
   }
   tab.appendChild(kopf);
@@ -1422,10 +1443,16 @@ function ansichtMitteilungen(ziel) {
   for (const m of S.mitteilungen) {
     const tr = el('tr');
     tr.appendChild(el('td', null, {
-      bestaetigung: 'Bestätigung', absage: 'Absage', hinweis: 'Hinweis',
+      bestaetigung: 'Bestätigung', absage: 'Absage',
+      einladung: 'Einladung', hinweis: 'Hinweis',
     }[m.anlass] || m.anlass));
     tr.appendChild(el('td', null, m.betreff));
-    tr.appendChild(el('td', null, String(m.empfaenger_user_id)));
+    // Kind statt Eltern-User-ID: fachlich relevanter und ohne
+    // zusätzliche personenbezogene Speicherung möglich.
+    tr.appendChild(el('td', null, m.kind_name
+      ? m.kind_name + (m.klasse ? ' (' + m.klasse + ')' : '')
+      : (m.schueler_id ? 'Schüler-ID ' + m.schueler_id
+                       : 'Konto ' + m.empfaenger_user_id)));
 
     const tdS = el('td');
     tdS.appendChild(el('span', 'status-' + m.status, {

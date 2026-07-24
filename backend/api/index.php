@@ -46,7 +46,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.8.1', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.0', 'db' => $db]);
 }
 
 // ============================================================
@@ -423,19 +423,26 @@ if (($seg[0] ?? '') === 'mitteilungen') {
 
     if ($methode === 'GET' && !isset($seg[1])) {
         $sid = (int)($_GET['sprechtag'] ?? 0);
-        $sql = 'SELECT id, empfaenger_user_id, anlass, betreff, status, grund,
-                       versuche, angelegt_am, gesendet_am
-                FROM mitteilungen WHERE sprechtag_id = ?';
+        $sql = 'SELECT m.id, m.empfaenger_user_id, m.schueler_id, m.anlass,
+                       m.betreff, m.status, m.grund, m.versuche,
+                       m.angelegt_am, m.gesendet_am,
+                       TRIM(CONCAT(COALESCE(s.nachname,""),
+                            IF(s.vorname IS NULL OR s.vorname = "", "",
+                               CONCAT(", ", s.vorname)))) AS kind_name,
+                       s.klasse
+                FROM mitteilungen m
+                LEFT JOIN schueler s ON s.webuntis_id = m.schueler_id
+                WHERE m.sprechtag_id = ?';
         $werte = [$sid];
         if (($_GET['status'] ?? '') !== '') {
             $st = (string)$_GET['status'];
             if (!in_array($st, ['offen', 'gesendet', 'verworfen'], true)) {
                 json_err('Unbekannter Status');
             }
-            $sql .= ' AND status = ?';
+            $sql .= ' AND m.status = ?';
             $werte[] = $st;
         }
-        $stmt = $pdo->prepare($sql . ' ORDER BY angelegt_am DESC LIMIT 500');
+        $stmt = $pdo->prepare($sql . ' ORDER BY m.angelegt_am DESC LIMIT 500');
         $stmt->execute($werte);
         json_ok(['mitteilungen' => $stmt->fetchAll()]);
     }
