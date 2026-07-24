@@ -226,3 +226,12 @@ select.konflikt { border-color: var(--rot); background: #fdecea; }
 .status-offen    { color: var(--gelb); font-weight: 600; }
 .status-gesendet { color: var(--gruen); font-weight: 600; }
 .status-verworfen{ color: var(--grau); text-decoration: line-through; }
+
+/* Schülerauswahl in der Einladungsansicht */
+.schueler-liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+                  gap: .2rem; margin: .4rem 0; }
+.schueler-zeile { display: flex; align-items: center; gap: .4rem;
+                  font-weight: 400; font-size: .85rem; margin: 0;
+                  padding: .2rem .4rem; border-radius: 4px; }
+.schueler-zeile:hover { background: var(--blau-hell); }
+textarea#sl-csv { width: 100%; font-family: ui-monospace, monospace; font-size: .8rem; }

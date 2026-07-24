@@ -34,6 +34,7 @@ require_once __DIR__ . '/webuntis_adapter.php';
 require_once __DIR__ . '/sondierung.php';
 require_once __DIR__ . '/mitteilungen.php';
 require_once __DIR__ . '/dienstkonto.php';
+require_once __DIR__ . '/schueler.php';
 
 $methode = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $pfad    = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
@@ -45,7 +46,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.6.0', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.7.0', 'db' => $db]);
 }
 
 // ============================================================
@@ -439,9 +440,10 @@ if (($seg[0] ?? '') === 'mitteilungen') {
         json_ok(['mitteilungen' => $stmt->fetchAll()]);
     }
 
-    // Versand anstoßen (Zugangsdaten werden nicht gespeichert)
+    // Versand anstoßen.
+    // Zugangsdaten: übergeben > hinterlegtes Dienstkonto. Ist eines
+    // hinterlegt, brauchen weder Admins noch Lehrkräfte etwas einzugeben.
     if ($methode === 'POST' && ($seg[1] ?? '') === 'senden') {
-        auth_require_admin();
         $sid = (int)($body['sprechtag_id'] ?? 0);
         $ids = array_values(array_filter(array_map('intval',
             (array)($body['ids'] ?? [])), fn($i) => $i > 0));
@@ -453,10 +455,44 @@ if (($seg[0] ?? '') === 'mitteilungen') {
             $ids = array_map('intval', array_column($stmt->fetchAll(), 'id'));
         }
 
+        // Lehrkräfte dürfen nur Mitteilungen versenden, die zu ihren
+        // eigenen Buchungen gehören; Admins alles.
+        if ($u['rolle'] !== 'admin' && $ids !== []) {
+            $lid = (int)($u['lehrer_id'] ?? 0);
+            if ($lid <= 0) json_err('Kein Lehrkraft-Stammsatz zugeordnet', 403);
+            $platz = implode(',', array_fill(0, count($ids), '?'));
+            $stmt = $pdo->prepare(
+                "SELECT m.id FROM mitteilungen m
+                 WHERE m.id IN ($platz) AND m.sprechtag_id = ?
+                   AND EXISTS (SELECT 1 FROM buchungen b
+                               WHERE b.sprechtag_id = m.sprechtag_id
+                                 AND b.eltern_user_id = m.empfaenger_user_id
+                                 AND b.lehrer_id = ?)");
+            $stmt->execute(array_merge($ids, [$sid, $lid]));
+            $ids = array_map('intval', array_column($stmt->fetchAll(), 'id'));
+            if ($ids === []) {
+                json_err('Keine dieser Mitteilungen gehört zu Ihren Terminen. '
+                    . 'Der Sammelversand ist der Administration vorbehalten.', 403);
+            }
+        }
+
+        $zugang = null;
+        if (($body['benutzername'] ?? '') !== '' && ($body['passwort'] ?? '') !== '') {
+            $zugang = ['benutzer' => (string)$body['benutzername'],
+                       'passwort' => (string)$body['passwort']];
+        } else {
+            $zugang = dk_lesen($cfg, $pdo);
+        }
+        if ($zugang === null) {
+            json_err('Kein Dienstkonto hinterlegt und keine Zugangsdaten '
+                . 'übergeben. Die Administration kann ein Dienstkonto '
+                . 'unter „Administration → Dienstkonto" eintragen.', 409);
+        }
+
         ignore_user_abort(true);
         set_time_limit(0);
         json_ok(mit_versand_ausfuehren($cfg, $pdo, $ids,
-            req($body, 'benutzername'), req($body, 'passwort')));
+            $zugang['benutzer'], $zugang['passwort']));
     }
 
     // Freie Mitteilung vormerken
@@ -483,12 +519,22 @@ if (($seg[0] ?? '') === 'mitteilungen') {
 //   DELETE /api/dienstkonto          entfernen
 // ============================================================
 if (($seg[0] ?? '') === 'dienstkonto') {
-    auth_require_admin();
+    // Lesen dürfen auch Lehrkräfte (die Oberfläche muss wissen, ob
+    // Zugangsdaten abgefragt werden müssen). Ändern nur Admins.
+    $u = auth_require_lehrkraft();
     $pdo = db($cfg);
 
     if ($methode === 'GET') {
-        json_ok(dk_status($cfg, $pdo));
+        $st = dk_status($cfg, $pdo);
+        if ($u['rolle'] !== 'admin') {
+            // Lehrkräfte sehen nur, OB eines nutzbar ist – nicht welches
+            $st = ['hinterlegt' => $st['hinterlegt'],
+                   'entschluesselbar' => $st['entschluesselbar']];
+        }
+        json_ok($st);
     }
+
+    if ($methode !== 'GET') auth_require_admin();
     if ($methode === 'POST') {
         $e = dk_speichern($cfg, $pdo, req($body, 'benutzername'), req($body, 'passwort'));
         if (!$e['ok']) json_err($e['grund'], 409);
@@ -496,6 +542,64 @@ if (($seg[0] ?? '') === 'dienstkonto') {
     }
     if ($methode === 'DELETE') {
         dk_loeschen($pdo);
+        json_ok(['ok' => true]);
+    }
+}
+
+// ============================================================
+// SCHÜLERLISTE (für die Einladungsauswahl)
+//   GET    /api/schueler[?suche=...]   nach Klassen gruppiert
+//   POST   /api/schueler/csv           {csv}          (Admin)
+//   POST   /api/schueler/sync          [{benutzername, passwort}] (Admin)
+//   DELETE /api/schueler               alle löschen   (Admin)
+// ============================================================
+if (($seg[0] ?? '') === 'schueler') {
+    $u   = auth_require_lehrkraft();   // Eltern haben hier nichts zu suchen
+    $pdo = db($cfg);
+
+    if ($methode === 'GET' && !isset($seg[1])) {
+        $klassen = schueler_liste($pdo, trim((string)($_GET['suche'] ?? '')));
+        json_ok(['klassen' => $klassen,
+                 'anzahl' => array_sum(array_map('count', $klassen))]);
+    }
+
+    if ($methode === 'POST' && ($seg[1] ?? '') === 'csv') {
+        auth_require_admin();
+        $roh = (string)($body['csv'] ?? '');
+        if (trim($roh) === '') json_err('Keine CSV-Daten übergeben');
+        $g = schueler_csv_parsen($roh);
+        if ($g['zeilen'] === []) {
+            json_err('Keine gültigen Zeilen erkannt. Erwartet wird je Zeile: '
+                . 'Nachname;Vorname;Klasse[;Schild-ID]');
+        }
+        $e = schueler_csv_importieren($pdo, $g['zeilen']);
+        json_ok(['ok' => true] + $e + ['uebersprungen' => $g['uebersprungen']]);
+    }
+
+    if ($methode === 'POST' && ($seg[1] ?? '') === 'sync') {
+        auth_require_admin();
+        $zugang = null;
+        if (($body['benutzername'] ?? '') !== '' && ($body['passwort'] ?? '') !== '') {
+            $zugang = ['benutzer' => (string)$body['benutzername'],
+                       'passwort' => (string)$body['passwort']];
+        } else {
+            $zugang = dk_lesen($cfg, $pdo);
+        }
+        if ($zugang === null) json_err('Kein Dienstkonto hinterlegt', 409);
+
+        ignore_user_abort(true);
+        set_time_limit(0);
+        try {
+            json_ok(['ok' => true] + schueler_webuntis_sync($cfg, $pdo,
+                $zugang['benutzer'], $zugang['passwort']));
+        } catch (RuntimeException $e) {
+            json_err('Schüler-Sync fehlgeschlagen: ' . $e->getMessage(), 502);
+        }
+    }
+
+    if ($methode === 'DELETE' && !isset($seg[1])) {
+        auth_require_admin();
+        $pdo->exec('DELETE FROM schueler');
         json_ok(['ok' => true]);
     }
 }

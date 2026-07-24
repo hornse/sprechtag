@@ -286,8 +286,13 @@ if (($seg[0] ?? '') === 'buchungen') {
                 ? (int)$_GET['lehrer'] : (int)($u['lehrer_id'] ?? 0);
             $st = $pdo->prepare(
                 'SELECT b.id, b.slot_beginn, b.schueler_id, b.phase, b.gebucht_von,
-                        b.gebucht_am
+                        b.gebucht_am,
+                        TRIM(CONCAT(COALESCE(s.nachname,""),
+                             IF(s.vorname IS NULL OR s.vorname = "", "",
+                                CONCAT(", ", s.vorname)))) AS kind_name,
+                        s.klasse
                  FROM buchungen b
+                 LEFT JOIN schueler s ON s.webuntis_id = b.schueler_id
                  WHERE b.sprechtag_id = ? AND b.lehrer_id = ?
                  ORDER BY b.slot_beginn');
             $st->execute([$sid, $lid]);
@@ -466,9 +471,13 @@ if (($seg[0] ?? '') === 'buchungen') {
                 $t = mit_text_absage((string)$sp['name'], (string)$sp['datum'],
                     (string)$b['slot_beginn'], $lehrkraft,
                     substr((string)($_GET['nachricht'] ?? ''), 0, 500));
+                // Mit hinterlegtem Dienstkonto direkt versenden –
+                // sonst nur vormerken (Versand über die Mitteilungsansicht).
+                $zugang = dk_lesen($cfg, $pdo);
                 $mitteilung = mit_einreihen_und_senden($cfg, $pdo,
                     (int)$b['sprechtag_id'], (int)$b['eltern_user_id'],
-                    'absage', $t['betreff'], $t['text']);
+                    'absage', $t['betreff'], $t['text'],
+                    $zugang['benutzer'] ?? null, $zugang['passwort'] ?? null);
             } catch (Throwable $e) {
                 error_log('sprechtag: Absage nicht vorgemerkt: ' . $e->getMessage());
             }
@@ -491,9 +500,16 @@ if (($seg[0] ?? '') === 'einladungen') {
         if (in_array($u['rolle'], ['lehrkraft', 'admin'], true)) {
             $lid = $u['rolle'] === 'admin' && isset($_GET['lehrer'])
                 ? (int)$_GET['lehrer'] : (int)($u['lehrer_id'] ?? 0);
-            $st = $pdo->prepare('SELECT id, schueler_id, hinweis, erledigt, angelegt_am
-                                 FROM einladungen WHERE sprechtag_id = ? AND lehrer_id = ?
-                                 ORDER BY angelegt_am DESC');
+            $st = $pdo->prepare(
+                'SELECT e.id, e.schueler_id, e.hinweis, e.erledigt, e.angelegt_am,
+                        TRIM(CONCAT(COALESCE(s.nachname,""),
+                             IF(s.vorname IS NULL OR s.vorname = "", "",
+                                CONCAT(", ", s.vorname)))) AS kind_name,
+                        s.klasse
+                 FROM einladungen e
+                 LEFT JOIN schueler s ON s.webuntis_id = e.schueler_id
+                 WHERE e.sprechtag_id = ? AND e.lehrer_id = ?
+                 ORDER BY s.klasse, s.nachname, e.angelegt_am DESC');
             $st->execute([$sid, $lid]);
             json_ok(['einladungen' => $st->fetchAll()]);
         }

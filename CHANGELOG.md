@@ -1,5 +1,42 @@
 # Changelog – sprechtag
 
+## v0.7.0 (Juli 2026) – Schülerliste, Lehrkraft-Auswahl, Versand ohne Zugangsdaten
+
+### Neu
+- **Schülerliste für die Einladungsauswahl** (`sql/05_schueler.sql`):
+  Lehrkräfte wählen Kinder jetzt über eine nach Klassen sortierte
+  Abhakliste statt über die Eingabe einer Schüler-ID. Zwei Quellen, die
+  sich ergänzen und über die Schild-ID verknüpft werden: WebUntis
+  (`getStudents` – IDs und Namen) und ein CSV-Import aus Schild-NRW
+  (Klassen). Details in `docs/SCHUELERLISTE.md`.
+- Klassenbezeichnungen werden vereinheitlicht (`06B` und `6b` sind
+  dieselbe Klasse), damit WebUntis- und Schild-Daten zusammenpassen.
+- Einladungs- und Terminlisten zeigen Namen und Klasse statt Schüler-IDs.
+- Die Eingabe einer Schüler-ID bleibt als Rückfall erhalten, falls keine
+  Liste eingerichtet ist.
+
+### Behoben
+- **Admins sahen in „Meine Termine" immer nur die Termine der Lehrkraft
+  aus `admin_kuerzel`** – ohne Hinweis darauf, wessen Termine das sind.
+  Das wirkte, als würden Buchungen falsch zugeordnet. Es gibt jetzt eine
+  Lehrkraft-Auswahl und eine passende Überschrift. (Die Zuordnung selbst
+  war immer korrekt, wie eine Prüfung der Buchungstabelle bestätigt hat.)
+- **Lehrkräfte konnten keine Mitteilungen versenden**, der Versand war der
+  Administration vorbehalten. Jetzt dürfen Lehrkräfte die Mitteilungen
+  versenden, die zu ihren eigenen Terminen gehören; Admins alles.
+- **Zugangsdaten mussten für jeden Versand neu eingegeben werden.** Ist ein
+  Dienstkonto hinterlegt, entfällt das vollständig – Absagen werden direkt
+  beim Auslösen versendet.
+- Der Dienstkonto-Status ist für Lehrkräfte lesbar (nur ob eines nutzbar
+  ist, nicht welches), damit die Oberfläche weiß, ob sie Zugangsdaten
+  abfragen muss.
+
+### Tests
+- `tests/run_schueler.php` (27 Prüfungen): Klassennormierung,
+  CSV-Parser mit drei Trennzeichen, Kopf- und Kommentarzeilen,
+  Umlaute, Windows-Zeilenenden, Fehlermeldungen je Zeile.
+
+
 ## v0.6.0 (Juli 2026) – Klausurtermine als Beleg für die Lehrkraft-Zuordnung
 
 ### Neu

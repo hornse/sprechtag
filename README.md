@@ -48,6 +48,8 @@ mysql -e "CREATE DATABASE IF NOT EXISTS hornse_sprechtag CHARACTER SET utf8mb4 C
 mysql hornse_sprechtag < ~/sprechtag/sql/01_schema.sql   # nach erstem Push
 mysql hornse_sprechtag < ~/sprechtag/sql/02_sprechtag.sql
 mysql hornse_sprechtag < ~/sprechtag/sql/03_mitteilungen.sql
+mysql hornse_sprechtag < ~/sprechtag/sql/04_klausuren.sql
+mysql hornse_sprechtag < ~/sprechtag/sql/05_schueler.sql
 
 # 3. Konfiguration
 cp ~/sprechtag/backend/config.example.php ~/sprechtag/backend/config.php

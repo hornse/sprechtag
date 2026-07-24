@@ -30,6 +30,11 @@ const S = {
   einladungen: [],
   mitteilungen: null,
   dienstkonto: null,   // Status des hinterlegten Dienstkontos
+  gewaehlteLehrkraftAnsicht: null,   // Admin: wessen Termine werden gezeigt
+  schuelerListe: null,               // Klassenliste für Einladungen
+  schuelerSuche: '',
+  schuelerAnzahl: null,
+  schuelerKlassen: 0,
   meldung: null,
   offeneBloecke: {},   // merkt aufgeklappte <details> über Neuzeichnen hinweg
   sondierung: {        // Eingaben und Ergebnis überleben das Neuzeichnen
@@ -473,13 +478,46 @@ async function stornieren(id) {
 // ANSICHT: Lehrkraft – eigene Termine
 // ============================================================
 function ansichtLehrkraft(ziel) {
-  ziel.appendChild(el('h2', null, 'Meine Sprechtags-Termine'));
+  const istAdmin = S.user.rolle === 'admin';
+  const eigeneId = S.user.lehrer_id;
+  const gezeigteId = S.gewaehlteLehrkraftAnsicht !== null
+    ? S.gewaehlteLehrkraftAnsicht : eigeneId;
+
+  ziel.appendChild(el('h2', null, istAdmin && gezeigteId !== eigeneId
+    ? 'Sprechtags-Termine einer Lehrkraft' : 'Meine Sprechtags-Termine'));
   if (!sprechtagWaehler(ziel, () => ladeLehrkraftBuchungen())) return;
 
-  if (S.user.lehrer_id === null && S.user.rolle === 'lehrkraft') {
+  // Admins sehen sonst immer nur die Termine der Lehrkraft, die in
+  // admin_kuerzel hinterlegt ist – das ist ohne Auswahl irreführend.
+  if (istAdmin) {
+    if (S.stammdaten.lehrer.length === 0) {
+      ladeStammdaten().then(() => zeichne());
+    } else {
+      const w = auswahl('Termine anzeigen für', 'lk-wahl',
+        [{ wert: '', text: eigeneId === null
+            ? '– Lehrkraft wählen –' : 'Eigene Termine' }].concat(
+          S.stammdaten.lehrer.map((l) => ({ wert: l.id,
+            text: l.kuerzel + (l.name ? ' – ' + l.name : '') }))),
+        S.gewaehlteLehrkraftAnsicht === null ? '' : S.gewaehlteLehrkraftAnsicht);
+      w.querySelector('select').addEventListener('change', (e) => {
+        S.gewaehlteLehrkraftAnsicht = e.target.value === ''
+          ? null : parseInt(e.target.value, 10);
+        S.meineBuchungen = null;
+        zeichne();
+      });
+      ziel.appendChild(w);
+    }
+  }
+
+  if (gezeigteId === null && S.user.rolle === 'lehrkraft') {
     ziel.appendChild(el('p', 'hinweis-wichtig',
       'Diesem Konto ist kein Lehrkraft-Stammsatz zugeordnet. '
       + 'Bitte die Administration bitten, die Stammdaten zu synchronisieren.'));
+    return;
+  }
+  if (gezeigteId === null) {
+    ziel.appendChild(el('p', 'hinweis',
+      'Bitte oben eine Lehrkraft auswählen.'));
     return;
   }
 
@@ -493,14 +531,15 @@ function ansichtLehrkraft(ziel) {
   } else {
     const tab = el('table', 'tabelle');
     const kopf = el('tr');
-    for (const t of ['Zeit', 'Kind (Schüler-ID)', 'Phase', 'gebucht von', '']) {
+    for (const t of ['Zeit', 'Kind', 'Klasse', 'Phase', 'gebucht von', '']) {
       kopf.appendChild(el('th', null, t));
     }
     tab.appendChild(kopf);
     for (const b of S.meineBuchungen) {
       const tr = el('tr');
       tr.appendChild(el('td', 'zeit', String(b.slot_beginn).slice(0, 5)));
-      tr.appendChild(el('td', null, String(b.schueler_id)));
+      tr.appendChild(el('td', null, b.kind_name || ('ID ' + b.schueler_id)));
+      tr.appendChild(el('td', null, b.klasse || '–'));
       tr.appendChild(el('td', null, b.phase === 'phase1' ? 'Einladung' : 'offen'));
       tr.appendChild(el('td', null, b.gebucht_von));
       const td = el('td');
@@ -515,8 +554,9 @@ function ansichtLehrkraft(ziel) {
 
 async function ladeLehrkraftBuchungen() {
   try {
+    const lid = S.gewaehlteLehrkraftAnsicht;
     const d = await api('/api/buchungen?sicht=lehrkraft&sprechtag='
-      + S.aktiverSprechtag.id);
+      + S.aktiverSprechtag.id + (lid !== null ? '&lehrer=' + lid : ''));
     S.meineBuchungen = d.buchungen || [];
     meldung(null);
   } catch (f) { meldung(String(f.message), 'fehler'); }
@@ -545,25 +585,105 @@ function ansichtEinladungen(ziel) {
   ziel.appendChild(el('h2', null, 'Einladungen für Phase 1'));
   ziel.appendChild(el('p', 'hinweis',
     'In Phase 1 können nur eingeladene Erziehungsberechtigte buchen. '
-    + 'Die Schüler-ID des Kindes steht in WebUntis; alternativ kann hier '
-    + 'auch direkt stellvertretend gebucht werden.'));
-  if (!sprechtagWaehler(ziel, () => ladeEinladungen())) return;
+    + 'Wählen Sie die Kinder aus, deren Eltern Sie zum Gespräch bitten möchten.'));
+  if (!sprechtagWaehler(ziel, () => { S.einladungen = null; ladeEinladungen(); })) return;
 
-  const form = el('div', 'zeile');
-  form.appendChild(feld('Schüler-ID', 'einl-schueler'));
-  form.appendChild(feld('Hinweis (optional)', 'einl-hinweis'));
-  ziel.appendChild(form);
-  ziel.appendChild(knopf('Einladung anlegen', null, async () => {
+  // ---- Auswahl über Klassenliste ---------------------------------------
+  const aus = block('einl-auswahl', 'Kinder auswählen');
+  const suchZeile = el('div', 'zeile');
+  suchZeile.appendChild(feld('Suche (Name oder Klasse)', 'einl-suche', 'text',
+    S.schuelerSuche || ''));
+  aus.appendChild(suchZeile);
+  aus.appendChild(knopf('Suchen', 'klein', () => {
+    S.schuelerSuche = wert('einl-suche');
+    S.schuelerListe = null;
+    ladeSchueler();
+  }));
+
+  if (S.schuelerListe === null) {
+    aus.appendChild(el('p', 'hinweis', 'Liste wird geladen …'));
+    ladeSchueler();
+  } else if (Object.keys(S.schuelerListe).length === 0) {
+    aus.appendChild(el('p', 'hinweis-wichtig',
+      'Keine Schülerliste vorhanden. Die Administration kann sie unter '
+      + '„Administration → Schülerliste" aus WebUntis übernehmen oder als '
+      + 'CSV aus Schild-NRW importieren. Ersatzweise ist unten die Eingabe '
+      + 'einer Schüler-ID möglich.'));
+  } else {
+    for (const [klasse, kinder] of Object.entries(S.schuelerListe)) {
+      const kBlock = block('kl-' + klasse, klasse + ' (' + kinder.length + ')');
+      const liste = el('div', 'schueler-liste');
+      for (const k of kinder) {
+        const zeile = el('label', 'schueler-zeile');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = k.webuntis_id || '';
+        cb.className = 'einl-kind';
+        cb.disabled = !k.webuntis_id;
+        zeile.appendChild(cb);
+        zeile.appendChild(document.createTextNode(' '
+          + k.nachname + (k.vorname ? ', ' + k.vorname : '')
+          + (k.webuntis_id ? '' : ' (keine WebUntis-Zuordnung)')));
+        liste.appendChild(zeile);
+      }
+      kBlock.appendChild(liste);
+      aus.appendChild(kBlock);
+    }
+    aus.appendChild(feld('Hinweis an die Eltern (optional, gilt für alle)',
+      'einl-hinweis'));
+    aus.appendChild(knopf('Ausgewählte einladen', null, async () => {
+      const ids = Array.from(document.querySelectorAll('.einl-kind:checked'))
+        .map((e) => parseInt(e.value, 10)).filter((n) => n > 0);
+      const hinweis = wert('einl-hinweis');
+      if (ids.length === 0) {
+        meldung('Bitte mindestens ein Kind auswählen.', 'fehler');
+        return;
+      }
+      meldung(ids.length + ' Einladung(en) werden angelegt …', 'info');
+      let ok = 0; let fehler = 0;
+      for (const id of ids) {
+        try {
+          await api('/api/einladungen', { method: 'POST', body: {
+            sprechtag_id: S.aktiverSprechtag.id, schueler_id: id,
+            hinweis } });
+          ok++;
+        } catch { fehler++; }
+      }
+      await ladeEinladungen();
+      meldung(ok + ' Einladung(en) angelegt'
+        + (fehler > 0 ? ', ' + fehler + ' fehlgeschlagen' : '') + '.',
+        fehler > 0 ? 'fehler' : 'ok');
+    }));
+  }
+  ziel.appendChild(aus);
+
+  // ---- Ersatzweise: Eingabe der Schüler-ID -----------------------------
+  const manuell = block('einl-manuell', 'Ersatzweise: Schüler-ID eingeben');
+  manuell.appendChild(el('p', 'hinweis',
+    'Nur nötig, wenn die Schülerliste noch nicht eingerichtet ist. '
+    + 'Die ID steht in WebUntis im Schülerdatensatz.'));
+  const mz = el('div', 'zeile');
+  mz.appendChild(feld('Schüler-ID', 'einl-schueler'));
+  mz.appendChild(feld('Hinweis (optional)', 'einl-hinweis2'));
+  manuell.appendChild(mz);
+  manuell.appendChild(knopf('Einladung anlegen', 'klein', async () => {
+    const id = parseInt(wert('einl-schueler'), 10);
+    const hinweis = wert('einl-hinweis2');
+    if (!(id > 0)) {
+      meldung('Bitte eine gültige Schüler-ID eingeben.', 'fehler');
+      return;
+    }
     try {
       await api('/api/einladungen', { method: 'POST', body: {
-        sprechtag_id: S.aktiverSprechtag.id,
-        schueler_id: parseInt(wert('einl-schueler'), 10),
-        hinweis: wert('einl-hinweis') } });
+        sprechtag_id: S.aktiverSprechtag.id, schueler_id: id, hinweis } });
       await ladeEinladungen();
       meldung('Einladung angelegt.', 'ok');
     } catch (f) { meldung(String(f.message), 'fehler'); }
   }));
+  ziel.appendChild(manuell);
 
+  // ---- Bestehende Einladungen ------------------------------------------
+  ziel.appendChild(el('h3', null, 'Angelegte Einladungen'));
   if (S.einladungen === null) {
     ziel.appendChild(knopf('Einladungen laden', 'klein', () => ladeEinladungen()));
     return;
@@ -575,11 +695,12 @@ function ansichtEinladungen(ziel) {
 
   const tab = el('table', 'tabelle');
   const kopf = el('tr');
-  for (const t of ['Schüler-ID', 'Hinweis', 'Status', '']) kopf.appendChild(el('th', null, t));
+  for (const t of ['Kind', 'Hinweis', 'Status', '']) kopf.appendChild(el('th', null, t));
   tab.appendChild(kopf);
   for (const e of S.einladungen) {
     const tr = el('tr');
-    tr.appendChild(el('td', null, String(e.schueler_id)));
+    tr.appendChild(el('td', null, e.kind_name
+      || ('Schüler-ID ' + e.schueler_id)));
     tr.appendChild(el('td', null, e.hinweis || '–'));
     tr.appendChild(el('td', null,
       parseInt(e.erledigt, 10) === 1 ? 'Termin gebucht' : 'offen'));
@@ -594,6 +715,18 @@ function ansichtEinladungen(ziel) {
     tab.appendChild(tr);
   }
   ziel.appendChild(tab);
+}
+
+async function ladeSchueler() {
+  try {
+    const d = await api('/api/schueler'
+      + (S.schuelerSuche ? '?suche=' + encodeURIComponent(S.schuelerSuche) : ''));
+    S.schuelerListe = d.klassen || {};
+    zeichne();
+  } catch (f) {
+    S.schuelerListe = {};
+    zeichne();
+  }
 }
 
 async function ladeEinladungen() {
@@ -681,6 +814,89 @@ function ansichtAdmin(ziel) {
         + 'ersten Besuch selbst ermitteln lassen.'));
     }
   }
+
+  // ---- Schülerliste ------------------------------------------------------
+  const sl = block('schuelerliste', 'Schülerliste für die Einladungsauswahl');
+  sl.appendChild(el('p', 'hinweis',
+    'Damit Lehrkräfte Eltern über eine Klassenliste einladen können statt '
+    + 'über die Eingabe einer Schüler-ID. Zwei Quellen, die sich ergänzen: '
+    + 'WebUntis liefert die IDs und Namen, aber keine Klassen – die kommen '
+    + 'aus dem Schild-Export.'));
+  sl.appendChild(el('p', 'hinweis-wichtig',
+    'Diese Liste enthält Namen und ist die einzige Stelle im System mit '
+    + 'personenbezogenen Schülerdaten. Sie lässt sich jederzeit vollständig '
+    + 'löschen; das Tool funktioniert dann weiter, nur die Auswahl erfolgt '
+    + 'wieder über Schüler-IDs.'));
+
+  const slStatus = el('div');
+  sl.appendChild(slStatus);
+  if (S.schuelerAnzahl === null) {
+    api('/api/schueler').then((d) => {
+      S.schuelerAnzahl = d.anzahl || 0;
+      S.schuelerKlassen = Object.keys(d.klassen || {}).length;
+      zeichne();
+    }).catch(() => { S.schuelerAnzahl = 0; });
+    slStatus.appendChild(el('p', 'hinweis', 'Status wird geladen …'));
+  } else {
+    slStatus.appendChild(el('p', S.schuelerAnzahl > 0 ? 'meldung ok' : 'hinweis',
+      S.schuelerAnzahl > 0
+        ? S.schuelerAnzahl + ' Schüler:innen in ' + S.schuelerKlassen + ' Klassen'
+        : 'Noch keine Schülerliste vorhanden.'));
+  }
+
+  sl.appendChild(el('h4', null, '1. Aus WebUntis übernehmen'));
+  sl.appendChild(el('p', 'hinweis-klein',
+    'Holt IDs und Namen. Nutzt das hinterlegte Dienstkonto.'));
+  sl.appendChild(knopf('Schüler:innen aus WebUntis holen', 'klein', async () => {
+    meldung('Schülerliste wird geholt …', 'info');
+    try {
+      const d = await api('/api/schueler/sync', { method: 'POST', body: {} });
+      S.schuelerAnzahl = null;
+      meldung(d.gelesen + ' gelesen, ' + d.neu + ' neu, '
+        + d.aktualisiert + ' aktualisiert.', 'ok');
+    } catch (f) { meldung(String(f.message), 'fehler'); }
+  }));
+
+  sl.appendChild(el('h4', null, '2. Klassen aus Schild-NRW ergänzen'));
+  sl.appendChild(el('p', 'hinweis-klein',
+    'Eine Zeile je Kind: Nachname;Vorname;Klasse[;Schild-ID]. '
+    + 'Trenner ; , oder Tab. Kopf- und Kommentarzeilen (#) werden übersprungen. '
+    + 'Die Schild-ID verknüpft mit WebUntis (dort das Feld „key").'));
+  const ta = document.createElement('textarea');
+  ta.id = 'sl-csv';
+  ta.rows = 5;
+  ta.placeholder = 'Paulowski;Paul;06B;007\nMuster;Maxi;6b;008';
+  sl.appendChild(ta);
+  sl.appendChild(knopf('CSV importieren', 'klein', async () => {
+    const csv = wert('sl-csv');
+    if (csv === '') {
+      meldung('Bitte CSV-Daten einfügen.', 'fehler');
+      return;
+    }
+    meldung('Import läuft …', 'info');
+    try {
+      const d = await api('/api/schueler/csv', { method: 'POST', body: { csv } });
+      S.schuelerAnzahl = null;
+      let text = d.neu + ' neu, ' + d.aktualisiert + ' aktualisiert.';
+      if ((d.uebersprungen || []).length > 0) {
+        text += ' Übersprungen: ' + d.uebersprungen.slice(0, 5).join('; ');
+        if (d.uebersprungen.length > 5) text += ' …';
+      }
+      meldung(text, 'ok');
+    } catch (f) { meldung(String(f.message), 'fehler'); }
+  }));
+
+  sl.appendChild(knopf('Gesamte Schülerliste löschen', 'klein gefahr', async () => {
+    if (!confirm('Alle Schülerdaten aus dem Tool löschen? Die Einladungsauswahl '
+      + 'erfolgt danach wieder über Schüler-IDs.')) return;
+    try {
+      await api('/api/schueler', { method: 'DELETE' });
+      S.schuelerAnzahl = null;
+      S.schuelerListe = null;
+      meldung('Schülerliste gelöscht.', 'ok');
+    } catch (f) { meldung(String(f.message), 'fehler'); }
+  }));
+  ziel.appendChild(sl);
 
   // ---- Stammdaten-Sync -------------------------------------------------
   const sync = block('sync', 'Stammdaten aus WebUntis übernehmen');
@@ -1124,25 +1340,35 @@ function ansichtMitteilungen(ziel) {
     S.mitteilungen.length + ' Mitteilung(en), davon ' + offen.length + ' offen.'));
 
   // Versand nur für die Administration
-  if (S.user.rolle === 'admin' && offen.length > 0) {
+  if (offen.length > 0) {
     const kasten = block('versand', 'Offene Mitteilungen versenden');
     kasten.appendChild(el('p', 'hinweis',
       'Der Versandweg der WebUntis-Schnittstelle ist nicht dokumentiert. '
       + 'Beim ersten Versand werden mehrere Feldstrukturen ausprobiert; '
       + 'die funktionierende wird gemerkt. Schlägt alles fehl, bleiben die '
       + 'Mitteilungen hier stehen und können manuell in WebUntis versendet werden.'));
-    const z = el('div', 'zeile');
-    z.appendChild(feld('WebUntis-Benutzername', 'mv-benutzer'));
-    z.appendChild(feld('Passwort', 'mv-passwort', 'password'));
-    kasten.appendChild(z);
-    kasten.appendChild(knopf('Alle offenen versenden', null, async () => {
+    // Zugangsdaten nur nötig, wenn kein Dienstkonto hinterlegt ist
+    const mitDienstkonto = S.dienstkonto !== null
+      && S.dienstkonto.hinterlegt && S.dienstkonto.entschluesselbar;
+    if (!mitDienstkonto) {
+      kasten.appendChild(el('p', 'hinweis-klein',
+        'Kein Dienstkonto hinterlegt – bitte Zugangsdaten eingeben. '
+        + 'Mit hinterlegtem Dienstkonto entfällt dieser Schritt.'));
+      const z = el('div', 'zeile');
+      z.appendChild(feld('WebUntis-Benutzername', 'mv-benutzer'));
+      z.appendChild(feld('Passwort', 'mv-passwort', 'password'));
+      kasten.appendChild(z);
+    }
+    kasten.appendChild(knopf('Offene Mitteilungen versenden', null, async () => {
       // Werte VOR meldung() lesen (meldung() zeichnet die Ansicht neu)
-      const auftrag = { sprechtag_id: S.aktiverSprechtag.id,
-                        benutzername: wert('mv-benutzer'),
-                        passwort: wert('mv-passwort') };
-      if (auftrag.benutzername === '' || auftrag.passwort === '') {
-        meldung('Bitte Benutzername und Passwort eingeben.', 'fehler');
-        return;
+      const auftrag = { sprechtag_id: S.aktiverSprechtag.id };
+      if (!mitDienstkonto) {
+        auftrag.benutzername = wert('mv-benutzer');
+        auftrag.passwort = wert('mv-passwort');
+        if (auftrag.benutzername === '' || auftrag.passwort === '') {
+          meldung('Bitte Benutzername und Passwort eingeben.', 'fehler');
+          return;
+        }
       }
       meldung('Versand läuft …', 'info');
       try {
@@ -1203,6 +1429,9 @@ function ansichtMitteilungen(ziel) {
 
 async function ladeMitteilungen() {
   try {
+    if (S.dienstkonto === null) {
+      try { S.dienstkonto = await api('/api/dienstkonto'); } catch { }
+    }
     const d = await api('/api/mitteilungen?sprechtag=' + S.aktiverSprechtag.id);
     S.mitteilungen = d.mitteilungen || [];
     meldung(null);
