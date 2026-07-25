@@ -25,8 +25,8 @@ const buch  = fs.readFileSync(path.join(__dirname, '..', 'backend', 'api', 'buch
 const sql   = fs.readFileSync(path.join(__dirname, '..', 'sql', '11_halbtags.sql'), 'utf8');
 
 // ---- Frontend ----
-pruefe('Admin-Block markiert Halbtagskräfte',
-  js.includes("sektion('Halbtagskräfte") && js.includes('/api/stammdaten/lehrer/'));
+pruefe('Halbtags-Markierung in der Lehrer-Tabelle',
+  js.includes('Halbtagskraft / Referendar') && js.includes('/api/stammdaten/lehrer/'));
 pruefe('Lehrer-Zuweisung: Hälfte-Dropdown für Halbtagskräfte',
   js.includes("'haelfte-' + s.id") && js.includes('erste Hälfte'));
 pruefe('Lehrer-Zuweisung: Ausfall-Knopf',

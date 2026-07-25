@@ -1,5 +1,26 @@
 # Changelog – sprechtag
 
+## v0.9.12 (Juli 2026) – Lehrer-Tabelle überarbeitet, Redundanz aufgelöst
+
+### Geändert
+- **Kein doppelter „Lehrkräfte & Räume"-Punkt mehr.** Der eigene
+  Admin-Unterpunkt entfällt; alles wird jetzt an einem Ort gepflegt: in der
+  Lehrer-Tabelle des jeweiligen Sprechtags. Das Halbtags-Kennzeichen sitzt
+  dort als eigene Spalte („½") und setzt weiterhin die dauerhaften
+  Stammdaten. Der WebUntis-Sync steht oben auf der Seite „Sprechtage". Aus
+  vier Admin-Unterseiten werden drei.
+- **Lehrer-Tabelle aufgeräumt.**
+  - Volle Fensterbreite (breiterer Inhaltsbereich), damit nichts quetscht.
+  - Raumspalte breiter, Kürzel + voller Name; Doppelbelegung erscheint als
+    Hinweis „N× belegt" NEBEN dem Dropdown statt abgeschnitten darin.
+  - Speichern und Ausfall sind jetzt kompakte Icon-Buttons (✓ / ⊘) in einer
+    eigenen, rechtsbündigen Aktionsspalte – ohne Dauer-Rotfärbung; die
+    Warnfarbe erscheint erst beim Hover bzw. im Bestätigungsdialog.
+- **Gerundetes Logo** bereits in v0.9.11 zurückgeholt.
+
+### Tests
+- Sidebar- und Halbtags-Tests an die neue Struktur angepasst; alle grün.
+
 ## v0.9.11 (Juli 2026) – Flache Sektionen, aufgeräumte Karten
 
 ### Geändert

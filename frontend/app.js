@@ -113,6 +113,18 @@ function knopf(text, klasse, aktion) {
   b.addEventListener('click', aktion);
   return b;
 }
+
+// Kompakter Icon-Button für Tabellen-Aktionen. `variante` steuert die
+// Farbe (z. B. 'speichern', 'ausfall'); `titel` wird als Tooltip gesetzt.
+function iconKnopf(symbol, variante, titel, aktion) {
+  const b = el('button', 'icon-knopf ' + (variante || ''), symbol);
+  b.type = 'button';
+  b.title = titel || '';
+  b.setAttribute('aria-label', titel || symbol);
+  b.addEventListener('click', aktion);
+  return b;
+}
+
 function feld(label, id, typ = 'text', wert = '') {
   const l = el('label', null, label);
   const i = document.createElement('input');
@@ -259,7 +271,6 @@ function zeichne() {
     admin: ansichtAdminMarke,          // Erscheinungsbild
     'admin-marke': ansichtAdminMarke,
     'admin-sprechtage': ansichtAdminSprechtage,
-    'admin-lehrer': ansichtAdminLehrer,
     'admin-daten': ansichtAdminDaten,
     mitteilungen: ansichtMitteilungen,
     sondierung: ansichtSondierung,
@@ -313,7 +324,7 @@ function zeichneNavigation() {
   // Administration als aufklappbare Gruppe.
   if (S.user.rolle === 'admin') {
     const adminSeiten = ['admin', 'admin-marke', 'admin-sprechtage',
-                         'admin-lehrer', 'admin-daten'];
+                         'admin-daten'];
     const adminAktiv = adminSeiten.includes(S.ansicht);
     if (adminAktiv) S.adminOffen = true;   // aktive Unterseite -> Gruppe offen
 
@@ -333,7 +344,6 @@ function zeichneNavigation() {
     if (!S.adminOffen) sub.classList.add('versteckt');
     sub.appendChild(navKnopf('admin-marke', 'Erscheinungsbild', true));
     sub.appendChild(navKnopf('admin-sprechtage', 'Sprechtage', true));
-    sub.appendChild(navKnopf('admin-lehrer', 'Lehrkräfte & Räume', true));
     sub.appendChild(navKnopf('admin-daten', 'Dienstkonto & Schülerliste', true));
     gruppe.appendChild(sub);
     nav.appendChild(gruppe);
@@ -1522,22 +1532,21 @@ function ansichtAdminDaten(ziel) {
   ziel.appendChild(sl);
 }
 
-function ansichtAdminLehrer(ziel) {
-  ziel.appendChild(el('h2', null, 'Lehrkräfte & Räume'));
+function ansichtAdminSprechtage(ziel) {
+  ziel.appendChild(el('h2', null, 'Sprechtage'));
 
-  // ---- Stammdaten-Sync -------------------------------------------------
+  // ---- Stammdaten aus WebUntis (global, einmal je Schuljahr) -----------
   const sync = sektion('Stammdaten aus WebUntis übernehmen');
   sync.appendChild(el('p', 'hinweis',
     'Holt Lehrkräfte und Räume aus WebUntis. Zugangsdaten werden nur für '
     + 'diesen Abruf verwendet und nicht gespeichert. Beim ersten Lauf bitte '
-    + 'prüfen, ob die Zahlen zum Kollegium passen.'));
+    + 'prüfen, ob die Zahlen zum Kollegium passen. Ob jemand Halbtagskraft '
+    + 'ist, wird direkt in der Lehrer-Tabelle des Sprechtags markiert.'));
   const sf = el('div', 'zeile');
   sf.appendChild(feld('WebUntis-Benutzername', 'sync-benutzer'));
   sf.appendChild(feld('Passwort', 'sync-passwort', 'password'));
   sync.appendChild(sf);
   sync.appendChild(knopf('Synchronisieren', null, async () => {
-    // WICHTIG: Werte VOR meldung() lesen – meldung() ruft zeichne() auf
-    // und baut die Ansicht neu auf, wodurch die Eingabefelder verschwinden.
     const zugang = { benutzername: wert('sync-benutzer'),
                      passwort: wert('sync-passwort') };
     if (zugang.benutzername === '' || zugang.passwort === '') {
@@ -1552,47 +1561,6 @@ function ansichtAdminLehrer(ziel) {
     } catch (f) { meldung(String(f.message), 'fehler'); }
   }));
   ziel.appendChild(sync);
-
-  // ---- Halbtagskräfte markieren ----------------------------------------
-  const ht = sektion('Halbtagskräfte und Referendar:innen');
-  ht.appendChild(el('p', 'hinweis',
-    'Markierte Lehrkräfte müssen nur einen halben Sprechtag leisten. Sie '
-    + 'können danach je Sprechtag die erste oder zweite Hälfte wählen – '
-    + 'entweder hier über die Administration oder selbst unter „Meine Termine".'));
-  if ((S.stammdaten.lehrer || []).length === 0) {
-    ht.appendChild(knopf('Lehrkräfte laden', 'klein',
-      () => ladeStammdaten().then(() => zeichne())));
-  } else {
-    const liste = el('div', 'halbtags-liste');
-    for (const l of S.stammdaten.lehrer) {
-      const label = el('label', 'halbtags-eintrag');
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.checked = parseInt(l.halbtags, 10) === 1;
-      cb.addEventListener('change', async () => {
-        try {
-          await api('/api/stammdaten/lehrer/' + l.id,
-            { method: 'PATCH', body: { halbtags: cb.checked ? 1 : 0 } });
-          l.halbtags = cb.checked ? 1 : 0;
-          meldung((cb.checked ? 'Als Halbtagskraft markiert: '
-            : 'Markierung entfernt: ') + l.kuerzel, 'ok');
-        } catch (f) {
-          cb.checked = !cb.checked;
-          meldung(String(f.message), 'fehler');
-        }
-      });
-      label.appendChild(cb);
-      label.appendChild(document.createTextNode(' ' + l.kuerzel
-        + (l.name ? ' – ' + l.name : '')));
-      liste.appendChild(label);
-    }
-    ht.appendChild(liste);
-  }
-  ziel.appendChild(ht);
-}
-
-function ansichtAdminSprechtage(ziel) {
-  ziel.appendChild(el('h2', null, 'Sprechtage'));
 
   // ---- Sprechtag anlegen ------------------------------------------------
   const neu = sektion('Neuen Sprechtag anlegen');
@@ -1763,24 +1731,24 @@ async function oeffneLehrerVerwaltung(s) {
 
   ziel.appendChild(el('h4', null, 'Lehrkräfte, Anwesenheit und Räume'));
   ziel.appendChild(el('p', 'hinweis',
-    'Anwesenheitszeiten leer lassen = ganzer Zeitraum. Halbtagskräfte '
-    + '(in der Lehrerliste markiert) wählen stattdessen eine Hälfte. Doppelt '
-    + 'belegte Räume sind zulässig, werden aber farblich markiert.'));
+    'Anwesenheitszeiten leer lassen = ganzer Zeitraum. Das Häkchen „½" '
+    + 'markiert eine Halbtagskraft (gilt dauerhaft); sie wählt dann statt '
+    + 'Uhrzeiten eine Hälfte. Doppelt belegte Räume sind zulässig, werden '
+    + 'aber markiert.'));
 
-  const tab = el('table', 'tabelle');
+  const tab = el('table', 'tabelle tabelle-breit');
   const kopf = el('tr');
-  for (const t of ['Kürzel', 'Name', 'dabei', 'Anwesenheit', 'Raum', '']) {
+  for (const t of ['Kürzel', 'Name', 'dabei', '½', 'Anwesenheit', 'Raum', 'Aktion']) {
     kopf.appendChild(el('th', null, t));
   }
   tab.appendChild(kopf);
 
   for (const l of daten.lehrer) {
     const tr = el('tr');
-    tr.appendChild(el('td', null, l.kuerzel
-      + (parseInt(l.halbtags, 10) === 1 ? ' ½' : '')));
+    tr.appendChild(el('td', null, l.kuerzel));
     tr.appendChild(el('td', null, l.name || ''));
 
-    const tdD = el('td');
+    const tdD = el('td', 'mitte');
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.id = 'tn-' + s.id + '-' + l.lehrer_id;
@@ -1788,14 +1756,35 @@ async function oeffneLehrerVerwaltung(s) {
     tdD.appendChild(cb);
     tr.appendChild(tdD);
 
+    // Halbtags-Häkchen – setzt die Stammdaten direkt (dauerhaft), löst die
+    // frühere Redundanz eines eigenen Admin-Unterpunkts auf.
+    const tdH = el('td', 'mitte');
+    const cbH = document.createElement('input');
+    cbH.type = 'checkbox';
+    cbH.checked = parseInt(l.halbtags, 10) === 1;
+    cbH.title = 'Halbtagskraft / Referendar:in';
+    cbH.addEventListener('change', async () => {
+      try {
+        await api('/api/stammdaten/lehrer/' + l.lehrer_id,
+          { method: 'PATCH', body: { halbtags: cbH.checked ? 1 : 0 } });
+        l.halbtags = cbH.checked ? 1 : 0;
+        meldung((cbH.checked ? 'Als Halbtagskraft markiert: '
+          : 'Markierung entfernt: ') + l.kuerzel, 'ok');
+        oeffneLehrerVerwaltung(s);   // Anwesenheitsspalte wechselt Darstellung
+      } catch (f) {
+        cbH.checked = !cbH.checked;
+        meldung(String(f.message), 'fehler');
+      }
+    });
+    tdH.appendChild(cbH);
+    tr.appendChild(tdH);
+
     // Anwesenheit: Halbtagskräfte -> Hälfte-Dropdown; sonst von/bis-Felder.
     const halbtags = parseInt(l.halbtags, 10) === 1;
     const tdZeit = el('td');
     if (halbtags) {
       const sel = document.createElement('select');
       sel.id = 'haelfte-' + s.id + '-' + l.lehrer_id;
-      // Aktuelle Hälfte aus dem gespeicherten Fenster erraten (nur Vorauswahl;
-      // maßgeblich ist die Server-Berechnung beim Speichern).
       const von = String(l.anwesend_von || '').slice(0, 5);
       const bis = String(l.anwesend_bis || '').slice(0, 5);
       const beginn = String(s.beginn || '').slice(0, 5);
@@ -1827,7 +1816,9 @@ async function oeffneLehrerVerwaltung(s) {
     }
     tr.appendChild(tdZeit);
 
-    const tdR = el('td');
+    // Raum: breitere Spalte, volle Kürzel; Dopplung als Hinweis NEBEN dem
+    // Dropdown (nicht mehr in die Option gequetscht → nichts wird abgeschnitten).
+    const tdR = el('td', 'raum-zelle');
     const sel = document.createElement('select');
     sel.id = 'raum-' + s.id + '-' + l.lehrer_id;
     const leer = document.createElement('option');
@@ -1836,16 +1827,21 @@ async function oeffneLehrerVerwaltung(s) {
     for (const r of S.stammdaten.raeume) {
       const o = document.createElement('option');
       o.value = r.id;
-      o.textContent = r.kuerzel + (konflikte[r.id] ? ' (' + konflikte[r.id] + '×)' : '');
+      o.textContent = r.kuerzel + (r.name ? ' – ' + r.name : '');
       if (String(r.id) === String(l.raum_id)) o.selected = true;
       sel.appendChild(o);
     }
-    if (l.raum_id && konflikte[l.raum_id]) sel.classList.add('konflikt');
     tdR.appendChild(sel);
+    if (l.raum_id && konflikte[l.raum_id]) {
+      sel.classList.add('konflikt');
+      tdR.appendChild(el('span', 'raum-warnung',
+        konflikte[l.raum_id] + '× belegt'));
+    }
     tr.appendChild(tdR);
 
-    const tdA = el('td');
-    tdA.appendChild(knopf('Speichern', 'klein', async () => {
+    // Aktionen als Icon-Buttons in eigener, rechtsbündiger Spalte.
+    const tdA = el('td', 'aktion-zelle');
+    const speichern = iconKnopf('✓', 'speichern', 'Speichern', async () => {
       const koerper = {
         teilnahme: cb.checked ? 1 : 0,
         raum_id: wert('raum-' + s.id + '-' + l.lehrer_id),
@@ -1862,9 +1858,12 @@ async function oeffneLehrerVerwaltung(s) {
         meldung('Gespeichert: ' + l.kuerzel, 'ok');
         oeffneLehrerVerwaltung(s);
       } catch (f) { meldung(String(f.message), 'fehler'); }
-    }));
-    // Krankheitsausfall: Termine freigeben + Eltern benachrichtigen.
-    tdA.appendChild(knopf('Ausfall', 'klein gefahr', () => lehrerAusfall(s, l)));
+    });
+    // Ausfall: dezentes Symbol (durchgestrichener Kreis), Farbe erst im Dialog.
+    const ausfall = iconKnopf('⊘', 'ausfall', 'Ausfall (Termine freigeben)',
+      () => lehrerAusfall(s, l));
+    tdA.appendChild(speichern);
+    tdA.appendChild(ausfall);
     tr.appendChild(tdA);
     tab.appendChild(tr);
   }
