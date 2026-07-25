@@ -1,5 +1,23 @@
 # Changelog – sprechtag
 
+## v0.9.11 (Juli 2026) – Flache Sektionen, aufgeräumte Karten
+
+### Geändert
+- **Keine Ausklapp-Boxen mehr im Hauptbereich der Administration.** Die vier
+  Admin-Unterseiten zeigen ihre Sektionen jetzt als flache Karten mit Titel
+  (neue `sektion()`-Funktion) – alles sofort sichtbar, kein Klick nötig.
+  Auch die Sektionen in „Meine Termine" (stellvertretend buchen, Halbtags-
+  Wahl), Einladungen und Mitteilungsversand sind flach.
+- **Aufklappbare Karten nur noch dort, wo mehrere gleichartige Einträge
+  untereinander stehen** (Sprechtag-Verwaltung, Klassenlisten bei den
+  Einladungen, Versand-Diagnose). Diese wurden optisch modernisiert:
+  klickbare Kopfzeile mit dezentem Pfeil statt grauem <details>-Dreieck.
+- **Gerundetes Logo zurück.** Das Logo sitzt in der Seitenleiste wieder in
+  einem abgerundeten, leicht getönten Kästchen.
+
+### Tests
+- Bestehende Tests an `sektion()` angepasst; alle grün.
+
 ## v0.9.10 (Juli 2026) – Neues Layout mit Seitenleiste
 
 ### Geändert

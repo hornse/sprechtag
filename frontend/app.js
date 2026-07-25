@@ -95,6 +95,18 @@ function block(kennung, titel) {
   return d;
 }
 
+/**
+ * Flache Sektionskarte (kein Auf-/Zuklappen). Titel als <h3>, optional
+ * ein grauer Beschreibungstext darunter. Ersetzt block() überall dort,
+ * wo alles sofort sichtbar sein soll (Admin-Unterseiten).
+ */
+function sektion(titel, beschreibung) {
+  const s = el('section', 'sektion');
+  s.appendChild(el('h3', 'sektion-titel', titel));
+  if (beschreibung) s.appendChild(el('p', 'hinweis', beschreibung));
+  return s;
+}
+
 function knopf(text, klasse, aktion) {
   const b = el('button', klasse, text);
   b.type = 'button';
@@ -761,7 +773,7 @@ function zeichneLehrkraftRaster(ziel, lehrerId) {
 // Kopfzeile der eigenen Ansicht: Kind wählen (Suchfeld) für die
 // stellvertretende Buchung. Nur im eigenen Raster sichtbar.
 function zeichneStellvertreterKopf(ziel, lehrerId) {
-  const kopf = block('lk-sv', 'Stellvertretend für Eltern buchen');
+  const kopf = sektion('Stellvertretend für Eltern buchen');
   kopf.appendChild(el('p', 'hinweis',
     'Für Erziehungsberechtigte, die nicht selbst buchen können: erst das '
     + 'Kind wählen, dann unten auf einen freien Zeitpunkt tippen. Das '
@@ -805,7 +817,7 @@ function zeichneStellvertreterKopf(ziel, lehrerId) {
 // Nur im eigenen Raster sichtbar. Speichert über denselben PATCH-Endpunkt
 // wie die Administration – der Server berechnet das Fenster aus der Hälfte.
 function zeichneHaelfteWahl(ziel, lehrerId) {
-  const k = block('haelfte', 'Ihre Anwesenheit (Halbtagskraft)');
+  const k = sektion('Ihre Anwesenheit (Halbtagskraft)');
   k.appendChild(el('p', 'hinweis',
     'Als Halbtagskraft leisten Sie nur einen halben Sprechtag. Wählen Sie, '
     + 'welche Hälfte Sie übernehmen – Ihr Zeitraster passt sich sofort an. '
@@ -1031,7 +1043,7 @@ function ansichtEinladungen(ziel) {
   }
 
   // ---- Auswahl über Klassenliste ---------------------------------------
-  const aus = block('einl-auswahl', 'Kinder auswählen');
+  const aus = sektion('Kinder auswählen');
   const suchZeile = el('div', 'zeile');
   suchZeile.appendChild(feld('Suche (Name oder Klasse)', 'einl-suche', 'text',
     S.schuelerSuche || ''));
@@ -1121,7 +1133,7 @@ function ansichtEinladungen(ziel) {
   ziel.appendChild(aus);
 
   // ---- Ersatzweise: Eingabe der Schüler-ID -----------------------------
-  const manuell = block('einl-manuell', 'Ersatzweise: Schüler-ID eingeben');
+  const manuell = sektion('Ersatzweise: Schüler-ID eingeben');
   manuell.appendChild(el('p', 'hinweis',
     'Nur nötig, wenn die Schülerliste noch nicht eingerichtet ist. '
     + 'Die ID steht in WebUntis im Schülerdatensatz.'));
@@ -1216,7 +1228,7 @@ async function ladeEinladungen() {
 // ---- Branding / Individualisierung --------------------------------------
 function zeichneMarkeBlock(ziel) {
   const m = S.marke || {};
-  const b = block('marke', 'Erscheinungsbild (Logo, Farben, Texte)');
+  const b = sektion('Erscheinungsbild (Logo, Farben, Texte)');
   b.appendChild(el('p', 'hinweis',
     'Passen Sie den Auftritt an Ihre Schule an. Änderungen gelten sofort '
     + 'für alle. Das Logo wird als Datei gespeichert (PNG, JPG oder SVG, '
@@ -1347,7 +1359,7 @@ function ansichtAdminDaten(ziel) {
   ziel.appendChild(el('h2', null, 'Dienstkonto & Schülerliste'));
 
   // ---- Dienstkonto ------------------------------------------------------
-  const dk = block('dienstkonto', 'Dienstkonto für die Lehrkraft-Ermittlung');
+  const dk = sektion('Dienstkonto für die Lehrkraft-Ermittlung');
   dk.appendChild(el('p', 'hinweis',
     'Damit Eltern beim Buchen sofort ihre Lehrkräfte sehen, ermittelt das '
     + 'System sie im Hintergrund aus dem Stundenplan. Dafür wird ein '
@@ -1419,7 +1431,7 @@ function ansichtAdminDaten(ziel) {
   }
 
   // ---- Schülerliste ------------------------------------------------------
-  const sl = block('schuelerliste', 'Schülerliste für die Einladungsauswahl');
+  const sl = sektion('Schülerliste für die Einladungsauswahl');
   sl.appendChild(el('p', 'hinweis',
     'Damit Lehrkräfte Eltern über eine Klassenliste einladen können statt '
     + 'über die Eingabe einer Schüler-ID. Zwei Quellen, die sich ergänzen: '
@@ -1514,7 +1526,7 @@ function ansichtAdminLehrer(ziel) {
   ziel.appendChild(el('h2', null, 'Lehrkräfte & Räume'));
 
   // ---- Stammdaten-Sync -------------------------------------------------
-  const sync = block('sync', 'Stammdaten aus WebUntis übernehmen');
+  const sync = sektion('Stammdaten aus WebUntis übernehmen');
   sync.appendChild(el('p', 'hinweis',
     'Holt Lehrkräfte und Räume aus WebUntis. Zugangsdaten werden nur für '
     + 'diesen Abruf verwendet und nicht gespeichert. Beim ersten Lauf bitte '
@@ -1542,7 +1554,7 @@ function ansichtAdminLehrer(ziel) {
   ziel.appendChild(sync);
 
   // ---- Halbtagskräfte markieren ----------------------------------------
-  const ht = block('halbtags', 'Halbtagskräfte und Referendar:innen');
+  const ht = sektion('Halbtagskräfte und Referendar:innen');
   ht.appendChild(el('p', 'hinweis',
     'Markierte Lehrkräfte müssen nur einen halben Sprechtag leisten. Sie '
     + 'können danach je Sprechtag die erste oder zweite Hälfte wählen – '
@@ -1583,7 +1595,7 @@ function ansichtAdminSprechtage(ziel) {
   ziel.appendChild(el('h2', null, 'Sprechtage'));
 
   // ---- Sprechtag anlegen ------------------------------------------------
-  const neu = block('neu', 'Neuen Sprechtag anlegen');
+  const neu = sektion('Neuen Sprechtag anlegen');
   const nf = el('div');
   nf.appendChild(feld('Bezeichnung', 'neu-name', 'text',
     'Elternsprechtag ' + new Date().getFullYear()));
@@ -2057,7 +2069,7 @@ function ansichtMitteilungen(ziel) {
 
   // Versand nur für die Administration
   if (offen.length > 0) {
-    const kasten = block('versand', 'Offene Mitteilungen versenden');
+    const kasten = sektion('Offene Mitteilungen versenden');
     kasten.appendChild(el('p', 'hinweis',
       'Der Versandweg der WebUntis-Schnittstelle ist nicht dokumentiert. '
       + 'Beim ersten Versand werden mehrere Feldstrukturen ausprobiert; '

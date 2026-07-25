@@ -35,8 +35,9 @@ body {
   position: sticky; top: 0; height: 100vh; overflow-y: auto;
 }
 .marke { padding: 1.25rem 1.25rem 1rem; border-bottom: 1px solid var(--rand); }
-.marke-logo { max-height: 48px; max-width: 180px; display: block;
-              margin-bottom: .5rem; object-fit: contain; }
+.marke-logo { max-height: 52px; max-width: 180px; display: block;
+              margin-bottom: .5rem; object-fit: contain;
+              background: var(--blau-hell); border-radius: 8px; padding: 6px; }
 .marke-logo.versteckt { display: none; }
 .marke-titel { font-size: 1rem; font-weight: 600; color: var(--akzent);
                letter-spacing: .02em; }
@@ -217,8 +218,28 @@ button:disabled { background: var(--grau); cursor: wait; }
 }
 .hinweis-klein { font-size: .78rem; color: var(--grau); }
 
-.block { border: 1px solid var(--rand); border-radius: 6px; padding: .8rem 1rem; margin: .8rem 0; }
-.block > summary { cursor: pointer; font-weight: 600; font-size: .95rem; }
+/* Flache Sektionskarte (Variante A) – kein Aufklappen */
+.sektion { background: #fff; border: 1px solid var(--rand); border-radius: 8px;
+           padding: 1.1rem 1.3rem; margin: 0 0 1.1rem; }
+.sektion-titel { margin: 0 0 .3rem; font-size: 1rem; font-weight: 600;
+                 color: var(--text); }
+
+/* Aufklappbare Karte (Variante C) – moderner als graues <details> */
+.block { background: #fff; border: 1px solid var(--rand); border-radius: 8px;
+         padding: 0; margin: 0 0 .75rem; overflow: hidden; }
+.block > summary { cursor: pointer; font-weight: 600; font-size: .95rem;
+                   padding: .85rem 1.2rem; list-style: none; display: flex;
+                   align-items: center; gap: .5rem; user-select: none; }
+.block > summary::-webkit-details-marker { display: none; }
+.block > summary::before { content: '▸'; color: var(--grau); font-size: .8rem;
+                           transition: transform .2s; }
+.block[open] > summary::before { transform: rotate(90deg); }
+.block > summary:hover { background: #f7f9fb; }
+.block[open] > summary { border-bottom: 1px solid var(--rand); }
+/* Inhalt der Karte bekommt Innenabstand (alles außer dem summary) */
+.block > *:not(summary) { padding-left: 1.2rem; padding-right: 1.2rem; }
+.block > *:not(summary):last-child { padding-bottom: 1rem; }
+.block > summary + * { padding-top: 1rem; }
 .detail-bereich:not(:empty) { margin-top: 1rem; border-top: 1px solid var(--rand); padding-top: 1rem; }
 
 button.klein { padding: .3rem .7rem; font-size: .8rem; }
