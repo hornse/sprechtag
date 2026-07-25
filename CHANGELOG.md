@@ -1,5 +1,31 @@
 # Changelog – sprechtag
 
+## v0.9.10 (Juli 2026) – Neues Layout mit Seitenleiste
+
+### Geändert
+- **Seitliche Navigation statt Kopfleiste.** Die App hat jetzt eine ruhige
+  Sidebar (Logo + Schulname oben, Menüpunkte darunter, angemeldete Person
+  und Fußzeile unten) statt der bisherigen horizontalen Reiter im Kopf.
+  Vorbild: projektstunden.hornse.de.
+- **Administration als aufklappbare Gruppe.** Die früher lange Admin-Seite
+  mit Ausklapp-Blöcken ist in vier fokussierte Unterseiten aufgeteilt, die
+  in der Sidebar unter „Administration" erscheinen:
+  Erscheinungsbild · Sprechtage · Lehrkräfte & Räume · Dienstkonto &
+  Schülerliste. Die Gruppe klappt automatisch auf, wenn eine Unterseite
+  aktiv ist.
+- **Mobiles Menü.** Auf schmalen Bildschirmen fährt die Seitenleiste über
+  einen Hamburger-Knopf ein und schließt nach der Auswahl bzw. per Tipp auf
+  den abgedunkelten Hintergrund.
+
+### Technisch
+- Reiner Darstellungsumbau: Views werden weiterhin dynamisch in `#ansicht`
+  gerendert. Die Ansichten-Map bekam die vier Admin-Unterseiten; die
+  Navigation baut Haupt- und Untereinträge und markiert die aktive Seite.
+- Alte Kopf-/Nav-Stile entfernt, neue Shell-/Sidebar-/Karten-Stile ergänzt.
+
+### Tests
+- `tests/frontend_sidebar_test.js`.
+
 ## v0.9.9 (Juli 2026) – Halbtagskräfte und Krankheitsausfall
 
 ### Neu

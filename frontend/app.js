@@ -33,6 +33,7 @@ const S = {
   mittLaedt: false,                  // Auto-Load-Guard Mitteilungen
   dienstkonto: null,   // Status des hinterlegten Dienstkontos
   marke: null,         // Branding: Schulname, Titel, Farben, Logo
+  adminOffen: false,   // Admin-Gruppe in der Seitenleiste aufgeklappt?
   gewaehlteLehrkraftAnsicht: null,   // Admin: wessen Termine werden gezeigt
   schuelerListe: null,               // Klassenliste für Einladungen
   svRaster: null,                    // Zeitraster der Lehrkraft (frei + belegt)
@@ -196,17 +197,24 @@ async function ladeStammdaten() {
   try { S.stammdaten = await api('/api/stammdaten'); } catch { }
 }
 
-$('#abmelden').addEventListener('click', async () => {
+async function abmelden() {
   await api('/api/auth/logout', { method: 'POST' });
   S.user = null; S.ansicht = 'login'; S.aktiverSprechtag = null;
   zeichne();
+}
+
+// Mobiles Menü: Hamburger öffnet, Overlay schließt.
+$('#mobil-menue')?.addEventListener('click', () => {
+  const offen = $('#seitenleiste')?.classList.contains('offen');
+  if (offen) menueSchliessen(); else menueOeffnen();
 });
+$('#menue-overlay')?.addEventListener('click', () => menueSchliessen());
 
 // ============================================================
 // Zeichnen
 // ============================================================
 function zeichne() {
-  // Kopfzeile
+  // Benutzer-Box in der Seitenleiste
   const box = $('#benutzer-box');
   if (S.user) {
     box.classList.remove('versteckt');
@@ -220,6 +228,7 @@ function zeichne() {
   }
 
   zeichneNavigation();
+  menueSchliessen();   // mobiles Menü nach jedem Wechsel zu
 
   const ziel = $('#ansicht');
   ziel.textContent = '';
@@ -235,11 +244,32 @@ function zeichne() {
     meine: ansichtMeineTermine,
     lehrkraft: ansichtLehrkraft,
     einladungen: ansichtEinladungen,
-    admin: ansichtAdmin,
+    admin: ansichtAdminMarke,          // Erscheinungsbild
+    'admin-marke': ansichtAdminMarke,
+    'admin-sprechtage': ansichtAdminSprechtage,
+    'admin-lehrer': ansichtAdminLehrer,
+    'admin-daten': ansichtAdminDaten,
     mitteilungen: ansichtMitteilungen,
     sondierung: ansichtSondierung,
   };
   (ansichten[S.ansicht] || ansichtLogin)(ziel);
+}
+
+// Verwirft geladene Listen beim Ansichtswechsel, damit keine veralteten
+// Daten stehen bleiben (z. B. gelöschte Einladungen).
+function ansichtZuruecksetzen() {
+  S.einladungen = null; S.einlLaedt = false;
+  S.mitteilungen = null; S.mittLaedt = false;
+  S.meineBuchungen = null; S.lehrerListe = null;
+  S.raster = []; S.svRaster = null; S.svLaedt = false;
+  S.svFehler = null; S.gewaehlteLehrkraft = null;
+}
+
+function wechsleAnsicht(ziel) {
+  if (S.ansicht !== ziel) ansichtZuruecksetzen();
+  S.ansicht = ziel;
+  S.meldung = null;
+  zeichne();
 }
 
 function zeichneNavigation() {
@@ -248,41 +278,76 @@ function zeichneNavigation() {
   if (!S.user) { nav.classList.add('versteckt'); return; }
   nav.classList.remove('versteckt');
 
-  const punkte = [];
+  // Einen Navigationsknopf erzeugen.
+  const navKnopf = (ziel, text, kindEbene) => {
+    const b = el('button', 'nv' + (kindEbene ? ' nv-child' : '')
+      + (S.ansicht === ziel ? ' on' : ''), text);
+    b.type = 'button';
+    b.addEventListener('click', () => wechsleAnsicht(ziel));
+    return b;
+  };
+
+  // Rollenabhängige Hauptpunkte.
   if (S.user.rolle === 'eltern' || S.user.rolle === 'schueler') {
-    punkte.push(['buchen', 'Termin buchen'], ['meine', 'Meine Termine']);
+    nav.appendChild(navKnopf('buchen', 'Termin buchen'));
+    nav.appendChild(navKnopf('meine', 'Meine Termine'));
   }
   if (S.user.rolle === 'lehrkraft' || S.user.rolle === 'admin') {
-    punkte.push(['lehrkraft', 'Meine Termine'], ['einladungen', 'Einladungen'],
-                ['mitteilungen', 'Mitteilungen']);
+    nav.appendChild(navKnopf('lehrkraft', 'Meine Termine'));
+    nav.appendChild(navKnopf('einladungen', 'Einladungen'));
+    nav.appendChild(navKnopf('mitteilungen', 'Mitteilungen'));
   }
+
+  // Administration als aufklappbare Gruppe.
   if (S.user.rolle === 'admin') {
-    punkte.push(['admin', 'Administration'], ['sondierung', 'Sondierung']);
+    const adminSeiten = ['admin', 'admin-marke', 'admin-sprechtage',
+                         'admin-lehrer', 'admin-daten'];
+    const adminAktiv = adminSeiten.includes(S.ansicht);
+    if (adminAktiv) S.adminOffen = true;   // aktive Unterseite -> Gruppe offen
+
+    const gruppe = el('div', 'nv-group');
+    const toggle = el('button', 'nv nv-group-toggle'
+      + (S.adminOffen ? ' open' : ''), 'Administration');
+    toggle.type = 'button';
+    const chev = el('span', 'nv-chev', '▾');
+    toggle.appendChild(chev);
+    toggle.addEventListener('click', () => {
+      S.adminOffen = !S.adminOffen;
+      zeichneNavigation();
+    });
+    gruppe.appendChild(toggle);
+
+    const sub = el('div', 'nv-sub');
+    if (!S.adminOffen) sub.classList.add('versteckt');
+    sub.appendChild(navKnopf('admin-marke', 'Erscheinungsbild', true));
+    sub.appendChild(navKnopf('admin-sprechtage', 'Sprechtage', true));
+    sub.appendChild(navKnopf('admin-lehrer', 'Lehrkräfte & Räume', true));
+    sub.appendChild(navKnopf('admin-daten', 'Dienstkonto & Schülerliste', true));
+    gruppe.appendChild(sub);
+    nav.appendChild(gruppe);
+
+    nav.appendChild(navKnopf('sondierung', 'Sondierung'));
   }
-  for (const [ziel, text] of punkte) {
-    const b = knopf(text, 'nav-knopf' + (S.ansicht === ziel ? ' aktiv' : ''),
-      () => {
-        // Geladene Listen verwerfen – sonst zeigt die Ansicht beim
-        // Zurückwechseln veraltete Daten (z. B. gelöschte Einladungen).
-        if (S.ansicht !== ziel) {
-          S.einladungen = null;
-          S.einlLaedt = false;
-          S.mitteilungen = null;
-          S.mittLaedt = false;
-          S.meineBuchungen = null;
-          S.lehrerListe = null;
-          S.raster = [];
-          S.svRaster = null;
-          S.svLaedt = false;
-          S.svFehler = null;
-          S.gewaehlteLehrkraft = null;
-        }
-        S.ansicht = ziel;
-        S.meldung = null;
-        zeichne();
-      });
-    nav.appendChild(b);
-  }
+
+  // Abmelden unten.
+  const ab = el('button', 'nv nv-abmelden', 'Abmelden');
+  ab.type = 'button';
+  ab.addEventListener('click', () => abmelden());
+  nav.appendChild(ab);
+
+  // Mobiler Titel spiegelt die aktive Ansicht.
+  const mt = $('#mobil-titel');
+  if (mt) mt.textContent = (S.marke && S.marke.marke_titel) || 'Sprechtag';
+}
+
+// ---- Mobiles Menü (Hamburger) -------------------------------------------
+function menueOeffnen() {
+  $('#seitenleiste')?.classList.add('offen');
+  $('#menue-overlay')?.classList.add('sichtbar');
+}
+function menueSchliessen() {
+  $('#seitenleiste')?.classList.remove('offen');
+  $('#menue-overlay')?.classList.remove('sichtbar');
 }
 
 // ---------- Sprechtag-Auswahl (in mehreren Ansichten genutzt) -------------
@@ -1269,10 +1334,17 @@ function dateiAlsBase64(datei) {
   });
 }
 
-function ansichtAdmin(ziel) {
-  ziel.appendChild(el('h2', null, 'Administration'));
+// Admin-Unterseiten – die Sidebar ruft sie direkt über S.ansicht auf.
+// (Der alte Sammel-Screen 'admin' zeigt weiterhin das Erscheinungsbild.)
+function ansichtAdmin(ziel) { ansichtAdminMarke(ziel); }
 
+function ansichtAdminMarke(ziel) {
+  ziel.appendChild(el('h2', null, 'Erscheinungsbild'));
   zeichneMarkeBlock(ziel);
+}
+
+function ansichtAdminDaten(ziel) {
+  ziel.appendChild(el('h2', null, 'Dienstkonto & Schülerliste'));
 
   // ---- Dienstkonto ------------------------------------------------------
   const dk = block('dienstkonto', 'Dienstkonto für die Lehrkraft-Ermittlung');
@@ -1436,6 +1508,10 @@ function ansichtAdmin(ziel) {
     } catch (f) { meldung(String(f.message), 'fehler'); }
   }));
   ziel.appendChild(sl);
+}
+
+function ansichtAdminLehrer(ziel) {
+  ziel.appendChild(el('h2', null, 'Lehrkräfte & Räume'));
 
   // ---- Stammdaten-Sync -------------------------------------------------
   const sync = block('sync', 'Stammdaten aus WebUntis übernehmen');
@@ -1501,6 +1577,10 @@ function ansichtAdmin(ziel) {
     ht.appendChild(liste);
   }
   ziel.appendChild(ht);
+}
+
+function ansichtAdminSprechtage(ziel) {
+  ziel.appendChild(el('h2', null, 'Sprechtage'));
 
   // ---- Sprechtag anlegen ------------------------------------------------
   const neu = block('neu', 'Neuen Sprechtag anlegen');

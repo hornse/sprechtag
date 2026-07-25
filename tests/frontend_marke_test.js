@@ -37,8 +37,8 @@ pruefe('Zurücksetzen vorhanden',
   js.includes('/api/einstellungen/zuruecksetzen'));
 
 // ---- CSS ----
-pruefe('Akzentvariablen definiert und im Kopf genutzt',
-  css.includes('--akzent:') && css.includes('.kopf {\n  background: var(--akzent)'));
+pruefe('Akzentvariablen definiert und in der Oberfläche genutzt',
+  css.includes('--akzent:') && css.includes('var(--akzent)'));
 
 // ---- HTML ----
 pruefe('Kopf hat Logo-Slot und benannte Marke-Elemente',
