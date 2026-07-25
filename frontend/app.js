@@ -76,6 +76,19 @@ function meldung(text, art = 'info') {
   zeichne();
 }
 
+// Kurzmeldung OHNE Neuzeichnen: aktualisiert nur das Toast-Element. Wichtig
+// für Aktionen in Tabellen (z. B. das „½"-Häkchen), bei denen ein volles
+// zeichne() den gerade geöffneten Detailbereich zuklappen würde.
+let toastTimer = null;
+function toast(text, art = 'info') {
+  const t = $('#toast');
+  if (!t) return;
+  t.textContent = text;
+  t.className = 'toast ' + art;
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = 'toast versteckt'; }, 3500);
+}
+
 // ---------- kleine DOM-Helfer --------------------------------------------
 function el(tag, klasse, text) {
   const e = document.createElement(tag);
@@ -1736,6 +1749,26 @@ async function oeffneLehrerVerwaltung(s) {
     + 'Uhrzeiten eine Hälfte. Doppelt belegte Räume sind zulässig, werden '
     + 'aber markiert.'));
 
+  // Sammelaktionen: alle als teilnehmend markieren (dann Dummys abhaken),
+  // und alle Zeilen auf einmal speichern.
+  const werkzeuge = el('div', 'tabellen-werkzeuge');
+  werkzeuge.appendChild(knopf('Alle teilnehmen', 'klein', () => {
+    for (const l of daten.lehrer) {
+      const cb = $('#tn-' + s.id + '-' + l.lehrer_id);
+      if (cb) cb.checked = true;
+    }
+    toast('Alle angehakt – Dummys jetzt abhaken, dann „Alle speichern".', 'info');
+  }));
+  werkzeuge.appendChild(knopf('Keine teilnehmen', 'klein', () => {
+    for (const l of daten.lehrer) {
+      const cb = $('#tn-' + s.id + '-' + l.lehrer_id);
+      if (cb) cb.checked = false;
+    }
+  }));
+  werkzeuge.appendChild(knopf('Alle speichern', null,
+    () => alleLehrerSpeichern(s, daten.lehrer)));
+  ziel.appendChild(werkzeuge);
+
   const tab = el('table', 'tabelle tabelle-breit');
   const kopf = el('tr');
   for (const t of ['Kürzel', 'Name', 'dabei', '½', 'Anwesenheit', 'Raum', 'Aktion']) {
@@ -1768,12 +1801,14 @@ async function oeffneLehrerVerwaltung(s) {
         await api('/api/stammdaten/lehrer/' + l.lehrer_id,
           { method: 'PATCH', body: { halbtags: cbH.checked ? 1 : 0 } });
         l.halbtags = cbH.checked ? 1 : 0;
-        meldung((cbH.checked ? 'Als Halbtagskraft markiert: '
+        toast((cbH.checked ? 'Als Halbtagskraft markiert: '
           : 'Markierung entfernt: ') + l.kuerzel, 'ok');
-        oeffneLehrerVerwaltung(s);   // Anwesenheitsspalte wechselt Darstellung
+        // Nur den Detailbereich neu aufbauen – kein volles zeichne(), das
+        // sonst die Sprechtag-Karte zuklappen würde.
+        oeffneLehrerVerwaltung(s);
       } catch (f) {
         cbH.checked = !cbH.checked;
-        meldung(String(f.message), 'fehler');
+        toast(String(f.message), 'fehler');
       }
     });
     tdH.appendChild(cbH);
@@ -1855,9 +1890,9 @@ async function oeffneLehrerVerwaltung(s) {
       try {
         await api('/api/sprechtage/' + s.id + '/lehrer/' + l.lehrer_id,
           { method: 'PATCH', body: koerper });
-        meldung('Gespeichert: ' + l.kuerzel, 'ok');
+        toast('Gespeichert: ' + l.kuerzel, 'ok');
         oeffneLehrerVerwaltung(s);
-      } catch (f) { meldung(String(f.message), 'fehler'); }
+      } catch (f) { toast(String(f.message), 'fehler'); }
     });
     // Ausfall: dezentes Symbol (durchgestrichener Kreis), Farbe erst im Dialog.
     const ausfall = iconKnopf('⊘', 'ausfall', 'Ausfall (Termine freigeben)',
@@ -1868,6 +1903,32 @@ async function oeffneLehrerVerwaltung(s) {
     tab.appendChild(tr);
   }
   ziel.appendChild(tab);
+}
+
+// Speichert alle Zeilen der Lehrer-Tabelle auf einmal (Sammel-Endpunkt).
+async function alleLehrerSpeichern(s, lehrer) {
+  const zeilen = [];
+  for (const l of lehrer) {
+    const cb = $('#tn-' + s.id + '-' + l.lehrer_id);
+    const z = {
+      lehrer_id: l.lehrer_id,
+      teilnahme: cb && cb.checked ? 1 : 0,
+      raum_id: wert('raum-' + s.id + '-' + l.lehrer_id),
+    };
+    if (parseInt(l.halbtags, 10) === 1) {
+      z.haelfte = wert('haelfte-' + s.id + '-' + l.lehrer_id);
+    } else {
+      z.anwesend_von = wert('von-' + s.id + '-' + l.lehrer_id);
+      z.anwesend_bis = wert('bis-' + s.id + '-' + l.lehrer_id);
+    }
+    zeilen.push(z);
+  }
+  try {
+    const d = await api('/api/sprechtage/' + s.id + '/lehrer',
+      { method: 'PUT', body: { zeilen } });
+    toast('Gespeichert: ' + (d.gespeichert || zeilen.length) + ' Zeilen.', 'ok');
+    oeffneLehrerVerwaltung(s);
+  } catch (f) { toast(String(f.message), 'fehler'); }
 }
 
 // Krankheitsausfall: Termine freigeben + Eltern benachrichtigen.
@@ -1881,9 +1942,9 @@ async function lehrerAusfall(s, l) {
   try {
     const d = await api('/api/sprechtage/' + s.id + '/lehrer/' + l.lehrer_id
       + '/ausfall', { method: 'POST', body: { nachricht } });
-    meldung(d.hinweis || 'Ausfall eingetragen.', 'ok');
+    toast(d.hinweis || 'Ausfall eingetragen.', 'ok');
     oeffneLehrerVerwaltung(s);
-  } catch (f) { meldung(String(f.message), 'fehler'); }
+  } catch (f) { toast(String(f.message), 'fehler'); }
 }
 
 // ---- Sonderlehrkräfte ----------------------------------------------------

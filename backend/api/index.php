@@ -47,7 +47,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.12', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.13', 'db' => $db]);
 }
 
 // ---- /api/einstellungen (Branding) -------------------------
@@ -337,6 +337,58 @@ if (($seg[0] ?? '') === 'sprechtage') {
             $st->execute([$sid]);
             json_ok(['lehrer' => $st->fetchAll()]);
         }
+        // ---- PUT .../lehrer : alle Zeilen auf einmal speichern (admin) ----
+        // Erwartet body.zeilen = [{lehrer_id, teilnahme, raum_id, haelfte|
+        // anwesend_von/bis}, …]. In einer Transaktion, damit entweder alles
+        // oder nichts gespeichert wird.
+        if ($methode === 'PUT' && !isset($seg[3])) {
+            auth_require_admin();
+            $zeilen = $body['zeilen'] ?? null;
+            if (!is_array($zeilen)) json_err('Feld zeilen (Array) fehlt.');
+            $s = $sprechtagHolen($pdo, $sid);
+
+            $stmt = $pdo->prepare('INSERT INTO sprechtag_lehrer
+                (sprechtag_id, lehrer_id, anwesend_von, anwesend_bis, raum_id, teilnahme, bemerkung)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE anwesend_von = VALUES(anwesend_von),
+                    anwesend_bis = VALUES(anwesend_bis), raum_id = VALUES(raum_id),
+                    teilnahme = VALUES(teilnahme), bemerkung = VALUES(bemerkung)');
+
+            $pdo->beginTransaction();
+            try {
+                $anzahl = 0;
+                foreach ($zeilen as $z) {
+                    $lid = (int)($z['lehrer_id'] ?? 0);
+                    if ($lid <= 0) continue;
+                    $von = ($z['anwesend_von'] ?? '') !== '' ? $z['anwesend_von'] : null;
+                    $bis = ($z['anwesend_bis'] ?? '') !== '' ? $z['anwesend_bis'] : null;
+                    if (isset($z['haelfte'])) {
+                        $h = (string)$z['haelfte'];
+                        if (!in_array($h, ['erste', 'zweite', 'ganz'], true)) {
+                            throw new RuntimeException("Ungültige Hälfte bei Lehrkraft $lid");
+                        }
+                        $f = slot_haelfte_fenster($s, $h);
+                        $von = $f['von']; $bis = $f['bis'];
+                    }
+                    foreach ([$von, $bis] as $w) {
+                        if ($w !== null && !preg_match('/^\d{2}:\d{2}(:\d{2})?$/', (string)$w)) {
+                            throw new RuntimeException("Ungültige Zeit bei Lehrkraft $lid");
+                        }
+                    }
+                    $stmt->execute([$sid, $lid, $von, $bis,
+                        ($z['raum_id'] ?? '') !== '' ? (int)$z['raum_id'] : null,
+                        isset($z['teilnahme']) ? (int)(bool)$z['teilnahme'] : 1,
+                        substr((string)($z['bemerkung'] ?? ''), 0, 190)]);
+                    $anzahl++;
+                }
+                $pdo->commit();
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                json_err('Speichern abgebrochen: ' . $e->getMessage(), 400);
+            }
+            json_ok(['ok' => true, 'gespeichert' => $anzahl]);
+        }
+
         if ($methode === 'PATCH' && isset($seg[3]) && ctype_digit($seg[3])) {
             $u = auth_require();
             $lid = (int)$seg[3];

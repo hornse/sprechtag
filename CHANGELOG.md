@@ -1,5 +1,26 @@
 # Changelog – sprechtag
 
+## v0.9.13 (Juli 2026) – ½-Bug behoben, Sammelspeichern
+
+### Behoben
+- **Das „½"-Häkchen verschwand beim Setzen.** Ursache: Jede Rückmeldung rief
+  `meldung()`, das die ganze Ansicht neu zeichnete und dabei die geöffnete
+  Sprechtag-Karte zuklappte. Aktionen in der Lehrer-Tabelle nutzen jetzt eine
+  Kurzmeldung (Toast), die nichts neu zeichnet; nur der Detailbereich der
+  Tabelle wird gezielt aktualisiert. Das Häkchen bleibt stehen.
+
+### Neu
+- **„Alle teilnehmen" / „Keine teilnehmen".** Setzt bzw. entfernt alle
+  Teilnahme-Häkchen im Formular – so hakt man alle an und entfernt nur die
+  Dummy-Lehrkräfte, ohne ein Dummy-Erkennungssystem.
+- **„Alle speichern".** Schreibt alle Zeilen der Lehrer-Tabelle auf einmal
+  über einen neuen Sammel-Endpunkt (`PUT /api/sprechtage/{id}/lehrer`, eine
+  Transaktion – alles oder nichts). Einzelnes Speichern je Zeile (✓) bleibt
+  erhalten.
+
+### Tests
+- `tests/frontend_sammelspeichern_test.js`.
+
 ## v0.9.12 (Juli 2026) – Lehrer-Tabelle überarbeitet, Redundanz aufgelöst
 
 ### Geändert

@@ -84,6 +84,15 @@ body {
                  background: rgba(0,0,0,.35); z-index: 20; }
 .menue-overlay.sichtbar { display: block; }
 
+/* Toast – kurze Rückmeldung ohne Neuzeichnen */
+.toast { position: fixed; bottom: 1.25rem; right: 1.25rem; z-index: 50;
+         padding: .7rem 1.1rem; border-radius: 8px; font-size: .9rem;
+         color: #fff; box-shadow: 0 4px 14px rgba(0,0,0,.18); max-width: 22rem; }
+.toast.versteckt { display: none; }
+.toast.ok { background: var(--gruen); }
+.toast.fehler { background: var(--rot); }
+.toast.info { background: var(--akzent); }
+
 main { flex: 1; padding: 2rem 2.25rem; max-width: 76rem; }
 
 .karte {
@@ -104,6 +113,7 @@ main { flex: 1; padding: 2rem 2.25rem; max-width: 76rem; }
 .raum-warnung { display: inline-block; margin-left: .5rem; font-size: .75rem;
                 color: var(--rot); }
 .aktion-zelle { text-align: right; white-space: nowrap; }
+.tabellen-werkzeuge { display: flex; gap: .5rem; flex-wrap: wrap; margin: .6rem 0; }
 
 /* Kompakte Icon-Buttons für Tabellen-Aktionen */
 .icon-knopf { width: 2rem; height: 2rem; padding: 0; margin-left: .25rem;
