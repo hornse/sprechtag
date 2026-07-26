@@ -24,6 +24,8 @@ pruefe('Toast-Element im HTML', html.includes('id="toast"'));
 pruefe('toast()-Funktion vorhanden', js.includes('function toast('));
 pruefe('½-Häkchen nutzt toast, nicht meldung',
   js.includes("toast((cbH.checked ? 'Als Halbtagskraft"));
+pruefe('½-Häkchen ersetzt nur die Zelle (kein Panel-Neuaufbau)',
+  js.includes('tdZeit.replaceWith(neu)') && js.includes('function anwesenheitZelle'));
 pruefe('Speichern-Icon nutzt toast',
   js.includes("toast('Gespeichert: ' + l.kuerzel"));
 

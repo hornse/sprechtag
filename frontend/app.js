@@ -1726,6 +1726,47 @@ function sprechtagKarte(s) {
 }
 
 // ---- Lehrkräfte: Teilnahme, Zeitfenster, Räume ---------------------------
+// Baut die Anwesenheits-Tabellenzelle einer Lehrkraft: bei Halbtagskraft
+// ein Hälfte-Dropdown, sonst zwei Uhrzeitfelder. Als eigene Funktion, damit
+// sie beim Umschalten des ½-Häkchens einzeln neu erzeugt werden kann.
+function anwesenheitZelle(s, l) {
+  const td = el('td');
+  const halbtags = parseInt(l.halbtags, 10) === 1;
+  if (halbtags) {
+    const sel = document.createElement('select');
+    sel.id = 'haelfte-' + s.id + '-' + l.lehrer_id;
+    const von = String(l.anwesend_von || '').slice(0, 5);
+    const bis = String(l.anwesend_bis || '').slice(0, 5);
+    const beginn = String(s.beginn || '').slice(0, 5);
+    const ende = String(s.ende || '').slice(0, 5);
+    let aktuell = 'ganz';
+    if (von && bis) {
+      if (von === beginn && bis !== ende) aktuell = 'erste';
+      else if (von !== beginn && bis === ende) aktuell = 'zweite';
+    }
+    for (const [w, t] of [['ganz', 'ganzer Tag'], ['erste', 'erste Hälfte'],
+                          ['zweite', 'zweite Hälfte']]) {
+      const o = document.createElement('option');
+      o.value = w; o.textContent = t;
+      if (w === aktuell) o.selected = true;
+      sel.appendChild(o);
+    }
+    td.appendChild(sel);
+  } else {
+    const mkZeit = (id, w) => {
+      const i = document.createElement('input');
+      i.type = 'text'; i.id = id; i.className = 'zeit-feld';
+      i.value = w ? String(w).slice(0, 5) : '';
+      i.placeholder = '--:--';
+      return i;
+    };
+    td.appendChild(mkZeit('von-' + s.id + '-' + l.lehrer_id, l.anwesend_von));
+    td.appendChild(document.createTextNode(' – '));
+    td.appendChild(mkZeit('bis-' + s.id + '-' + l.lehrer_id, l.anwesend_bis));
+  }
+  return td;
+}
+
 async function oeffneLehrerVerwaltung(s) {
   const ziel = $('#detail-' + s.id);
   if (!ziel) return;
@@ -1797,17 +1838,20 @@ async function oeffneLehrerVerwaltung(s) {
     cbH.checked = parseInt(l.halbtags, 10) === 1;
     cbH.title = 'Halbtagskraft / Referendar:in';
     cbH.addEventListener('change', async () => {
+      const vorher = l.halbtags;
       try {
         await api('/api/stammdaten/lehrer/' + l.lehrer_id,
           { method: 'PATCH', body: { halbtags: cbH.checked ? 1 : 0 } });
         l.halbtags = cbH.checked ? 1 : 0;
         toast((cbH.checked ? 'Als Halbtagskraft markiert: '
           : 'Markierung entfernt: ') + l.kuerzel, 'ok');
-        // Nur den Detailbereich neu aufbauen – kein volles zeichne(), das
-        // sonst die Sprechtag-Karte zuklappen würde.
-        oeffneLehrerVerwaltung(s);
+        // NUR die Anwesenheitszelle DIESER Zeile austauschen – kein Neuaufbau
+        // der ganzen Tabelle (der sonst nach oben springt und stört).
+        const neu = anwesenheitZelle(s, l);
+        tdZeit.replaceWith(neu);
+        tdZeit = neu;
       } catch (f) {
-        cbH.checked = !cbH.checked;
+        cbH.checked = parseInt(vorher, 10) === 1;
         toast(String(f.message), 'fehler');
       }
     });
@@ -1815,40 +1859,8 @@ async function oeffneLehrerVerwaltung(s) {
     tr.appendChild(tdH);
 
     // Anwesenheit: Halbtagskräfte -> Hälfte-Dropdown; sonst von/bis-Felder.
-    const halbtags = parseInt(l.halbtags, 10) === 1;
-    const tdZeit = el('td');
-    if (halbtags) {
-      const sel = document.createElement('select');
-      sel.id = 'haelfte-' + s.id + '-' + l.lehrer_id;
-      const von = String(l.anwesend_von || '').slice(0, 5);
-      const bis = String(l.anwesend_bis || '').slice(0, 5);
-      const beginn = String(s.beginn || '').slice(0, 5);
-      const ende = String(s.ende || '').slice(0, 5);
-      let aktuell = 'ganz';
-      if (von && bis) {
-        if (von === beginn && bis !== ende) aktuell = 'erste';
-        else if (von !== beginn && bis === ende) aktuell = 'zweite';
-      }
-      for (const [w, t] of [['ganz', 'ganzer Tag'], ['erste', 'erste Hälfte'],
-                            ['zweite', 'zweite Hälfte']]) {
-        const o = document.createElement('option');
-        o.value = w; o.textContent = t;
-        if (w === aktuell) o.selected = true;
-        sel.appendChild(o);
-      }
-      tdZeit.appendChild(sel);
-    } else {
-      const mkZeit = (id, w) => {
-        const i = document.createElement('input');
-        i.type = 'text'; i.id = id; i.className = 'zeit-feld';
-        i.value = w ? String(w).slice(0, 5) : '';
-        i.placeholder = '--:--';
-        return i;
-      };
-      tdZeit.appendChild(mkZeit('von-' + s.id + '-' + l.lehrer_id, l.anwesend_von));
-      tdZeit.appendChild(document.createTextNode(' – '));
-      tdZeit.appendChild(mkZeit('bis-' + s.id + '-' + l.lehrer_id, l.anwesend_bis));
-    }
+    // Als eigene Funktion, damit sie beim ½-Wechsel einzeln neu gebaut wird.
+    let tdZeit = anwesenheitZelle(s, l);
     tr.appendChild(tdZeit);
 
     // Raum: breitere Spalte, volle Kürzel; Dopplung als Hinweis NEBEN dem
@@ -1881,7 +1893,7 @@ async function oeffneLehrerVerwaltung(s) {
         teilnahme: cb.checked ? 1 : 0,
         raum_id: wert('raum-' + s.id + '-' + l.lehrer_id),
       };
-      if (halbtags) {
+      if (parseInt(l.halbtags, 10) === 1) {
         koerper.haelfte = wert('haelfte-' + s.id + '-' + l.lehrer_id);
       } else {
         koerper.anwesend_von = wert('von-' + s.id + '-' + l.lehrer_id);

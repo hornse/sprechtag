@@ -1,5 +1,16 @@
 # Changelog – sprechtag
 
+## v0.9.14 (Juli 2026) – ½-Häkchen springt nicht mehr
+
+### Behoben
+- **Beim Setzen des „½"-Häkchens sprang die Seite nach oben und der Haken
+  war weg.** Ursache war der vollständige Neuaufbau des Detailbereichs
+  (`oeffneLehrerVerwaltung`) nach dem Speichern. Jetzt wird nur die
+  Anwesenheitszelle der betroffenen Zeile ausgetauscht (neue Funktion
+  `anwesenheitZelle`) – das Häkchen bleibt sichtbar, kein Scroll-Sprung,
+  kein Neuladen. Der Wechsel zwischen Uhrzeitfeldern und Hälfte-Dropdown
+  passiert in genau dieser einen Zelle.
+
 ## v0.9.13 (Juli 2026) – ½-Bug behoben, Sammelspeichern
 
 ### Behoben
