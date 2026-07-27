@@ -19,18 +19,19 @@ const js  = fs.readFileSync(path.join(__dirname, '..', 'frontend', 'app.js'), 'u
 const css = fs.readFileSync(path.join(__dirname, '..', 'frontend', 'style.css'), 'utf8');
 
 // ---- Optionales Zeitfenster ----
-pruefe('Standard ganzer Tag, „nur zeitweise" blendet Felder ein',
-  js.includes('zeitfenster-opt') && js.includes("'zf-' + s.id"));
-pruefe('lehrerZeileDaten respektiert Zeitfenster-Häkchen',
-  js.includes('function lehrerZeileDaten') && js.includes("$('#zf-' + s.id"));
+pruefe('Standard ganzer Tag, ⏱-Symbol blendet Felder ein',
+  js.includes('zeitfenster-schalter') && js.includes("'zf-' + s.id"));
+pruefe('lehrerZeileDaten respektiert ⏱-Zustand',
+  js.includes('function lehrerZeileDaten') && js.includes("zf.dataset.an === '1'"));
 pruefe('leeres Fenster = ganzer Tag',
   js.includes("z.anwesend_von = '';") && js.includes("z.anwesend_bis = '';"));
 
 // ---- Sortierung ----
-pruefe('Sortierstate + sortierbare Spalten',
-  js.includes('S.lehrerSort') && js.includes("['kuerzel', 'Kürzel']"));
-pruefe('Klick auf Kopf dreht/ändert Sortierung',
-  js.includes('S.lehrerSort.richtung *= -1'));
+pruefe('Sortierstate + alle Datenspalten sortierbar',
+  js.includes('S.lehrerSort') && js.includes("['kuerzel', 'Kürzel']")
+  && js.includes("['halbtags', '½']") && js.includes("['raum', 'Raum']"));
+pruefe('Sortieren baut nur die Tabelle neu (kein Panel-Neuaufbau)',
+  js.includes('function baueTabelle') && js.includes('tabBox.appendChild(neu)'));
 pruefe('sortierbare Kopfzeile im CSS', css.includes('th.sortierbar'));
 
 // ---- Konfliktfarben ----

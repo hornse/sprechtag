@@ -35,20 +35,21 @@ pruefe('kein alter Header mehr', !html.includes('class="kopf"'));
 pruefe('Navigation baut nv-Knöpfe', js.includes("el('button', 'nv'"));
 pruefe('Admin als aufklappbare Gruppe', js.includes('nv-group-toggle')
   && js.includes('S.adminOffen'));
-pruefe('drei Admin-Unterpunkte', js.includes("'admin-marke'")
-  && js.includes("'admin-sprechtage'") && js.includes("'admin-daten'")
-  && !js.includes("navKnopf('admin-lehrer'"));
+pruefe('vier Admin-Unterpunkte inkl. Aktiver Sprechtag', js.includes("'admin-aktiv'")
+  && js.includes("'admin-marke'") && js.includes("'admin-sprechtage'")
+  && js.includes("'admin-daten'") && !js.includes("navKnopf('admin-lehrer'"));
 pruefe('Abmelden im Menü', js.includes('nv-abmelden') && js.includes('abmelden()'));
 pruefe('aktive Admin-Unterseite klappt Gruppe auf',
   js.includes('adminAktiv') && js.includes('S.adminOffen = true'));
 
 // ---- Admin-Unterseiten als Funktionen + in der Map ----
-for (const fn of ['ansichtAdminMarke', 'ansichtAdminSprechtage',
+for (const fn of ['ansichtAdminMarke', 'ansichtAdminAktiv', 'ansichtAdminSprechtage',
                   'ansichtAdminDaten']) {
   pruefe('Funktion ' + fn + ' definiert', js.includes('function ' + fn + '('));
 }
-pruefe('Redundanz aufgelöst: kein ansichtAdminLehrer mehr',
-  !js.includes('function ansichtAdminLehrer'));
+pruefe('aktiver Sprechtag = Phase 1/2, nächstes Datum',
+  js.includes('function aktiverSprechtagFinden')
+  && js.includes("s.phase === 'phase1'"));
 pruefe('Unterseiten in der Ansichten-Map', js.includes("'admin-sprechtage': ansichtAdminSprechtage")
   && js.includes("'admin-daten': ansichtAdminDaten"));
 

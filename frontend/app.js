@@ -186,7 +186,7 @@ async function start() {
 
   if (S.user) {
     await ladeSprechtage();
-    S.ansicht = S.user.rolle === 'admin' ? 'admin'
+    S.ansicht = S.user.rolle === 'admin' ? 'admin-aktiv'
       : S.user.rolle === 'lehrkraft' ? 'lehrkraft' : 'buchen';
   } else {
     S.ansicht = 'login';
@@ -284,6 +284,7 @@ function zeichne() {
     einladungen: ansichtEinladungen,
     admin: ansichtAdminMarke,          // Erscheinungsbild
     'admin-marke': ansichtAdminMarke,
+    'admin-aktiv': ansichtAdminAktiv,
     'admin-sprechtage': ansichtAdminSprechtage,
     'admin-daten': ansichtAdminDaten,
     mitteilungen: ansichtMitteilungen,
@@ -337,8 +338,8 @@ function zeichneNavigation() {
 
   // Administration als aufklappbare Gruppe.
   if (S.user.rolle === 'admin') {
-    const adminSeiten = ['admin', 'admin-marke', 'admin-sprechtage',
-                         'admin-daten'];
+    const adminSeiten = ['admin', 'admin-marke', 'admin-aktiv',
+                         'admin-sprechtage', 'admin-daten'];
     const adminAktiv = adminSeiten.includes(S.ansicht);
     if (adminAktiv) S.adminOffen = true;   // aktive Unterseite -> Gruppe offen
 
@@ -356,6 +357,7 @@ function zeichneNavigation() {
 
     const sub = el('div', 'nv-sub');
     if (!S.adminOffen) sub.classList.add('versteckt');
+    sub.appendChild(navKnopf('admin-aktiv', 'Aktiver Sprechtag', true));
     sub.appendChild(navKnopf('admin-marke', 'Erscheinungsbild', true));
     sub.appendChild(navKnopf('admin-sprechtage', 'Sprechtage', true));
     sub.appendChild(navKnopf('admin-daten', 'Dienstkonto & Schülerliste', true));
@@ -440,7 +442,7 @@ function ansichtLogin(ziel) {
       S.user = await api('/api/auth/login', { method: 'POST', body: {
         benutzername: wert('login-benutzer'), passwort: wert('login-passwort') } });
       await ladeSprechtage();
-      S.ansicht = S.user.rolle === 'admin' ? 'admin'
+      S.ansicht = S.user.rolle === 'admin' ? 'admin-aktiv'
         : S.user.rolle === 'lehrkraft' ? 'lehrkraft' : 'buchen';
       meldung(null);
     } catch (f) {
@@ -1546,6 +1548,39 @@ function ansichtAdminDaten(ziel) {
   ziel.appendChild(sl);
 }
 
+// Ermittelt den „aktiven" Sprechtag: in Phase 1/2, mit dem nächstliegenden
+// Datum. Gibt null zurück, wenn keiner aktiv ist.
+function aktiverSprechtagFinden() {
+  const offen = (S.sprechtage || []).filter(
+    (s) => s.phase === 'phase1' || s.phase === 'phase2');
+  if (offen.length === 0) return null;
+  offen.sort((a, b) => String(a.datum).localeCompare(String(b.datum)));
+  return offen[0];
+}
+
+function ansichtAdminAktiv(ziel) {
+  ziel.appendChild(el('h2', null, 'Aktiver Sprechtag'));
+  const s = aktiverSprechtagFinden();
+  if (!s) {
+    ziel.appendChild(el('p', 'hinweis',
+      'Zurzeit ist kein Sprechtag aktiv (keiner in Phase 1 oder 2). Unter '
+      + '„Sprechtage" lässt sich einer anlegen oder eine Phase starten.'));
+    return;
+  }
+  ziel.appendChild(el('p', 'hinweis',
+    'Verwaltung des laufenden Sprechtags „' + s.name + '" (' + s.datum + ', '
+    + phaseText(s.phase) + '). Die Lehrkraft-Tabelle ist direkt geöffnet.'));
+
+  const karte = sprechtagKarte(s);
+  // Karte aufgeklappt zeigen (block() merkt sich den Zustand pro Kennung).
+  S.offeneBloecke['st' + s.id] = true;
+  const det = karte.tagName === 'DETAILS' ? karte : karte.querySelector('details');
+  if (det) det.open = true;
+  ziel.appendChild(karte);
+  // Lehrkraft-Verwaltung sofort aufklappen – das ist der häufigste Arbeitsweg.
+  setTimeout(() => oeffneLehrerVerwaltung(s), 0);
+}
+
 function ansichtAdminSprechtage(ziel) {
   ziel.appendChild(el('h2', null, 'Sprechtage'));
 
@@ -1758,16 +1793,17 @@ function anwesenheitZelle(s, l) {
     return td;
   }
 
-  // Nicht-Halbtags: Standard ganzer Tag, optional Zeitfenster.
+  // Nicht-Halbtags: Standard ganzer Tag, optional Zeitfenster per Uhr-Symbol.
   const hatFenster = !!(l.anwesend_von || l.anwesend_bis);
-  const opt = el('label', 'zeitfenster-opt');
-  const cbZ = document.createElement('input');
-  cbZ.type = 'checkbox';
-  cbZ.id = 'zf-' + s.id + '-' + l.lehrer_id;
-  cbZ.checked = hatFenster;
-  opt.appendChild(cbZ);
-  opt.appendChild(document.createTextNode(' nur zeitweise'));
+  const opt = el('button', 'zeitfenster-schalter' + (hatFenster ? ' an' : ''), '⏱');
+  opt.type = 'button';
+  opt.id = 'zf-' + s.id + '-' + l.lehrer_id;
+  opt.title = 'Zeitfenster festlegen (sonst ganzer Tag)';
+  opt.setAttribute('aria-pressed', hatFenster ? 'true' : 'false');
+  // Zustand am Element merken, damit lehrerZeileDaten es auslesen kann.
+  opt.dataset.an = hatFenster ? '1' : '0';
   td.appendChild(opt);
+  if (!hatFenster) td.appendChild(el('span', 'zeitfenster-label', ' ganzer Tag'));
 
   const felder = el('div', 'zeitfenster-felder');
   if (!hatFenster) felder.classList.add('versteckt');
@@ -1783,14 +1819,22 @@ function anwesenheitZelle(s, l) {
   felder.appendChild(mkZeit('bis-' + s.id + '-' + l.lehrer_id, l.anwesend_bis));
   td.appendChild(felder);
 
-  cbZ.addEventListener('change', () => {
-    felder.classList.toggle('versteckt', !cbZ.checked);
-    if (cbZ.checked) {
-      // Sinnvolle Vorbelegung mit dem Sprechtag-Rahmen.
+  opt.addEventListener('click', () => {
+    const an = opt.dataset.an !== '1';
+    opt.dataset.an = an ? '1' : '0';
+    opt.classList.toggle('an', an);
+    opt.setAttribute('aria-pressed', an ? 'true' : 'false');
+    felder.classList.toggle('versteckt', !an);
+    const label = td.querySelector('.zeitfenster-label');
+    if (label) label.remove();
+    if (an) {
       const v = felder.querySelector('#von-' + s.id + '-' + l.lehrer_id);
       const b = felder.querySelector('#bis-' + s.id + '-' + l.lehrer_id);
       if (v && !v.value) v.value = String(s.beginn || '').slice(0, 5);
       if (b && !b.value) b.value = String(s.ende || '').slice(0, 5);
+    } else {
+      td.insertBefore(el('span', 'zeitfenster-label', ' ganzer Tag'),
+        felder);
     }
   });
   return td;
@@ -1815,10 +1859,11 @@ async function oeffneLehrerVerwaltung(s) {
   ziel.appendChild(el('h4', null, 'Lehrkräfte, Anwesenheit und Räume'));
   ziel.appendChild(el('p', 'hinweis',
     'Lehrkräfte sind standardmäßig den ganzen Sprechtag anwesend. Nur wenn '
-    + 'jemand ausnahmsweise bloß zeitweise da ist, „nur zeitweise" anhaken '
+    + 'jemand ausnahmsweise bloß zeitweise da ist, das ⏱-Symbol anklicken '
     + 'und ein Zeitfenster setzen. Das Häkchen „½" markiert eine Halbtagskraft '
-    + '(dauerhaft); sie wählt dann eine Hälfte. Spalten sind über die '
-    + 'Überschrift sortierbar. Doppelt belegte Räume werden farblich markiert.'));
+    + '(dauerhaft); sie wählt dann eine Hälfte. Alle Spalten außer „Aktion" '
+    + 'sind über die Überschrift sortierbar. Doppelt belegte Räume werden '
+    + 'farblich markiert.'));
 
   // Sammelaktionen: alle als teilnehmend markieren (dann Dummys abhaken),
   // und alle Zeilen auf einmal speichern.
@@ -1851,47 +1896,71 @@ async function oeffneLehrerVerwaltung(s) {
     fi++;
   }
 
-  // Sortierung anwenden (Standard: Kürzel aufsteigend).
-  const sort = S.lehrerSort || { feld: 'kuerzel', richtung: 1 };
-  const reihen = daten.lehrer.slice().sort((a, b) => {
-    let va, vb;
-    if (sort.feld === 'dabei') {
-      va = parseInt(a.teilnahme, 10) === 1 ? 1 : 0;
-      vb = parseInt(b.teilnahme, 10) === 1 ? 1 : 0;
-    } else {
-      va = String(a[sort.feld] || '').toLowerCase();
-      vb = String(b[sort.feld] || '').toLowerCase();
-    }
-    if (va < vb) return -1 * sort.richtung;
-    if (va > vb) return 1 * sort.richtung;
-    return 0;
-  });
+  // Container, in dem die Tabelle lebt – so lässt sie sich beim Sortieren
+  // einzeln austauschen, ohne den ganzen Detailbereich (und die aufgeklappte
+  // Sprechtag-Karte) neu aufzubauen.
+  const tabBox = el('div', 'lehrer-tabelle-box');
+  ziel.appendChild(tabBox);
 
-  const tab = el('table', 'tabelle tabelle-breit');
-  const kopf = el('tr');
-  const spalten = [['kuerzel', 'Kürzel'], ['name', 'Name'], ['dabei', 'dabei'],
-                   [null, '½'], [null, 'Anwesenheit'], [null, 'Raum'],
-                   [null, 'Aktion']];
-  for (const [feld, titel] of spalten) {
-    const th = el('th', feld ? 'sortierbar' : null, titel);
-    if (feld) {
-      if (sort.feld === feld) {
-        th.appendChild(document.createTextNode(sort.richtung === 1 ? ' ▲' : ' ▼'));
-      }
-      th.addEventListener('click', () => {
-        if (S.lehrerSort && S.lehrerSort.feld === feld) {
-          S.lehrerSort.richtung *= -1;
-        } else {
-          S.lehrerSort = { feld, richtung: 1 };
+  // Vergleichswert einer Zeile je Sortierspalte.
+  const sortWert = (l, feld) => {
+    if (feld === 'dabei') return parseInt(l.teilnahme, 10) === 1 ? '1' : '0';
+    if (feld === 'halbtags') return parseInt(l.halbtags, 10) === 1 ? '1' : '0';
+    if (feld === 'anwesenheit') {
+      if (parseInt(l.halbtags, 10) === 1) return '1_halbtags';
+      return (l.anwesend_von || l.anwesend_bis) ? '2_fenster' : '0_ganz';
+    }
+    if (feld === 'raum') {
+      const r = S.stammdaten.raeume.find((x) => String(x.id) === String(l.raum_id));
+      return r ? (r.kuerzel || '').toLowerCase() : 'zzz';
+    }
+    return String(l[feld] || '').toLowerCase();
+  };
+
+  function baueTabelle() {
+    const sort = S.lehrerSort || { feld: 'kuerzel', richtung: 1 };
+    const reihen = daten.lehrer.slice().sort((a, b) => {
+      const va = sortWert(a, sort.feld), vb = sortWert(b, sort.feld);
+      if (va < vb) return -1 * sort.richtung;
+      if (va > vb) return 1 * sort.richtung;
+      return 0;
+    });
+
+    const tab = el('table', 'tabelle tabelle-breit');
+    const kopf = el('tr');
+    const spalten = [['kuerzel', 'Kürzel'], ['name', 'Name'], ['dabei', 'dabei'],
+                     ['halbtags', '½'], ['anwesenheit', 'Anwesenheit'],
+                     ['raum', 'Raum'], [null, 'Aktion']];
+    for (const [feld, titel] of spalten) {
+      const th = el('th', feld ? 'sortierbar' : null, titel);
+      if (feld) {
+        if (sort.feld === feld) {
+          th.appendChild(document.createTextNode(sort.richtung === 1 ? ' ▲' : ' ▼'));
         }
-        oeffneLehrerVerwaltung(s);
-      });
+        th.addEventListener('click', () => {
+          if (S.lehrerSort && S.lehrerSort.feld === feld) {
+            S.lehrerSort.richtung *= -1;
+          } else {
+            S.lehrerSort = { feld, richtung: 1 };
+          }
+          // NUR die Tabelle austauschen – kein Neuladen, kein Zuklappen.
+          const neu = baueTabelle();
+          tabBox.textContent = '';
+          tabBox.appendChild(neu);
+        });
+      }
+      kopf.appendChild(th);
     }
-    kopf.appendChild(th);
-  }
-  tab.appendChild(kopf);
+    tab.appendChild(kopf);
 
-  for (const l of reihen) {
+    for (const l of reihen) {
+      tab.appendChild(baueZeile(l));
+    }
+    return tab;
+  }
+
+  // Baut eine einzelne Tabellenzeile (schließt über s, konflikte, raumFarbe).
+  function baueZeile(l) {
     const tr = el('tr');
     tr.appendChild(el('td', null, l.kuerzel));
     tr.appendChild(el('td', null, l.name || ''));
@@ -1904,8 +1973,7 @@ async function oeffneLehrerVerwaltung(s) {
     tdD.appendChild(cb);
     tr.appendChild(tdD);
 
-    // Halbtags-Häkchen – setzt die Stammdaten direkt (dauerhaft), löst die
-    // frühere Redundanz eines eigenen Admin-Unterpunkts auf.
+    // Halbtags-Häkchen – setzt die Stammdaten direkt (dauerhaft).
     const tdH = el('td', 'mitte');
     const cbH = document.createElement('input');
     cbH.type = 'checkbox';
@@ -1977,9 +2045,11 @@ async function oeffneLehrerVerwaltung(s) {
     tdA.appendChild(speichern);
     tdA.appendChild(ausfall);
     tr.appendChild(tdA);
-    tab.appendChild(tr);
+    return tr;
   }
-  ziel.appendChild(tab);
+
+  // Tabelle erstmalig aufbauen und einhängen.
+  tabBox.appendChild(baueTabelle());
 
   // Bei langen Listen: „Alle speichern" auch am Seitenende, da man von oben
   // nach unten arbeitet.
@@ -2003,7 +2073,7 @@ function lehrerZeileDaten(s, l) {
     z.haelfte = wert('haelfte-' + s.id + '-' + l.lehrer_id);
   } else {
     const zf = $('#zf-' + s.id + '-' + l.lehrer_id);
-    if (zf && zf.checked) {
+    if (zf && zf.dataset.an === '1') {
       z.anwesend_von = wert('von-' + s.id + '-' + l.lehrer_id);
       z.anwesend_bis = wert('bis-' + s.id + '-' + l.lehrer_id);
     } else {

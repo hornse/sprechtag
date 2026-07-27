@@ -1,5 +1,27 @@
 # Changelog – sprechtag
 
+## v0.9.16 (Juli 2026) – ⏱-Umschalter, flackerfreies Sortieren, Aktiver Sprechtag
+
+### Geändert
+- **Zeitfenster über ⏱-Symbol** statt Text-Häkchen. Standard bleibt „ganzer
+  Tag"; ein Klick auf die kleine Uhr blendet das Zeitfenster ein.
+- **Sortieren ohne Flackern.** Beim Klick auf eine Spaltenüberschrift wird
+  nur noch die Tabelle selbst neu aufgebaut – die Sprechtag-Karte klappt
+  nicht mehr kurz zu und wieder auf, es wird nichts vom Server nachgeladen.
+- **Alle Datenspalten sortierbar** (Kürzel, Name, dabei, ½, Anwesenheit,
+  Raum); nur „Aktion" nicht. Sortieren nach Raum stellt doppelt belegte
+  Räume nebeneinander.
+
+### Neu
+- **Admin-Unterpunkt „Aktiver Sprechtag".** Ganz oben unter Administration;
+  zeigt direkt die Verwaltung des laufenden Sprechtags (Phase 1/2, nächstes
+  Datum) mit sofort geöffneter Lehrkraft-Tabelle. Gibt es keinen aktiven,
+  erscheint ein Hinweis. Admins landen nach dem Login direkt hier. Die Seite
+  „Sprechtage" bleibt für Liste, Anlegen und Archiv.
+
+### Tests
+- Sidebar- und Tabellen-Tests an die neue Struktur angepasst; alle grün.
+
 ## v0.9.15 (Juli 2026) – Lehrer-Tabelle: Zeitfenster optional, Sortierung, Konfliktfarben
 
 ### Geändert
