@@ -1,5 +1,18 @@
 # Changelog – sprechtag
 
+## v0.9.17 (Juli 2026) – Hilfe-Seite
+
+### Neu
+- **Hilfe & Anleitung, auch ohne Anmeldung erreichbar.** Neue Seite mit drei
+  Teilen: Schnellanleitung (nach Rollen), ausführliches Handbuch (Anmeldung,
+  Phasen, Buchen/Absagen, Anwesenheit, Räume, Ausfall, Datenschutz) und einer
+  FAQ mit aufklappbaren Fragen. Verlinkt vom Login-Screen und über einen
+  „Hilfe"-Eintrag in der Seitenleiste.
+- Der Text ist ein von der Schule redigierbarer Entwurf.
+
+### Tests
+- `tests/frontend_hilfe_test.js`.
+
 ## v0.9.16 (Juli 2026) – ⏱-Umschalter, flackerfreies Sortieren, Aktiver Sprechtag
 
 ### Geändert

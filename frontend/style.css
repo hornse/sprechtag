@@ -93,6 +93,17 @@ body {
 .toast.fehler { background: var(--rot); }
 .toast.info { background: var(--akzent); }
 
+/* Hilfe-Seite */
+.hilfe-nav { display: flex; gap: .75rem; flex-wrap: wrap; margin: .5rem 0 1rem; }
+.hilfe-sprung { font-size: .85rem; color: var(--akzent); text-decoration: none;
+                border: 1px solid var(--rand); border-radius: 6px;
+                padding: .3rem .7rem; }
+.hilfe-sprung:hover { background: var(--blau-hell); }
+.hilfe-liste { margin: .3rem 0 .8rem 1.1rem; padding: 0; }
+.hilfe-liste li { margin-bottom: .35rem; }
+.login-hilfe { margin-top: 1.2rem; font-size: .9rem; }
+.login-hilfe a { color: var(--akzent); cursor: pointer; }
+
 main { flex: 1; padding: 2rem 2.25rem; max-width: 76rem; }
 
 .karte {

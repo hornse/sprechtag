@@ -289,6 +289,7 @@ function zeichne() {
     'admin-daten': ansichtAdminDaten,
     mitteilungen: ansichtMitteilungen,
     sondierung: ansichtSondierung,
+    hilfe: ansichtHilfe,
   };
   (ansichten[S.ansicht] || ansichtLogin)(ziel);
 }
@@ -366,6 +367,9 @@ function zeichneNavigation() {
 
     nav.appendChild(navKnopf('sondierung', 'Sondierung'));
   }
+
+  // Hilfe für alle Rollen.
+  nav.appendChild(navKnopf('hilfe', 'Hilfe'));
 
   // Abmelden unten.
   const ab = el('button', 'nv nv-abmelden', 'Abmelden');
@@ -451,6 +455,179 @@ function ansichtLogin(ziel) {
     }
   });
   ziel.appendChild(form);
+
+  // Hilfe ohne Anmeldung erreichbar.
+  const hilfe = el('p', 'login-hilfe');
+  const link = el('a', null, 'Hilfe & Anleitung ansehen');
+  link.href = '#hilfe';
+  link.addEventListener('click', (e) => { e.preventDefault(); wechsleAnsicht('hilfe'); });
+  hilfe.appendChild(link);
+  ziel.appendChild(hilfe);
+}
+
+// ============================================================
+// ANSICHT: Hilfe (ohne Anmeldung erreichbar)
+// ============================================================
+// Der Text ist ein Entwurf und darf redigiert werden. Er ist bewusst
+// rollenübergreifend, weil die Seite auch vor dem Login erreichbar ist.
+function ansichtHilfe(ziel) {
+  ziel.appendChild(el('h2', null, 'Hilfe & Anleitung'));
+
+  // Sprungmarken
+  const nav = el('div', 'hilfe-nav');
+  for (const [ziel2, text] of [['hilfe-schnell', 'Schnellanleitung'],
+      ['hilfe-handbuch', 'Handbuch'], ['hilfe-faq', 'Häufige Fragen']]) {
+    const a = el('a', 'hilfe-sprung', text);
+    a.href = '#' + ziel2;
+    nav.appendChild(a);
+  }
+  ziel.appendChild(nav);
+
+  // Wenn nicht angemeldet: Weg zurück zur Anmeldung anbieten.
+  if (!S.user) {
+    ziel.appendChild(knopf('Zur Anmeldung', 'klein', () => wechsleAnsicht('login')));
+  }
+
+  // ---- Schnellanleitung ----
+  const schnell = sektion('Schnellanleitung');
+  schnell.id = 'hilfe-schnell';
+  schnell.appendChild(el('h4', null, 'Für Erziehungsberechtigte'));
+  schnell.appendChild(hilfeListe([
+    'Mit den eigenen WebUntis-Zugangsdaten anmelden – nicht mit dem Konto '
+      + 'des Kindes.',
+    'Oben den Sprechtag wählen (falls mehrere zur Auswahl stehen).',
+    'Das Kind auswählen, um dessen Termine es geht.',
+    'Bei der gewünschten Lehrkraft auf eine freie Uhrzeit tippen – der Termin '
+      + 'ist damit gebucht.',
+    'Unter „Meine Termine" sieht man alle Buchungen und kann sie wieder absagen.',
+  ]));
+  schnell.appendChild(el('h4', null, 'Für Lehrkräfte'));
+  schnell.appendChild(hilfeListe([
+    'Mit dem WebUntis-Zugang anmelden.',
+    'Unter „Meine Termine" sieht man das eigene Zeitraster mit gebuchten und '
+      + 'freien Slots.',
+    'In Phase 1 können Eltern per „Einladungen" gezielt eingeladen werden.',
+    'Ist ein Elternteil verhindert, kann die Lehrkraft stellvertretend für '
+      + 'einen freien Slot buchen.',
+  ]));
+  schnell.appendChild(el('h4', null, 'Für die Administration'));
+  schnell.appendChild(hilfeListe([
+    'Unter „Aktiver Sprechtag" wird der laufende Sprechtag direkt verwaltet.',
+    'Lehrkräfte, Anwesenheit und Räume werden in der Tabelle des Sprechtags '
+      + 'gepflegt; „Alle speichern" schreibt alle Zeilen auf einmal.',
+    'Das Erscheinungsbild (Logo, Farben, Texte) lässt sich unter '
+      + '„Erscheinungsbild" anpassen.',
+  ]));
+  ziel.appendChild(schnell);
+
+  // ---- Handbuch ----
+  const hb = sektion('Handbuch');
+  hb.id = 'hilfe-handbuch';
+
+  hb.appendChild(el('h4', null, 'Anmeldung'));
+  hb.appendChild(el('p', null,
+    'Die Anmeldung erfolgt mit den WebUntis-Zugangsdaten der Schule. '
+    + 'Erziehungsberechtigte verwenden ihren eigenen Elternzugang. Die App '
+    + 'speichert keine Passwörter; die Anmeldung wird bei WebUntis geprüft.'));
+
+  hb.appendChild(el('h4', null, 'Die zwei Phasen eines Sprechtags'));
+  hb.appendChild(el('p', null,
+    'Ein Sprechtag durchläuft in der Regel zwei Phasen. In Phase 1 können nur '
+    + 'Erziehungsberechtigte buchen, die von einer Lehrkraft eingeladen wurden '
+    + '– so kommen wichtige Gespräche zuerst zustande. In Phase 2 ist die '
+    + 'Buchung für alle geöffnet. Ist ein Sprechtag geschlossen, sind keine '
+    + 'Buchungen mehr möglich.'));
+
+  hb.appendChild(el('h4', null, 'Termine buchen und absagen'));
+  hb.appendChild(el('p', null,
+    'Buchungen sind einem bestimmten Kind zugeordnet, damit die Lehrkraft '
+    + 'weiß, um wen es geht. Ein Elternteil kann zur selben Uhrzeit nur einen '
+    + 'Termin haben – Doppelbuchungen bei zwei Lehrkräften gleichzeitig werden '
+    + 'verhindert. Abgesagte Termine geben den Slot sofort wieder frei.'));
+
+  hb.appendChild(el('h4', null, 'Anwesenheit der Lehrkräfte'));
+  hb.appendChild(el('p', null,
+    'Lehrkräfte sind normalerweise den ganzen Sprechtag anwesend. Über das '
+    + 'Uhr-Symbol (⏱) lässt sich ausnahmsweise ein Zeitfenster setzen. '
+    + 'Halbtagskräfte und Referendar:innen werden mit „½" markiert und wählen '
+    + 'dann die erste oder zweite Hälfte – entweder selbst oder über die '
+    + 'Administration.'));
+
+  hb.appendChild(el('h4', null, 'Räume und Doppelbelegung'));
+  hb.appendChild(el('p', null,
+    'Jeder Lehrkraft kann ein Raum zugewiesen werden. Wird ein Raum von '
+    + 'mehreren Personen genutzt, ist das erlaubt, wird aber farblich markiert '
+    + '– jede Farbe steht für einen mehrfach belegten Raum, sodass '
+    + 'zusammengehörige Zeilen leicht zu erkennen sind.'));
+
+  hb.appendChild(el('h4', null, 'Krankheitsausfall'));
+  hb.appendChild(el('p', null,
+    'Fällt eine Lehrkraft aus, gibt die Administration die Termine über das '
+    + '⊘-Symbol frei. Die betroffenen Erziehungsberechtigten werden '
+    + 'automatisch benachrichtigt, und die Lehrkraft ist danach nicht mehr '
+    + 'buchbar.'));
+
+  hb.appendChild(el('h4', null, 'Datenschutz'));
+  hb.appendChild(el('p', null,
+    'Es werden so wenige personenbezogene Daten wie möglich gespeichert. '
+    + 'Namen von Erziehungsberechtigten werden nur zur Laufzeit aus der '
+    + 'aktuellen Sitzung verwendet. Beim Archivieren eines Sprechtags werden '
+    + 'alle persönlichen Daten (Buchungen, Einladungen, Mitteilungen) '
+    + 'gelöscht; die wiederverwendbare Struktur bleibt erhalten.'));
+  ziel.appendChild(hb);
+
+  // ---- FAQ ----
+  const faq = sektion('Häufige Fragen');
+  faq.id = 'hilfe-faq';
+  const fragen = [
+    ['Ich kann mich nicht anmelden.',
+     'Bitte prüfen Sie, ob Sie den eigenen WebUntis-Zugang verwenden (nicht '
+     + 'den des Kindes) und ob Benutzername und Passwort stimmen. Bei '
+     + 'anhaltenden Problemen wenden Sie sich an das Sekretariat.'],
+    ['Warum sehe ich keine freien Termine?',
+     'Möglicherweise läuft gerade Phase 1, in der nur eingeladene '
+     + 'Erziehungsberechtigte buchen können, oder die Lehrkraft ist bereits '
+     + 'ausgebucht. In Phase 2 stehen wieder alle freien Slots offen.'],
+    ['Kann ich mehrere Kinder in einem Konto buchen?',
+     'Ja. Wählen Sie oben das jeweilige Kind aus; die Buchungen werden dem '
+     + 'richtigen Kind zugeordnet.'],
+    ['Ich habe einen Termin gebucht, aber es kam keine Bestätigung.',
+     'Bestätigungen werden über WebUntis versendet, sofern ein Dienstkonto '
+     + 'hinterlegt ist. Ihre Buchung ist auch ohne Nachricht gültig und unter '
+     + '„Meine Termine" sichtbar.'],
+    ['Wie sage ich einen Termin ab?',
+     'Unter „Meine Termine" lässt sich jeder Termin absagen; der Platz wird '
+     + 'sofort wieder frei.'],
+    ['Als Lehrkraft: Kann ich für Eltern buchen, die selbst nicht können?',
+     'Ja, in Ihrer eigenen Ansicht können Sie stellvertretend für ein freies '
+     + 'Zeitfenster buchen. Das Elternkonto wird dabei automatisch ermittelt.'],
+  ];
+  for (const [frage, antwort] of fragen) {
+    const f = block('faq-' + hilfeSchluessel(frage), frage);
+    f.appendChild(el('p', null, antwort));
+    faq.appendChild(f);
+  }
+  ziel.appendChild(faq);
+
+  ziel.appendChild(el('p', 'hinweis-klein',
+    'Diese Anleitung wird von der Schule gepflegt und kann sich ändern.'));
+}
+
+// Baut eine nummerierte Liste aus Strings.
+function hilfeListe(punkte) {
+  const ol = document.createElement('ol');
+  ol.className = 'hilfe-liste';
+  for (const p of punkte) {
+    const li = document.createElement('li');
+    li.textContent = p;
+    ol.appendChild(li);
+  }
+  return ol;
+}
+
+// Erzeugt einen einfachen Schlüssel aus einem Text (für block-Kennungen).
+function hilfeSchluessel(text) {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30);
 }
 
 // ============================================================
