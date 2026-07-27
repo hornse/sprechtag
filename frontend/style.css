@@ -108,12 +108,40 @@ main { flex: 1; padding: 2rem 2.25rem; max-width: 76rem; }
 /* Breite Tabelle darf die 62rem-Grenze sprengen (Lehrer-Zuweisung) */
 .tabelle-breit { width: 100%; }
 .tabelle td.mitte { text-align: center; }
-.raum-zelle { min-width: 15rem; white-space: nowrap; }
-.raum-zelle select { max-width: 12rem; }
-.raum-warnung { display: inline-block; margin-left: .5rem; font-size: .75rem;
-                color: var(--rot); }
+.raum-zelle { min-width: 15rem; }
+.raum-zelle select { max-width: 14rem; }
 .aktion-zelle { text-align: right; white-space: nowrap; }
 .tabellen-werkzeuge { display: flex; gap: .5rem; flex-wrap: wrap; margin: .6rem 0; }
+
+/* Zeilen oben ausrichten – sonst verrutscht die Zeile, wenn eine Zelle
+   (z. B. „N× belegt") höher ist als die Nachbarn. */
+.tabelle-breit td, .tabelle-breit th { vertical-align: top; }
+.tabelle-breit td.mitte { vertical-align: middle; }
+
+th.sortierbar { cursor: pointer; user-select: none; white-space: nowrap; }
+th.sortierbar:hover { color: var(--akzent); }
+
+/* Optionales Zeitfenster */
+.zeitfenster-opt { display: inline-flex; align-items: center; gap: .3rem;
+                   font-size: .8rem; color: var(--grau); cursor: pointer; }
+.zeitfenster-felder { margin-top: .35rem; }
+.zeitfenster-felder.versteckt { display: none; }
+
+/* Konfliktfarben – jede Tönung steht für einen mehrfach belegten Raum */
+.raum-warnung { display: block; margin-top: .2rem; font-size: .75rem; font-weight: 600; }
+.kf-a { --kf: #b3261e; } .kf-b { --kf: #8a6d00; } .kf-c { --kf: #1e7d3e; }
+.kf-d { --kf: #1d4e89; } .kf-e { --kf: #7b3fb3; } .kf-f { --kf: #b3005e; }
+.kf-g { --kf: #00707a; } .kf-h { --kf: #a34700; }
+select.konflikt.kf-a, select.konflikt.kf-b, select.konflikt.kf-c,
+select.konflikt.kf-d, select.konflikt.kf-e, select.konflikt.kf-f,
+select.konflikt.kf-g, select.konflikt.kf-h {
+  border-color: var(--kf); border-width: 2px;
+  background: color-mix(in srgb, var(--kf) 8%, #fff);
+}
+.raum-warnung.kf-a, .raum-warnung.kf-b, .raum-warnung.kf-c, .raum-warnung.kf-d,
+.raum-warnung.kf-e, .raum-warnung.kf-f, .raum-warnung.kf-g, .raum-warnung.kf-h {
+  color: var(--kf);
+}
 
 /* Kompakte Icon-Buttons für Tabellen-Aktionen */
 .icon-knopf { width: 2rem; height: 2rem; padding: 0; margin-left: .25rem;
@@ -280,7 +308,7 @@ label.inline { display: inline-flex; align-items: center; font-weight: 400; marg
 .gruppen-zeile { margin: .6rem 0; }
 select { display: block; width: 100%; margin-top: .25rem; padding: .5rem .6rem;
          font: inherit; font-weight: 400; border: 1px solid var(--rand); border-radius: 6px; }
-select.konflikt { border-color: var(--rot); background: #fdecea; }
+select.konflikt { border-width: 2px; }
 .zeit-feld { width: 5.5rem; }
 
 /* Lehrkraft-Auswahl */

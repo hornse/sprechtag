@@ -1,5 +1,28 @@
 # Changelog – sprechtag
 
+## v0.9.15 (Juli 2026) – Lehrer-Tabelle: Zeitfenster optional, Sortierung, Konfliktfarben
+
+### Geändert
+- **Anwesenheit standardmäßig „ganzer Tag".** Lehrkräfte sind normalerweise
+  den ganzen Sprechtag da; die Uhrzeitfelder sind darum ausgeblendet. Erst
+  ein Häkchen „nur zeitweise" blendet ein Zeitfenster ein (mit dem
+  Sprechtag-Rahmen vorbelegt). Das verschlankt die Übersicht deutlich.
+- **Tabelle sortierbar.** Klick auf „Kürzel", „Name" oder „dabei" sortiert
+  auf-/absteigend (Pfeil zeigt die Richtung).
+- **Mehrfach belegte Räume farblich gruppiert.** Jeder Konfliktraum bekommt
+  eine eigene, stabile Tönung aus einer Palette – man sieht sofort, welche
+  Zeilen sich denselben Raum teilen. Select-Rahmen und „N× belegt"-Hinweis
+  tragen dieselbe Farbe.
+- **„Alle speichern" auch am Seitenende** (zusätzlich zu oben), da man von
+  oben nach unten arbeitet.
+
+### Behoben
+- **Ausrichtung:** Bei ausgewähltem ½-Tag bzw. „N× belegt" verrutschte die
+  Zeile. Zellen werden jetzt oben ausgerichtet, alles bleibt in einer Linie.
+
+### Tests
+- `tests/frontend_tabelle_test.js`.
+
 ## v0.9.14 (Juli 2026) – ½-Häkchen springt nicht mehr
 
 ### Behoben

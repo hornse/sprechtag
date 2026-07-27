@@ -34,6 +34,7 @@ const S = {
   dienstkonto: null,   // Status des hinterlegten Dienstkontos
   marke: null,         // Branding: Schulname, Titel, Farben, Logo
   adminOffen: false,   // Admin-Gruppe in der Seitenleiste aufgeklappt?
+  lehrerSort: null,    // Sortierung der Lehrer-Tabelle {feld, richtung}
   gewaehlteLehrkraftAnsicht: null,   // Admin: wessen Termine werden gezeigt
   schuelerListe: null,               // Klassenliste für Einladungen
   svRaster: null,                    // Zeitraster der Lehrkraft (frei + belegt)
@@ -1726,12 +1727,14 @@ function sprechtagKarte(s) {
 }
 
 // ---- Lehrkräfte: Teilnahme, Zeitfenster, Räume ---------------------------
-// Baut die Anwesenheits-Tabellenzelle einer Lehrkraft: bei Halbtagskraft
-// ein Hälfte-Dropdown, sonst zwei Uhrzeitfelder. Als eigene Funktion, damit
-// sie beim Umschalten des ½-Häkchens einzeln neu erzeugt werden kann.
+// Baut die Anwesenheits-Tabellenzelle einer Lehrkraft.
+//  - Halbtagskraft (½): Hälfte-Dropdown.
+//  - sonst Standard „ganzer Tag"; ein Häkchen „nur zeitweise" blendet erst
+//    dann die von/bis-Felder ein (verschlankt die Übersicht).
 function anwesenheitZelle(s, l) {
   const td = el('td');
   const halbtags = parseInt(l.halbtags, 10) === 1;
+
   if (halbtags) {
     const sel = document.createElement('select');
     sel.id = 'haelfte-' + s.id + '-' + l.lehrer_id;
@@ -1752,18 +1755,44 @@ function anwesenheitZelle(s, l) {
       sel.appendChild(o);
     }
     td.appendChild(sel);
-  } else {
-    const mkZeit = (id, w) => {
-      const i = document.createElement('input');
-      i.type = 'text'; i.id = id; i.className = 'zeit-feld';
-      i.value = w ? String(w).slice(0, 5) : '';
-      i.placeholder = '--:--';
-      return i;
-    };
-    td.appendChild(mkZeit('von-' + s.id + '-' + l.lehrer_id, l.anwesend_von));
-    td.appendChild(document.createTextNode(' – '));
-    td.appendChild(mkZeit('bis-' + s.id + '-' + l.lehrer_id, l.anwesend_bis));
+    return td;
   }
+
+  // Nicht-Halbtags: Standard ganzer Tag, optional Zeitfenster.
+  const hatFenster = !!(l.anwesend_von || l.anwesend_bis);
+  const opt = el('label', 'zeitfenster-opt');
+  const cbZ = document.createElement('input');
+  cbZ.type = 'checkbox';
+  cbZ.id = 'zf-' + s.id + '-' + l.lehrer_id;
+  cbZ.checked = hatFenster;
+  opt.appendChild(cbZ);
+  opt.appendChild(document.createTextNode(' nur zeitweise'));
+  td.appendChild(opt);
+
+  const felder = el('div', 'zeitfenster-felder');
+  if (!hatFenster) felder.classList.add('versteckt');
+  const mkZeit = (id, w) => {
+    const i = document.createElement('input');
+    i.type = 'text'; i.id = id; i.className = 'zeit-feld';
+    i.value = w ? String(w).slice(0, 5) : '';
+    i.placeholder = '--:--';
+    return i;
+  };
+  felder.appendChild(mkZeit('von-' + s.id + '-' + l.lehrer_id, l.anwesend_von));
+  felder.appendChild(document.createTextNode(' – '));
+  felder.appendChild(mkZeit('bis-' + s.id + '-' + l.lehrer_id, l.anwesend_bis));
+  td.appendChild(felder);
+
+  cbZ.addEventListener('change', () => {
+    felder.classList.toggle('versteckt', !cbZ.checked);
+    if (cbZ.checked) {
+      // Sinnvolle Vorbelegung mit dem Sprechtag-Rahmen.
+      const v = felder.querySelector('#von-' + s.id + '-' + l.lehrer_id);
+      const b = felder.querySelector('#bis-' + s.id + '-' + l.lehrer_id);
+      if (v && !v.value) v.value = String(s.beginn || '').slice(0, 5);
+      if (b && !b.value) b.value = String(s.ende || '').slice(0, 5);
+    }
+  });
   return td;
 }
 
@@ -1785,10 +1814,11 @@ async function oeffneLehrerVerwaltung(s) {
 
   ziel.appendChild(el('h4', null, 'Lehrkräfte, Anwesenheit und Räume'));
   ziel.appendChild(el('p', 'hinweis',
-    'Anwesenheitszeiten leer lassen = ganzer Zeitraum. Das Häkchen „½" '
-    + 'markiert eine Halbtagskraft (gilt dauerhaft); sie wählt dann statt '
-    + 'Uhrzeiten eine Hälfte. Doppelt belegte Räume sind zulässig, werden '
-    + 'aber markiert.'));
+    'Lehrkräfte sind standardmäßig den ganzen Sprechtag anwesend. Nur wenn '
+    + 'jemand ausnahmsweise bloß zeitweise da ist, „nur zeitweise" anhaken '
+    + 'und ein Zeitfenster setzen. Das Häkchen „½" markiert eine Halbtagskraft '
+    + '(dauerhaft); sie wählt dann eine Hälfte. Spalten sind über die '
+    + 'Überschrift sortierbar. Doppelt belegte Räume werden farblich markiert.'));
 
   // Sammelaktionen: alle als teilnehmend markieren (dann Dummys abhaken),
   // und alle Zeilen auf einmal speichern.
@@ -1810,14 +1840,58 @@ async function oeffneLehrerVerwaltung(s) {
     () => alleLehrerSpeichern(s, daten.lehrer)));
   ziel.appendChild(werkzeuge);
 
+  // Konfliktfarben: jeder mehrfach belegte Raum bekommt eine eigene, stabile
+  // Tönung aus einer Palette – so sieht man auf einen Blick, welche Zeilen
+  // sich denselben Raum teilen.
+  const palette = ['kf-a', 'kf-b', 'kf-c', 'kf-d', 'kf-e', 'kf-f', 'kf-g', 'kf-h'];
+  const raumFarbe = {};
+  let fi = 0;
+  for (const rid of Object.keys(konflikte)) {
+    raumFarbe[rid] = palette[fi % palette.length];
+    fi++;
+  }
+
+  // Sortierung anwenden (Standard: Kürzel aufsteigend).
+  const sort = S.lehrerSort || { feld: 'kuerzel', richtung: 1 };
+  const reihen = daten.lehrer.slice().sort((a, b) => {
+    let va, vb;
+    if (sort.feld === 'dabei') {
+      va = parseInt(a.teilnahme, 10) === 1 ? 1 : 0;
+      vb = parseInt(b.teilnahme, 10) === 1 ? 1 : 0;
+    } else {
+      va = String(a[sort.feld] || '').toLowerCase();
+      vb = String(b[sort.feld] || '').toLowerCase();
+    }
+    if (va < vb) return -1 * sort.richtung;
+    if (va > vb) return 1 * sort.richtung;
+    return 0;
+  });
+
   const tab = el('table', 'tabelle tabelle-breit');
   const kopf = el('tr');
-  for (const t of ['Kürzel', 'Name', 'dabei', '½', 'Anwesenheit', 'Raum', 'Aktion']) {
-    kopf.appendChild(el('th', null, t));
+  const spalten = [['kuerzel', 'Kürzel'], ['name', 'Name'], ['dabei', 'dabei'],
+                   [null, '½'], [null, 'Anwesenheit'], [null, 'Raum'],
+                   [null, 'Aktion']];
+  for (const [feld, titel] of spalten) {
+    const th = el('th', feld ? 'sortierbar' : null, titel);
+    if (feld) {
+      if (sort.feld === feld) {
+        th.appendChild(document.createTextNode(sort.richtung === 1 ? ' ▲' : ' ▼'));
+      }
+      th.addEventListener('click', () => {
+        if (S.lehrerSort && S.lehrerSort.feld === feld) {
+          S.lehrerSort.richtung *= -1;
+        } else {
+          S.lehrerSort = { feld, richtung: 1 };
+        }
+        oeffneLehrerVerwaltung(s);
+      });
+    }
+    kopf.appendChild(th);
   }
   tab.appendChild(kopf);
 
-  for (const l of daten.lehrer) {
+  for (const l of reihen) {
     const tr = el('tr');
     tr.appendChild(el('td', null, l.kuerzel));
     tr.appendChild(el('td', null, l.name || ''));
@@ -1880,8 +1954,9 @@ async function oeffneLehrerVerwaltung(s) {
     }
     tdR.appendChild(sel);
     if (l.raum_id && konflikte[l.raum_id]) {
-      sel.classList.add('konflikt');
-      tdR.appendChild(el('span', 'raum-warnung',
+      const kf = raumFarbe[l.raum_id];
+      sel.classList.add('konflikt', kf);
+      tdR.appendChild(el('span', 'raum-warnung ' + kf,
         konflikte[l.raum_id] + '× belegt'));
     }
     tr.appendChild(tdR);
@@ -1889,21 +1964,11 @@ async function oeffneLehrerVerwaltung(s) {
     // Aktionen als Icon-Buttons in eigener, rechtsbündiger Spalte.
     const tdA = el('td', 'aktion-zelle');
     const speichern = iconKnopf('✓', 'speichern', 'Speichern', async () => {
-      const koerper = {
-        teilnahme: cb.checked ? 1 : 0,
-        raum_id: wert('raum-' + s.id + '-' + l.lehrer_id),
-      };
-      if (parseInt(l.halbtags, 10) === 1) {
-        koerper.haelfte = wert('haelfte-' + s.id + '-' + l.lehrer_id);
-      } else {
-        koerper.anwesend_von = wert('von-' + s.id + '-' + l.lehrer_id);
-        koerper.anwesend_bis = wert('bis-' + s.id + '-' + l.lehrer_id);
-      }
+      const koerper = lehrerZeileDaten(s, l);
       try {
         await api('/api/sprechtage/' + s.id + '/lehrer/' + l.lehrer_id,
           { method: 'PATCH', body: koerper });
         toast('Gespeichert: ' + l.kuerzel, 'ok');
-        oeffneLehrerVerwaltung(s);
       } catch (f) { toast(String(f.message), 'fehler'); }
     });
     // Ausfall: dezentes Symbol (durchgestrichener Kreis), Farbe erst im Dialog.
@@ -1915,26 +1980,43 @@ async function oeffneLehrerVerwaltung(s) {
     tab.appendChild(tr);
   }
   ziel.appendChild(tab);
+
+  // Bei langen Listen: „Alle speichern" auch am Seitenende, da man von oben
+  // nach unten arbeitet.
+  const werkzeugeUnten = el('div', 'tabellen-werkzeuge');
+  werkzeugeUnten.appendChild(knopf('Alle speichern', null,
+    () => alleLehrerSpeichern(s, daten.lehrer)));
+  ziel.appendChild(werkzeugeUnten);
+}
+
+// Liest die Formularwerte einer Lehrer-Zeile in ein API-Objekt. Respektiert
+// die drei Anwesenheits-Modi: Halbtags (Hälfte), Zeitfenster (von/bis) oder
+// ganzer Tag (leer). Von beiden Speicherwegen (einzeln + Sammel) genutzt.
+function lehrerZeileDaten(s, l) {
+  const cb = $('#tn-' + s.id + '-' + l.lehrer_id);
+  const z = {
+    lehrer_id: l.lehrer_id,
+    teilnahme: cb && cb.checked ? 1 : 0,
+    raum_id: wert('raum-' + s.id + '-' + l.lehrer_id),
+  };
+  if (parseInt(l.halbtags, 10) === 1) {
+    z.haelfte = wert('haelfte-' + s.id + '-' + l.lehrer_id);
+  } else {
+    const zf = $('#zf-' + s.id + '-' + l.lehrer_id);
+    if (zf && zf.checked) {
+      z.anwesend_von = wert('von-' + s.id + '-' + l.lehrer_id);
+      z.anwesend_bis = wert('bis-' + s.id + '-' + l.lehrer_id);
+    } else {
+      z.anwesend_von = '';   // ganzer Tag
+      z.anwesend_bis = '';
+    }
+  }
+  return z;
 }
 
 // Speichert alle Zeilen der Lehrer-Tabelle auf einmal (Sammel-Endpunkt).
 async function alleLehrerSpeichern(s, lehrer) {
-  const zeilen = [];
-  for (const l of lehrer) {
-    const cb = $('#tn-' + s.id + '-' + l.lehrer_id);
-    const z = {
-      lehrer_id: l.lehrer_id,
-      teilnahme: cb && cb.checked ? 1 : 0,
-      raum_id: wert('raum-' + s.id + '-' + l.lehrer_id),
-    };
-    if (parseInt(l.halbtags, 10) === 1) {
-      z.haelfte = wert('haelfte-' + s.id + '-' + l.lehrer_id);
-    } else {
-      z.anwesend_von = wert('von-' + s.id + '-' + l.lehrer_id);
-      z.anwesend_bis = wert('bis-' + s.id + '-' + l.lehrer_id);
-    }
-    zeilen.push(z);
-  }
+  const zeilen = lehrer.map((l) => lehrerZeileDaten(s, l));
   try {
     const d = await api('/api/sprechtage/' + s.id + '/lehrer',
       { method: 'PUT', body: { zeilen } });
