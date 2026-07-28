@@ -17,7 +17,7 @@ global.document = {
   querySelectorAll: () => [],
   createElement: (t) => fakeEl(t),
 };
-global.window = {};
+global.window = { location: { pathname: '/' } };
 global.fetch = async () => ({ ok: true, json: async () => ({ angemeldet: false }) });
 global.navigator = { clipboard: { writeText: async () => {} } };
 global.confirm = () => true;

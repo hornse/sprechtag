@@ -47,7 +47,42 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.17', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.18', 'db' => $db]);
+}
+
+// ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
+// Bewusst OHNE Login und OHNE persönliche oder Buchungsdaten: nur die
+// neutrale Raumzuordnung des aktiven Sprechtags (Kürzel, Name, Raum,
+// Anwesenheitszeit). Diese Information hängt am Sprechtag ohnehin öffentlich
+// aus. Keine Eltern, keine Slots, kein frei/belegt.
+if ($methode === 'GET' && ($seg[0] ?? '') === 'anzeige') {
+    $pdo = db($cfg);
+    $s = $pdo->query(
+        "SELECT id, name, datum, beginn, ende, phase FROM sprechtage
+         WHERE phase IN ('phase1','phase2')
+         ORDER BY datum ASC LIMIT 1")->fetch();
+    if (!$s) {
+        json_ok(['aktiv' => false, 'sprechtag' => null, 'lehrer' => []]);
+    }
+    $st = $pdo->prepare(
+        'SELECT l.kuerzel, l.name, l.halbtags,
+                sl.anwesend_von, sl.anwesend_bis,
+                r.kuerzel AS raum_kuerzel, r.name AS raum_name
+         FROM sprechtag_lehrer sl
+         JOIN lehrer l ON l.id = sl.lehrer_id
+         LEFT JOIN raeume r ON r.id = sl.raum_id
+         WHERE sl.sprechtag_id = ? AND sl.teilnahme = 1
+         ORDER BY r.kuerzel IS NULL, r.kuerzel, l.kuerzel');
+    $st->execute([(int)$s['id']]);
+    json_ok([
+        'aktiv' => true,
+        'sprechtag' => [
+            'name' => $s['name'], 'datum' => $s['datum'],
+            'beginn' => substr((string)$s['beginn'], 0, 5),
+            'ende' => substr((string)$s['ende'], 0, 5),
+        ],
+        'lehrer' => $st->fetchAll(),
+    ]);
 }
 
 // ---- /api/einstellungen (Branding) -------------------------

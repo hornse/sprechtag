@@ -1,5 +1,27 @@
 # Changelog – sprechtag
 
+## v0.9.18 (Juli 2026) – Anzeige-Modus für Info-Monitor (Signage)
+
+### Neu
+- **Öffentliche Raumübersicht unter `/anzeige`.** Vollbild-Kachelansicht für
+  einen Info-Monitor im Foyer: pro Lehrkraft eine Kachel mit Raum, Kürzel,
+  Name und Anwesenheitszeit (ganztägig / ab X / Zeitfenster). Ohne Login,
+  ohne Interaktion, aktualisiert sich jede Minute selbst.
+- **Bewusst datensparsam.** Der Endpunkt `/api/anzeige` liefert nur die
+  neutrale Raumzuordnung des aktiven Sprechtags (Phase 1/2, nächstes Datum)
+  und ausschließlich teilnehmende Lehrkräfte – keine Eltern, keine Buchungen,
+  kein frei/belegt. Diese Information hängt am Sprechtag ohnehin öffentlich
+  aus.
+- Im Admin-Bereich („Aktiver Sprechtag") führt ein Link direkt zum
+  Anzeige-Modus.
+
+### Hinweis
+- Der interaktive Buchungs-Einstieg über dieselbe Kacheloptik folgt als
+  eigener Schritt.
+
+### Tests
+- `tests/frontend_anzeige_test.js`.
+
 ## v0.9.17 (Juli 2026) – Hilfe-Seite
 
 ### Neu

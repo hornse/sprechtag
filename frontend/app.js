@@ -179,6 +179,13 @@ async function start() {
     wendeMarkeAn(S.marke);
   } catch { }
 
+  // Anzeige-Modus (Signage): feste öffentliche URL /anzeige. Kein Login,
+  // keine Seitenleiste – reine Vollbild-Anzeige mit Auto-Aktualisierung.
+  if (window.location.pathname.replace(/\/+$/, '') === '/anzeige') {
+    starteAnzeige();
+    return;
+  }
+
   try {
     const me = await api('/api/auth/me');
     S.user = me.angemeldet ? me : null;
@@ -192,6 +199,79 @@ async function start() {
     S.ansicht = 'login';
   }
   zeichne();
+}
+
+// ---------- Anzeige-Modus (Signage) --------------------------------------
+// Vollbild-Raumübersicht für einen öffentlichen Monitor. Kein Login, keine
+// Interaktion, Auto-Aktualisierung. Ersetzt die komplette Seite.
+function starteAnzeige() {
+  document.body.classList.add('anzeige-modus');
+  const wurzel = document.body;
+  wurzel.textContent = '';
+  const flaeche = el('div', 'anzeige');
+  wurzel.appendChild(flaeche);
+
+  const zeichneAnzeige = async () => {
+    let d;
+    try {
+      d = await api('/api/anzeige');
+    } catch {
+      return;   // bei Netzfehler alte Anzeige stehen lassen
+    }
+    flaeche.textContent = '';
+
+    const kopf = el('div', 'anzeige-kopf');
+    const titel = (S.marke && S.marke.marke_titel) || 'Sprechtag';
+    kopf.appendChild(el('div', 'anzeige-titel', titel));
+    if (d.aktiv && d.sprechtag) {
+      kopf.appendChild(el('div', 'anzeige-untertitel',
+        d.sprechtag.name + ' · ' + d.sprechtag.datum + ' · '
+        + d.sprechtag.beginn + '–' + d.sprechtag.ende + ' Uhr'));
+    }
+    flaeche.appendChild(kopf);
+
+    if (!d.aktiv) {
+      flaeche.appendChild(el('div', 'anzeige-leer',
+        'Zurzeit findet kein Sprechtag statt.'));
+      return;
+    }
+    if ((d.lehrer || []).length === 0) {
+      flaeche.appendChild(el('div', 'anzeige-leer',
+        'Die Raumaufteilung wird noch vorbereitet.'));
+      return;
+    }
+
+    const gitter = el('div', 'anzeige-gitter');
+    for (const l of d.lehrer) {
+      const kachel = el('div', 'anzeige-kachel');
+      kachel.appendChild(el('div', 'anzeige-raum',
+        l.raum_kuerzel || 'Raum offen'));
+      kachel.appendChild(el('div', 'anzeige-kuerzel', l.kuerzel));
+      if (l.name) kachel.appendChild(el('div', 'anzeige-name', l.name));
+      kachel.appendChild(el('div', 'anzeige-zeit', anzeigeZeit(l, d.sprechtag)));
+      gitter.appendChild(kachel);
+    }
+    flaeche.appendChild(gitter);
+
+    const fuss = el('div', 'anzeige-fuss');
+    fuss.appendChild(el('span', null,
+      'Aktualisiert ' + new Date().toLocaleTimeString('de-DE',
+        { hour: '2-digit', minute: '2-digit' }) + ' Uhr'));
+    flaeche.appendChild(fuss);
+  };
+
+  zeichneAnzeige();
+  setInterval(zeichneAnzeige, 60000);   // jede Minute aktualisieren
+}
+
+// Formuliert die Anwesenheitszeit einer Kachel in Klartext.
+function anzeigeZeit(l, sprechtag) {
+  const von = String(l.anwesend_von || '').slice(0, 5);
+  const bis = String(l.anwesend_bis || '').slice(0, 5);
+  if (!von && !bis) return 'ganztägig';
+  if (von && bis) return von + '–' + bis + ' Uhr';
+  if (von) return 'ab ' + von + ' Uhr';
+  return 'bis ' + bis + ' Uhr';
 }
 
 // Wendet die Marke auf Kopf, Titel, Fußzeile und Akzentfarben an.
@@ -1754,6 +1834,16 @@ function ansichtAdminAktiv(ziel) {
   const det = karte.tagName === 'DETAILS' ? karte : karte.querySelector('details');
   if (det) det.open = true;
   ziel.appendChild(karte);
+
+  // Hinweis auf den öffentlichen Anzeige-Modus (Signage).
+  const sig = el('p', 'hinweis-klein');
+  sig.appendChild(document.createTextNode('Für einen Info-Monitor im Foyer: '));
+  const a = el('a', null, 'Anzeige-Modus öffnen');
+  a.href = '/anzeige'; a.target = '_blank';
+  sig.appendChild(a);
+  sig.appendChild(document.createTextNode(
+    ' – zeigt die Raumaufteilung ohne Anmeldung, aktualisiert sich selbst.'));
+  ziel.appendChild(sig);
   // Lehrkraft-Verwaltung sofort aufklappen – das ist der häufigste Arbeitsweg.
   setTimeout(() => oeffneLehrerVerwaltung(s), 0);
 }
