@@ -127,6 +127,23 @@ body.anzeige-modus { background: var(--akzent); }
                 font-size: 1.1vw; opacity: .7; margin-top: 2vh; }
 .anzeige-seite { font-weight: 600; opacity: .9; }
 
+/* Interaktive Buchungs-Kacheln (Einstieg für Eltern) */
+.buchen-gitter { display: grid; gap: .8rem; margin-top: .8rem;
+                 grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); }
+.buchen-kachel { border: 1px solid var(--rand); border-radius: 10px;
+                 padding: .9rem 1rem; cursor: pointer; background: #fff;
+                 display: flex; flex-direction: column; gap: .2rem;
+                 transition: border-color .15s, box-shadow .15s, transform .05s; }
+.buchen-kachel:hover { border-color: var(--akzent);
+                       box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+.buchen-kachel:active { transform: scale(.99); }
+.buchen-kachel.gewaehlt { border-color: var(--akzent);
+                          background: var(--blau-hell); }
+.bk-raum { font-size: 1.15rem; font-weight: 700; color: var(--akzent); }
+.bk-name { font-weight: 600; }
+.bk-faecher { font-size: .8rem; color: var(--grau); }
+.bk-zeit { font-size: .8rem; color: var(--grau); margin-top: .15rem; }
+
 main { flex: 1; padding: 2rem 2.25rem; max-width: 76rem; }
 
 .karte {
@@ -352,20 +369,10 @@ select.konflikt { border-width: 2px; }
 .zeit-feld { width: 5.5rem; }
 
 /* Lehrkraft-Auswahl */
-.lehrer-liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-                gap: .6rem; margin: .8rem 0; }
-.lehrer-karte {
-  border: 1px solid var(--rand); border-radius: 6px; padding: .6rem .8rem;
-  cursor: pointer; display: flex; flex-direction: column; gap: .2rem; background: #fff;
-}
-.lehrer-karte:hover { border-color: var(--blau); background: var(--blau-hell); }
-.lehrer-karte.gewaehlt { border-color: var(--blau); border-width: 2px; background: var(--blau-hell); }
-.lehrer-karte .faecher { font-size: .78rem; color: var(--grau); }
-.lehrer-karte .rolle-badge {
-  font-size: .7rem; background: var(--blau-hell); color: var(--blau);
+.rolle-badge {
+  font-size: .7rem; background: var(--blau-hell); color: var(--akzent);
   border-radius: 999px; padding: .1rem .5rem; align-self: flex-start;
 }
-.lehrer-karte .raum, .lehrer-karte .zeitfenster { font-size: .75rem; color: var(--grau); }
 
 /* Zeitraster */
 .raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));

@@ -1,5 +1,21 @@
 # Changelog – sprechtag
 
+## v0.9.20 (Juli 2026) – Buchen als durchsuchbares Kachelraster
+
+### Geändert
+- **Der Buchungs-Einstieg zeigt die Lehrkräfte jetzt als Kacheln** (Raum,
+  Name, Fächer, Anwesenheitszeit) statt als schlichte Liste – dieselbe
+  ruhige Optik wie der Info-Monitor, aber interaktiv. Ein Klick auf eine
+  Kachel öffnet wie bisher das Zeitraster zum Buchen.
+- **Suchfeld** über den Kacheln: filtert bei vielen Lehrkräften sofort nach
+  Name, Kürzel, Fach oder Raum. Bewusst OHNE Auto-Blättern – anders als der
+  Info-Monitor, weil man beim Buchen gezielt sucht.
+- **Lehrkräfte werden automatisch geladen** (kein „Lehrkräfte anzeigen"-Knopf
+  mehr), mit Fehler-Fallback gegen Endlosschleifen.
+
+### Tests
+- `tests/frontend_buchen_kacheln_test.js`.
+
 ## v0.9.19 (Juli 2026) – Anzeige-Modus blättert um, Sortierung einstellbar
 
 ### Neu

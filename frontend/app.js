@@ -36,6 +36,8 @@ const S = {
   adminOffen: false,   // Admin-Gruppe in der Seitenleiste aufgeklappt?
   lehrerSort: null,    // Sortierung der Lehrer-Tabelle {feld, richtung}
   anzeigeEinst: null,  // Signage-Einstellungen (Sortierung)
+  buchenSuche: '',     // Filtertext für die Buchungs-Kacheln
+  lehrerLaedt: false,  // Auto-Load-Guard für die Lehrkraft-Liste
   gewaehlteLehrkraftAnsicht: null,   // Admin: wessen Termine werden gezeigt
   schuelerListe: null,               // Klassenliste für Einladungen
   svRaster: null,                    // Zeitraster der Lehrkraft (frei + belegt)
@@ -759,14 +761,16 @@ function ansichtBuchen(ziel) {
     kinder.map((k) => ({ wert: k.id, text: k.name || ('Schüler-ID ' + k.id) })), S.kind);
   kw.querySelector('select').addEventListener('change', (e) => {
     S.kind = parseInt(e.target.value, 10);
-    S.lehrerListe = null; S.gewaehlteLehrkraft = null; S.raster = [];
+    S.lehrerListe = null; S.lehrerLaedt = false; S.buchenSuche = '';
+    S.gewaehlteLehrkraft = null; S.raster = [];
     zeichne();
   });
   ziel.appendChild(kw);
 
-  // Lehrkräfte laden
+  // Lehrkräfte automatisch laden.
   if (S.lehrerListe === null) {
-    ziel.appendChild(knopf('Lehrkräfte anzeigen', null, () => ladeLehrerListe()));
+    ziel.appendChild(el('p', 'hinweis', 'Lehrkräfte werden geladen …'));
+    if (!S.lehrerLaedt) { S.lehrerLaedt = true; ladeLehrerListe(); }
     return;
   }
 
@@ -780,29 +784,60 @@ function ansichtBuchen(ziel) {
   }
 
   ziel.appendChild(el('h3', null, 'Lehrkraft wählen'));
-  const liste = el('div', 'lehrer-liste');
-  for (const l of alle) {
-    const karte = el('div', 'lehrer-karte'
-      + (S.gewaehlteLehrkraft === l.lehrer_id ? ' gewaehlt' : ''));
-    karte.appendChild(el('strong', null, (l.name || l.kuerzel)));
-    if (l.faecher) karte.appendChild(el('span', 'faecher', l.faecher));
-    if (parseInt(l.stunden, 10) === 0 && parseInt(l.klausuren, 10) > 0) {
-      karte.appendChild(el('span', 'hinweis-klein',
-        'im Referenzzeitraum nur Klausurtermin'));
-    }
-    if (l.rolle) karte.appendChild(el('span', 'rolle-badge', l.rolle));
-    if (l.raum_kuerzel) karte.appendChild(el('span', 'raum', 'Raum ' + l.raum_kuerzel));
-    if (l.anwesend_von) {
-      karte.appendChild(el('span', 'zeitfenster',
-        'anwesend ' + l.anwesend_von.slice(0, 5) + '–' + (l.anwesend_bis || '').slice(0, 5)));
-    }
-    karte.addEventListener('click', () => ladeRaster(l.lehrer_id));
-    liste.appendChild(karte);
-  }
-  ziel.appendChild(liste);
+
+  const gitter = el('div', 'buchen-gitter');
+
+  // Suchfeld: bei vielen Lehrkräften schneller als Scrollen. Filtert die
+  // Kacheln clientseitig nach Name, Kürzel, Fach oder Raum.
+  const suche = feld('Suchen (Name, Fach oder Raum)', 'buchen-suche', 'text',
+    S.buchenSuche || '');
+  suche.querySelector('input').addEventListener('input', (e) => {
+    S.buchenSuche = e.target.value;
+    zeichneBuchenKacheln(gitter, alle);
+  });
+  ziel.appendChild(suche);
+
+  zeichneBuchenKacheln(gitter, alle);
+  ziel.appendChild(gitter);
 
   if (S.gewaehlteLehrkraft && S.raster.length) {
     zeichneRaster(ziel, S.gewaehlteLehrkraft);
+  }
+}
+
+// Rendert die Lehrkraft-Kacheln (gefiltert nach dem Suchfeld) in den Container.
+function zeichneBuchenKacheln(gitter, alle) {
+  gitter.textContent = '';
+  const q = (S.buchenSuche || '').trim().toLowerCase();
+  const treffer = !q ? alle : alle.filter((l) => {
+    const heu = [l.name, l.kuerzel, l.faecher, l.raum_kuerzel]
+      .filter(Boolean).join(' ').toLowerCase();
+    return heu.includes(q);
+  });
+
+  if (treffer.length === 0) {
+    gitter.appendChild(el('p', 'hinweis', 'Keine Lehrkraft passt zur Suche.'));
+    return;
+  }
+
+  for (const l of treffer) {
+    const karte = el('div', 'buchen-kachel'
+      + (S.gewaehlteLehrkraft === l.lehrer_id ? ' gewaehlt' : ''));
+    if (l.raum_kuerzel) karte.appendChild(el('div', 'bk-raum', l.raum_kuerzel));
+    karte.appendChild(el('div', 'bk-name', l.name || l.kuerzel));
+    if (l.faecher) karte.appendChild(el('div', 'bk-faecher', l.faecher));
+    if (l.rolle) karte.appendChild(el('span', 'rolle-badge', l.rolle));
+    if (parseInt(l.stunden, 10) === 0 && parseInt(l.klausuren, 10) > 0) {
+      karte.appendChild(el('div', 'hinweis-klein', 'nur Klausurtermin'));
+    }
+    if (l.anwesend_von) {
+      karte.appendChild(el('div', 'bk-zeit',
+        anzeigeZeit(l, S.aktiverSprechtag)));
+    } else {
+      karte.appendChild(el('div', 'bk-zeit', 'ganztägig'));
+    }
+    karte.addEventListener('click', () => ladeRaster(l.lehrer_id));
+    gitter.appendChild(karte);
   }
 }
 
@@ -822,7 +857,13 @@ async function ladeLehrerListe() {
       meldung('Für dieses Kind sind noch keine Lehrkräfte hinterlegt. '
         + 'Die Zuordnung wird von der Schule vorbereitet.', 'info');
     } else { meldung(null); }
-  } catch (f) { meldung(String(f.message), 'fehler'); }
+  } catch (f) {
+    S.lehrerListe = { unterrichtend: [], sonderlehrer: [] };
+    meldung(String(f.message), 'fehler');
+  } finally {
+    S.lehrerLaedt = false;
+    zeichne();
+  }
 }
 
 async function ladeRaster(lehrerId) {
