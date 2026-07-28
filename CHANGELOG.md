@@ -1,5 +1,356 @@
 # Changelog – sprechtag
 
+## v0.9.19 (Juli 2026) – Anzeige-Modus blättert um, Sortierung einstellbar
+
+### Neu
+- **Seitenweises Umblättern auf dem Info-Monitor.** Bei vielen Lehrkräften
+  (~90) passt nicht alles auf einen Schirm. Der Anzeige-Modus zeigt jetzt
+  volle Seiten und blättert alle 10 Sekunden ruhig zur nächsten weiter
+  (kein wanderndes Scrollen). Oben rechts steht „Seite X / Y". Der
+  60-Sekunden-Datenrefresh läuft unabhängig davon weiter.
+- **Neuer Admin-Unterpunkt „Anzeige".** Dort lässt sich die Monitor-Adresse
+  ablesen und die Kachel-Sortierung wählen: nach Raum (räumlich gruppiert)
+  oder nach Kürzel (alphabetisch). Gespeichert in den Einstellungen, vom
+  öffentlichen Endpunkt `/api/anzeige` berücksichtigt.
+
+### Hinweis
+- Der interaktive Buchungs-Einstieg (angemeldet, ohne Auto-Blättern) bleibt
+  bewusst getrennt und folgt als eigener Schritt.
+
+### Tests
+- Anzeige- und Sidebar-Tests erweitert.
+
+## v0.9.18 (Juli 2026) – Anzeige-Modus für Info-Monitor (Signage)
+
+### Neu
+- **Öffentliche Raumübersicht unter `/anzeige`.** Vollbild-Kachelansicht für
+  einen Info-Monitor im Foyer: pro Lehrkraft eine Kachel mit Raum, Kürzel,
+  Name und Anwesenheitszeit (ganztägig / ab X / Zeitfenster). Ohne Login,
+  ohne Interaktion, aktualisiert sich jede Minute selbst.
+- **Bewusst datensparsam.** Der Endpunkt `/api/anzeige` liefert nur die
+  neutrale Raumzuordnung des aktiven Sprechtags (Phase 1/2, nächstes Datum)
+  und ausschließlich teilnehmende Lehrkräfte – keine Eltern, keine Buchungen,
+  kein frei/belegt. Diese Information hängt am Sprechtag ohnehin öffentlich
+  aus.
+- Im Admin-Bereich („Aktiver Sprechtag") führt ein Link direkt zum
+  Anzeige-Modus.
+
+### Hinweis
+- Der interaktive Buchungs-Einstieg über dieselbe Kacheloptik folgt als
+  eigener Schritt.
+
+### Tests
+- `tests/frontend_anzeige_test.js`.
+
+## v0.9.17 (Juli 2026) – Hilfe-Seite
+
+### Neu
+- **Hilfe & Anleitung, auch ohne Anmeldung erreichbar.** Neue Seite mit drei
+  Teilen: Schnellanleitung (nach Rollen), ausführliches Handbuch (Anmeldung,
+  Phasen, Buchen/Absagen, Anwesenheit, Räume, Ausfall, Datenschutz) und einer
+  FAQ mit aufklappbaren Fragen. Verlinkt vom Login-Screen und über einen
+  „Hilfe"-Eintrag in der Seitenleiste.
+- Der Text ist ein von der Schule redigierbarer Entwurf.
+
+### Tests
+- `tests/frontend_hilfe_test.js`.
+
+## v0.9.16 (Juli 2026) – ⏱-Umschalter, flackerfreies Sortieren, Aktiver Sprechtag
+
+### Geändert
+- **Zeitfenster über ⏱-Symbol** statt Text-Häkchen. Standard bleibt „ganzer
+  Tag"; ein Klick auf die kleine Uhr blendet das Zeitfenster ein.
+- **Sortieren ohne Flackern.** Beim Klick auf eine Spaltenüberschrift wird
+  nur noch die Tabelle selbst neu aufgebaut – die Sprechtag-Karte klappt
+  nicht mehr kurz zu und wieder auf, es wird nichts vom Server nachgeladen.
+- **Alle Datenspalten sortierbar** (Kürzel, Name, dabei, ½, Anwesenheit,
+  Raum); nur „Aktion" nicht. Sortieren nach Raum stellt doppelt belegte
+  Räume nebeneinander.
+
+### Neu
+- **Admin-Unterpunkt „Aktiver Sprechtag".** Ganz oben unter Administration;
+  zeigt direkt die Verwaltung des laufenden Sprechtags (Phase 1/2, nächstes
+  Datum) mit sofort geöffneter Lehrkraft-Tabelle. Gibt es keinen aktiven,
+  erscheint ein Hinweis. Admins landen nach dem Login direkt hier. Die Seite
+  „Sprechtage" bleibt für Liste, Anlegen und Archiv.
+
+### Tests
+- Sidebar- und Tabellen-Tests an die neue Struktur angepasst; alle grün.
+
+## v0.9.15 (Juli 2026) – Lehrer-Tabelle: Zeitfenster optional, Sortierung, Konfliktfarben
+
+### Geändert
+- **Anwesenheit standardmäßig „ganzer Tag".** Lehrkräfte sind normalerweise
+  den ganzen Sprechtag da; die Uhrzeitfelder sind darum ausgeblendet. Erst
+  ein Häkchen „nur zeitweise" blendet ein Zeitfenster ein (mit dem
+  Sprechtag-Rahmen vorbelegt). Das verschlankt die Übersicht deutlich.
+- **Tabelle sortierbar.** Klick auf „Kürzel", „Name" oder „dabei" sortiert
+  auf-/absteigend (Pfeil zeigt die Richtung).
+- **Mehrfach belegte Räume farblich gruppiert.** Jeder Konfliktraum bekommt
+  eine eigene, stabile Tönung aus einer Palette – man sieht sofort, welche
+  Zeilen sich denselben Raum teilen. Select-Rahmen und „N× belegt"-Hinweis
+  tragen dieselbe Farbe.
+- **„Alle speichern" auch am Seitenende** (zusätzlich zu oben), da man von
+  oben nach unten arbeitet.
+
+### Behoben
+- **Ausrichtung:** Bei ausgewähltem ½-Tag bzw. „N× belegt" verrutschte die
+  Zeile. Zellen werden jetzt oben ausgerichtet, alles bleibt in einer Linie.
+
+### Tests
+- `tests/frontend_tabelle_test.js`.
+
+## v0.9.14 (Juli 2026) – ½-Häkchen springt nicht mehr
+
+### Behoben
+- **Beim Setzen des „½"-Häkchens sprang die Seite nach oben und der Haken
+  war weg.** Ursache war der vollständige Neuaufbau des Detailbereichs
+  (`oeffneLehrerVerwaltung`) nach dem Speichern. Jetzt wird nur die
+  Anwesenheitszelle der betroffenen Zeile ausgetauscht (neue Funktion
+  `anwesenheitZelle`) – das Häkchen bleibt sichtbar, kein Scroll-Sprung,
+  kein Neuladen. Der Wechsel zwischen Uhrzeitfeldern und Hälfte-Dropdown
+  passiert in genau dieser einen Zelle.
+
+## v0.9.13 (Juli 2026) – ½-Bug behoben, Sammelspeichern
+
+### Behoben
+- **Das „½"-Häkchen verschwand beim Setzen.** Ursache: Jede Rückmeldung rief
+  `meldung()`, das die ganze Ansicht neu zeichnete und dabei die geöffnete
+  Sprechtag-Karte zuklappte. Aktionen in der Lehrer-Tabelle nutzen jetzt eine
+  Kurzmeldung (Toast), die nichts neu zeichnet; nur der Detailbereich der
+  Tabelle wird gezielt aktualisiert. Das Häkchen bleibt stehen.
+
+### Neu
+- **„Alle teilnehmen" / „Keine teilnehmen".** Setzt bzw. entfernt alle
+  Teilnahme-Häkchen im Formular – so hakt man alle an und entfernt nur die
+  Dummy-Lehrkräfte, ohne ein Dummy-Erkennungssystem.
+- **„Alle speichern".** Schreibt alle Zeilen der Lehrer-Tabelle auf einmal
+  über einen neuen Sammel-Endpunkt (`PUT /api/sprechtage/{id}/lehrer`, eine
+  Transaktion – alles oder nichts). Einzelnes Speichern je Zeile (✓) bleibt
+  erhalten.
+
+### Tests
+- `tests/frontend_sammelspeichern_test.js`.
+
+## v0.9.12 (Juli 2026) – Lehrer-Tabelle überarbeitet, Redundanz aufgelöst
+
+### Geändert
+- **Kein doppelter „Lehrkräfte & Räume"-Punkt mehr.** Der eigene
+  Admin-Unterpunkt entfällt; alles wird jetzt an einem Ort gepflegt: in der
+  Lehrer-Tabelle des jeweiligen Sprechtags. Das Halbtags-Kennzeichen sitzt
+  dort als eigene Spalte („½") und setzt weiterhin die dauerhaften
+  Stammdaten. Der WebUntis-Sync steht oben auf der Seite „Sprechtage". Aus
+  vier Admin-Unterseiten werden drei.
+- **Lehrer-Tabelle aufgeräumt.**
+  - Volle Fensterbreite (breiterer Inhaltsbereich), damit nichts quetscht.
+  - Raumspalte breiter, Kürzel + voller Name; Doppelbelegung erscheint als
+    Hinweis „N× belegt" NEBEN dem Dropdown statt abgeschnitten darin.
+  - Speichern und Ausfall sind jetzt kompakte Icon-Buttons (✓ / ⊘) in einer
+    eigenen, rechtsbündigen Aktionsspalte – ohne Dauer-Rotfärbung; die
+    Warnfarbe erscheint erst beim Hover bzw. im Bestätigungsdialog.
+- **Gerundetes Logo** bereits in v0.9.11 zurückgeholt.
+
+### Tests
+- Sidebar- und Halbtags-Tests an die neue Struktur angepasst; alle grün.
+
+## v0.9.11 (Juli 2026) – Flache Sektionen, aufgeräumte Karten
+
+### Geändert
+- **Keine Ausklapp-Boxen mehr im Hauptbereich der Administration.** Die vier
+  Admin-Unterseiten zeigen ihre Sektionen jetzt als flache Karten mit Titel
+  (neue `sektion()`-Funktion) – alles sofort sichtbar, kein Klick nötig.
+  Auch die Sektionen in „Meine Termine" (stellvertretend buchen, Halbtags-
+  Wahl), Einladungen und Mitteilungsversand sind flach.
+- **Aufklappbare Karten nur noch dort, wo mehrere gleichartige Einträge
+  untereinander stehen** (Sprechtag-Verwaltung, Klassenlisten bei den
+  Einladungen, Versand-Diagnose). Diese wurden optisch modernisiert:
+  klickbare Kopfzeile mit dezentem Pfeil statt grauem <details>-Dreieck.
+- **Gerundetes Logo zurück.** Das Logo sitzt in der Seitenleiste wieder in
+  einem abgerundeten, leicht getönten Kästchen.
+
+### Tests
+- Bestehende Tests an `sektion()` angepasst; alle grün.
+
+## v0.9.10 (Juli 2026) – Neues Layout mit Seitenleiste
+
+### Geändert
+- **Seitliche Navigation statt Kopfleiste.** Die App hat jetzt eine ruhige
+  Sidebar (Logo + Schulname oben, Menüpunkte darunter, angemeldete Person
+  und Fußzeile unten) statt der bisherigen horizontalen Reiter im Kopf.
+  Vorbild: projektstunden.hornse.de.
+- **Administration als aufklappbare Gruppe.** Die früher lange Admin-Seite
+  mit Ausklapp-Blöcken ist in vier fokussierte Unterseiten aufgeteilt, die
+  in der Sidebar unter „Administration" erscheinen:
+  Erscheinungsbild · Sprechtage · Lehrkräfte & Räume · Dienstkonto &
+  Schülerliste. Die Gruppe klappt automatisch auf, wenn eine Unterseite
+  aktiv ist.
+- **Mobiles Menü.** Auf schmalen Bildschirmen fährt die Seitenleiste über
+  einen Hamburger-Knopf ein und schließt nach der Auswahl bzw. per Tipp auf
+  den abgedunkelten Hintergrund.
+
+### Technisch
+- Reiner Darstellungsumbau: Views werden weiterhin dynamisch in `#ansicht`
+  gerendert. Die Ansichten-Map bekam die vier Admin-Unterseiten; die
+  Navigation baut Haupt- und Untereinträge und markiert die aktive Seite.
+- Alte Kopf-/Nav-Stile entfernt, neue Shell-/Sidebar-/Karten-Stile ergänzt.
+
+### Tests
+- `tests/frontend_sidebar_test.js`.
+
+## v0.9.9 (Juli 2026) – Halbtagskräfte und Krankheitsausfall
+
+### Neu
+- **Halbtagskräfte / Referendar:innen.** In der Administration lassen sich
+  Lehrkräfte als Halbtagskraft markieren (`lehrer.halbtags`). Sie leisten
+  nur einen halben Sprechtag und wählen je Sprechtag eine Hälfte:
+  - Die **Lehrkraft selbst** wählt unter „Meine Termine" erste/zweite Hälfte
+    oder ganzen Tag – das Raster passt sich sofort an.
+  - Die **Administration** kann die Hälfte in der Lehrer-Zuweisung ebenfalls
+    vorgeben (Dropdown statt Uhrzeitfelder).
+  - Die Hälfte bildet sich über das bestehende Fenster `anwesend_von/bis` ab;
+    `slot_haelfte_fenster()` rundet die Mitte auf eine echte Slotgrenze, damit
+    kein halber Slot und keine Lücke entsteht.
+- **Krankheitsausfall.** In der Lehrer-Zuweisung gibt es je Lehrkraft einen
+  „Ausfall"-Knopf: Er schaltet die Teilnahme ab, gibt alle gebuchten Termine
+  wieder frei und benachrichtigt die betroffenen Eltern per Mitteilung, dass
+  ihr Termin entfällt. Danach ist die Lehrkraft für Eltern nicht mehr buchbar.
+
+### Backend
+- `POST /api/sprechtage/{id}/lehrer/{lid}/ausfall` (admin).
+- PATCH der Lehrer-Zuweisung akzeptiert `haelfte` (erste/zweite/ganz) und
+  erlaubt der Lehrkraft, ihren eigenen Eintrag zu ändern (Selbstbedienung).
+- `PATCH /api/stammdaten/lehrer/{id}` setzt das Halbtags-Kennzeichen.
+- `/api/raster` liefert zusätzlich das Halbtags-Flag und das Fenster der
+  Lehrkraft.
+- Bug beim Bauen gefunden und behoben: `bu_sprechtag()` wird erst am
+  Dateiende geladen und stand in den neuen Sprechtag-Routen noch nicht zur
+  Verfügung – durch einen lokalen Fetch ersetzt.
+
+### Migration
+- `sql/11_halbtags.sql` (idempotent: `ADD COLUMN IF NOT EXISTS halbtags`).
+
+### Tests
+- `tests/frontend_halbtags_test.js`; `slot_haelfte_fenster`-Fälle in
+  `run_slots.php` (u. a. lückenloser Übergang, Rundung bei ungerader Spanne).
+
+## v0.9.8 (Juli 2026) – Individualisierung (Logo, Farben, Texte)
+
+### Neu
+- **Erscheinungsbild anpassbar (Administration → Erscheinungsbild).** Schule
+  kann Schulname, Titel, Untertitel, Fußzeile, zwei Akzentfarben und ein
+  Logo setzen. Änderungen gelten sofort für alle und werden bereits vor dem
+  Login angewandt. Muster übernommen aus hornse/schulprozesse, angepasst an
+  sprechtag (MariaDB, db()/json_*-Helfer).
+  - Farben steuern über die CSS-Variablen `--akzent`/`--akzent2` den Kopf,
+    die Primärbuttons und die aktive Navigation.
+  - Logo als Datei unter backend/data/logos/, ausgeliefert nur über
+    `GET /api/einstellungen/logo`. Upload per Base64 (umgeht das
+    63-KB-Proxylimit), max. 500 KB, PNG/JPG/SVG.
+  - Sicherheit: MIME-Prüfung per finfo (nicht Client-Angabe), SVG-Scan auf
+    Skripte/Event-Handler/iframes, Speicherort außerhalb der statisch
+    ausgelieferten Pfade, Zufallsdateiname.
+  - Alles über die bestehende `einstellungen`-Tabelle (Präfix `marke_`),
+    Standardwerte idempotent per `sql/10_branding.sql`.
+
+### Routen
+- `GET /api/einstellungen` (öffentlich, ohne Logo-Pfad),
+  `POST /api/einstellungen` (admin), `POST|DELETE /api/einstellungen/logo`,
+  `GET /api/einstellungen/logo` (öffentlich),
+  `POST /api/einstellungen/zuruecksetzen`.
+
+## v0.9.7 (Juli 2026) – Doppelbuchung verhindert, Auto-Load, Buchungsrechte
+
+### Behoben
+- **Doppelbuchung eines Elternteils zur selben Uhrzeit** (über Lehrergrenzen
+  hinweg) wird jetzt verhindert. Der UNIQUE-Key sperrte nur „ein Lehrer, ein
+  Slot"; buchten zwei Lehrkräfte dasselbe Elternteil für 15:30, ging beides
+  durch. Neu wird in einer Transaktion mit Zeilensperre (gegen Race
+  Conditions) geprüft, ob das Elternteil zu dieser Uhrzeit schon woanders
+  gebucht ist – gilt für normale und stellvertretende Buchung.
+- **Dasselbe Kind bei derselben Lehrkraft doppelt** (Fremdbuchung) wird
+  ebenfalls abgewiesen.
+
+### Geändert
+- **Einladungen und Mitteilungen laden automatisch.** Die „…laden"-Knöpfe
+  entfallen; die Listen erscheinen beim Öffnen. Mit Guard gegen Doppelladen
+  und Fehler-Fallback gegen Auto-Load-Schleifen.
+- **Stellvertretend buchen nur im eigenen Raster.** Ein Admin, der die
+  Termine einer anderen Lehrkraft ansieht, bekommt nur die Übersicht – nicht
+  das Recht, in fremdem Namen Eltern einzutragen. Doppelt abgesichert: das
+  Frontend blendet die Buchung aus, das Backend lehnt ein fremdes lehrer_id
+  mit 403 ab (auch für Admins).
+
+### Hinweis (kein Code)
+- **Versand-Absender:** Bestätigt, dass Mitteilungen über das Dienstkonto
+  aus config.php versendet werden (frischer Login → eigenes JWT), nicht über
+  das angemeldete Konto. Dessen mg:r-Scope ist für den Versand irrelevant.
+  In WebUntis gesetzte Mitteilungsrechte erzeugen kein mg:rw im JWT – „vom
+  Lehrerkonto senden" ist damit endgültig ausgeschlossen.
+
+## v0.9.6 (Juli 2026) – Kind-Suche findet wieder alle
+
+### Behoben
+- **Fremdbuchungs-Suche fand nicht alle Kinder** (z. B. „Paulowski"), obwohl
+  die Einladungsansicht sie sofort fand. Ursache: Beide teilten sich
+  `S.schuelerListe`, die von der Einladungsansicht auf einen gefilterten
+  Teilbestand eingeschränkt werden kann – die Fremdbuchung filterte dann
+  nur innerhalb dieses Restes. Die Kind-Suche fragt jetzt das Backend
+  eigenständig ab (`/api/schueler?suche=…`, entprellt) und durchsucht damit
+  immer die volle Datenbank – dieselbe Quelle wie die Einladung. Die
+  Vorab-Ladung der kompletten Schülerliste entfällt dadurch.
+
+## v0.9.5 (Juli 2026) – Termine laden automatisch, Schülerliste sofort bereit
+
+### Geändert
+- **„Meine Termine" lädt automatisch.** Der Knopf „Termine laden" entfällt;
+  das Raster wird beim Öffnen der Ansicht bzw. nach einem Seitenwechsel
+  selbst geladen. Ein Guard verhindert Mehrfachladen, ein Fehlerzustand
+  verhindert eine Auto-Load-Schleife (bei einem Fehler erscheint stattdessen
+  „Erneut versuchen").
+- **Schülerliste ist sofort einsatzbereit.** Sie wird zusammen mit dem
+  Raster geladen, sodass die Kind-Suche für die Fremdbuchung ohne zweiten
+  Knopfdruck sofort funktioniert – das Auffinden eines Kindes (z. B.
+  „Paulowski, Petra") geht damit ohne Umweg.
+
+## v0.9.4 (Juli 2026) – Kind-Suche, Absender-Frage geklärt
+
+### Neu
+- **Suchfeld für die stellvertretende Buchung.** Statt einer langen
+  Dropdown-Liste (die bei vielen Schülern unbrauchbar wurde und
+  abgeschnitten wirkte) wird jetzt über Name oder Klasse gesucht; die
+  Trefferliste ist anklickbar und auf 40 Einträge begrenzt. Das gewählte
+  Kind wird kompakt angezeigt und lässt sich mit einem Klick wechseln.
+
+### Geklärt (kein Code)
+- **Mitteilungen unter dem eigenen Lehrer-Konto sind nicht möglich.** Die
+  Sondierung mit dem Lehrer-Konto (`ho`, personType 2) ergab JWT-Scope
+  `mg:r` – nur lesen, nicht senden. WebUntis gibt Lehrkräften das
+  Senderecht per API nicht. Damit bleibt das Dienstkonto (mit `mg:rw`) der
+  einzige Absender; die Idee der Session-Wiederverwendung ist damit vom
+  Tisch. Die Sondierung hat ihren Zweck erfüllt: eine Sackgasse belegt,
+  bevor sie gebaut wurde.
+
+## v0.9.3 (Juli 2026) – Slot-Ansicht für Lehrkräfte, Scope-Sondierung
+
+### Neu
+- **„Meine Termine" ist jetzt eine Zeitraster-Ansicht** – dieselbe optische
+  Sprache wie bei den Eltern. Belegte Slots zeigen Zeit + Kind (+ Klasse)
+  und lassen sich direkt absagen; freie Slots sind anklickbar und werden
+  stellvertretend gebucht. Die frühere Tabelle und das separate
+  Buchungsformular entfallen – ein Raster für Übersicht und Notfallbuchung.
+  - Erst oben das Kind wählen, dann auf einen freien Slot tippen.
+  - `/api/raster` liefert für Lehrkräfte/Admins nun zusätzlich `buchung_id`,
+    `kind_name`, `klasse` und `gebucht_von` je belegtem Slot. Für Eltern
+    bleibt es bei „frei/belegt" ohne Namen (Datensparsamkeit unverändert).
+
+### Vorbereitung (Absender von Mitteilungen)
+- **Sondierung meldet jetzt die JWT-Scopes.** Der Bericht zeigt unter
+  `rest_zugang`, ob das angemeldete Konto Mitteilungen senden darf
+  (`mg:rw`) oder nur lesen (`mg:r`). Das beantwortet die offene Frage,
+  ob Mitteilungen unter dem eigenen Lehrer-Konto versendet werden können
+  oder das Dienstkonto nötig bleibt – zu prüfen mit einem **Lehrer-Konto**,
+  nicht mit dem Admin (dessen Token trug im Mitschnitt nur `mg:r`).
+
 ## v0.9.2 (Juli 2026) – Zeitstempel, phasengerechte Einladungen, Notfallbuchung
 
 ### Neu

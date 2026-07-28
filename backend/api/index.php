@@ -35,6 +35,7 @@ require_once __DIR__ . '/sondierung.php';
 require_once __DIR__ . '/mitteilungen.php';
 require_once __DIR__ . '/dienstkonto.php';
 require_once __DIR__ . '/schueler.php';
+require_once __DIR__ . '/einstellungen.php';
 
 $methode = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $pfad    = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
@@ -46,7 +47,56 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.2', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.19', 'db' => $db]);
+}
+
+// ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
+// Bewusst OHNE Login und OHNE persönliche oder Buchungsdaten: nur die
+// neutrale Raumzuordnung des aktiven Sprechtags (Kürzel, Name, Raum,
+// Anwesenheitszeit). Diese Information hängt am Sprechtag ohnehin öffentlich
+// aus. Keine Eltern, keine Slots, kein frei/belegt.
+if ($methode === 'GET' && ($seg[0] ?? '') === 'anzeige') {
+    $pdo = db($cfg);
+    $s = $pdo->query(
+        "SELECT id, name, datum, beginn, ende, phase FROM sprechtage
+         WHERE phase IN ('phase1','phase2')
+         ORDER BY datum ASC LIMIT 1")->fetch();
+    if (!$s) {
+        json_ok(['aktiv' => false, 'sprechtag' => null, 'lehrer' => []]);
+    }
+    // Sortierung aus den Einstellungen (Standard: nach Raum).
+    $sortWahl = (string)($pdo->query(
+        "SELECT wert FROM einstellungen WHERE schluessel = 'anzeige_sortierung'")
+        ->fetchColumn() ?: 'raum');
+    $orderBy = $sortWahl === 'kuerzel'
+        ? 'l.kuerzel'
+        : 'r.kuerzel IS NULL, r.kuerzel, l.kuerzel';
+    $st = $pdo->prepare(
+        'SELECT l.kuerzel, l.name, l.halbtags,
+                sl.anwesend_von, sl.anwesend_bis,
+                r.kuerzel AS raum_kuerzel, r.name AS raum_name
+         FROM sprechtag_lehrer sl
+         JOIN lehrer l ON l.id = sl.lehrer_id
+         LEFT JOIN raeume r ON r.id = sl.raum_id
+         WHERE sl.sprechtag_id = ? AND sl.teilnahme = 1
+         ORDER BY ' . $orderBy);
+    $st->execute([(int)$s['id']]);
+    json_ok([
+        'aktiv' => true,
+        'sprechtag' => [
+            'name' => $s['name'], 'datum' => $s['datum'],
+            'beginn' => substr((string)$s['beginn'], 0, 5),
+            'ende' => substr((string)$s['ende'], 0, 5),
+        ],
+        'sortierung' => $sortWahl === 'kuerzel' ? 'kuerzel' : 'raum',
+        'lehrer' => $st->fetchAll(),
+    ]);
+}
+
+// ---- /api/einstellungen (Branding) -------------------------
+// Eigene Guards je Route (GET öffentlich, POST/DELETE admin).
+if (marke_route($seg, $methode, $body, $cfg)) {
+    // marke_route hat bereits geantwortet und beendet.
 }
 
 // ============================================================
@@ -106,13 +156,27 @@ if (($seg[0] ?? '') === 'stammdaten') {
         auth_require();          // Guard VOR db(): 401 statt 503 bei DB-Ausfall
         $pdo = db($cfg);
         json_ok([
-            'lehrer' => $pdo->query('SELECT id, webuntis_id, kuerzel, name, aktiv
+            'lehrer' => $pdo->query('SELECT id, webuntis_id, kuerzel, name, aktiv, halbtags
                 FROM lehrer WHERE aktiv = 1 ORDER BY kuerzel')->fetchAll(),
             'raeume' => $pdo->query('SELECT id, webuntis_id, kuerzel, name
                 FROM raeume WHERE aktiv = 1 ORDER BY kuerzel')->fetchAll(),
             'sonderrollen' => $pdo->query('SELECT id, bezeichnung
                 FROM sonderrollen ORDER BY reihenfolge, bezeichnung')->fetchAll(),
         ]);
+    }
+
+    // ---- PATCH /api/stammdaten/lehrer/{id} : Halbtags-Kennzeichen ----
+    if ($methode === 'PATCH' && ($seg[1] ?? '') === 'lehrer'
+        && isset($seg[2]) && ctype_digit($seg[2])) {
+        auth_require_admin();
+        $pdo = db($cfg);
+        $lid = (int)$seg[2];
+        if (!array_key_exists('halbtags', $body)) {
+            json_err('Feld halbtags fehlt.');
+        }
+        $pdo->prepare('UPDATE lehrer SET halbtags = ? WHERE id = ?')
+            ->execute([(int)(bool)$body['halbtags'], $lid]);
+        json_ok(['ok' => true, 'halbtags' => (int)(bool)$body['halbtags']]);
     }
 
     if ($methode === 'POST' && ($seg[1] ?? '') === 'sync') {
@@ -128,6 +192,32 @@ if (($seg[0] ?? '') === 'stammdaten') {
             json_err('Stammdaten-Sync fehlgeschlagen: ' . $e->getMessage(), 502);
         }
     }
+}
+
+// ============================================================
+// ANZEIGE-EINSTELLUNGEN (Signage)
+// ============================================================
+if (($seg[0] ?? '') === 'anzeige-einstellungen') {
+    auth_require_admin();       // Guard VOR db()
+    $pdo = db($cfg);
+    if ($methode === 'GET') {
+        $wert = (string)($pdo->query(
+            "SELECT wert FROM einstellungen WHERE schluessel = 'anzeige_sortierung'")
+            ->fetchColumn() ?: 'raum');
+        json_ok(['sortierung' => $wert === 'kuerzel' ? 'kuerzel' : 'raum']);
+    }
+    if ($methode === 'POST') {
+        $sort = (string)($body['sortierung'] ?? '');
+        if (!in_array($sort, ['raum', 'kuerzel'], true)) {
+            json_err("sortierung muss 'raum' oder 'kuerzel' sein.");
+        }
+        $pdo->prepare(
+            'INSERT INTO einstellungen (schluessel, wert) VALUES (?, ?)
+             ON DUPLICATE KEY UPDATE wert = VALUES(wert)')
+            ->execute(['anzeige_sortierung', $sort]);
+        json_ok(['ok' => true, 'sortierung' => $sort]);
+    }
+    json_err('Methode nicht unterstützt.', 405);
 }
 
 // ============================================================
@@ -171,6 +261,16 @@ if (($seg[0] ?? '') === 'admins') {
 if (($seg[0] ?? '') === 'sprechtage') {
     $u = auth_require();         // Guard VOR db(): alle Sprechtag-Routen
     $pdo = db($cfg);
+
+    // Lokaler Sprechtag-Fetch – bu_sprechtag() aus buchungen.php wird erst
+    // am Dateiende geladen und steht hier noch nicht zur Verfügung.
+    $sprechtagHolen = static function (PDO $pdo, int $id): array {
+        $st = $pdo->prepare('SELECT * FROM sprechtage WHERE id = ?');
+        $st->execute([$id]);
+        $s = $st->fetch();
+        if (!$s) json_err('Sprechtag nicht gefunden', 404);
+        return $s;
+    };
 
     // ---- Liste ----
     if ($methode === 'GET' && !isset($seg[1])) {
@@ -306,28 +406,171 @@ if (($seg[0] ?? '') === 'sprechtage') {
             $st->execute([$sid]);
             json_ok(['lehrer' => $st->fetchAll()]);
         }
-        if ($methode === 'PATCH' && isset($seg[3]) && ctype_digit($seg[3])) {
+        // ---- PUT .../lehrer : alle Zeilen auf einmal speichern (admin) ----
+        // Erwartet body.zeilen = [{lehrer_id, teilnahme, raum_id, haelfte|
+        // anwesend_von/bis}, …]. In einer Transaktion, damit entweder alles
+        // oder nichts gespeichert wird.
+        if ($methode === 'PUT' && !isset($seg[3])) {
             auth_require_admin();
+            $zeilen = $body['zeilen'] ?? null;
+            if (!is_array($zeilen)) json_err('Feld zeilen (Array) fehlt.');
+            $s = $sprechtagHolen($pdo, $sid);
+
+            $stmt = $pdo->prepare('INSERT INTO sprechtag_lehrer
+                (sprechtag_id, lehrer_id, anwesend_von, anwesend_bis, raum_id, teilnahme, bemerkung)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE anwesend_von = VALUES(anwesend_von),
+                    anwesend_bis = VALUES(anwesend_bis), raum_id = VALUES(raum_id),
+                    teilnahme = VALUES(teilnahme), bemerkung = VALUES(bemerkung)');
+
+            $pdo->beginTransaction();
+            try {
+                $anzahl = 0;
+                foreach ($zeilen as $z) {
+                    $lid = (int)($z['lehrer_id'] ?? 0);
+                    if ($lid <= 0) continue;
+                    $von = ($z['anwesend_von'] ?? '') !== '' ? $z['anwesend_von'] : null;
+                    $bis = ($z['anwesend_bis'] ?? '') !== '' ? $z['anwesend_bis'] : null;
+                    if (isset($z['haelfte'])) {
+                        $h = (string)$z['haelfte'];
+                        if (!in_array($h, ['erste', 'zweite', 'ganz'], true)) {
+                            throw new RuntimeException("Ungültige Hälfte bei Lehrkraft $lid");
+                        }
+                        $f = slot_haelfte_fenster($s, $h);
+                        $von = $f['von']; $bis = $f['bis'];
+                    }
+                    foreach ([$von, $bis] as $w) {
+                        if ($w !== null && !preg_match('/^\d{2}:\d{2}(:\d{2})?$/', (string)$w)) {
+                            throw new RuntimeException("Ungültige Zeit bei Lehrkraft $lid");
+                        }
+                    }
+                    $stmt->execute([$sid, $lid, $von, $bis,
+                        ($z['raum_id'] ?? '') !== '' ? (int)$z['raum_id'] : null,
+                        isset($z['teilnahme']) ? (int)(bool)$z['teilnahme'] : 1,
+                        substr((string)($z['bemerkung'] ?? ''), 0, 190)]);
+                    $anzahl++;
+                }
+                $pdo->commit();
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                json_err('Speichern abgebrochen: ' . $e->getMessage(), 400);
+            }
+            json_ok(['ok' => true, 'gespeichert' => $anzahl]);
+        }
+
+        if ($methode === 'PATCH' && isset($seg[3]) && ctype_digit($seg[3])) {
+            $u = auth_require();
             $lid = (int)$seg[3];
-            foreach (['anwesend_von', 'anwesend_bis'] as $feld) {
-                $w = (string)($body[$feld] ?? '');
-                if ($w !== '' && !preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $w)) {
+            // Admins dürfen jede Lehrkraft pflegen; eine Lehrkraft darf ihren
+            // EIGENEN Eintrag anpassen (z. B. die Hälfte selbst wählen).
+            $eigene = ($u['rolle'] === 'lehrkraft'
+                && (int)($u['lehrer_id'] ?? 0) === $lid);
+            if ($u['rolle'] !== 'admin' && !$eigene) {
+                json_err('Nur die Administration oder die Lehrkraft selbst darf '
+                    . 'diesen Eintrag ändern.', 403);
+            }
+
+            // Kurzwahl „haelfte": erste/zweite/ganz -> Fenster berechnen.
+            // Überschreibt anwesend_von/bis, damit niemand Zeiten tippen muss.
+            $von = ($body['anwesend_von'] ?? '') !== '' ? $body['anwesend_von'] : null;
+            $bis = ($body['anwesend_bis'] ?? '') !== '' ? $body['anwesend_bis'] : null;
+            if (isset($body['haelfte'])) {
+                $h = (string)$body['haelfte'];
+                if (!in_array($h, ['erste', 'zweite', 'ganz'], true)) {
+                    json_err("haelfte muss 'erste', 'zweite' oder 'ganz' sein");
+                }
+                $s = $sprechtagHolen($pdo, $sid);
+                $f = slot_haelfte_fenster($s, $h);
+                $von = $f['von'];
+                $bis = $f['bis'];
+            }
+            foreach (['anwesend_von' => $von, 'anwesend_bis' => $bis] as $feld => $w) {
+                if ($w !== null && !preg_match('/^\d{2}:\d{2}(:\d{2})?$/', (string)$w)) {
                     json_err("$feld muss das Format HH:MM haben");
                 }
             }
+
+            // Eine Lehrkraft darf an ihrem eigenen Eintrag nur Fenster/Hälfte
+            // ändern – nicht Raum, Teilnahme oder Bemerkung (das bleibt Admin).
+            if ($eigene) {
+                $pdo->prepare('INSERT INTO sprechtag_lehrer
+                    (sprechtag_id, lehrer_id, anwesend_von, anwesend_bis, teilnahme)
+                    VALUES (?, ?, ?, ?, 1)
+                    ON DUPLICATE KEY UPDATE anwesend_von = VALUES(anwesend_von),
+                        anwesend_bis = VALUES(anwesend_bis)')
+                    ->execute([$sid, $lid, $von, $bis]);
+                json_ok(['ok' => true, 'anwesend_von' => $von, 'anwesend_bis' => $bis]);
+            }
+
             $pdo->prepare('INSERT INTO sprechtag_lehrer
                 (sprechtag_id, lehrer_id, anwesend_von, anwesend_bis, raum_id, teilnahme, bemerkung)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE anwesend_von = VALUES(anwesend_von),
                     anwesend_bis = VALUES(anwesend_bis), raum_id = VALUES(raum_id),
                     teilnahme = VALUES(teilnahme), bemerkung = VALUES(bemerkung)')
-                ->execute([$sid, $lid,
-                    ($body['anwesend_von'] ?? '') !== '' ? $body['anwesend_von'] : null,
-                    ($body['anwesend_bis'] ?? '') !== '' ? $body['anwesend_bis'] : null,
+                ->execute([$sid, $lid, $von, $bis,
                     ($body['raum_id'] ?? '') !== '' ? (int)$body['raum_id'] : null,
                     isset($body['teilnahme']) ? (int)(bool)$body['teilnahme'] : 1,
                     substr((string)($body['bemerkung'] ?? ''), 0, 190)]);
-            json_ok(['ok' => true]);
+            json_ok(['ok' => true, 'anwesend_von' => $von, 'anwesend_bis' => $bis]);
+        }
+
+        // ---- POST .../lehrer/{lid}/ausfall : Lehrkraft fällt aus ----
+        // Setzt teilnahme=0, gibt alle gebuchten Termine dieser Lehrkraft
+        // wieder frei und benachrichtigt die betroffenen Eltern, dass ihr
+        // Termin entfällt. Für krankheitsbedingte Ausfälle.
+        if ($methode === 'POST' && isset($seg[3]) && ctype_digit($seg[3])
+            && ($seg[4] ?? '') === 'ausfall') {
+            auth_require_admin();
+            $lid = (int)$seg[3];
+            $s = $sprechtagHolen($pdo, $sid);
+
+            // Teilnahme abschalten (Eintrag ggf. anlegen).
+            $pdo->prepare('INSERT INTO sprechtag_lehrer
+                (sprechtag_id, lehrer_id, teilnahme) VALUES (?, ?, 0)
+                ON DUPLICATE KEY UPDATE teilnahme = 0')
+                ->execute([$sid, $lid]);
+
+            // Betroffene Buchungen einsammeln, dann freigeben.
+            $stB = $pdo->prepare(
+                'SELECT id, slot_beginn, eltern_user_id, schueler_id
+                 FROM buchungen WHERE sprechtag_id = ? AND lehrer_id = ?');
+            $stB->execute([$sid, $lid]);
+            $buchungen = $stB->fetchAll();
+
+            $stL = $pdo->prepare('SELECT kuerzel, name FROM lehrer WHERE id = ?');
+            $stL->execute([$lid]);
+            $le = $stL->fetch() ?: [];
+            $lehrkraft = (string)($le['name'] ?: ($le['kuerzel'] ?? 'die Lehrkraft'));
+            $grund = substr((string)($body['nachricht'] ?? ''), 0, 500);
+
+            $pdo->prepare('DELETE FROM buchungen WHERE sprechtag_id = ? AND lehrer_id = ?')
+                ->execute([$sid, $lid]);
+
+            // Betroffene Eltern benachrichtigen (Absage). Fehler beim
+            // einzelnen Versand dürfen die Freigabe nicht rückgängig machen.
+            $zugang = dk_lesen($cfg, $pdo);
+            $benachrichtigt = 0;
+            foreach ($buchungen as $b) {
+                try {
+                    $t = mit_text_absage((string)$s['name'], (string)$s['datum'],
+                        (string)$b['slot_beginn'], $lehrkraft, $grund);
+                    mit_einreihen_und_senden($cfg, $pdo, $sid,
+                        (int)$b['eltern_user_id'], 'absage', $t['betreff'], $t['text'],
+                        $zugang['benutzer'] ?? null, $zugang['passwort'] ?? null,
+                        (int)$b['schueler_id']);
+                    $benachrichtigt++;
+                } catch (Throwable $e) {
+                    error_log('sprechtag: Ausfall-Absage nicht vorgemerkt: '
+                        . $e->getMessage());
+                }
+            }
+
+            json_ok(['ok' => true,
+                'freigegeben'   => count($buchungen),
+                'benachrichtigt'=> $benachrichtigt,
+                'hinweis' => count($buchungen) . ' Termin(e) freigegeben, '
+                    . $benachrichtigt . ' Elternteil(e) benachrichtigt.']);
         }
     }
 

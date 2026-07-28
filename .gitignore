@@ -1,3 +1,4 @@
 backend/config.php
 bundles/*.zip
 .DS_Store
+backend/data/
