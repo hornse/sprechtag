@@ -5,48 +5,35 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Sprechtag FRG</title>
-<link rel="stylesheet" href="/style.css?v=20260728104551">
+<link rel="stylesheet" href="/style.css?v=20260728110322">
 </head>
 <body>
 
-<div class="shell">
-  <!-- Mobile: Kopfleiste mit Hamburger -->
-  <div class="mobil-leiste">
-    <button type="button" id="mobil-menue" class="hamburger" aria-label="Menü">
-      <span></span><span></span><span></span>
-    </button>
-    <span id="mobil-titel" class="mobil-titel">Sprechtag</span>
+<header class="kopf">
+  <div class="kopf-zeile">
+    <div>
+      <h1>Sprechtag <span class="frg">FRG</span></h1>
+      <p class="untertitel">Elternsprechtag · Friedrich-Rückert-Gymnasium Düsseldorf</p>
+    </div>
+    <div id="benutzer-box" class="benutzer-box versteckt">
+      <span id="benutzer-name"></span>
+      <span id="benutzer-rolle" class="badge"></span>
+      <button type="button" id="abmelden" class="klein">Abmelden</button>
+    </div>
   </div>
+  <nav id="navigation" class="navigation versteckt"></nav>
+</header>
 
-  <aside id="seitenleiste" class="seitenleiste">
-    <div class="marke">
-      <img id="marke-logo" class="marke-logo versteckt" alt="Logo">
-      <div class="marke-titel" id="marke-titel">Sprechtag</div>
-      <div class="marke-untertitel" id="marke-untertitel">Friedrich-Rückert-Gymnasium Düsseldorf</div>
-    </div>
-    <nav id="navigation" class="navigation"></nav>
-    <div class="seitenleiste-fuss">
-      <div id="benutzer-box" class="benutzer-box versteckt">
-        <span id="benutzer-name"></span>
-        <span id="benutzer-rolle" class="badge"></span>
-      </div>
-      <span id="marke-fusszeile">sprechtag v0.9.18 · GPL-3.0-or-later · Sebastian Horn</span>
-    </div>
-  </aside>
+<main id="app">
+  <section id="ansicht" class="karte">
+    <p class="hinweis">Wird geladen …</p>
+  </section>
+</main>
 
-  <!-- Overlay zum Schließen des mobilen Menüs -->
-  <div id="menue-overlay" class="menue-overlay"></div>
+<footer class="fuss">
+  <span>sprechtag v0.9.2 · GPL-3.0-or-later · Sebastian Horn</span>
+</footer>
 
-  <!-- Kurzmeldung ohne Neuzeichnen (Toast) -->
-  <div id="toast" class="toast versteckt"></div>
-
-  <main id="app">
-    <section id="ansicht" class="karte">
-      <p class="hinweis">Wird geladen …</p>
-    </section>
-  </main>
-</div>
-
-<script src="/app.js?v=20260728104551"></script>
+<script src="/app.js?v=20260728110322"></script>
 </body>
 </html>

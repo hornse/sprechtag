@@ -12,12 +12,11 @@ function fakeEl(tag) {
     querySelectorAll(){ return []; }, remove(){}, open: false };
 }
 global.document = {
-  documentElement: { style: { setProperty(){} } },
   querySelector: (sel) => elemente[sel] || (elemente[sel] = fakeEl('div')),
   querySelectorAll: () => [],
   createElement: (t) => fakeEl(t),
 };
-global.window = { location: { pathname: '/' } };
+global.window = {};
 global.fetch = async () => ({ ok: true, json: async () => ({ angemeldet: false }) });
 global.navigator = { clipboard: { writeText: async () => {} } };
 global.confirm = () => true;

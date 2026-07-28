@@ -23,39 +23,6 @@ function slot_zeit(int $minuten): string
 }
 
 /**
- * Berechnet das Anwesenheitsfenster einer Halbtagskraft aus dem
- * Sprechtag-Rahmen. Die Mitte wird auf die Slotlänge gerundet, damit
- * die Grenze auf einem echten Slot-Anfang liegt (sonst entstünde ein
- * halber Slot). Reine Funktion – testbar ohne DB.
- *
- * @param string $haelfte 'erste' | 'zweite' | 'ganz'
- * @return array{von:?string, bis:?string}  null = ganzer Zeitraum
- */
-function slot_haelfte_fenster(array $sprechtag, string $haelfte): array
-{
-    if ($haelfte === 'ganz') {
-        return ['von' => null, 'bis' => null];
-    }
-    $beginn = slot_min((string)$sprechtag['beginn']);
-    $ende   = slot_min((string)$sprechtag['ende']);
-    $laenge = max(1, (int)($sprechtag['slot_minuten'] ?? 10));
-
-    // Mitte auf ein Vielfaches der Slotlänge ab beginn runden.
-    $spanne = $ende - $beginn;
-    $mitteRoh = $beginn + intdiv($spanne, 2);
-    $mitte = $beginn + intdiv(($mitteRoh - $beginn) + $laenge - 1, $laenge) * $laenge;
-    $mitte = max($beginn, min($ende, $mitte));
-
-    if ($haelfte === 'erste') {
-        return ['von' => slot_zeit($beginn), 'bis' => slot_zeit($mitte)];
-    }
-    if ($haelfte === 'zweite') {
-        return ['von' => slot_zeit($mitte), 'bis' => slot_zeit($ende)];
-    }
-    return ['von' => null, 'bis' => null];
-}
-
-/**
  * Erzeugt das Zeitraster einer Lehrkraft für einen Sprechtag.
  *
  * Berücksichtigt:
