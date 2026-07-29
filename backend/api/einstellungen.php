@@ -25,16 +25,20 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../helfer.php';
 
-/** Standardwerte – Rückfall, falls ein Schlüssel fehlt. */
+/** Standardwerte – Rückfall, falls ein Schlüssel fehlt. Bewusst NEUTRAL, damit
+ *  das Tool an jeder Schule ohne schulspezifische Reste startet. Die echten
+ *  Werte (Schulname, Kontakt …) pflegt die Schule im Admin unter „Erscheinungsbild". */
 function marke_standard(): array
 {
     return [
-        'marke_schulname'  => 'Friedrich-Rückert-Gymnasium Düsseldorf',
+        'marke_schulname'  => 'Ihre Schule',
         'marke_titel'      => 'Sprechtag',
-        'marke_untertitel' => 'Elternsprechtag · Friedrich-Rückert-Gymnasium Düsseldorf',
+        'marke_untertitel' => 'Elternsprechtag',
         'marke_farbe'      => '#1d4e89',
         'marke_farbe2'     => '#1e7d3e',
-        'marke_fusszeile'  => 'sprechtag · GPL-3.0-or-later · Sebastian Horn',
+        'marke_fusszeile'  => 'sprechtag · GPL-3.0-or-later',
+        // Kontakt für Rückfragen (E-Mail o. Ä.). Leer = neutraler Hinweistext.
+        'marke_kontakt'    => '',
     ];
 }
 
@@ -69,6 +73,21 @@ function marke_schreiben(PDO $pdo, string $schluessel, string $wert): void
         'INSERT INTO einstellungen (schluessel, wert) VALUES (?, ?)
          ON DUPLICATE KEY UPDATE wert = VALUES(wert)')
         ->execute([$schluessel, $wert]);
+}
+
+/** Liest einen einzelnen Branding-Wert mit neutralem Fallback. */
+function marke_wert(PDO $pdo, string $schluessel, string $fallback = ''): string
+{
+    $st = $pdo->prepare('SELECT wert FROM einstellungen WHERE schluessel = ?');
+    $st->execute([$schluessel]);
+    $w = $st->fetchColumn();
+    return ($w !== false && (string)$w !== '') ? (string)$w : $fallback;
+}
+
+/** Schulname aus dem Branding (für E-Mail-Signaturen o. Ä.). */
+function marke_schulname(PDO $pdo): string
+{
+    return marke_wert($pdo, 'marke_schulname', 'Ihre Schule');
 }
 
 /** #RRGGBB? */
@@ -166,6 +185,7 @@ function marke_route(array $seg, string $methode, array $body, array $cfg): bool
             'marke_titel'      => ['text', 40],
             'marke_untertitel' => ['text', 120],
             'marke_fusszeile'  => ['text', 200],
+            'marke_kontakt'    => ['text', 160],
             'marke_farbe'      => ['farbe', 0],
             'marke_farbe2'     => ['farbe', 0],
         ];

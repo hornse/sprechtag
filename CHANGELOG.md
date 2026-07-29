@@ -1,5 +1,32 @@
 # Changelog – sprechtag
 
+## v0.9.32 (Juli 2026) – Schulspezifische Inhalte ausgelagert – benötigt Migration `sql/15_kontakt.sql`
+
+### Geändert
+- **Wiederverwendbar an anderen Schulen.** Alle fest im Code stehenden
+  schulspezifischen Texte sind ausgelagert:
+  - Neuer Branding-Wert **„Kontakt für Rückfragen"** (im Admin unter
+    „Erscheinungsbild"). Die Hinweise für Eltern (Anmeldeprobleme, keine
+    Kinder/Lehrkräfte zugeordnet) nutzen jetzt diesen Wert; ohne Eintrag
+    erscheint ein neutraler Text ohne Adresse.
+  - Die **Signatur der Terminbestätigung** nutzt den konfigurierten Schulnamen
+    statt eines festen Namens.
+  - Standardwerte und der Branding-Seed sind neutral („Ihre Schule");
+    schulspezifische Angaben pflegt jede Schule selbst im Admin.
+
+### Migration
+- `sql/15_kontakt.sql` legt den Schlüssel `marke_kontakt` an (leer). Bestehende
+  Branding-Werte (Schulname etc.) bleiben unverändert.
+
+### Hinweis für diese Installation
+- Der Schulname steht bereits in der Datenbank und bleibt erhalten. Die
+  WebUntis-Adresse bitte einmalig im Admin unter „Erscheinungsbild" →
+  „Kontakt für Rückfragen" eintragen (webuntis@rueckert-gymnasium.de).
+
+### Tests
+- `tests/frontend_kontakt_test.js`; `run_mitteilungen.php` um den Schulnamen-
+  Parameter erweitert.
+
 ## v0.9.31 (Juli 2026) – Sonderlehrkräfte flackerfrei, FAQ-Kontakt
 
 ### Behoben

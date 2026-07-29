@@ -502,7 +502,7 @@ if (($seg[0] ?? '') === 'buchungen') {
                 'slot_beginn' => $slot,
                 'name'        => (string)($le['name'] ?: ($le['kuerzel'] ?? '')),
                 'raum_kuerzel'=> (string)($le['raum_kuerzel'] ?? ''),
-            ]]);
+            ]], marke_schulname($pdo));
             $zugang = dk_lesen($cfg, $pdo);
             foreach ($elternIds as $eid) {
                 $mitteilung = mit_einreihen_und_senden($cfg, $pdo, $sid, (int)$eid,
@@ -665,7 +665,7 @@ if (($seg[0] ?? '') === 'buchungen') {
                  ORDER BY b.slot_beginn');
             $st->execute([$sid, $elternUserId]);
             $t = mit_text_bestaetigung((string)$s['name'], (string)$s['datum'],
-                $st->fetchAll());
+                $st->fetchAll(), marke_schulname($pdo));
             // Ältere offene Bestätigungen ersetzen – es gilt der aktuelle Stand
             $pdo->prepare("DELETE FROM mitteilungen WHERE sprechtag_id = ?
                            AND empfaenger_user_id = ? AND anlass = 'bestaetigung'

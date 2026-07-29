@@ -166,6 +166,15 @@ function auswahl(label, id, optionen, wert) {
 }
 function wert(id) { const e = $('#' + id); return e ? e.value.trim() : ''; }
 
+// Baut einen Kontakt-Hinweis aus dem Branding-Wert marke_kontakt. Ist kein
+// Kontakt hinterlegt, wird ein neutraler Satz ohne schulspezifische Angabe
+// verwendet – so bleibt das Tool an jeder Schule sinnvoll.
+function kontaktSatz(einleitung) {
+  const k = (S.marke && S.marke.marke_kontakt) ? String(S.marke.marke_kontakt).trim() : '';
+  if (k) return einleitung + ' ' + k + '.';
+  return einleitung + ' die Schule.';
+}
+
 // Formatiert einen DB-Zeitstempel ("YYYY-MM-DD HH:MM:SS") als
 // "TT.MM. HH:MM". Leere/ungültige Werte ergeben einen Gedankenstrich.
 function zeitstempel(iso) {
@@ -824,8 +833,7 @@ function ansichtHilfe(ziel) {
     ['Ich kann mich nicht anmelden.',
      'Bitte prüfen Sie, ob Sie den eigenen WebUntis-Zugang verwenden (nicht '
      + 'den des Kindes) und ob Benutzername und Passwort stimmen. Bei '
-     + 'anhaltenden Problemen wenden Sie sich an das WebUntis-Team unter '
-     + 'webuntis@rueckert-gymnasium.de.'],
+     + 'anhaltenden Problemen ' + kontaktSatz('wenden Sie sich an')],
     ['Warum sehe ich keine freien Termine?',
      'Möglicherweise läuft gerade Phase 1, in der nur eingeladene '
      + 'Erziehungsberechtigte buchen können, oder die Lehrkraft ist bereits '
@@ -901,7 +909,7 @@ function ansichtBuchen(ziel) {
   const kinder = S.user.kinder || [];
   if (kinder.length === 0) {
     ziel.appendChild(el('p', 'hinweis',
-      'Diesem Konto sind keine Kinder zugeordnet. Bitte im Sekretariat melden.'));
+      'Diesem Konto sind keine Kinder zugeordnet. ' + kontaktSatz('Bitte wenden Sie sich an')));
     return;
   }
   if (!S.kind) S.kind = kinder[0].id;
@@ -928,7 +936,7 @@ function ansichtBuchen(ziel) {
   if (alle.length === 0) {
     ziel.appendChild(el('p', 'hinweis',
       'Für dieses Kind konnten keine Lehrkräfte ermittelt werden. '
-      + 'Bitte im Sekretariat melden.'));
+      + kontaktSatz('Bitte wenden Sie sich an')));
     return;
   }
 
@@ -1852,6 +1860,12 @@ function zeichneMarkeBlock(ziel) {
   b.appendChild(feld('Titel (Kopf und Browser-Tab)', 'marke-titel', 'text', m.marke_titel || ''));
   b.appendChild(feld('Untertitel', 'marke-untertitel', 'text', m.marke_untertitel || ''));
   b.appendChild(feld('Fußzeile', 'marke-fusszeile', 'text', m.marke_fusszeile || ''));
+  const kf = feld('Kontakt für Rückfragen (z. B. E-Mail)', 'marke-kontakt', 'text',
+    m.marke_kontakt || '');
+  b.appendChild(kf);
+  b.appendChild(el('p', 'hinweis-klein',
+    'Erscheint in Hinweisen für Eltern (z. B. bei Anmeldeproblemen). Leer '
+    + 'lassen zeigt einen neutralen Text ohne Adresse.'));
 
   const farben = el('div', 'zeile');
   farben.appendChild(feld('Akzentfarbe', 'marke-farbe', 'color', m.marke_farbe || '#1d4e89'));
@@ -1893,6 +1907,7 @@ async function markeSpeichern() {
     marke_titel:      wert('marke-titel'),
     marke_untertitel: wert('marke-untertitel'),
     marke_fusszeile:  wert('marke-fusszeile'),
+    marke_kontakt:    wert('marke-kontakt'),
     marke_farbe:      wert('marke-farbe'),
     marke_farbe2:     wert('marke-farbe2'),
   };
