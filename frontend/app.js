@@ -38,6 +38,7 @@ const S = {
   anzeigeEinst: null,  // Signage-Einstellungen (Sortierung)
   buchenSuche: '',     // Filtertext für die Buchungs-Kacheln
   lehrerLaedt: false,  // Auto-Load-Guard für die Lehrkraft-Liste
+  kalenderLink: null,  // persönlicher iCal-Abo-Link (Eltern)
   gewaehlteLehrkraftAnsicht: null,   // Admin: wessen Termine werden gezeigt
   schuelerListe: null,               // Klassenliste für Einladungen
   svRaster: null,                    // Zeitraster der Lehrkraft (frei + belegt)
@@ -787,6 +788,13 @@ function ansichtHilfe(ziel) {
     ['Wie sage ich einen Termin ab?',
      'Unter „Meine Termine" lässt sich jeder Termin absagen; der Platz wird '
      + 'sofort wieder frei.'],
+    ['Kann ich die Termine in meinen Kalender übernehmen?',
+     'Ja. Unter „Meine Termine" gibt es bei jedem Termin „📅 hinzufügen" für '
+     + 'den einzelnen Eintrag und darunter einen persönlichen Abo-Link, mit '
+     + 'dem alle Termine automatisch in Google-, Apple-, Outlook- oder '
+     + 'WebUntis-Kalender erscheinen und sich bei Änderungen selbst '
+     + 'aktualisieren. Der Link ist privat und sollte nicht weitergegeben '
+     + 'werden.'],
     ['Als Lehrkraft: Kann ich für Eltern buchen, die selbst nicht können?',
      'Ja, in Ihrer eigenen Ansicht können Sie stellvertretend für ein freies '
      + 'Zeitfenster buchen. Das Elternkonto wird dabei automatisch ermittelt.'],
@@ -1016,7 +1024,7 @@ function ansichtMeineTermine(ziel) {
 
   const tab = el('table', 'tabelle');
   const kopf = el('tr');
-  for (const t of ['Zeit', 'Lehrkraft', 'Raum', 'Kind', '']) {
+  for (const t of ['Zeit', 'Lehrkraft', 'Raum', 'Kind', 'Kalender', '']) {
     kopf.appendChild(el('th', null, t));
   }
   tab.appendChild(kopf);
@@ -1028,6 +1036,14 @@ function ansichtMeineTermine(ziel) {
     tr.appendChild(el('td', null, b.name || b.kuerzel));
     tr.appendChild(el('td', null, b.raum_kuerzel || '–'));
     tr.appendChild(el('td', null, kindName(parseInt(b.schueler_id, 10))));
+    // Einzeltermin als .ics herunterladen (öffnet die Kalender-App).
+    const tdIcs = el('td');
+    const a = el('a', 'ics-link', '📅 hinzufügen');
+    a.href = '/api/buchung/' + b.id + '.ics';
+    a.setAttribute('download', 'termin.ics');
+    a.target = '_blank';
+    tdIcs.appendChild(a);
+    tr.appendChild(tdIcs);
     const td = el('td');
     if (b.phase === 'phase1') {
       td.appendChild(el('span', 'hinweis-klein',
@@ -1040,6 +1056,45 @@ function ansichtMeineTermine(ziel) {
   }
   ziel.appendChild(tab);
   ziel.appendChild(knopf('Aktualisieren', 'klein', () => ladeMeineBuchungen()));
+
+  // ---- Kalender abonnieren -------------------------------------------
+  const abo = block('kalender-abo', 'Termine im Kalender abonnieren');
+  abo.appendChild(el('p', 'hinweis',
+    'Mit diesem persönlichen Link erscheinen alle Ihre Sprechtag-Termine '
+    + 'automatisch in Ihrem Kalender (Google, Apple, Outlook – oder in '
+    + 'WebUntis als externer Kalender). Absagen und neue Buchungen '
+    + 'aktualisieren sich von selbst. Der Link ist privat – bitte nicht '
+    + 'weitergeben.'));
+  const linkZeile = el('div', 'zeile');
+  const feldLink = document.createElement('input');
+  feldLink.type = 'text'; feldLink.id = 'kal-abo-url'; feldLink.readOnly = true;
+  feldLink.value = S.kalenderLink || 'wird geladen …';
+  linkZeile.appendChild(feldLink);
+  abo.appendChild(linkZeile);
+  const btnZeile = el('div', 'zeile');
+  btnZeile.appendChild(knopf('Link kopieren', 'klein', async () => {
+    try { await navigator.clipboard.writeText($('#kal-abo-url').value);
+      toast('Link kopiert.', 'ok'); }
+    catch { $('#kal-abo-url').select(); toast('Bitte manuell kopieren.', 'info'); }
+  }));
+  btnZeile.appendChild(knopf('Neuen Link erzeugen', 'klein', async () => {
+    if (!confirm('Der alte Link wird ungültig. Fortfahren?')) return;
+    try {
+      const d = await api('/api/kalender-link/neu', { method: 'POST' });
+      S.kalenderLink = d.url;
+      const f = $('#kal-abo-url'); if (f) f.value = d.url;
+      toast('Neuer Kalender-Link erzeugt.', 'ok');
+    } catch (f) { toast(String(f.message), 'fehler'); }
+  }));
+  abo.appendChild(btnZeile);
+  ziel.appendChild(abo);
+
+  if (!S.kalenderLink) {
+    api('/api/kalender-link').then((d) => {
+      S.kalenderLink = d.url;
+      const f = $('#kal-abo-url'); if (f) f.value = d.url;
+    }).catch(() => {});
+  }
 }
 
 async function ladeMeineBuchungen() {

@@ -36,6 +36,7 @@ require_once __DIR__ . '/mitteilungen.php';
 require_once __DIR__ . '/dienstkonto.php';
 require_once __DIR__ . '/schueler.php';
 require_once __DIR__ . '/einstellungen.php';
+require_once __DIR__ . '/kalender.php';
 
 $methode = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $pfad    = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
@@ -47,7 +48,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.24', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.25', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -107,6 +108,34 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'anzeige') {
     ]);
 }
 
+// ---- GET /api/kalender/{token}.ics : öffentlicher iCal-Abo-Feed ----
+// Der Token IST die Berechtigung (wie ein privater Kalender-Feed). Kein Login.
+// Liefert ausschließlich die eigenen Termine des zugehörigen Elternkontos.
+if ($methode === 'GET' && ($seg[0] ?? '') === 'kalender' && isset($seg[1])) {
+    $token = preg_replace('/\.ics$/', '', (string)$seg[1]);
+    if (!preg_match('/^[a-f0-9]{48}$/', (string)$token)) {
+        http_response_code(404);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'Nicht gefunden.';
+        exit;
+    }
+    $pdo = db($cfg);
+    $st = $pdo->prepare('SELECT eltern_user_id FROM kalender_abo WHERE token = ?');
+    $st->execute([$token]);
+    $uid = $st->fetchColumn();
+    if ($uid === false) {
+        http_response_code(404);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'Nicht gefunden.';
+        exit;
+    }
+    $buchungen = kal_buchungen_laden($pdo, (int)$uid);
+    $marke = $pdo->query("SELECT wert FROM einstellungen
+                          WHERE schluessel = 'marke_titel'")->fetchColumn();
+    $ics = kal_kalender(kal_vevents($buchungen), ($marke ?: 'Sprechtag'));
+    kal_ausliefern($ics, 'sprechtag.ics');
+}
+
 // ---- /api/einstellungen (Branding) -------------------------
 // Eigene Guards je Route (GET öffentlich, POST/DELETE admin).
 if (marke_route($seg, $methode, $body, $cfg)) {
@@ -160,6 +189,42 @@ if (($seg[0] ?? '') === 'auth') {
             ->execute([$benutzer, $daten['rolle'], $_SERVER['REMOTE_ADDR'] ?? '']);
         json_ok(['angemeldet' => true] + auth_user());
     }
+}
+
+// ============================================================
+// KALENDER-LINK (Abo-URL für Eltern)
+// ============================================================
+if (($seg[0] ?? '') === 'kalender-link') {
+    $u = auth_require();                       // Guard VOR db()
+    if ($u === null) json_err('Bitte anmelden', 401);
+    if ($u['user_id'] === null) json_err('Nur mit Elternkonto verfügbar', 403);
+    $pdo = db($cfg);
+
+    // Neu erzeugen (alten Link ungültig machen)
+    if ($methode === 'POST' && ($seg[1] ?? '') === 'neu') {
+        $token = kal_token_neu($pdo, (int)$u['user_id']);
+        json_ok(['url' => kal_basis_url() . '/api/kalender/' . $token . '.ics']);
+    }
+    if ($methode === 'GET' && !isset($seg[1])) {
+        $token = kal_token_holen($pdo, (int)$u['user_id']);
+        json_ok(['url' => kal_basis_url() . '/api/kalender/' . $token . '.ics']);
+    }
+    json_err('Methode nicht unterstützt.', 405);
+}
+
+// ---- GET /api/buchung/{id}.ics : einzelne Buchung als .ics-Datei ----
+if ($methode === 'GET' && ($seg[0] ?? '') === 'buchung' && isset($seg[1])) {
+    $u = auth_require();
+    if ($u === null) json_err('Bitte anmelden', 401);
+    if ($u['user_id'] === null) json_err('Nur mit Elternkonto verfügbar', 403);
+    $bid = (int)preg_replace('/\.ics$/', '', (string)$seg[1]);
+    if ($bid <= 0) json_err('Ungültige Buchung.');
+    $pdo = db($cfg);
+    // kal_buchungen_laden filtert bereits auf eltern_user_id -> nur eigene.
+    $buchungen = kal_buchungen_laden($pdo, (int)$u['user_id'], $bid);
+    if (!$buchungen) json_err('Buchung nicht gefunden.', 404);
+    $ics = kal_kalender(kal_vevents($buchungen), 'Sprechtag-Termin');
+    kal_ausliefern($ics, 'termin.ics');
 }
 
 // ============================================================

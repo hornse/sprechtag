@@ -1,5 +1,31 @@
 # Changelog – sprechtag
 
+## v0.9.25 (Juli 2026) – Kalender-Anbindung (iCal) – benötigt Migration `sql/13_kalender.sql`
+
+### Neu
+- **Persönlicher Kalender-Abo-Link (iCal).** Unter „Meine Termine" erhalten
+  Erziehungsberechtigte einen privaten Link, mit dem alle Sprechtag-Termine
+  automatisch in Google-, Apple-, Outlook- ODER WebUntis-Kalender erscheinen
+  (WebUntis kann externe iCal-Kalender abonnieren). Absagen und neue
+  Buchungen aktualisieren sich von selbst. Der Link ist neu erzeugbar
+  (alter wird ungültig).
+- **Einzeltermin herunterladen.** Je Termin ein „📅 hinzufügen" für eine
+  einzelne .ics-Datei.
+
+### Datenschutz
+- Der Abo-Link nutzt einen zufälligen 48-stelligen Token statt der WebUntis
+  user.id – die ID taucht nicht in der URL auf. Der Feed liefert nur die
+  eigenen Termine. Im Kalendereintrag stehen nur Lehrkraft, Raum und
+  betroffenes Kind – keine Elternnamen, keine fremden Buchungen.
+
+### Bewusst NICHT umgesetzt
+- Kein direktes Schreiben in den WebUntis-Kalender: WebUntis bietet dafür
+  keine stabile öffentliche Schnittstelle. Der Abo-Link erreicht dasselbe
+  Ziel robust und update-sicher.
+
+### Tests
+- `tests/frontend_kalender_test.js`.
+
 ## v0.9.24 (Juli 2026) – Anzeige: größeres Logo, wiederverwendbare Engine
 
 ### Geändert
