@@ -1,5 +1,27 @@
 # Changelog – sprechtag
 
+## v0.9.21 (Juli 2026) – Anzeige: Auto-Kacheln, Logo, mehr Regler
+
+### Behoben
+- **Kacheln passten nicht auf den Monitor** (nur die Hälfte sichtbar). Die
+  Kachelmenge pro Seite wird jetzt automatisch aus der verfügbaren
+  Bildschirmhöhe gemessen (Spalten × Reihen) und bei Größenänderung neu
+  berechnet – füllt jeden Monitor optimal.
+
+### Neu
+- **Schullogo im Anzeige-Kopf** (aus dem Branding), neben dem Titel.
+- **Anzeige-Regler im Admin** („Anzeige"): Kacheln pro Seite (automatisch
+  oder feste Zahl 1–60) und Umblätter-Intervall (5/10/15/20 Sekunden),
+  zusätzlich zur bestehenden Sortierung.
+
+### Gestaltung
+- Die Anzeige folgt dem Corporate Design über Logo und Akzentfarbe aus dem
+  einen Branding – bewusst KEIN separates Farbschema und kein Angleichen an
+  das Buchungs-Layout, damit die Fernlesbarkeit erhalten bleibt.
+
+### Tests
+- Anzeige-Test erweitert (Auto-Messung, Logo, konfigurierbares Intervall).
+
 ## v0.9.20 (Juli 2026) – Buchen als durchsuchbares Kachelraster
 
 ### Geändert

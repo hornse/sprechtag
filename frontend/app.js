@@ -206,8 +206,10 @@ async function start() {
 
 // ---------- Anzeige-Modus (Signage) --------------------------------------
 // Vollbild-Raumübersicht für einen öffentlichen Monitor. Kein Login, keine
-// Interaktion. Blättert alle 10 Sekunden seitenweise um (bei ~90 Personen
-// passt nicht alles auf einen Schirm) und lädt jede Minute frische Daten.
+// Interaktion. Blättert seitenweise um (bei ~90 Personen passt nicht alles
+// auf einen Schirm) und lädt regelmäßig frische Daten. Die Kachelmenge pro
+// Seite passt sich automatisch an die Bildschirmgröße an (oder wird fest
+// vorgegeben), das Umblätter-Intervall ist einstellbar.
 function starteAnzeige() {
   document.body.classList.add('anzeige-modus');
   document.body.textContent = '';
@@ -216,19 +218,65 @@ function starteAnzeige() {
 
   let daten = null;      // letzte Serverantwort
   let seite = 0;         // aktuelle Seitennummer
-  const proSeite = 24;   // Kacheln pro Seite (füllt ein 6×4-Raster)
+  let proSeite = 24;     // wird bei 'auto' gemessen, sonst aus Einstellung
+  let blaetterTimer = null;
 
-  const render = () => {
-    flaeche.textContent = '';
+  const kopfBauen = () => {
     const kopf = el('div', 'anzeige-kopf');
-    const titel = (S.marke && S.marke.marke_titel) || 'Sprechtag';
-    kopf.appendChild(el('div', 'anzeige-titel', titel));
+    // Logo (aus dem Branding), falls hinterlegt.
+    if (S.marke && S.marke.hat_logo) {
+      const logo = document.createElement('img');
+      logo.className = 'anzeige-logo';
+      logo.src = '/api/einstellungen/logo?' + Date.now();
+      logo.alt = '';
+      kopf.appendChild(logo);
+    }
+    const box = el('div', 'anzeige-kopf-text');
+    box.appendChild(el('div', 'anzeige-titel',
+      (S.marke && S.marke.marke_titel) || 'Sprechtag'));
     if (daten && daten.aktiv && daten.sprechtag) {
-      kopf.appendChild(el('div', 'anzeige-untertitel',
+      box.appendChild(el('div', 'anzeige-untertitel',
         daten.sprechtag.name + ' · ' + daten.sprechtag.datum + ' · '
         + daten.sprechtag.beginn + '–' + daten.sprechtag.ende + ' Uhr'));
     }
-    flaeche.appendChild(kopf);
+    kopf.appendChild(box);
+    return kopf;
+  };
+
+  const kachelBauen = (l) => {
+    const kachel = el('div', 'anzeige-kachel');
+    kachel.appendChild(el('div', 'anzeige-raum', l.raum_kuerzel || 'Raum offen'));
+    kachel.appendChild(el('div', 'anzeige-kuerzel', l.kuerzel));
+    if (l.name) kachel.appendChild(el('div', 'anzeige-name', l.name));
+    kachel.appendChild(el('div', 'anzeige-zeit', anzeigeZeit(l, daten.sprechtag)));
+    return kachel;
+  };
+
+  // Misst, wie viele Kacheln in die verfügbare Höhe passen. Rendert dazu ein
+  // Probe-Gitter mit einer Musterkachel, liest Spaltenzahl und Kachelhöhe aus
+  // dem echten Layout und rechnet Reihen × Spalten.
+  const messeProSeite = (musterKachel) => {
+    const kopf = flaeche.querySelector('.anzeige-kopf');
+    const fuss = flaeche.querySelector('.anzeige-fuss');
+    const gitter = flaeche.querySelector('.anzeige-gitter');
+    if (!gitter) return 24;
+    const stil = getComputedStyle(gitter);
+    const spalten = stil.gridTemplateColumns.split(' ').filter(Boolean).length || 1;
+    const kachelH = musterKachel.offsetHeight || 1;
+    const luecke = parseFloat(stil.rowGap) || 0;
+    // Verfügbare Höhe = Fläche minus Kopf/Fuß minus Innenabstände.
+    const flP = getComputedStyle(flaeche);
+    const verf = flaeche.clientHeight
+      - (kopf ? kopf.offsetHeight : 0)
+      - (fuss ? fuss.offsetHeight : 0)
+      - parseFloat(flP.paddingTop) - parseFloat(flP.paddingBottom) - luecke;
+    const reihen = Math.max(1, Math.floor((verf + luecke) / (kachelH + luecke)));
+    return Math.max(1, spalten * reihen);
+  };
+
+  const render = (messen) => {
+    flaeche.textContent = '';
+    flaeche.appendChild(kopfBauen());
 
     if (!daten || !daten.aktiv) {
       flaeche.appendChild(el('div', 'anzeige-leer',
@@ -242,19 +290,27 @@ function starteAnzeige() {
       return;
     }
 
+    // Bei 'auto' zuerst mit einer Musterkachel messen.
+    if (messen && (!daten.kacheln || daten.kacheln === 'auto')) {
+      const probe = el('div', 'anzeige-gitter');
+      const muster = kachelBauen(alle[0]);
+      probe.appendChild(muster);
+      const fussProbe = el('div', 'anzeige-fuss');
+      fussProbe.appendChild(el('span', null, '.'));
+      flaeche.appendChild(probe);
+      flaeche.appendChild(fussProbe);
+      proSeite = messeProSeite(muster);
+      probe.remove(); fussProbe.remove();
+    } else if (daten.kacheln && daten.kacheln !== 'auto') {
+      proSeite = Math.max(1, parseInt(daten.kacheln, 10) || 24);
+    }
+
     const seiten = Math.max(1, Math.ceil(alle.length / proSeite));
     if (seite >= seiten) seite = 0;
     const teil = alle.slice(seite * proSeite, seite * proSeite + proSeite);
 
     const gitter = el('div', 'anzeige-gitter');
-    for (const l of teil) {
-      const kachel = el('div', 'anzeige-kachel');
-      kachel.appendChild(el('div', 'anzeige-raum', l.raum_kuerzel || 'Raum offen'));
-      kachel.appendChild(el('div', 'anzeige-kuerzel', l.kuerzel));
-      if (l.name) kachel.appendChild(el('div', 'anzeige-name', l.name));
-      kachel.appendChild(el('div', 'anzeige-zeit', anzeigeZeit(l, daten.sprechtag)));
-      gitter.appendChild(kachel);
-    }
+    for (const l of teil) gitter.appendChild(kachelBauen(l));
     flaeche.appendChild(gitter);
 
     const fuss = el('div', 'anzeige-fuss');
@@ -270,7 +326,9 @@ function starteAnzeige() {
 
   const datenHolen = async () => {
     try { daten = await api('/api/anzeige'); } catch { return; }
-    render();
+    seite = 0;
+    render(true);          // beim Laden neu messen
+    planeBlaettern();
   };
 
   const weiterblaettern = () => {
@@ -278,12 +336,24 @@ function starteAnzeige() {
     const seiten = Math.max(1, Math.ceil((daten.lehrer || []).length / proSeite));
     if (seiten <= 1) return;
     seite = (seite + 1) % seiten;
-    render();
+    render(false);
   };
 
+  const planeBlaettern = () => {
+    if (blaetterTimer) clearInterval(blaetterTimer);
+    const sek = (daten && daten.intervall) ? daten.intervall : 10;
+    blaetterTimer = setInterval(weiterblaettern, sek * 1000);
+  };
+
+  // Bei Größenänderung des Monitors neu messen.
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => { seite = 0; render(true); }, 400);
+  });
+
   datenHolen();
-  setInterval(weiterblaettern, 10000);   // alle 10 s eine Seite weiter
-  setInterval(datenHolen, 60000);             // jede Minute frische Daten
+  setInterval(datenHolen, 60000);   // jede Minute frische Daten
 }
 
 // Formuliert die Anwesenheitszeit einer Kachel in Klartext.
@@ -1902,12 +1972,47 @@ function ansichtAdminAnzeige(ziel) {
     [{ wert: 'raum', text: 'Raum' }, { wert: 'kuerzel', text: 'Kürzel' }],
     (S.anzeigeEinst && S.anzeigeEinst.sortierung) || 'raum');
   b.appendChild(wahl);
+
+  b.appendChild(el('h4', null, 'Kacheln pro Seite'));
+  b.appendChild(el('p', 'hinweis',
+    '„Automatisch" füllt den Bildschirm optimal und passt sich an jede '
+    + 'Monitorgröße an. Alternativ eine feste Zahl vorgeben.'));
+  const ke = S.anzeigeEinst || {};
+  const autoAn = !ke.kacheln || ke.kacheln === 'auto';
+  const kachelWahl = auswahl('Kachelmenge', 'anzeige-kacheln-modus',
+    [{ wert: 'auto', text: 'Automatisch (empfohlen)' },
+     { wert: 'fest', text: 'Feste Anzahl' }], autoAn ? 'auto' : 'fest');
+  b.appendChild(kachelWahl);
+  const festZeile = el('div', 'zeile');
+  festZeile.id = 'anzeige-fest-zeile';
+  if (autoAn) festZeile.classList.add('versteckt');
+  festZeile.appendChild(feld('Anzahl (1–60)', 'anzeige-kacheln-zahl', 'number',
+    autoAn ? '24' : String(ke.kacheln || 24)));
+  b.appendChild(festZeile);
+  kachelWahl.querySelector('select').addEventListener('change', (e) => {
+    festZeile.classList.toggle('versteckt', e.target.value !== 'fest');
+  });
+
+  b.appendChild(el('h4', null, 'Umblätter-Intervall'));
+  const iv = auswahl('Sekunden pro Seite', 'anzeige-intervall',
+    [{ wert: '5', text: '5 Sekunden' }, { wert: '10', text: '10 Sekunden' },
+     { wert: '15', text: '15 Sekunden' }, { wert: '20', text: '20 Sekunden' }],
+    String((S.anzeigeEinst && S.anzeigeEinst.intervall) || 10));
+  b.appendChild(iv);
+
   b.appendChild(knopf('Speichern', null, async () => {
+    const modus = wert('anzeige-kacheln-modus');
+    const koerper = {
+      sortierung: wert('anzeige-sortierung'),
+      intervall: parseInt(wert('anzeige-intervall'), 10),
+      kacheln: modus === 'auto' ? 'auto'
+        : String(parseInt(wert('anzeige-kacheln-zahl'), 10) || 24),
+    };
     try {
-      const d = await api('/api/anzeige-einstellungen', { method: 'POST',
-        body: { sortierung: wert('anzeige-sortierung') } });
+      const d = await api('/api/anzeige-einstellungen',
+        { method: 'POST', body: koerper });
       S.anzeigeEinst = d;
-      toast('Anzeige-Sortierung gespeichert.', 'ok');
+      toast('Anzeige-Einstellungen gespeichert.', 'ok');
     } catch (f) { toast(String(f.message), 'fehler'); }
   }));
   ziel.appendChild(b);
@@ -1916,8 +2021,7 @@ function ansichtAdminAnzeige(ziel) {
   if (!S.anzeigeEinst) {
     api('/api/anzeige-einstellungen').then((d) => {
       S.anzeigeEinst = d;
-      const sel = $('#anzeige-sortierung');
-      if (sel) sel.value = d.sortierung || 'raum';
+      zeichne();
     }).catch(() => {});
   }
 }

@@ -108,7 +108,11 @@ body {
 body.anzeige-modus { background: var(--akzent); }
 .anzeige { min-height: 100vh; padding: 2.5vh 3vw; color: #fff;
            display: flex; flex-direction: column; }
-.anzeige-kopf { text-align: center; margin-bottom: 3vh; }
+.anzeige-kopf { display: flex; align-items: center; justify-content: center;
+                gap: 2vw; text-align: center; margin-bottom: 3vh; }
+.anzeige-logo { height: 8vh; max-height: 90px; width: auto; background: #fff;
+                border-radius: 10px; padding: .8vh; object-fit: contain; }
+.anzeige-kopf-text { text-align: left; }
 .anzeige-titel { font-size: 4vw; font-weight: 700; letter-spacing: .02em; }
 .anzeige-untertitel { font-size: 1.8vw; opacity: .9; margin-top: .5vh; }
 .anzeige-gitter { flex: 1; display: grid; gap: 1.5vw;

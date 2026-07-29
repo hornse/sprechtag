@@ -47,7 +47,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.20', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.21', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -64,10 +64,16 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'anzeige') {
     if (!$s) {
         json_ok(['aktiv' => false, 'sprechtag' => null, 'lehrer' => []]);
     }
-    // Sortierung aus den Einstellungen (Standard: nach Raum).
-    $sortWahl = (string)($pdo->query(
-        "SELECT wert FROM einstellungen WHERE schluessel = 'anzeige_sortierung'")
-        ->fetchColumn() ?: 'raum');
+    // Anzeige-Einstellungen sammeln (Standardwerte, dann überschreiben).
+    $einst = ['anzeige_sortierung' => 'raum',
+              'anzeige_kacheln' => 'auto',
+              'anzeige_intervall' => '10'];
+    $stE = $pdo->query("SELECT schluessel, wert FROM einstellungen
+                        WHERE schluessel LIKE 'anzeige_%'");
+    foreach ($stE->fetchAll() as $r) {
+        $einst[(string)$r['schluessel']] = (string)$r['wert'];
+    }
+    $sortWahl = $einst['anzeige_sortierung'] === 'kuerzel' ? 'kuerzel' : 'raum';
     $orderBy = $sortWahl === 'kuerzel'
         ? 'l.kuerzel'
         : 'r.kuerzel IS NULL, r.kuerzel, l.kuerzel';
@@ -81,6 +87,12 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'anzeige') {
          WHERE sl.sprechtag_id = ? AND sl.teilnahme = 1
          ORDER BY ' . $orderBy);
     $st->execute([(int)$s['id']]);
+    // Kacheln: 'auto' oder eine positive Zahl.
+    $kacheln = $einst['anzeige_kacheln'];
+    if ($kacheln !== 'auto') {
+        $kacheln = (string)max(1, min(60, (int)$kacheln));
+    }
+    $intervall = max(3, min(60, (int)$einst['anzeige_intervall'] ?: 10));
     json_ok([
         'aktiv' => true,
         'sprechtag' => [
@@ -88,7 +100,9 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'anzeige') {
             'beginn' => substr((string)$s['beginn'], 0, 5),
             'ende' => substr((string)$s['ende'], 0, 5),
         ],
-        'sortierung' => $sortWahl === 'kuerzel' ? 'kuerzel' : 'raum',
+        'sortierung' => $sortWahl,
+        'kacheln' => $kacheln,        // 'auto' oder Zahl als String
+        'intervall' => $intervall,    // Sekunden
         'lehrer' => $st->fetchAll(),
     ]);
 }
@@ -200,22 +214,48 @@ if (($seg[0] ?? '') === 'stammdaten') {
 if (($seg[0] ?? '') === 'anzeige-einstellungen') {
     auth_require_admin();       // Guard VOR db()
     $pdo = db($cfg);
+    $lesen = function (PDO $pdo): array {
+        $w = ['anzeige_sortierung' => 'raum', 'anzeige_kacheln' => 'auto',
+              'anzeige_intervall' => '10'];
+        foreach ($pdo->query("SELECT schluessel, wert FROM einstellungen
+                              WHERE schluessel LIKE 'anzeige_%'")->fetchAll() as $r) {
+            $w[(string)$r['schluessel']] = (string)$r['wert'];
+        }
+        return [
+            'sortierung' => $w['anzeige_sortierung'] === 'kuerzel' ? 'kuerzel' : 'raum',
+            'kacheln' => $w['anzeige_kacheln'],
+            'intervall' => (int)($w['anzeige_intervall'] ?: 10),
+        ];
+    };
     if ($methode === 'GET') {
-        $wert = (string)($pdo->query(
-            "SELECT wert FROM einstellungen WHERE schluessel = 'anzeige_sortierung'")
-            ->fetchColumn() ?: 'raum');
-        json_ok(['sortierung' => $wert === 'kuerzel' ? 'kuerzel' : 'raum']);
+        json_ok($lesen($pdo));
     }
     if ($methode === 'POST') {
-        $sort = (string)($body['sortierung'] ?? '');
-        if (!in_array($sort, ['raum', 'kuerzel'], true)) {
-            json_err("sortierung muss 'raum' oder 'kuerzel' sein.");
-        }
-        $pdo->prepare(
+        $setzen = $pdo->prepare(
             'INSERT INTO einstellungen (schluessel, wert) VALUES (?, ?)
-             ON DUPLICATE KEY UPDATE wert = VALUES(wert)')
-            ->execute(['anzeige_sortierung', $sort]);
-        json_ok(['ok' => true, 'sortierung' => $sort]);
+             ON DUPLICATE KEY UPDATE wert = VALUES(wert)');
+        if (isset($body['sortierung'])) {
+            $v = (string)$body['sortierung'];
+            if (!in_array($v, ['raum', 'kuerzel'], true)) {
+                json_err("sortierung muss 'raum' oder 'kuerzel' sein.");
+            }
+            $setzen->execute(['anzeige_sortierung', $v]);
+        }
+        if (isset($body['kacheln'])) {
+            $v = (string)$body['kacheln'];
+            if ($v !== 'auto') {
+                $n = (int)$v;
+                if ($n < 1 || $n > 60) json_err('kacheln: 1–60 oder "auto".');
+                $v = (string)$n;
+            }
+            $setzen->execute(['anzeige_kacheln', $v]);
+        }
+        if (isset($body['intervall'])) {
+            $n = (int)$body['intervall'];
+            if ($n < 3 || $n > 60) json_err('intervall: 3–60 Sekunden.');
+            $setzen->execute(['anzeige_intervall', (string)$n]);
+        }
+        json_ok(['ok' => true] + $lesen($pdo));
     }
     json_err('Methode nicht unterstützt.', 405);
 }

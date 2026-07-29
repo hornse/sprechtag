@@ -25,8 +25,12 @@ pruefe('Pfad /anzeige startet den Anzeige-Modus',
   js.includes("=== '/anzeige'") && js.includes('starteAnzeige()'));
 pruefe('Anzeige-Funktion + Auto-Refresh',
   js.includes('function starteAnzeige') && js.includes('setInterval'));
-pruefe('seitenweises Umblättern alle 10 s',
-  js.includes('weiterblaettern') && js.includes('10000') && js.includes('proSeite'));
+pruefe('seitenweises Umblättern (Intervall konfigurierbar)',
+  js.includes('weiterblaettern') && js.includes('planeBlaettern')
+  && js.includes('sek * 1000'));
+pruefe('Kachelmenge automatisch messbar',
+  js.includes('messeProSeite') && js.includes('gridTemplateColumns'));
+pruefe('Logo im Anzeige-Kopf', js.includes('anzeige-logo') && js.includes('hat_logo'));
 pruefe('Seitenanzeige (Seite X / Y)', js.includes('anzeige-seite'));
 pruefe('Admin-Unterseite Anzeige + Sortier-Wahl',
   js.includes('function ansichtAdminAnzeige') && js.includes('anzeige-sortierung'));
