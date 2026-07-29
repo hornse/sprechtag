@@ -1,5 +1,33 @@
 # Changelog – sprechtag
 
+## v0.9.23 (Juli 2026) – Dynamische Pausen (nach x Terminen in Folge)
+
+### Neu – benötigt Migration `sql/12_pause_dynamisch.sql`
+- **Dynamische Pause (Variante 1).** Neuer Schalter je Sprechtag „Pause nur
+  bei durchgehender Belegung". Ist er an, entsteht eine Pause erst, wenn
+  x Termine ZUSAMMENHÄNGEND gebucht wurden (eine Lücke setzt den Zähler
+  zurück); sonst bleibt die Zeit buchbar. So werden keine Pausen an leeren
+  Slots verschwendet.
+- **Gebuchte Zeiten bleiben immer stabil.** Im dynamischen Modus verbraucht
+  eine Pause keine feste Uhrzeit – nur freie Slots werden zu Pausen, ein
+  bereits gebuchter Termin wird nie zur Pause und verschiebt sich nie.
+- **Fester Modus bleibt möglich.** Ohne den Schalter arbeitet die bisherige
+  feste Pause (immer zur selben Uhrzeit) unverändert weiter. Schulen wählen
+  pro Sprechtag.
+
+### Verbessert
+- Pausen-Blöcke im Zeitraster tragen jetzt die **Uhrzeit** („Pause 15:30–15:40").
+- Hinweistext im Sprechtag-Formular erklärt fest vs. dynamisch.
+
+### Sicherheit
+- Die Buchungsprüfung wendet dieselbe dynamische Logik an: Eine gerade
+  wirksam gewordene Pause ist nicht buchbar, eine bestehende Buchung bleibt
+  gültig.
+
+### Tests
+- `tests/run_slots.php` um vier dynamische Fälle erweitert (Pause nach 3,
+  Lücke, stabile Buchung, fester Modus); `tests/frontend_pausen_test.js`.
+
 ## v0.9.22 (Juli 2026) – Anzeige: kein Flackern, Logo oben links
 
 ### Behoben

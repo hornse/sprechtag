@@ -81,7 +81,25 @@ function slot_raster(array $sprechtag, ?string $von = null, ?string $bis = null)
 
     $pauseNach = (int)($sprechtag['pause_nach_terminen'] ?? 0);
     $pauseLang = (int)($sprechtag['pause_minuten'] ?? 0);
+    $dynamisch = (int)($sprechtag['pause_dynamisch'] ?? 0) === 1;
 
+    // Im DYNAMISCHEN Modus verbraucht die Pause KEINE feste Uhrzeit. Das
+    // Raster ist ein gleichmäßiges Gitter normaler Slots. Ob ein Slot zur
+    // Pause wird, entscheidet slot_pausen_anwenden() später anhand der
+    // Buchungen (Regel: nach pauseNach zusammenhängend belegten Slots wird
+    // der nächste freie Slot zur Pause). So verschiebt sich nie eine Uhrzeit.
+    if ($dynamisch) {
+        $raster = [];
+        for ($zeit = $start; $zeit + $laenge <= $stop; $zeit += $laenge) {
+            $raster[] = ['beginn' => slot_zeit($zeit),
+                         'ende'   => slot_zeit($zeit + $laenge),
+                         'typ'    => 'slot'];
+        }
+        return $raster;
+    }
+
+    // FESTES Verhalten (unverändert): Pause verbraucht Uhrzeit, alle folgenden
+    // Slots rücken nach hinten.
     $raster = [];
     $zaehler = 0;
     $zeit = $start;
@@ -101,6 +119,48 @@ function slot_raster(array $sprechtag, ?string $von = null, ?string $bis = null)
                              'typ'    => 'pause'];
                 $zeit += $pauseLang;
             }
+        }
+    }
+    return $raster;
+}
+
+/**
+ * Wendet dynamische Pausen an (Variante 1). Regel: Ein FREIER Slot wird zur
+ * Pause, wenn die pauseNach Slots unmittelbar davor ZUSAMMENHÄNGEND belegt
+ * sind. Eine Lücke setzt den Zähler zurück. Nach einer eingefügten Pause
+ * beginnt die Zählung neu (die Pause selbst zählt nicht als belegter Slot),
+ * damit nicht jeder Folgeslot ebenfalls zur Pause wird.
+ *
+ * Zusage „gebuchte Zeiten bleiben stabil": Nur FREIE Slots werden zu Pausen;
+ * ein belegter Slot bleibt immer eine Buchung. Uhrzeiten verschieben sich nie,
+ * weil Pausen im dynamischen Gitter keine eigene Uhrzeit verbrauchen.
+ *
+ * @param array $raster    Ausgabe von slot_raster() (dynamischer Modus)
+ * @param array $belegt    ['HH:MM' => true] belegte Slot-Beginnzeiten
+ * @param bool  $dynamisch Schalter aus den Sprechtag-Einstellungen
+ * @param int   $pauseNach Zusammenhängend belegte Slots, die eine Pause auslösen
+ * @return array  Raster, in dem fällige Slots typ 'pause' tragen
+ */
+function slot_pausen_anwenden(array $raster, array $belegt,
+                              bool $dynamisch, int $pauseNach): array
+{
+    if (!$dynamisch || $pauseNach < 1) {
+        return $raster;   // festes Verhalten: unverändert
+    }
+    $folge = 0;   // aktuelle Kette zusammenhängend belegter Slots
+    foreach ($raster as $i => $z) {
+        if (($z['typ'] ?? '') !== 'slot') { $folge = 0; continue; }
+
+        if (!empty($belegt[$z['beginn']])) {
+            $folge++;                 // belegter Slot verlängert die Kette
+            continue;
+        }
+        // Freier Slot: Ist die Kette davor lang genug -> Pause einlegen.
+        if ($folge >= $pauseNach) {
+            $raster[$i]['typ'] = 'pause';
+            $folge = 0;               // nach der Pause neu zählen
+        } else {
+            $folge = 0;               // Lücke setzt die Kette zurück
         }
     }
     return $raster;

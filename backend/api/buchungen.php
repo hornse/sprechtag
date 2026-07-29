@@ -257,6 +257,14 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'raster') {
         $belegt[substr((string)$b['slot_beginn'], 0, 5)] = $b;
     }
 
+    // Dynamische Pausen (Variante 1): freie Slots nach x zusammenhängend
+    // belegten werden zu Pausen. Bei festem Modus bleibt das Raster unverändert.
+    $belegtSet = [];
+    foreach ($belegt as $t => $_) { $belegtSet[$t] = true; }
+    $raster = slot_pausen_anwenden($raster, $belegtSet,
+        (int)($s['pause_dynamisch'] ?? 0) === 1,
+        (int)($s['pause_nach_terminen'] ?? 0));
+
     // Eltern sehen nur "frei"/"belegt" – nie, WER gebucht hat.
     $istLehrkraft = in_array($u['rolle'], ['lehrkraft', 'admin'], true)
         && ($u['rolle'] === 'admin' || $u['lehrer_id'] === $lid);
@@ -393,6 +401,19 @@ if (($seg[0] ?? '') === 'buchungen') {
             json_err('Diese Lehrkraft nimmt am Sprechtag nicht teil');
         }
         $raster = slot_raster($s, $fenster['anwesend_von'], $fenster['anwesend_bis']);
+        // Dynamische Pausen: aktuelle Buchungen laden und Kandidaten auflösen,
+        // damit eine gerade wirksam gewordene Pause nicht buchbar ist.
+        if ((int)($s['pause_dynamisch'] ?? 0) === 1) {
+            $stB = $pdo->prepare('SELECT slot_beginn FROM buchungen
+                                  WHERE sprechtag_id = ? AND lehrer_id = ?');
+            $stB->execute([$sid, $lid]);
+            $belegtSet = [];
+            foreach ($stB->fetchAll() as $b) {
+                $belegtSet[substr((string)$b['slot_beginn'], 0, 5)] = true;
+            }
+            $raster = slot_pausen_anwenden($raster, $belegtSet, true,
+                (int)($s['pause_nach_terminen'] ?? 0));
+        }
         $imRaster = false;
         foreach ($raster as $z) {
             if ($z['typ'] === 'slot' && $z['beginn'] === $slot) { $imRaster = true; break; }
@@ -542,15 +563,21 @@ if (($seg[0] ?? '') === 'buchungen') {
             json_err('Diese Lehrkraft nimmt am Sprechtag nicht teil');
         }
         $raster = slot_raster($s, $fenster['anwesend_von'], $fenster['anwesend_bis']);
+        if ((int)($s['pause_dynamisch'] ?? 0) === 1) {
+            $stB = $pdo->prepare('SELECT slot_beginn FROM buchungen
+                                  WHERE sprechtag_id = ? AND lehrer_id = ?');
+            $stB->execute([$sid, $lid]);
+            $belegtSet = [];
+            foreach ($stB->fetchAll() as $b) {
+                $belegtSet[substr((string)$b['slot_beginn'], 0, 5)] = true;
+            }
+            $raster = slot_pausen_anwenden($raster, $belegtSet, true,
+                (int)($s['pause_nach_terminen'] ?? 0));
+        }
         $imRaster = false;
         foreach ($raster as $z) {
             if ($z['typ'] === 'slot' && $z['beginn'] === $slot) { $imRaster = true; break; }
         }
-
-        $st = $pdo->prepare('SELECT COUNT(*) FROM buchungen
-                             WHERE sprechtag_id = ? AND lehrer_id = ? AND slot_beginn = ?');
-        $st->execute([$sid, $lid, $slot . ':00']);
-        $frei = (int)$st->fetchColumn() === 0;
 
         $st = $pdo->prepare('SELECT COUNT(*) FROM buchungen
                              WHERE sprechtag_id = ? AND eltern_user_id = ?');

@@ -47,7 +47,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.22', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.23', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -331,8 +331,9 @@ if (($seg[0] ?? '') === 'sprechtage') {
         $ref = wu_referenzzeitraum($datum);
         $pdo->prepare('INSERT INTO sprechtage
             (name, datum, beginn, ende, slot_minuten, max_termine_pro_eltern,
-             pause_nach_terminen, pause_minuten, referenz_von, referenz_bis)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+             pause_nach_terminen, pause_minuten, pause_dynamisch,
+             referenz_von, referenz_bis)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
             ->execute([
                 req($body, 'name'), $datum,
                 (string)($body['beginn'] ?? '15:00'),
@@ -341,6 +342,7 @@ if (($seg[0] ?? '') === 'sprechtage') {
                 (int)($body['max_termine_pro_eltern'] ?? 6),
                 (int)($body['pause_nach_terminen'] ?? 0),
                 (int)($body['pause_minuten'] ?? 10),
+                (int)(bool)($body['pause_dynamisch'] ?? 0),
                 $ref['von'], $ref['bis'],
             ]);
         json_ok(['ok' => true, 'id' => (int)$pdo->lastInsertId()], 201);
@@ -353,7 +355,8 @@ if (($seg[0] ?? '') === 'sprechtage') {
         auth_require_admin();
         $erlaubt = ['name', 'datum', 'beginn', 'ende', 'slot_minuten',
             'max_termine_pro_eltern', 'pause_nach_terminen', 'pause_minuten',
-            'phase', 'referenz_von', 'referenz_bis', 'klausuren_werten'];
+            'pause_dynamisch', 'phase', 'referenz_von', 'referenz_bis',
+            'klausuren_werten'];
         $sets = []; $werte = [];
         foreach ($erlaubt as $feld) {
             if (!array_key_exists($feld, $body)) continue;
@@ -406,13 +409,15 @@ if (($seg[0] ?? '') === 'sprechtage') {
         $ref = wu_referenzzeitraum($datum);
         $pdo->prepare('INSERT INTO sprechtage
             (name, datum, beginn, ende, slot_minuten, max_termine_pro_eltern,
-             pause_nach_terminen, pause_minuten, phase, referenz_von, referenz_bis)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, "vorbereitung", ?, ?)')
+             pause_nach_terminen, pause_minuten, pause_dynamisch, phase,
+             referenz_von, referenz_bis)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, "vorbereitung", ?, ?)')
             ->execute([
                 (string)($body['name'] ?? ($alt['name'] . ' (Kopie)')), $datum,
                 $alt['beginn'], $alt['ende'], $alt['slot_minuten'],
                 $alt['max_termine_pro_eltern'], $alt['pause_nach_terminen'],
-                $alt['pause_minuten'], $ref['von'], $ref['bis'],
+                $alt['pause_minuten'], (int)($alt['pause_dynamisch'] ?? 0),
+                $ref['von'], $ref['bis'],
             ]);
         $neu = (int)$pdo->lastInsertId();
 

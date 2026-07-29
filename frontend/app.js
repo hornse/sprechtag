@@ -944,7 +944,8 @@ function zeichneRaster(ziel, lehrerId) {
   const raster = el('div', 'raster');
   for (const z of S.raster) {
     if (z.typ === 'pause') {
-      raster.appendChild(el('div', 'slot pause', 'Pause'));
+      raster.appendChild(el('div', 'slot pause',
+        'Pause ' + z.beginn + (z.ende ? '–' + z.ende : '')));
       continue;
     }
     const klasse = 'slot ' + (z.frei ? 'frei' : (z.eigene ? 'eigene' : 'belegt'));
@@ -1141,7 +1142,8 @@ function zeichneLehrkraftRaster(ziel, lehrerId) {
   const raster = el('div', 'raster raster-breit');
   for (const z of S.svRaster) {
     if (z.typ === 'pause') {
-      raster.appendChild(el('div', 'slot pause', 'Pause'));
+      raster.appendChild(el('div', 'slot pause',
+        'Pause ' + z.beginn + (z.ende ? '–' + z.ende : '')));
       continue;
     }
     if (z.frei) {
@@ -2100,6 +2102,17 @@ function ansichtAdminSprechtage(ziel) {
   z3.appendChild(feld('Pause nach x Terminen (0 = keine)', 'neu-pausen', 'text', '0'));
   z3.appendChild(feld('Pausenlänge (Minuten)', 'neu-pausenlang', 'text', '10'));
   nf.appendChild(z3);
+  const dynLabel = el('label', 'check-zeile');
+  const dynCb = document.createElement('input');
+  dynCb.type = 'checkbox'; dynCb.id = 'neu-pause-dyn';
+  dynLabel.appendChild(dynCb);
+  dynLabel.appendChild(document.createTextNode(
+    ' Pause nur bei durchgehender Belegung (dynamisch)'));
+  nf.appendChild(dynLabel);
+  nf.appendChild(el('p', 'hinweis-klein',
+    'Fest: Die Pause liegt immer zur selben Uhrzeit. Dynamisch: Eine Pause '
+    + 'entsteht nur, wenn davor x Termine ohne Lücke gebucht wurden – sonst '
+    + 'bleibt die Zeit buchbar. Bereits gebuchte Zeiten verschieben sich nie.'));
   neu.appendChild(nf);
   neu.appendChild(knopf('Anlegen', null, async () => {
     try {
@@ -2109,7 +2122,8 @@ function ansichtAdminSprechtage(ziel) {
         slot_minuten: parseInt(wert('neu-slot'), 10) || 10,
         max_termine_pro_eltern: parseInt(wert('neu-max'), 10) || 6,
         pause_nach_terminen: parseInt(wert('neu-pausen'), 10) || 0,
-        pause_minuten: parseInt(wert('neu-pausenlang'), 10) || 10 } });
+        pause_minuten: parseInt(wert('neu-pausenlang'), 10) || 10,
+        pause_dynamisch: $('#neu-pause-dyn').checked ? 1 : 0 } });
       await ladeSprechtage();
       meldung('Sprechtag angelegt.', 'ok');
     } catch (f) { meldung(String(f.message), 'fehler'); }
@@ -2147,6 +2161,14 @@ function sprechtagKarte(s) {
   z3.appendChild(feld('Pause nach x', 'e-pausen-' + s.id, 'text', s.pause_nach_terminen));
   z3.appendChild(feld('Pause (Min.)', 'e-pausenlang-' + s.id, 'text', s.pause_minuten));
   p.appendChild(z3);
+  const dynL = el('label', 'check-zeile');
+  const dynC = document.createElement('input');
+  dynC.type = 'checkbox'; dynC.id = 'e-pausedyn-' + s.id;
+  dynC.checked = parseInt(s.pause_dynamisch, 10) === 1;
+  dynL.appendChild(dynC);
+  dynL.appendChild(document.createTextNode(
+    ' Pause nur bei durchgehender Belegung (dynamisch)'));
+  p.appendChild(dynL);
   const z4 = el('div', 'zeile');
   z4.appendChild(feld('Referenz von', 'e-refvon-' + s.id, 'text', s.referenz_von || ''));
   z4.appendChild(feld('Referenz bis', 'e-refbis-' + s.id, 'text', s.referenz_bis || ''));
@@ -2196,6 +2218,7 @@ function sprechtagKarte(s) {
         max_termine_pro_eltern: parseInt(wert('e-max-' + s.id), 10),
         pause_nach_terminen: parseInt(wert('e-pausen-' + s.id), 10),
         pause_minuten: parseInt(wert('e-pausenlang-' + s.id), 10),
+        pause_dynamisch: $('#e-pausedyn-' + s.id).checked ? 1 : 0,
         referenz_von: wert('e-refvon-' + s.id) || null,
         referenz_bis: wert('e-refbis-' + s.id) || null,
         klausuren_werten: cbKl.checked ? 1 : 0,
