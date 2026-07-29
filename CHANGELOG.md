@@ -1,5 +1,15 @@
 # Changelog – sprechtag
 
+## v0.9.27 (Juli 2026) – Fix: Tischvorlage warf 500
+
+### Behoben
+- **Die druckbare Tischvorlage brach mit „500 Internal Server Error" ab.**
+  Ursache: Die Route rief `bu_sprechtag()`/`bu_lehrer_fenster()` aus
+  `buchungen.php` auf, die aber erst am Ende von `index.php` eingebunden wird –
+  an der früheren Stelle der Kalender-Routen waren die Funktionen noch nicht
+  definiert. Die beiden kleinen Abfragen sind jetzt direkt in der Route
+  enthalten; kein Aufruf verfrüht geladener Funktionen mehr.
+
 ## v0.9.26 (Juli 2026) – Lehrkraft-Export (Tischvorlage, iCal)
 
 ### Neu

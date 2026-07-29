@@ -48,7 +48,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.26', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.27', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -240,9 +240,16 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'lehrer-tischvorlage' && isset($se
     $sid = (int)$seg[1];
     $lid = (int)$u['lehrer_id'];
     $pdo = db($cfg);
-    $s = bu_sprechtag($pdo, $sid);
-    // Vollständiges Raster (frei + belegt) für den Tagesablauf.
-    $fenster = bu_lehrer_fenster($pdo, $sid, $lid);
+    // Sprechtag laden (bu_sprechtag ist an dieser Stelle noch nicht geladen).
+    $stS = $pdo->prepare('SELECT * FROM sprechtage WHERE id = ?');
+    $stS->execute([$sid]);
+    $s = $stS->fetch();
+    if (!$s) json_err('Sprechtag nicht gefunden', 404);
+    // Anwesenheitsfenster der Lehrkraft (NULL = ganzer Rahmen).
+    $stF = $pdo->prepare('SELECT anwesend_von, anwesend_bis
+                          FROM sprechtag_lehrer WHERE sprechtag_id = ? AND lehrer_id = ?');
+    $stF->execute([$sid, $lid]);
+    $fenster = $stF->fetch() ?: ['anwesend_von' => null, 'anwesend_bis' => null];
     $raster = slot_raster($s, $fenster['anwesend_von'], $fenster['anwesend_bis']);
     if ((int)($s['pause_dynamisch'] ?? 0) === 1) {
         $stB = $pdo->prepare('SELECT slot_beginn FROM buchungen
