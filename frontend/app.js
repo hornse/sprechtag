@@ -221,27 +221,35 @@ function starteAnzeige() {
   let proSeite = 24;     // wird bei 'auto' gemessen, sonst aus Einstellung
   let blaetterTimer = null;
 
-  const kopfBauen = () => {
-    const kopf = el('div', 'anzeige-kopf');
-    // Logo (aus dem Branding), falls hinterlegt.
-    if (S.marke && S.marke.hat_logo) {
-      const logo = document.createElement('img');
-      logo.className = 'anzeige-logo';
-      logo.src = '/api/einstellungen/logo?' + Date.now();
-      logo.alt = '';
-      kopf.appendChild(logo);
-    }
-    const box = el('div', 'anzeige-kopf-text');
-    box.appendChild(el('div', 'anzeige-titel',
-      (S.marke && S.marke.marke_titel) || 'Sprechtag'));
-    if (daten && daten.aktiv && daten.sprechtag) {
-      box.appendChild(el('div', 'anzeige-untertitel',
-        daten.sprechtag.name + ' · ' + daten.sprechtag.datum + ' · '
-        + daten.sprechtag.beginn + '–' + daten.sprechtag.ende + ' Uhr'));
-    }
-    kopf.appendChild(box);
-    return kopf;
-  };
+  // Feste Bausteine – EINMAL erzeugt. Beim Umblättern wird nur das Gitter und
+  // der Fuß-Text getauscht, damit Kopf und Logo nicht flackern.
+  const kopf = el('div', 'anzeige-kopf');
+  const logoEck = el('div', 'anzeige-logo-eck');   // oben links (Variante B)
+  if (S.marke && S.marke.hat_logo) {
+    const logo = document.createElement('img');
+    logo.className = 'anzeige-logo';
+    logo.src = '/api/einstellungen/logo';   // ohne Cache-Buster: kein Neuladen
+    logo.alt = '';
+    logoEck.appendChild(logo);
+  }
+  kopf.appendChild(logoEck);
+  const kopfText = el('div', 'anzeige-kopf-text');
+  kopfText.appendChild(el('div', 'anzeige-titel',
+    (S.marke && S.marke.marke_titel) || 'Sprechtag'));
+  const untertitel = el('div', 'anzeige-untertitel');
+  kopfText.appendChild(untertitel);
+  kopf.appendChild(kopfText);
+  flaeche.appendChild(kopf);
+
+  const gitterBox = el('div', 'anzeige-gitter-box');
+  flaeche.appendChild(gitterBox);
+
+  const fuss = el('div', 'anzeige-fuss');
+  const fussSeite = el('span', 'anzeige-seite');
+  const fussStand = el('span', null, '');
+  fuss.appendChild(fussSeite);
+  fuss.appendChild(fussStand);
+  flaeche.appendChild(fuss);
 
   const kachelBauen = (l) => {
     const kachel = el('div', 'anzeige-kachel');
@@ -252,55 +260,45 @@ function starteAnzeige() {
     return kachel;
   };
 
-  // Misst, wie viele Kacheln in die verfügbare Höhe passen. Rendert dazu ein
-  // Probe-Gitter mit einer Musterkachel, liest Spaltenzahl und Kachelhöhe aus
-  // dem echten Layout und rechnet Reihen × Spalten.
-  const messeProSeite = (musterKachel) => {
-    const kopf = flaeche.querySelector('.anzeige-kopf');
-    const fuss = flaeche.querySelector('.anzeige-fuss');
-    const gitter = flaeche.querySelector('.anzeige-gitter');
-    if (!gitter) return 24;
-    const stil = getComputedStyle(gitter);
+  // Misst, wie viele Kacheln in die verfügbare Höhe passen: Probe-Gitter mit
+  // einer Musterkachel, Spaltenzahl und Kachelhöhe aus dem echten Layout.
+  const messeProSeite = (alle) => {
+    const probe = el('div', 'anzeige-gitter');
+    const muster = kachelBauen(alle[0]);
+    probe.appendChild(muster);
+    gitterBox.textContent = '';
+    gitterBox.appendChild(probe);
+    const stil = getComputedStyle(probe);
     const spalten = stil.gridTemplateColumns.split(' ').filter(Boolean).length || 1;
-    const kachelH = musterKachel.offsetHeight || 1;
+    const kachelH = muster.offsetHeight || 1;
     const luecke = parseFloat(stil.rowGap) || 0;
-    // Verfügbare Höhe = Fläche minus Kopf/Fuß minus Innenabstände.
-    const flP = getComputedStyle(flaeche);
-    const verf = flaeche.clientHeight
-      - (kopf ? kopf.offsetHeight : 0)
-      - (fuss ? fuss.offsetHeight : 0)
-      - parseFloat(flP.paddingTop) - parseFloat(flP.paddingBottom) - luecke;
+    const verf = gitterBox.clientHeight;
     const reihen = Math.max(1, Math.floor((verf + luecke) / (kachelH + luecke)));
+    gitterBox.textContent = '';
     return Math.max(1, spalten * reihen);
   };
 
+  const zustandLeer = (text) => {
+    gitterBox.textContent = '';
+    gitterBox.appendChild(el('div', 'anzeige-leer', text));
+    fussSeite.textContent = '';
+  };
+
   const render = (messen) => {
-    flaeche.textContent = '';
-    flaeche.appendChild(kopfBauen());
-
-    if (!daten || !daten.aktiv) {
-      flaeche.appendChild(el('div', 'anzeige-leer',
-        'Zurzeit findet kein Sprechtag statt.'));
-      return;
+    // Untertitel aktualisieren (nur Text, kein Neuaufbau des Kopfes).
+    if (daten && daten.aktiv && daten.sprechtag) {
+      untertitel.textContent = daten.sprechtag.name + ' · ' + daten.sprechtag.datum
+        + ' · ' + daten.sprechtag.beginn + '–' + daten.sprechtag.ende + ' Uhr';
+    } else {
+      untertitel.textContent = '';
     }
+
+    if (!daten || !daten.aktiv) { zustandLeer('Zurzeit findet kein Sprechtag statt.'); return; }
     const alle = daten.lehrer || [];
-    if (alle.length === 0) {
-      flaeche.appendChild(el('div', 'anzeige-leer',
-        'Die Raumaufteilung wird noch vorbereitet.'));
-      return;
-    }
+    if (alle.length === 0) { zustandLeer('Die Raumaufteilung wird noch vorbereitet.'); return; }
 
-    // Bei 'auto' zuerst mit einer Musterkachel messen.
     if (messen && (!daten.kacheln || daten.kacheln === 'auto')) {
-      const probe = el('div', 'anzeige-gitter');
-      const muster = kachelBauen(alle[0]);
-      probe.appendChild(muster);
-      const fussProbe = el('div', 'anzeige-fuss');
-      fussProbe.appendChild(el('span', null, '.'));
-      flaeche.appendChild(probe);
-      flaeche.appendChild(fussProbe);
-      proSeite = messeProSeite(muster);
-      probe.remove(); fussProbe.remove();
+      proSeite = messeProSeite(alle);
     } else if (daten.kacheln && daten.kacheln !== 'auto') {
       proSeite = Math.max(1, parseInt(daten.kacheln, 10) || 24);
     }
@@ -311,17 +309,12 @@ function starteAnzeige() {
 
     const gitter = el('div', 'anzeige-gitter');
     for (const l of teil) gitter.appendChild(kachelBauen(l));
-    flaeche.appendChild(gitter);
+    gitterBox.textContent = '';
+    gitterBox.appendChild(gitter);
 
-    const fuss = el('div', 'anzeige-fuss');
-    if (seiten > 1) {
-      fuss.appendChild(el('span', 'anzeige-seite',
-        'Seite ' + (seite + 1) + ' / ' + seiten));
-    }
-    fuss.appendChild(el('span', null,
-      'Stand ' + new Date().toLocaleTimeString('de-DE',
-        { hour: '2-digit', minute: '2-digit' }) + ' Uhr'));
-    flaeche.appendChild(fuss);
+    fussSeite.textContent = seiten > 1 ? ('Seite ' + (seite + 1) + ' / ' + seiten) : '';
+    fussStand.textContent = 'Stand ' + new Date().toLocaleTimeString('de-DE',
+      { hour: '2-digit', minute: '2-digit' }) + ' Uhr';
   };
 
   const datenHolen = async () => {

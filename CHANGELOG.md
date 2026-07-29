@@ -1,5 +1,18 @@
 # Changelog – sprechtag
 
+## v0.9.22 (Juli 2026) – Anzeige: kein Flackern, Logo oben links
+
+### Behoben
+- **Kopf und Logo flackerten beim Umblättern.** Ursache: Beim Seitenwechsel
+  wurde die ganze Fläche neu aufgebaut (Logo mit Cache-Buster jedes Mal neu
+  geladen). Jetzt stehen Kopf und Fuß dauerhaft; beim Blättern wird nur noch
+  das Kachelgitter ausgetauscht. Das Logo lädt einmal (ohne Cache-Buster).
+
+### Geändert
+- **Logo oben links, Titel mittig** (Variante B): Das Logo sitzt in der
+  oberen Ecke und kostet keinen zusätzlichen vertikalen Platz – die Zahl der
+  Kacheln pro Seite bleibt maximal.
+
 ## v0.9.21 (Juli 2026) – Anzeige: Auto-Kacheln, Logo, mehr Regler
 
 ### Behoben

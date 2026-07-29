@@ -31,6 +31,9 @@ pruefe('seitenweises Umblättern (Intervall konfigurierbar)',
 pruefe('Kachelmenge automatisch messbar',
   js.includes('messeProSeite') && js.includes('gridTemplateColumns'));
 pruefe('Logo im Anzeige-Kopf', js.includes('anzeige-logo') && js.includes('hat_logo'));
+pruefe('kein Flackern: Kopf bleibt, nur Gitter tauscht',
+  js.includes('anzeige-gitter-box') && js.includes('gitterBox.textContent')
+  && js.includes("logo.src = '/api/einstellungen/logo'"));
 pruefe('Seitenanzeige (Seite X / Y)', js.includes('anzeige-seite'));
 pruefe('Admin-Unterseite Anzeige + Sortier-Wahl',
   js.includes('function ansichtAdminAnzeige') && js.includes('anzeige-sortierung'));
