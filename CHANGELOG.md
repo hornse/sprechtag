@@ -1,5 +1,33 @@
 # Changelog – sprechtag
 
+## v0.9.36 (Juli 2026) – Speichern im Erscheinungsbild repariert (ID-Kollision)
+
+### Behoben
+- **Der Speichern-Knopf im Erscheinungsbild tat gar nichts** (kein Feld wurde
+  gespeichert, keine Meldung). Ursache: Die Eingabefelder des Formulars trugen
+  dieselben IDs wie feste Elemente im Seitenkopf (marke-titel, marke-untertitel,
+  marke-fusszeile). `document.querySelector('#marke-titel')` traf das
+  Kopf-`<div>` statt des Eingabefelds – dieses hat kein `.value`, wodurch die
+  Speichern-Funktion sofort mit einem Fehler abbrach, noch bevor irgendetwas
+  gesendet wurde. Die Formularfelder haben jetzt eigene IDs (Präfix `f-`).
+- **`wert()` ist jetzt robust:** Zeigt eine ID versehentlich auf ein Element
+  ohne Eingabewert, liefert die Funktion einen leeren Text, statt die ganze
+  Aktion abzubrechen. So kann ein einzelnes Feld nie mehr das komplette
+  Speichern lahmlegen.
+
+### Diagnose (aus v0.9.35)
+- „Speichern …" erscheint sofort beim Klick als Rückmeldung; die grüne
+  Bestätigung „Erscheinungsbild gespeichert." folgt nach dem Speichern.
+
+## v0.9.35 (Juli 2026) – Speichern-Diagnose (sofortige Rückmeldung)
+
+### Diagnose
+- **„Speichern …" erscheint jetzt sofort beim Klick** auf den Speichern-Knopf
+  im Erscheinungsbild – noch vor jeder Server-Kommunikation. Bleibt diese
+  Einblendung aus, läuft im Browser noch altes JavaScript (Cache/Deploy), und
+  nicht der aktuelle Code. So lässt sich zweifelsfrei unterscheiden, ob der
+  Klick ankommt oder veraltete Dateien geladen sind.
+
 ## v0.9.34 (Juli 2026) – Hash-Routing-Kollision behoben (FAQ-Sprung, Speichern)
 
 ### Behoben

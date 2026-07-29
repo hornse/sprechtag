@@ -164,7 +164,13 @@ function auswahl(label, id, optionen, wert) {
   l.appendChild(s);
   return l;
 }
-function wert(id) { const e = $('#' + id); return e ? e.value.trim() : ''; }
+function wert(id) {
+  const e = $('#' + id);
+  // Nur echte Formularelemente haben .value. Sollte eine ID versehentlich auf
+  // ein anderes Element zeigen, liefern wir '' statt einen Fehler zu werfen
+  // (der sonst die ganze Speichern-Funktion stillschweigend abbräche).
+  return (e && typeof e.value === 'string') ? e.value.trim() : '';
+}
 
 // Baut einen Kontakt-Hinweis aus dem Branding-Wert marke_kontakt. Ist kein
 // Kontakt hinterlegt, wird ein neutraler Satz ohne schulspezifische Angabe
@@ -1862,11 +1868,11 @@ function zeichneMarkeBlock(ziel) {
     + 'für alle. Das Logo wird als Datei gespeichert (PNG, JPG oder SVG, '
     + 'max. 500 KB).'));
 
-  b.appendChild(feld('Schulname', 'marke-schulname', 'text', m.marke_schulname || ''));
-  b.appendChild(feld('Titel (Kopf und Browser-Tab)', 'marke-titel', 'text', m.marke_titel || ''));
-  b.appendChild(feld('Untertitel', 'marke-untertitel', 'text', m.marke_untertitel || ''));
-  b.appendChild(feld('Fußzeile', 'marke-fusszeile', 'text', m.marke_fusszeile || ''));
-  const kf = feld('Kontakt für Rückfragen (z. B. E-Mail)', 'marke-kontakt', 'text',
+  b.appendChild(feld('Schulname', 'f-marke-schulname', 'text', m.marke_schulname || ''));
+  b.appendChild(feld('Titel (Kopf und Browser-Tab)', 'f-marke-titel', 'text', m.marke_titel || ''));
+  b.appendChild(feld('Untertitel', 'f-marke-untertitel', 'text', m.marke_untertitel || ''));
+  b.appendChild(feld('Fußzeile', 'f-marke-fusszeile', 'text', m.marke_fusszeile || ''));
+  const kf = feld('Kontakt für Rückfragen (z. B. E-Mail)', 'f-marke-kontakt', 'text',
     m.marke_kontakt || '');
   b.appendChild(kf);
   b.appendChild(el('p', 'hinweis-klein',
@@ -1874,8 +1880,8 @@ function zeichneMarkeBlock(ziel) {
     + 'lassen zeigt einen neutralen Text ohne Adresse.'));
 
   const farben = el('div', 'zeile');
-  farben.appendChild(feld('Akzentfarbe', 'marke-farbe', 'color', m.marke_farbe || '#1d4e89'));
-  farben.appendChild(feld('Sekundärfarbe', 'marke-farbe2', 'color', m.marke_farbe2 || '#1e7d3e'));
+  farben.appendChild(feld('Akzentfarbe', 'f-marke-farbe', 'color', m.marke_farbe || '#1d4e89'));
+  farben.appendChild(feld('Sekundärfarbe', 'f-marke-farbe2', 'color', m.marke_farbe2 || '#1e7d3e'));
   b.appendChild(farben);
 
   // ---- Logo: Vorschau + Upload + Entfernen ----
@@ -1908,14 +1914,15 @@ function zeichneMarkeBlock(ziel) {
 }
 
 async function markeSpeichern() {
+  toast('Speichern …', 'info');   // sofortiges Signal, dass der Klick ankommt
   const gesendet = {
-    marke_schulname:  wert('marke-schulname'),
-    marke_titel:      wert('marke-titel'),
-    marke_untertitel: wert('marke-untertitel'),
-    marke_fusszeile:  wert('marke-fusszeile'),
-    marke_kontakt:    wert('marke-kontakt'),
-    marke_farbe:      wert('marke-farbe'),
-    marke_farbe2:     wert('marke-farbe2'),
+    marke_schulname:  wert('f-marke-schulname'),
+    marke_titel:      wert('f-marke-titel'),
+    marke_untertitel: wert('f-marke-untertitel'),
+    marke_fusszeile:  wert('f-marke-fusszeile'),
+    marke_kontakt:    wert('f-marke-kontakt'),
+    marke_farbe:      wert('f-marke-farbe'),
+    marke_farbe2:     wert('f-marke-farbe2'),
   };
   try {
     await api('/api/einstellungen', { method: 'POST', body: gesendet });

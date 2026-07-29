@@ -31,7 +31,7 @@ pruefe('kontaktSatz-Helfer nutzt marke_kontakt',
   js.includes('function kontaktSatz') && js.includes('marke_kontakt'));
 pruefe('neutraler Fallback ohne Kontakt', js.includes("' die Schule.'"));
 pruefe('Admin-Formular hat Kontakt-Feld',
-  js.includes("'marke-kontakt'") && js.includes('marke_kontakt:'));
+  js.includes("'f-marke-kontakt'") && js.includes('marke_kontakt:'));
 pruefe('Speicher-Regel kennt marke_kontakt', est.includes("'marke_kontakt'"));
 pruefe('marke_kontakt im Branding-Seed', brd.includes("'marke_kontakt'"));
 
@@ -40,6 +40,17 @@ pruefe('Signatur nimmt Schulname-Parameter',
   mit.includes('string $schule') && mit.includes('. $schule'));
 pruefe('Aufrufer übergibt marke_schulname',
   js === js && est.includes('function marke_schulname'));
+
+// ---- Regression: Formularfelder dürfen nicht mit Kopf-IDs kollidieren ----
+const html = fs.readFileSync(path.join(__dirname, '..', 'frontend', 'index.html'), 'utf8');
+const kopfIds = ['marke-titel', 'marke-untertitel', 'marke-fusszeile', 'marke-logo'];
+const formFelder = ['f-marke-schulname', 'f-marke-titel', 'f-marke-untertitel',
+  'f-marke-fusszeile', 'f-marke-kontakt', 'f-marke-farbe', 'f-marke-farbe2'];
+pruefe('Kopf-Elemente behalten ihre IDs', kopfIds.every((id) => html.includes('id="' + id + '"')));
+pruefe('Formularfelder nutzen eigenes f-Präfix (keine ID-Kollision)',
+  formFelder.every((id) => js.includes("'" + id + "'")));
+pruefe('wert() ist robust gegen Elemente ohne .value',
+  js.includes("typeof e.value === 'string'"));
 
 console.log(fehler === 0 ? '\nALLE TESTS GRÜN' : '\n' + fehler + ' FEHLER');
 process.exit(fehler === 0 ? 0 : 1);
