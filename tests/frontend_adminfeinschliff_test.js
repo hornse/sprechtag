@@ -26,7 +26,9 @@ pruefe('Sonderlehrer Hinzufügen nutzt toast',
 pruefe('Sonderlehrer Entfernen nutzt toast',
   slBlock.includes("toast('Entfernt.', 'ok')"));
 pruefe('Sonderlehrer ruft kein meldung() mehr',
-  !slBlock.includes("meldung('Hinzugefügt"));
+  !slBlock.includes("meldung('Hinzugefügt") && !slBlock.includes("meldung(String(f.message"));
+pruefe('flackerfrei: Liste vor Aufbau laden, in einem Zug tauschen',
+  slBlock.includes('replaceChildren') && !slBlock.includes("ziel.textContent = ''"));
 
 // ---- Datums-Kalenderfelder ----
 pruefe('Anlege-Datum ist Kalenderfeld',

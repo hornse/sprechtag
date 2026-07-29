@@ -824,7 +824,8 @@ function ansichtHilfe(ziel) {
     ['Ich kann mich nicht anmelden.',
      'Bitte prüfen Sie, ob Sie den eigenen WebUntis-Zugang verwenden (nicht '
      + 'den des Kindes) und ob Benutzername und Passwort stimmen. Bei '
-     + 'anhaltenden Problemen wenden Sie sich an das Sekretariat.'],
+     + 'anhaltenden Problemen wenden Sie sich an das WebUntis-Team unter '
+     + 'webuntis@rueckert-gymnasium.de.'],
     ['Warum sehe ich keine freien Termine?',
      'Möglicherweise läuft gerade Phase 1, in der nur eingeladene '
      + 'Erziehungsberechtigte buchen können, oder die Lehrkraft ist bereits '
@@ -2813,11 +2814,24 @@ async function lehrerAusfall(s, l) {
 async function oeffneSonderlehrer(s) {
   const ziel = $('#detail-' + s.id);
   if (!ziel) return;
-  ziel.textContent = '';
+  // Nur beim ERSTEN Öffnen (Bereich noch leer) eine kurze Ladeanzeige zeigen.
+  // Beim Aktualisieren bleibt der alte Inhalt stehen, bis der neue fertig ist.
+  if (ziel.childNodes.length === 0) {
+    ziel.appendChild(el('p', 'hinweis', 'Wird geladen …'));
+  }
   if (S.stammdaten.lehrer.length === 0) await ladeStammdaten();
 
-  ziel.appendChild(el('h4', null, 'Zusätzlich buchbare Lehrkräfte'));
-  ziel.appendChild(el('p', 'hinweis',
+  // Liste ZUERST laden, dann den kompletten Inhalt in einem losen Container
+  // aufbauen und am Ende in EINEM Zug einsetzen. So bleibt der alte Inhalt
+  // stehen, bis der neue fertig ist – kein Leeren, kein Flackern.
+  let liste = [];
+  try {
+    liste = (await api('/api/sonderlehrer?sprechtag=' + s.id)).sonderlehrer || [];
+  } catch (f) { toast(String(f.message), 'fehler'); return; }
+
+  const neu = document.createElement('div');
+  neu.appendChild(el('h4', null, 'Zusätzlich buchbare Lehrkräfte'));
+  neu.appendChild(el('p', 'hinweis',
     'Diese Lehrkräfte können unabhängig davon gebucht werden, ob sie das Kind '
     + 'unterrichten. Jahrgänge leer lassen = für alle buchbar; sonst z. B. "EF, Q1, Q2".'));
 
@@ -2828,52 +2842,48 @@ async function oeffneSonderlehrer(s) {
   z.appendChild(auswahl('Rolle', 'sl-rolle',
     S.stammdaten.sonderrollen.map((r) => ({ wert: r.id, text: r.bezeichnung })), ''));
   z.appendChild(feld('Jahrgänge (optional)', 'sl-jahrgaenge'));
-  ziel.appendChild(z);
-  ziel.appendChild(knopf('Hinzufügen', null, async () => {
+  neu.appendChild(z);
+  neu.appendChild(knopf('Hinzufügen', null, async () => {
     try {
       await api('/api/sonderlehrer', { method: 'POST', body: {
         sprechtag_id: s.id,
         lehrer_id: parseInt(wert('sl-lehrer'), 10),
         rolle_id: parseInt(wert('sl-rolle'), 10),
         jahrgaenge: wert('sl-jahrgaenge') } });
-      // Nur den Detailbereich neu aufbauen (toast statt meldung, damit die
-      // Seite nicht komplett neu zeichnet, zuklappt und nach oben springt).
-      oeffneSonderlehrer(s);
+      oeffneSonderlehrer(s);   // aktualisiert flackerfrei (siehe oben)
       toast('Hinzugefügt.', 'ok');
     } catch (f) { toast(String(f.message), 'fehler'); }
   }));
 
-  let liste = [];
-  try {
-    liste = (await api('/api/sonderlehrer?sprechtag=' + s.id)).sonderlehrer || [];
-  } catch (f) { meldung(String(f.message), 'fehler'); }
-
   if (liste.length === 0) {
-    ziel.appendChild(el('p', 'hinweis', 'Noch keine zusätzlichen Lehrkräfte.'));
-    return;
+    neu.appendChild(el('p', 'hinweis', 'Noch keine zusätzlichen Lehrkräfte.'));
+  } else {
+    const tab = el('table', 'tabelle');
+    const kopf = el('tr');
+    for (const t of ['Kürzel', 'Name', 'Rolle', 'Jahrgänge', '']) kopf.appendChild(el('th', null, t));
+    tab.appendChild(kopf);
+    for (const e of liste) {
+      const tr = el('tr');
+      tr.appendChild(el('td', null, e.kuerzel));
+      tr.appendChild(el('td', null, e.name || ''));
+      tr.appendChild(el('td', null, e.rolle));
+      tr.appendChild(el('td', null, e.jahrgaenge || 'alle'));
+      const td = el('td');
+      td.appendChild(knopf('Entfernen', 'klein gefahr', async () => {
+        try {
+          await api('/api/sonderlehrer/' + e.id, { method: 'DELETE' });
+          oeffneSonderlehrer(s);
+          toast('Entfernt.', 'ok');
+        } catch (f) { toast(String(f.message), 'fehler'); }
+      }));
+      tr.appendChild(td);
+      tab.appendChild(tr);
+    }
+    neu.appendChild(tab);
   }
-  const tab = el('table', 'tabelle');
-  const kopf = el('tr');
-  for (const t of ['Kürzel', 'Name', 'Rolle', 'Jahrgänge', '']) kopf.appendChild(el('th', null, t));
-  tab.appendChild(kopf);
-  for (const e of liste) {
-    const tr = el('tr');
-    tr.appendChild(el('td', null, e.kuerzel));
-    tr.appendChild(el('td', null, e.name || ''));
-    tr.appendChild(el('td', null, e.rolle));
-    tr.appendChild(el('td', null, e.jahrgaenge || 'alle'));
-    const td = el('td');
-    td.appendChild(knopf('Entfernen', 'klein gefahr', async () => {
-      try {
-        await api('/api/sonderlehrer/' + e.id, { method: 'DELETE' });
-        oeffneSonderlehrer(s);
-        toast('Entfernt.', 'ok');
-      } catch (f) { toast(String(f.message), 'fehler'); }
-    }));
-    tr.appendChild(td);
-    tab.appendChild(tr);
-  }
-  ziel.appendChild(tab);
+
+  // Jetzt erst austauschen: alten Inhalt durch den fertigen neuen ersetzen.
+  ziel.replaceChildren(...neu.childNodes);
 }
 
 // ============================================================

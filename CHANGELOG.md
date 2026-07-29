@@ -1,5 +1,18 @@
 # Changelog – sprechtag
 
+## v0.9.31 (Juli 2026) – Sonderlehrkräfte flackerfrei, FAQ-Kontakt
+
+### Behoben
+- **Kein Flackern mehr im Sonderlehrkräfte-Bereich.** Beim Hinzufügen/Entfernen
+  wurde der Bereich kurz geleert, bevor die neue Liste geladen war. Jetzt wird
+  die Liste zuerst geladen, der komplette Inhalt im Hintergrund aufgebaut und
+  am Ende in EINEM Zug ausgetauscht – der alte Inhalt bleibt bis dahin stehen.
+  Beim ersten Öffnen erscheint kurz „Wird geladen …".
+
+### Geändert
+- **FAQ-Kontakt aktualisiert:** Bei Anmeldeproblemen verweist die Hilfe jetzt
+  auf das WebUntis-Team (webuntis@rueckert-gymnasium.de) statt aufs Sekretariat.
+
 ## v0.9.30 (Juli 2026) – Admin-Feinschliff
 
 ### Behoben
