@@ -166,3 +166,151 @@ function kal_ausliefern(string $ics, string $dateiname): never
     echo $ics;
     exit;
 }
+
+/**
+ * Lädt die Buchungen EINER Lehrkraft für einen Sprechtag – für Export/Tischvorlage.
+ * Anders als der Eltern-Feed: hier IST der Kindname die zentrale Information.
+ */
+function kal_lehrer_buchungen(PDO $pdo, int $lehrerId, ?int $sprechtagId = null): array
+{
+    $sql =
+        'SELECT b.id, b.slot_beginn, sp.datum, sp.slot_minuten, sp.name AS sprechtag_name,
+                sp.beginn AS tag_beginn, sp.ende AS tag_ende,
+                l.name AS lehrer_name, l.kuerzel AS lehrer_kuerzel,
+                r.kuerzel AS raum_kuerzel,
+                TRIM(CONCAT(COALESCE(s.nachname,""),
+                     IF(s.vorname IS NULL OR s.vorname = "", "",
+                        CONCAT(", ", s.vorname)))) AS kind_name,
+                s.klasse AS kind_klasse
+         FROM buchungen b
+         JOIN sprechtage sp ON sp.id = b.sprechtag_id
+         JOIN lehrer l ON l.id = b.lehrer_id
+         LEFT JOIN sprechtag_lehrer sl
+                ON sl.sprechtag_id = b.sprechtag_id AND sl.lehrer_id = b.lehrer_id
+         LEFT JOIN raeume r ON r.id = sl.raum_id
+         LEFT JOIN schueler s ON s.webuntis_id = b.schueler_id
+         WHERE b.lehrer_id = ?';
+    $args = [$lehrerId];
+    if ($sprechtagId !== null) { $sql .= ' AND b.sprechtag_id = ?'; $args[] = $sprechtagId; }
+    $sql .= ' ORDER BY sp.datum, b.slot_beginn';
+    $st = $pdo->prepare($sql);
+    $st->execute($args);
+    return $st->fetchAll();
+}
+
+/**
+ * VEVENTs aus Lehrkraft-Sicht: Titel „Sprechtag: <Kind>", damit die Lehrkraft
+ * im eigenen Kalender sofort sieht, um welches Kind es geht.
+ */
+function kal_vevents_lehrer(array $buchungen): string
+{
+    $host = $_SERVER['HTTP_HOST'] ?? 'sprechtag';
+    $jetzt = gmdate('Ymd\THis\Z');
+    $out = '';
+    foreach ($buchungen as $b) {
+        $von = substr((string)$b['slot_beginn'], 0, 5);
+        $laenge = max(1, (int)($b['slot_minuten'] ?? 10));
+        [$jh, $mo, $tg] = array_map('intval', explode('-', (string)$b['datum']));
+        [$sh, $sm] = array_map('intval', explode(':', $von));
+        $startTs = mktime($sh, $sm, 0, $mo, $tg, $jh);
+        $endeTs  = $startTs + $laenge * 60;
+
+        $kind = trim((string)($b['kind_name'] ?: ''));
+        $klasse = trim((string)($b['kind_klasse'] ?? ''));
+        $raum = trim((string)($b['raum_kuerzel'] ?? ''));
+        $titel = 'Sprechtag: ' . ($kind !== '' ? $kind : 'Termin')
+               . ($klasse !== '' ? ' (' . $klasse . ')' : '');
+
+        $lines = [
+            'BEGIN:VEVENT',
+            'UID:lehrer-buchung-' . (int)$b['id'] . '@' . $host,
+            'DTSTAMP:' . $jetzt,
+            'DTSTART:' . date('Ymd\THis', $startTs),
+            'DTEND:'   . date('Ymd\THis', $endeTs),
+            'SUMMARY:' . kal_escape($titel),
+        ];
+        if ($raum !== '') $lines[] = 'LOCATION:' . kal_escape($raum);
+        $lines[] = 'END:VEVENT';
+        foreach ($lines as $l) $out .= kal_falten($l) . "\r\n";
+    }
+    return $out;
+}
+
+/** Abo-Token einer Lehrkraft (eigene Tabelle-Nutzung mit negativer Kennung). */
+function kal_lehrer_token_holen(PDO $pdo, int $lehrerId): string
+{
+    // Lehrkräfte teilen sich die kalender_abo-Tabelle; zur Unterscheidung von
+    // Eltern-user.id nutzen wir einen eigenen Präfix-Schlüsselraum: die Spalte
+    // eltern_user_id speichert für Lehrkräfte den Wert (1000000000 + lehrer_id).
+    $key = 1000000000 + $lehrerId;
+    return kal_token_holen($pdo, $key);
+}
+
+function kal_lehrer_token_neu(PDO $pdo, int $lehrerId): string
+{
+    return kal_token_neu($pdo, 1000000000 + $lehrerId);
+}
+
+/** Prüft, ob ein Token zu einer Lehrkraft gehört, und gibt die lehrer_id zurück. */
+function kal_lehrer_aus_token(PDO $pdo, string $token): ?int
+{
+    $st = $pdo->prepare('SELECT eltern_user_id FROM kalender_abo WHERE token = ?');
+    $st->execute([$token]);
+    $key = $st->fetchColumn();
+    if ($key === false) return null;
+    $key = (int)$key;
+    return $key >= 1000000000 ? $key - 1000000000 : null;
+}
+
+/**
+ * Baut eine druckbare HTML-Tischvorlage der Termine einer Lehrkraft für einen
+ * Sprechtag. Bewusst als HTML (kein PDF-Modul): Die Lehrkraft druckt über den
+ * Browser bzw. speichert als PDF. Enthält freie Slots als Lücken, damit man
+ * den Ablauf sieht.
+ */
+function kal_tischvorlage_html(array $kopf, array $zeilen): string
+{
+    $h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
+    $titel = $h($kopf['lehrer'] . ' – ' . $kopf['sprechtag'] . ' (' . $kopf['datum'] . ')');
+
+    $rows = '';
+    foreach ($zeilen as $z) {
+        $frei = empty($z['kind_name']);
+        $klasse = $frei ? ' class="frei"' : '';
+        $kind = $frei ? '<span class="leer">frei</span>' : $h($z['kind_name']);
+        $kl = $h($z['kind_klasse'] ?? '');
+        $rows .= '<tr' . $klasse . '><td class="z">' . $h(substr((string)$z['slot_beginn'], 0, 5))
+              . '</td><td>' . $kind . '</td><td>' . $kl . '</td><td class="n"></td></tr>';
+    }
+
+    return '<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">'
+      . '<title>' . $titel . '</title><style>'
+      . 'body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;margin:2cm;color:#111}'
+      . 'h1{font-size:18pt;margin:0 0 .2cm}h2{font-size:12pt;font-weight:400;color:#555;margin:0 0 .6cm}'
+      . 'table{width:100%;border-collapse:collapse;font-size:11pt}'
+      . 'th,td{border:1px solid #bbb;padding:.25cm .3cm;text-align:left;vertical-align:top}'
+      . 'th{background:#f0f0f0;font-size:10pt}'
+      . 'td.z{width:2.5cm;font-weight:600}td.n{width:6cm}'
+      . 'tr.frei td{color:#999}.leer{font-style:italic}'
+      . '.raum{font-size:11pt;color:#333;margin:0 0 .4cm}'
+      . '@media print{body{margin:1.2cm}.druck{display:none}}'
+      . '.druck{margin:.6cm 0;padding:.3cm .6cm;font-size:11pt;cursor:pointer}'
+      . '</style></head><body>'
+      . '<h1>' . $h($kopf['lehrer']) . '</h1>'
+      . '<h2>' . $h($kopf['sprechtag']) . ' · ' . $h($kopf['datum'])
+      . ' · ' . $h($kopf['zeit']) . '</h2>'
+      . ($kopf['raum'] !== '' ? '<p class="raum">Raum: <strong>' . $h($kopf['raum']) . '</strong></p>' : '')
+      . '<button class="druck" onclick="window.print()">Drucken / als PDF speichern</button>'
+      . '<table><thead><tr><th>Zeit</th><th>Kind</th><th>Klasse</th><th>Notizen</th></tr></thead>'
+      . '<tbody>' . $rows . '</tbody></table>'
+      . '</body></html>';
+}
+
+/** Sendet eine HTML-Seite und beendet das Skript. */
+function kal_html_ausliefern(string $html): never
+{
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: no-cache');
+    echo $html;
+    exit;
+}

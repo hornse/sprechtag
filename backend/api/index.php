@@ -48,7 +48,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.25', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.26', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -120,6 +120,16 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'kalender' && isset($seg[1])) {
         exit;
     }
     $pdo = db($cfg);
+    // Lehrkraft-Feed? (Token gehört zu einer Lehrkraft -> Kind-zentrierte Events)
+    $lehrerId = kal_lehrer_aus_token($pdo, $token);
+    if ($lehrerId !== null) {
+        $buchungen = kal_lehrer_buchungen($pdo, $lehrerId);
+        $marke = $pdo->query("SELECT wert FROM einstellungen
+                              WHERE schluessel = 'marke_titel'")->fetchColumn();
+        $ics = kal_kalender(kal_vevents_lehrer($buchungen),
+            ($marke ?: 'Sprechtag') . ' – meine Termine');
+        kal_ausliefern($ics, 'sprechtag-lehrkraft.ics');
+    }
     $st = $pdo->prepare('SELECT eltern_user_id FROM kalender_abo WHERE token = ?');
     $st->execute([$token]);
     $uid = $st->fetchColumn();
@@ -189,6 +199,96 @@ if (($seg[0] ?? '') === 'auth') {
             ->execute([$benutzer, $daten['rolle'], $_SERVER['REMOTE_ADDR'] ?? '']);
         json_ok(['angemeldet' => true] + auth_user());
     }
+}
+
+// ============================================================
+// LEHRKRAFT-EXPORT (iCal-Abo, iCal-Datei, druckbare Tischvorlage)
+// ============================================================
+if (($seg[0] ?? '') === 'lehrer-kalender') {
+    $u = auth_require();                       // Guard VOR db()
+    if ($u === null) json_err('Bitte anmelden', 401);
+    if ($u['lehrer_id'] === null) json_err('Nur für Lehrkräfte', 403);
+    $pdo = db($cfg);
+    if ($methode === 'POST' && ($seg[1] ?? '') === 'neu') {
+        $token = kal_lehrer_token_neu($pdo, (int)$u['lehrer_id']);
+        json_ok(['url' => kal_basis_url() . '/api/kalender/' . $token . '.ics']);
+    }
+    if ($methode === 'GET' && !isset($seg[1])) {
+        $token = kal_lehrer_token_holen($pdo, (int)$u['lehrer_id']);
+        json_ok(['url' => kal_basis_url() . '/api/kalender/' . $token . '.ics']);
+    }
+    json_err('Methode nicht unterstützt.', 405);
+}
+
+// ---- GET /api/lehrer-termine/{sprechtag}.ics : Tagesliste als .ics ----
+if ($methode === 'GET' && ($seg[0] ?? '') === 'lehrer-termine' && isset($seg[1])) {
+    $u = auth_require();
+    if ($u === null) json_err('Bitte anmelden', 401);
+    if ($u['lehrer_id'] === null) json_err('Nur für Lehrkräfte', 403);
+    $sid = (int)preg_replace('/\.ics$/', '', (string)$seg[1]);
+    $pdo = db($cfg);
+    $buchungen = kal_lehrer_buchungen($pdo, (int)$u['lehrer_id'], $sid);
+    $ics = kal_kalender(kal_vevents_lehrer($buchungen), 'Sprechtag – meine Termine');
+    kal_ausliefern($ics, 'meine-termine.ics');
+}
+
+// ---- GET /api/lehrer-tischvorlage/{sprechtag} : druckbare HTML-Liste ----
+if ($methode === 'GET' && ($seg[0] ?? '') === 'lehrer-tischvorlage' && isset($seg[1])) {
+    $u = auth_require();
+    if ($u === null) json_err('Bitte anmelden', 401);
+    if ($u['lehrer_id'] === null) json_err('Nur für Lehrkräfte', 403);
+    $sid = (int)$seg[1];
+    $lid = (int)$u['lehrer_id'];
+    $pdo = db($cfg);
+    $s = bu_sprechtag($pdo, $sid);
+    // Vollständiges Raster (frei + belegt) für den Tagesablauf.
+    $fenster = bu_lehrer_fenster($pdo, $sid, $lid);
+    $raster = slot_raster($s, $fenster['anwesend_von'], $fenster['anwesend_bis']);
+    if ((int)($s['pause_dynamisch'] ?? 0) === 1) {
+        $stB = $pdo->prepare('SELECT slot_beginn FROM buchungen
+                              WHERE sprechtag_id = ? AND lehrer_id = ?');
+        $stB->execute([$sid, $lid]);
+        $bset = [];
+        foreach ($stB->fetchAll() as $b) { $bset[substr((string)$b['slot_beginn'], 0, 5)] = true; }
+        $raster = slot_pausen_anwenden($raster, $bset, true, (int)($s['pause_nach_terminen'] ?? 0));
+    }
+    // Buchungen (Kindname/Klasse) je Slot.
+    $st = $pdo->prepare(
+        'SELECT b.slot_beginn,
+                TRIM(CONCAT(COALESCE(s.nachname,""),
+                     IF(s.vorname IS NULL OR s.vorname = "", "",
+                        CONCAT(", ", s.vorname)))) AS kind_name, s.klasse AS kind_klasse
+         FROM buchungen b LEFT JOIN schueler s ON s.webuntis_id = b.schueler_id
+         WHERE b.sprechtag_id = ? AND b.lehrer_id = ?');
+    $st->execute([$sid, $lid]);
+    $belegt = [];
+    foreach ($st->fetchAll() as $b) { $belegt[substr((string)$b['slot_beginn'], 0, 5)] = $b; }
+
+    $zeilen = [];
+    foreach ($raster as $z) {
+        if (($z['typ'] ?? '') === 'pause') {
+            $zeilen[] = ['slot_beginn' => $z['beginn'], 'kind_name' => 'Pause', 'kind_klasse' => ''];
+            continue;
+        }
+        $b = $belegt[$z['beginn']] ?? null;
+        $zeilen[] = ['slot_beginn' => $z['beginn'],
+                     'kind_name' => $b['kind_name'] ?? '',
+                     'kind_klasse' => $b['kind_klasse'] ?? ''];
+    }
+    // Kopfdaten
+    $stR = $pdo->prepare('SELECT r.kuerzel FROM sprechtag_lehrer sl
+                          LEFT JOIN raeume r ON r.id = sl.raum_id
+                          WHERE sl.sprechtag_id = ? AND sl.lehrer_id = ?');
+    $stR->execute([$sid, $lid]);
+    $raum = (string)($stR->fetchColumn() ?: '');
+    $kopf = [
+        'lehrer' => (string)($u['name'] ?: $u['kuerzel']),
+        'sprechtag' => (string)$s['name'],
+        'datum' => (string)$s['datum'],
+        'zeit' => substr((string)$s['beginn'], 0, 5) . '–' . substr((string)$s['ende'], 0, 5) . ' Uhr',
+        'raum' => $raum,
+    ];
+    kal_html_ausliefern(kal_tischvorlage_html($kopf, $zeilen));
 }
 
 // ============================================================

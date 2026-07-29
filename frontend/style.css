@@ -293,6 +293,12 @@ button {
 }
 button:hover { filter: brightness(1.1); }
 button:disabled { background: var(--grau); cursor: wait; }
+/* Links, die wie Buttons aussehen (z. B. Datei-/Druck-Export) */
+a.knopf { display: inline-block; font-weight: 600; color: #fff;
+          background: var(--akzent); border-radius: 6px; padding: .55rem 1.2rem;
+          text-decoration: none; cursor: pointer; }
+a.knopf.klein { padding: .3rem .7rem; font-size: .8rem; }
+a.knopf:hover { filter: brightness(1.1); }
 
 #status, #kopier-status { font-size: .85rem; color: var(--grau); }
 #status.fehler { color: var(--rot); font-weight: 600; }

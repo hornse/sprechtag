@@ -1,5 +1,27 @@
 # Changelog – sprechtag
 
+## v0.9.26 (Juli 2026) – Lehrkraft-Export (Tischvorlage, iCal)
+
+### Neu
+- **Druckbare Tischvorlage.** In der Lehrkraft-Ansicht erzeugt „Druckbare
+  Tischvorlage" eine saubere HTML-Seite mit dem kompletten Tagesablauf (alle
+  Slots inkl. freier Zeiten und Pausen, Kind + Klasse, Notizspalte). Über den
+  Browser druckbar bzw. als PDF speicherbar – keine PDF-Bibliothek nötig.
+- **Tagesliste als Kalenderdatei (.ics).** Ein Klick lädt die eigenen Termine
+  des Sprechtags als .ics (Titel „Sprechtag: <Kind>").
+- **Persönlicher Abo-Link für Lehrkräfte.** Wie bei den Eltern: eigene Termine
+  automatisch im Kalender (auch WebUntis), neu erzeugbar.
+
+### Datenschutz / Technik
+- Der Lehrkraft-Abo-Link nutzt denselben Token-Mechanismus wie der
+  Eltern-Link, unterschieden über einen eigenen Schlüsselraum – keine
+  Schema-Änderung, keine Migration nötig.
+- Export nur im EIGENEN Raster; ein Admin, der fremde Termine ansieht, kann
+  nicht exportieren.
+
+### Tests
+- `tests/frontend_lehrer_export_test.js`.
+
 ## v0.9.25 (Juli 2026) – Kalender-Anbindung (iCal) – benötigt Migration `sql/13_kalender.sql`
 
 ### Neu

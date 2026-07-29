@@ -39,6 +39,7 @@ const S = {
   buchenSuche: '',     // Filtertext für die Buchungs-Kacheln
   lehrerLaedt: false,  // Auto-Load-Guard für die Lehrkraft-Liste
   kalenderLink: null,  // persönlicher iCal-Abo-Link (Eltern)
+  lehrerKalenderLink: null,  // persönlicher iCal-Abo-Link (Lehrkraft)
   gewaehlteLehrkraftAnsicht: null,   // Admin: wessen Termine werden gezeigt
   schuelerListe: null,               // Klassenliste für Einladungen
   svRaster: null,                    // Zeitraster der Lehrkraft (frei + belegt)
@@ -1256,6 +1257,58 @@ function zeichneLehrkraftRaster(ziel, lehrerId) {
   ziel.appendChild(raster);
   ziel.appendChild(knopf('Aktualisieren', 'klein',
     () => { S.svRaster = null; ladeSvRaster(lehrerId); }));
+
+  // Export nur im eigenen Raster anbieten (nicht in fremder Admin-Ansicht).
+  if (eigenesRaster) {
+    const sid = S.aktiverSprechtag.id;
+    const exp = block('lehrer-export', 'Terminliste exportieren');
+    exp.appendChild(el('p', 'hinweis',
+      'Für den Sprechtag: eine druckbare Tischvorlage, die Tagesliste als '
+      + 'Kalenderdatei, oder ein persönlicher Abo-Link, mit dem Ihre Termine '
+      + 'automatisch im eigenen Kalender (auch WebUntis) erscheinen.'));
+    const z = el('div', 'zeile');
+    const vorlage = el('a', 'knopf', 'Druckbare Tischvorlage');
+    vorlage.href = '/api/lehrer-tischvorlage/' + sid;
+    vorlage.target = '_blank';
+    z.appendChild(vorlage);
+    const icsDatei = el('a', 'knopf klein', 'Als Kalenderdatei (.ics)');
+    icsDatei.href = '/api/lehrer-termine/' + sid + '.ics';
+    icsDatei.setAttribute('download', 'meine-termine.ics');
+    icsDatei.target = '_blank';
+    z.appendChild(icsDatei);
+    exp.appendChild(z);
+
+    const aboZeile = el('div', 'zeile');
+    const aboFeld = document.createElement('input');
+    aboFeld.type = 'text'; aboFeld.id = 'lk-abo-url'; aboFeld.readOnly = true;
+    aboFeld.value = S.lehrerKalenderLink || 'Abo-Link wird geladen …';
+    aboZeile.appendChild(aboFeld);
+    exp.appendChild(aboZeile);
+    const aboBtn = el('div', 'zeile');
+    aboBtn.appendChild(knopf('Abo-Link kopieren', 'klein', async () => {
+      try { await navigator.clipboard.writeText($('#lk-abo-url').value);
+        toast('Link kopiert.', 'ok'); }
+      catch { $('#lk-abo-url').select(); toast('Bitte manuell kopieren.', 'info'); }
+    }));
+    aboBtn.appendChild(knopf('Neuen Abo-Link', 'klein', async () => {
+      if (!confirm('Der alte Link wird ungültig. Fortfahren?')) return;
+      try {
+        const d = await api('/api/lehrer-kalender/neu', { method: 'POST' });
+        S.lehrerKalenderLink = d.url;
+        const f = $('#lk-abo-url'); if (f) f.value = d.url;
+        toast('Neuer Abo-Link erzeugt.', 'ok');
+      } catch (f) { toast(String(f.message), 'fehler'); }
+    }));
+    exp.appendChild(aboBtn);
+    ziel.appendChild(exp);
+
+    if (!S.lehrerKalenderLink) {
+      api('/api/lehrer-kalender').then((d) => {
+        S.lehrerKalenderLink = d.url;
+        const f = $('#lk-abo-url'); if (f) f.value = d.url;
+      }).catch(() => {});
+    }
+  }
 }
 
 // Kopfzeile der eigenen Ansicht: Kind wählen (Suchfeld) für die
