@@ -35,7 +35,9 @@ pruefe('kein Lade-Button mehr',
 // ---- Hash-Routing ----
 pruefe('wechsleAnsicht setzt Hash', js.includes('setzeHash(ziel)'));
 pruefe('Ansicht wird aus Hash wiederhergestellt',
-  js.includes("(location.hash || '').replace(/^#/, '')") && js.includes('ANSICHT_KEYS.includes'));
+  js.includes("(location.hash || '').replace(/^#\\/?/, '')") && js.includes('ANSICHT_KEYS.includes'));
+pruefe('View-Hashes mit /-Präfix (keine Kollision mit Sprungmarken)',
+  js.includes("'#/' + ziel") && js.includes("startsWith('#/')"));
 pruefe('hashchange-Listener (Vor/Zurück)', js.includes("addEventListener('hashchange'"));
 pruefe('Rollenprüfung für Ansichten', js.includes('function ansichtErlaubt'));
 pruefe('Abmelden leert den Hash', js.includes("location.hash = ''"));

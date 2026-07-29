@@ -1,5 +1,22 @@
 # Changelog – sprechtag
 
+## v0.9.34 (Juli 2026) – Hash-Routing-Kollision behoben (FAQ-Sprung, Speichern)
+
+### Behoben
+- **FAQ sprang beim Neuladen weg und klappte zu.** Die seiteninternen
+  Sprungmarken der Hilfe (#hilfe-faq …) kollidierten mit dem Ansichts-Routing
+  über den URL-Hash. Ansichts-Adressen tragen jetzt ein „/"-Präfix (#/meine),
+  Sprungmarken bleiben davon unberührt. Ein Neuladen der Hilfe bleibt jetzt auf
+  der Hilfe.
+- **Erscheinungsbild speicherte das Kontaktfeld leer.** Ursache war dieselbe
+  Hash-Kollision, die ein Neuzeichnen des Formulars auslösen und die Eingabe
+  verwerfen konnte. Mit dem getrennten Routing bleibt die Eingabe erhalten.
+
+### Verbessert
+- **Klare grüne Rückmeldung auf den Admin-Seiten.** „Erscheinungsbild
+  gespeichert." erscheint jetzt als kurze Einblendung (Toast), die ein
+  Neuzeichnen nicht mehr verschluckt.
+
 ## v0.9.33 (Juli 2026) – Erscheinungsbild: Layout und Speicher-Diagnose
 
 ### Verbessert

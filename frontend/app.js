@@ -211,14 +211,18 @@ async function start() {
       : S.user.rolle === 'lehrkraft' ? 'lehrkraft' : 'buchen';
     // Beim Neuladen die Ansicht aus dem URL-Hash wiederherstellen, sofern sie
     // gültig und für die Rolle sinnvoll ist – sonst die Standardansicht.
-    const ausHash = (location.hash || '').replace(/^#/, '');
-    S.ansicht = (ausHash && ANSICHT_KEYS.includes(ausHash)
+    // View-Hashes tragen ein „/"-Präfix (#/meine); Sprungmarken (#hilfe-faq)
+    // werden hier ignoriert.
+    const ausHash = (location.hash || '').replace(/^#\/?/, '');
+    const istView = (location.hash || '').startsWith('#/');
+    S.ansicht = (istView && ANSICHT_KEYS.includes(ausHash)
       && ansichtErlaubt(ausHash, S.user.rolle)) ? ausHash : standard;
     setzeHash(S.ansicht);
     // Auf Vor/Zurück und manuelle Hash-Änderungen reagieren.
     window.addEventListener('hashchange', () => {
       if (hashIntern) return;
-      const z = (location.hash || '').replace(/^#/, '');
+      if (!(location.hash || '').startsWith('#/')) return;   // Sprungmarke: ignorieren
+      const z = (location.hash || '').replace(/^#\//, '');
       if (z && ANSICHT_KEYS.includes(z) && ansichtErlaubt(z, S.user.rolle)
           && z !== S.ansicht) {
         ansichtZuruecksetzen();
@@ -549,9 +553,11 @@ function wechsleAnsicht(ziel) {
 }
 
 // Setzt den Hash, ohne den hashchange-Handler erneut auszulösen.
+// View-Hashes bekommen ein „/"-Präfix (z. B. #/meine), damit sie sich nie mit
+// seiteninternen Sprungmarken (z. B. #hilfe-faq) überschneiden.
 let hashIntern = false;
 function setzeHash(ziel) {
-  const neu = '#' + ziel;
+  const neu = '#/' + ziel;
   if (location.hash === neu) return;
   hashIntern = true;
   location.hash = neu;
@@ -709,7 +715,7 @@ function ansichtLogin(ziel) {
   // Hilfe ohne Anmeldung erreichbar.
   const hilfe = el('p', 'login-hilfe');
   const link = el('a', null, 'Hilfe & Anleitung ansehen');
-  link.href = '#hilfe';
+  link.href = '#/hilfe';
   link.addEventListener('click', (e) => { e.preventDefault(); wechsleAnsicht('hilfe'); });
   hilfe.appendChild(link);
   ziel.appendChild(hilfe);
@@ -1912,21 +1918,21 @@ async function markeSpeichern() {
     marke_farbe2:     wert('marke-farbe2'),
   };
   try {
-    const antwort = await api('/api/einstellungen', { method: 'POST', body: gesendet });
+    await api('/api/einstellungen', { method: 'POST', body: gesendet });
     S.marke = await api('/api/einstellungen');
     wendeMarkeAn(S.marke);
     // Prüfen, ob der Kontakt wirklich ankam (deckt einen veralteten Server auf,
     // der marke_kontakt noch nicht kennt).
     const kontaktErwartet = gesendet.marke_kontakt;
     const kontaktGespeichert = (S.marke && S.marke.marke_kontakt) || '';
-    if (kontaktErwartet && kontaktGespeichert !== kontaktErwartet) {
-      meldung('Gespeichert – aber das Kontaktfeld kam nicht an. Läuft schon '
-        + 'v0.9.32 auf dem Server? Bitte Deploy prüfen.', 'fehler');
-    } else {
-      meldung('Erscheinungsbild gespeichert.', 'ok');
-    }
     zeichne();
-  } catch (f) { meldung(String(f.message), 'fehler'); }
+    if (kontaktErwartet && kontaktGespeichert !== kontaktErwartet) {
+      toast('Gespeichert – aber das Kontaktfeld kam nicht an. Läuft schon '
+        + 'v0.9.34 auf dem Server? Bitte Deploy prüfen.', 'fehler');
+    } else {
+      toast('Erscheinungsbild gespeichert.', 'ok');
+    }
+  } catch (f) { toast(String(f.message), 'fehler'); }
 }
 
 async function markeLogoHochladen() {
