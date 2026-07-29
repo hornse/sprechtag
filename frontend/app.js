@@ -204,27 +204,38 @@ async function start() {
   zeichne();
 }
 
-// ---------- Anzeige-Modus (Signage) --------------------------------------
-// Vollbild-Raumübersicht für einen öffentlichen Monitor. Kein Login, keine
-// Interaktion. Blättert seitenweise um (bei ~90 Personen passt nicht alles
-// auf einen Schirm) und lädt regelmäßig frische Daten. Die Kachelmenge pro
-// Seite passt sich automatisch an die Bildschirmgröße an (oder wird fest
-// vorgegeben), das Umblätter-Intervall ist einstellbar.
-function starteAnzeige() {
+// ==========================================================================
+// GENERISCHE SIGNAGE-ENGINE (projektunabhängig, wiederverwendbar)
+// --------------------------------------------------------------------------
+// Diese Funktion weiß NICHTS über Sprechtage. Sie liefert die Mechanik eines
+// Info-Monitors: Vollbild-Kopf mit Logo/Titel, automatisch gemessene
+// Kachelmenge, seitenweises Umblättern, Auto-Refresh, flackerfreies Neurendern.
+// Für ein anderes Projekt kopiert man diesen Block unverändert und schreibt
+// nur einen neuen Adapter (siehe starteAnzeige unten), der `cfg` befüllt.
+//
+// cfg = {
+//   titel:        String  – große Überschrift
+//   holen:        async () => object   – lädt die Anzeigedaten
+//   istAktiv:     (daten) => bool       – gibt es etwas anzuzeigen?
+//   untertitel:   (daten) => String     – Zeile unter dem Titel
+//   posten:       (daten) => Array      – die Kachel-Datensätze
+//   kachel:       (post)  => HTMLElement – baut EINE Kachel
+//   proSeite:     (daten) => 'auto'|Number – Kacheln je Seite
+//   intervall:    (daten) => Number      – Sekunden je Seite
+//   leerText:     (daten) => String      – Text, wenn nichts aktiv/leer
+// }
+// ==========================================================================
+function signageStart(cfg) {
   document.body.classList.add('anzeige-modus');
   document.body.textContent = '';
   const flaeche = el('div', 'anzeige');
   document.body.appendChild(flaeche);
 
-  let daten = null;      // letzte Serverantwort
-  let seite = 0;         // aktuelle Seitennummer
-  let proSeite = 24;     // wird bei 'auto' gemessen, sonst aus Einstellung
-  let blaetterTimer = null;
+  let daten = null, seite = 0, proSeite = 24, blaetterTimer = null;
 
-  // Feste Bausteine – EINMAL erzeugt. Beim Umblättern wird nur das Gitter und
-  // der Fuß-Text getauscht, damit Kopf und Logo nicht flackern.
+  // Feste Bausteine – EINMAL erzeugt (kein Flackern beim Umblättern).
   const kopf = el('div', 'anzeige-kopf');
-  const logoEck = el('div', 'anzeige-logo-eck');   // oben links (Variante B)
+  const logoEck = el('div', 'anzeige-logo-eck');
   if (S.marke && S.marke.hat_logo) {
     const logo = document.createElement('img');
     logo.className = 'anzeige-logo';
@@ -234,8 +245,7 @@ function starteAnzeige() {
   }
   kopf.appendChild(logoEck);
   const kopfText = el('div', 'anzeige-kopf-text');
-  kopfText.appendChild(el('div', 'anzeige-titel',
-    (S.marke && S.marke.marke_titel) || 'Sprechtag'));
+  kopfText.appendChild(el('div', 'anzeige-titel', cfg.titel || 'Info'));
   const untertitel = el('div', 'anzeige-untertitel');
   kopfText.appendChild(untertitel);
   kopf.appendChild(kopfText);
@@ -251,20 +261,10 @@ function starteAnzeige() {
   fuss.appendChild(fussStand);
   flaeche.appendChild(fuss);
 
-  const kachelBauen = (l) => {
-    const kachel = el('div', 'anzeige-kachel');
-    kachel.appendChild(el('div', 'anzeige-raum', l.raum_kuerzel || 'Raum offen'));
-    kachel.appendChild(el('div', 'anzeige-kuerzel', l.kuerzel));
-    if (l.name) kachel.appendChild(el('div', 'anzeige-name', l.name));
-    kachel.appendChild(el('div', 'anzeige-zeit', anzeigeZeit(l, daten.sprechtag)));
-    return kachel;
-  };
-
-  // Misst, wie viele Kacheln in die verfügbare Höhe passen: Probe-Gitter mit
-  // einer Musterkachel, Spaltenzahl und Kachelhöhe aus dem echten Layout.
-  const messeProSeite = (alle) => {
+  // Misst, wie viele Kacheln in die verfügbare Höhe passen.
+  const messeProSeite = (posten) => {
     const probe = el('div', 'anzeige-gitter');
-    const muster = kachelBauen(alle[0]);
+    const muster = cfg.kachel(posten[0]);
     probe.appendChild(muster);
     gitterBox.textContent = '';
     gitterBox.appendChild(probe);
@@ -272,8 +272,7 @@ function starteAnzeige() {
     const spalten = stil.gridTemplateColumns.split(' ').filter(Boolean).length || 1;
     const kachelH = muster.offsetHeight || 1;
     const luecke = parseFloat(stil.rowGap) || 0;
-    const verf = gitterBox.clientHeight;
-    const reihen = Math.max(1, Math.floor((verf + luecke) / (kachelH + luecke)));
+    const reihen = Math.max(1, Math.floor((gitterBox.clientHeight + luecke) / (kachelH + luecke)));
     gitterBox.textContent = '';
     return Math.max(1, spalten * reihen);
   };
@@ -284,31 +283,25 @@ function starteAnzeige() {
     fussSeite.textContent = '';
   };
 
+  const posten = () => (daten ? (cfg.posten(daten) || []) : []);
+
   const render = (messen) => {
-    // Untertitel aktualisieren (nur Text, kein Neuaufbau des Kopfes).
-    if (daten && daten.aktiv && daten.sprechtag) {
-      untertitel.textContent = daten.sprechtag.name + ' · ' + daten.sprechtag.datum
-        + ' · ' + daten.sprechtag.beginn + '–' + daten.sprechtag.ende + ' Uhr';
-    } else {
-      untertitel.textContent = '';
-    }
+    untertitel.textContent = daten ? (cfg.untertitel(daten) || '') : '';
 
-    if (!daten || !daten.aktiv) { zustandLeer('Zurzeit findet kein Sprechtag statt.'); return; }
-    const alle = daten.lehrer || [];
-    if (alle.length === 0) { zustandLeer('Die Raumaufteilung wird noch vorbereitet.'); return; }
+    if (!daten || !cfg.istAktiv(daten)) { zustandLeer(cfg.leerText(daten)); return; }
+    const alle = posten();
+    if (alle.length === 0) { zustandLeer(cfg.leerText(daten)); return; }
 
-    if (messen && (!daten.kacheln || daten.kacheln === 'auto')) {
-      proSeite = messeProSeite(alle);
-    } else if (daten.kacheln && daten.kacheln !== 'auto') {
-      proSeite = Math.max(1, parseInt(daten.kacheln, 10) || 24);
-    }
+    const wahl = cfg.proSeite(daten);
+    if (messen && (!wahl || wahl === 'auto')) proSeite = messeProSeite(alle);
+    else if (wahl && wahl !== 'auto') proSeite = Math.max(1, parseInt(wahl, 10) || 24);
 
     const seiten = Math.max(1, Math.ceil(alle.length / proSeite));
     if (seite >= seiten) seite = 0;
     const teil = alle.slice(seite * proSeite, seite * proSeite + proSeite);
 
     const gitter = el('div', 'anzeige-gitter');
-    for (const l of teil) gitter.appendChild(kachelBauen(l));
+    for (const p of teil) gitter.appendChild(cfg.kachel(p));
     gitterBox.textContent = '';
     gitterBox.appendChild(gitter);
 
@@ -317,28 +310,25 @@ function starteAnzeige() {
       { hour: '2-digit', minute: '2-digit' }) + ' Uhr';
   };
 
+  const planeBlaettern = () => {
+    if (blaetterTimer) clearInterval(blaetterTimer);
+    const sek = (daten ? cfg.intervall(daten) : 10) || 10;
+    blaetterTimer = setInterval(() => {
+      const alle = posten();
+      const seiten = Math.max(1, Math.ceil(alle.length / proSeite));
+      if (seiten <= 1) return;
+      seite = (seite + 1) % seiten;
+      render(false);
+    }, sek * 1000);
+  };
+
   const datenHolen = async () => {
-    try { daten = await api('/api/anzeige'); } catch { return; }
+    try { daten = await cfg.holen(); } catch { return; }
     seite = 0;
-    render(true);          // beim Laden neu messen
+    render(true);
     planeBlaettern();
   };
 
-  const weiterblaettern = () => {
-    if (!daten || !daten.aktiv) return;
-    const seiten = Math.max(1, Math.ceil((daten.lehrer || []).length / proSeite));
-    if (seiten <= 1) return;
-    seite = (seite + 1) % seiten;
-    render(false);
-  };
-
-  const planeBlaettern = () => {
-    if (blaetterTimer) clearInterval(blaetterTimer);
-    const sek = (daten && daten.intervall) ? daten.intervall : 10;
-    blaetterTimer = setInterval(weiterblaettern, sek * 1000);
-  };
-
-  // Bei Größenänderung des Monitors neu messen.
   let resizeTimer = null;
   window.addEventListener('resize', () => {
     if (resizeTimer) clearTimeout(resizeTimer);
@@ -346,11 +336,43 @@ function starteAnzeige() {
   });
 
   datenHolen();
-  setInterval(datenHolen, 60000);   // jede Minute frische Daten
+  setInterval(datenHolen, 60000);
+}
+
+// ==========================================================================
+// SPRECHTAG-ADAPTER für die generische Signage-Engine
+// --------------------------------------------------------------------------
+// Nur DIESER Teil ist sprechtag-spezifisch: Datenquelle /api/anzeige und wie
+// eine Kachel (Raum, Kürzel, Name, Anwesenheitszeit) gefüllt wird.
+// ==========================================================================
+function starteAnzeige() {
+  signageStart({
+    titel: (S.marke && S.marke.marke_titel) || 'Sprechtag',
+    holen: () => api('/api/anzeige'),
+    istAktiv: (d) => !!d.aktiv,
+    untertitel: (d) => (d.aktiv && d.sprechtag)
+      ? (d.sprechtag.name + ' · ' + d.sprechtag.datum + ' · '
+         + d.sprechtag.beginn + '–' + d.sprechtag.ende + ' Uhr')
+      : '',
+    posten: (d) => d.lehrer || [],
+    proSeite: (d) => d.kacheln,
+    intervall: (d) => d.intervall,
+    leerText: (d) => (!d || !d.aktiv)
+      ? 'Zurzeit findet kein Sprechtag statt.'
+      : 'Die Raumaufteilung wird noch vorbereitet.',
+    kachel: (l) => {
+      const kachel = el('div', 'anzeige-kachel');
+      kachel.appendChild(el('div', 'anzeige-raum', l.raum_kuerzel || 'Raum offen'));
+      kachel.appendChild(el('div', 'anzeige-kuerzel', l.kuerzel));
+      if (l.name) kachel.appendChild(el('div', 'anzeige-name', l.name));
+      kachel.appendChild(el('div', 'anzeige-zeit', anzeigeZeit(l)));
+      return kachel;
+    },
+  });
 }
 
 // Formuliert die Anwesenheitszeit einer Kachel in Klartext.
-function anzeigeZeit(l, sprechtag) {
+function anzeigeZeit(l) {
   const von = String(l.anwesend_von || '').slice(0, 5);
   const bis = String(l.anwesend_bis || '').slice(0, 5);
   if (!von && !bis) return 'ganztägig';

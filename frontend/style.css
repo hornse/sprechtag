@@ -111,12 +111,13 @@ body.anzeige-modus { background: var(--akzent); }
 .anzeige { min-height: 100vh; height: 100vh; padding: 2.5vh 3vw; color: #fff;
            display: flex; flex-direction: column; box-sizing: border-box; }
 .anzeige-kopf { position: relative; text-align: center; margin-bottom: 3vh;
-                flex: 0 0 auto; }
+                flex: 0 0 auto; min-height: 12vh;
+                display: flex; flex-direction: column; justify-content: center; }
 .anzeige-logo-eck { position: absolute; left: 0; top: 50%;
                     transform: translateY(-50%); }
-.anzeige-logo { height: 7vh; max-height: 80px; width: auto; background: #fff;
-                border-radius: 10px; padding: .7vh; object-fit: contain;
-                display: block; }
+.anzeige-logo { height: 10vh; max-height: 120px; width: auto; background: #fff;
+                border-radius: 12px; padding: 1vh; object-fit: contain;
+                display: block; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
 .anzeige-kopf-text { text-align: center; }
 .anzeige-titel { font-size: 4vw; font-weight: 700; letter-spacing: .02em; line-height: 1.05; }
 .anzeige-untertitel { font-size: 1.8vw; opacity: .9; margin-top: .5vh; }

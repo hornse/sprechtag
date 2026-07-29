@@ -1,5 +1,22 @@
 # Changelog – sprechtag
 
+## v0.9.24 (Juli 2026) – Anzeige: größeres Logo, wiederverwendbare Engine
+
+### Geändert
+- **Logo auf der Anzeige größer** und mit dezentem Schatten, im ausgewogenen
+  Verhältnis zur Überschrift (sitzt weiter oben links, kostet keinen Platz).
+
+### Intern (Wartbarkeit / Wiederverwendung)
+- Die Anzeige ist jetzt in eine **generische Signage-Engine** (`signageStart`)
+  und einen **sprechtag-spezifischen Adapter** (`starteAnzeige`) getrennt. Die
+  Engine (Vollbild-Kopf, Auto-Kachelmessung, Umblättern, Auto-Refresh,
+  flackerfreies Rendern) kennt keine Sprechtag-Begriffe und lässt sich für
+  andere Schulprojekte wiederverwenden – man schreibt nur einen neuen Adapter.
+- Kurzanleitung dazu: `docs/signage-wiederverwenden.md`.
+
+### Tests
+- Anzeige-Test um die Trennung Engine/Adapter erweitert.
+
 ## v0.9.23 (Juli 2026) – Dynamische Pausen (nach x Terminen in Folge)
 
 ### Neu – benötigt Migration `sql/12_pause_dynamisch.sql`

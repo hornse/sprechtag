@@ -26,14 +26,16 @@ pruefe('Pfad /anzeige startet den Anzeige-Modus',
 pruefe('Anzeige-Funktion + Auto-Refresh',
   js.includes('function starteAnzeige') && js.includes('setInterval'));
 pruefe('seitenweises Umblättern (Intervall konfigurierbar)',
-  js.includes('weiterblaettern') && js.includes('planeBlaettern')
-  && js.includes('sek * 1000'));
+  js.includes('planeBlaettern') && js.includes('sek * 1000'));
 pruefe('Kachelmenge automatisch messbar',
   js.includes('messeProSeite') && js.includes('gridTemplateColumns'));
 pruefe('Logo im Anzeige-Kopf', js.includes('anzeige-logo') && js.includes('hat_logo'));
 pruefe('kein Flackern: Kopf bleibt, nur Gitter tauscht',
   js.includes('anzeige-gitter-box') && js.includes('gitterBox.textContent')
   && js.includes("logo.src = '/api/einstellungen/logo'"));
+pruefe('generische Signage-Engine + Sprechtag-Adapter getrennt',
+  js.includes('function signageStart') && js.includes('cfg.kachel')
+  && js.includes('function starteAnzeige'));
 pruefe('Seitenanzeige (Seite X / Y)', js.includes('anzeige-seite'));
 pruefe('Admin-Unterseite Anzeige + Sortier-Wahl',
   js.includes('function ansichtAdminAnzeige') && js.includes('anzeige-sortierung'));
