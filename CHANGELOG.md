@@ -1,5 +1,18 @@
 # Changelog – sprechtag
 
+## v0.9.33 (Juli 2026) – Erscheinungsbild: Layout und Speicher-Diagnose
+
+### Verbessert
+- **Layout unter „Erscheinungsbild" entzerrt.** Farbwähler und Datei-Auswahl
+  stehen jetzt sauber auf eigener Zeile unter ihrer Beschriftung statt am Text
+  zu kleben.
+
+### Diagnose
+- **Speichern meldet jetzt klar zurück**, ob das neue Kontaktfeld tatsächlich
+  ankommt. Kommt es nicht an (weil auf dem Server noch eine ältere Version ohne
+  `marke_kontakt` läuft), erscheint ein deutlicher Hinweis, den Deploy zu
+  prüfen – statt scheinbar „passiert nichts".
+
 ## v0.9.32 (Juli 2026) – Schulspezifische Inhalte ausgelagert – benötigt Migration `sql/15_kontakt.sql`
 
 ### Geändert

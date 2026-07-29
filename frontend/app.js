@@ -1902,7 +1902,7 @@ function zeichneMarkeBlock(ziel) {
 }
 
 async function markeSpeichern() {
-  const daten = {
+  const gesendet = {
     marke_schulname:  wert('marke-schulname'),
     marke_titel:      wert('marke-titel'),
     marke_untertitel: wert('marke-untertitel'),
@@ -1912,10 +1912,19 @@ async function markeSpeichern() {
     marke_farbe2:     wert('marke-farbe2'),
   };
   try {
-    await api('/api/einstellungen', { method: 'POST', body: daten });
+    const antwort = await api('/api/einstellungen', { method: 'POST', body: gesendet });
     S.marke = await api('/api/einstellungen');
     wendeMarkeAn(S.marke);
-    meldung('Erscheinungsbild gespeichert.', 'ok');
+    // Prüfen, ob der Kontakt wirklich ankam (deckt einen veralteten Server auf,
+    // der marke_kontakt noch nicht kennt).
+    const kontaktErwartet = gesendet.marke_kontakt;
+    const kontaktGespeichert = (S.marke && S.marke.marke_kontakt) || '';
+    if (kontaktErwartet && kontaktGespeichert !== kontaktErwartet) {
+      meldung('Gespeichert – aber das Kontaktfeld kam nicht an. Läuft schon '
+        + 'v0.9.32 auf dem Server? Bitte Deploy prüfen.', 'fehler');
+    } else {
+      meldung('Erscheinungsbild gespeichert.', 'ok');
+    }
     zeichne();
   } catch (f) { meldung(String(f.message), 'fehler'); }
 }

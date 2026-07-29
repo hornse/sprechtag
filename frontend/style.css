@@ -275,6 +275,25 @@ input[type=text], input[type=password], input[type=date], textarea {
   border: 1px solid var(--rand);
   border-radius: 6px;
 }
+/* Farbwähler: eigene Zeile unter dem Label, angenehme Größe */
+input[type=color] {
+  display: block;
+  margin-top: .3rem;
+  width: 4rem;
+  height: 2.2rem;
+  padding: 0;
+  border: 1px solid var(--rand);
+  border-radius: 6px;
+  cursor: pointer;
+  background: none;
+}
+/* Datei-Auswahl: eigene Zeile unter dem Label, nicht am Text kleben */
+input[type=file] {
+  display: block;
+  margin-top: .3rem;
+  font: inherit;
+  font-weight: 400;
+}
 
 .gruppen { border: 1px solid var(--rand); border-radius: 6px; margin: .8rem 0; }
 .gruppen legend { font-size: .85rem; font-weight: 600; padding: 0 .4rem; }
