@@ -243,7 +243,7 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'raster') {
 
     $st = $pdo->prepare(
         'SELECT b.id, b.slot_beginn, b.eltern_user_id, b.schueler_id, b.phase,
-                b.gebucht_von,
+                b.gebucht_von, b.kommentar,
                 TRIM(CONCAT(COALESCE(s.nachname,""),
                      IF(s.vorname IS NULL OR s.vorname = "", "",
                         CONCAT(", ", s.vorname)))) AS kind_name,
@@ -285,6 +285,7 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'raster') {
                 $eintrag['kind_name']   = (string)($b['kind_name'] ?? '');
                 $eintrag['klasse']      = (string)($b['klasse'] ?? '');
                 $eintrag['gebucht_von'] = (string)($b['gebucht_von'] ?? '');
+                $eintrag['kommentar']   = (string)($b['kommentar'] ?? '');
             }
         }
         $ausgabe[] = $eintrag;
@@ -362,6 +363,7 @@ if (($seg[0] ?? '') === 'buchungen') {
         $sid  = (int)($body['sprechtag_id'] ?? 0);
         $kind = (int)($body['schueler_id'] ?? 0);
         $slot = substr(trim((string)($body['slot_beginn'] ?? '')), 0, 5);
+        $kommentar = kuerze(trim((string)($body['kommentar'] ?? '')), 280);
         // Stellvertretend buchen darf man nur bei SICH SELBST – auch ein
         // Admin nicht in fremdem Namen. Ein optional übergebenes lehrer_id
         // muss daher mit dem eigenen Stammsatz übereinstimmen.
@@ -464,9 +466,9 @@ if (($seg[0] ?? '') === 'buchungen') {
             // Schreiben – der UNIQUE KEY sperrt den Slot zusätzlich ab.
             $pdo->prepare('INSERT INTO buchungen
                 (sprechtag_id, lehrer_id, slot_beginn, eltern_user_id, schueler_id,
-                 phase, gebucht_von)
-                VALUES (?, ?, ?, ?, ?, ?, ?)')
-                ->execute([$sid, $lid, $slot . ':00', $elternUserId, $kind,
+                 kommentar, phase, gebucht_von)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+                ->execute([$sid, $lid, $slot . ':00', $elternUserId, $kind, $kommentar,
                     (string)$s['phase'] === 'phase1' ? 'phase1' : 'phase2',
                     $u['rolle']]);
             $neueId = (int)$pdo->lastInsertId();
@@ -528,6 +530,7 @@ if (($seg[0] ?? '') === 'buchungen') {
         $lid  = (int)($body['lehrer_id'] ?? 0);
         $kind = (int)($body['schueler_id'] ?? 0);
         $slot = substr(trim((string)($body['slot_beginn'] ?? '')), 0, 5);
+        $kommentar = kuerze(trim((string)($body['kommentar'] ?? '')), 280);
         if (!preg_match('/^\d{2}:\d{2}$/', $slot)) {
             json_err('slot_beginn muss das Format HH:MM haben');
         }
@@ -626,9 +629,9 @@ if (($seg[0] ?? '') === 'buchungen') {
 
             $pdo->prepare('INSERT INTO buchungen
                 (sprechtag_id, lehrer_id, slot_beginn, eltern_user_id, schueler_id,
-                 phase, gebucht_von)
-                VALUES (?, ?, ?, ?, ?, ?, ?)')
-                ->execute([$sid, $lid, $slot . ':00', $elternUserId, $kind,
+                 kommentar, phase, gebucht_von)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+                ->execute([$sid, $lid, $slot . ':00', $elternUserId, $kind, $kommentar,
                     (string)$s['phase'] === 'phase1' ? 'phase1' : 'phase2', $rolle]);
             // ID sofort sichern: nachfolgende Statements überschreiben lastInsertId()
             $neueId = (int)$pdo->lastInsertId();

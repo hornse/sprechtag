@@ -109,6 +109,10 @@ body {
             white-space: nowrap; }
 .ics-link:hover { text-decoration: underline; }
 #kal-abo-url { width: 100%; font-family: monospace; font-size: .82rem; }
+.slot-kommentar { font-size: .72rem; color: var(--text); opacity: .8;
+                  font-style: italic; margin-top: .2rem; line-height: 1.2; }
+.kommentar-feld { margin: .4rem 0 .8rem; }
+.kommentar-feld input { width: 100%; }
 
 /* ---- Anzeige-Modus (Signage) ---- */
 body.anzeige-modus { background: var(--akzent); }

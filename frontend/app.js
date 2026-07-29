@@ -786,6 +786,10 @@ function ansichtHilfe(ziel) {
      'Bestätigungen werden über WebUntis versendet, sofern ein Dienstkonto '
      + 'hinterlegt ist. Ihre Buchung ist auch ohne Nachricht gültig und unter '
      + '„Meine Termine" sichtbar.'],
+    ['Kann ich der Lehrkraft vorab ein Thema mitteilen?',
+     'Ja. Beim Buchen gibt es ein optionales Feld „Hinweis an die Lehrkraft". '
+     + 'Was Sie dort eintragen (z. B. „Thema: Mathe-Note"), sieht nur die '
+     + 'jeweilige Lehrkraft – keine anderen Eltern. Das Feld ist freiwillig.'],
     ['Wie sage ich einen Termin ab?',
      'Unter „Meine Termine" lässt sich jeder Termin absagen; der Platz wird '
      + 'sofort wieder frei.'],
@@ -972,6 +976,14 @@ async function ladeRaster(lehrerId) {
 
 function zeichneRaster(ziel, lehrerId) {
   ziel.appendChild(el('h3', null, 'Freie Zeiten'));
+
+  // Optionaler Hinweis an die Lehrkraft (Thema des Gesprächs). Gilt für den
+  // als Nächstes angeklickten freien Termin.
+  const komm = feld('Optionaler Hinweis an die Lehrkraft (z. B. „Thema: '
+    + 'Mathe-Note")', 'buchung-kommentar', 'text', '');
+  komm.classList.add('kommentar-feld');
+  ziel.appendChild(komm);
+
   const raster = el('div', 'raster');
   for (const z of S.raster) {
     if (z.typ === 'pause') {
@@ -982,7 +994,8 @@ function zeichneRaster(ziel, lehrerId) {
     const klasse = 'slot ' + (z.frei ? 'frei' : (z.eigene ? 'eigene' : 'belegt'));
     const s = el('div', klasse, z.beginn);
     if (z.frei) {
-      s.addEventListener('click', () => buchen(lehrerId, z.beginn));
+      s.addEventListener('click',
+        () => buchen(lehrerId, z.beginn, wert('buchung-kommentar')));
     } else if (z.eigene) {
       s.title = 'Von Ihnen gebucht';
     }
@@ -991,11 +1004,12 @@ function zeichneRaster(ziel, lehrerId) {
   ziel.appendChild(raster);
 }
 
-async function buchen(lehrerId, slot) {
+async function buchen(lehrerId, slot, kommentar) {
   try {
     await api('/api/buchungen', { method: 'POST', body: {
       sprechtag_id: S.aktiverSprechtag.id, lehrer_id: lehrerId,
-      schueler_id: S.kind, slot_beginn: slot } });
+      schueler_id: S.kind, slot_beginn: slot,
+      kommentar: (kommentar || '').trim() } });
     await ladeRaster(lehrerId);
     meldung('Termin um ' + slot + ' Uhr gebucht.', 'ok');
   } catch (f) { meldung(String(f.message), 'fehler'); }
@@ -1242,6 +1256,7 @@ function zeichneLehrkraftRaster(ziel, lehrerId) {
       s.appendChild(el('div', 'slot-kind',
         z.kind_name || ('ID ' + (z.schueler_id || '?'))));
       if (z.klasse) s.appendChild(el('div', 'slot-klasse', z.klasse));
+      if (z.kommentar) s.appendChild(el('div', 'slot-kommentar', '„' + z.kommentar + '"'));
       // Absagen darf ebenfalls nur die Lehrkraft im eigenen Raster.
       if (eigenesRaster) {
         const ab = el('span', 'slot-absage', 'absagen');

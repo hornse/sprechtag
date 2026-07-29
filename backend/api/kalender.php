@@ -278,6 +278,8 @@ function kal_tischvorlage_html(array $kopf, array $zeilen): string
         $frei = empty($z['kind_name']);
         $klasse = $frei ? ' class="frei"' : '';
         $kind = $frei ? '<span class="leer">frei</span>' : $h($z['kind_name']);
+        $komm = trim((string)($z['kommentar'] ?? ''));
+        if ($komm !== '') $kind .= '<div class="komm">„' . $h($komm) . '"</div>';
         $kl = $h($z['kind_klasse'] ?? '');
         $rows .= '<tr' . $klasse . '><td class="z">' . $h(substr((string)$z['slot_beginn'], 0, 5))
               . '</td><td>' . $kind . '</td><td>' . $kl . '</td><td class="n"></td></tr>';
@@ -292,6 +294,7 @@ function kal_tischvorlage_html(array $kopf, array $zeilen): string
       . 'th{background:#f0f0f0;font-size:10pt}'
       . 'td.z{width:2.5cm;font-weight:600}td.n{width:6cm}'
       . 'tr.frei td{color:#999}.leer{font-style:italic}'
+      . '.komm{font-size:9pt;color:#555;margin-top:.1cm;font-style:italic}'
       . '.raum{font-size:11pt;color:#333;margin:0 0 .4cm}'
       . '@media print{body{margin:1.2cm}.druck{display:none}}'
       . '.druck{margin:.6cm 0;padding:.3cm .6cm;font-size:11pt;cursor:pointer}'

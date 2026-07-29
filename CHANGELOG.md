@@ -1,5 +1,22 @@
 # Changelog – sprechtag
 
+## v0.9.28 (Juli 2026) – Terminwunsch-Kommentar – benötigt Migration `sql/14_kommentar.sql`
+
+### Neu
+- **Optionaler Hinweis an die Lehrkraft.** Beim Buchen können Eltern ein
+  Freitextfeld ausfüllen (z. B. „Thema: Mathe-Note", max. 280 Zeichen). Die
+  Lehrkraft sieht den Hinweis im eigenen Zeitraster und auf der druckbaren
+  Tischvorlage.
+
+### Datenschutz
+- Der Kommentar wird NUR der jeweiligen Lehrkraft angezeigt, nie anderen
+  Eltern. Er wird beim Archivieren mit den übrigen Buchungsdaten gelöscht.
+- Längenbegrenzung über den bestehenden `kuerze()`-Helfer (UTF-8-sicher,
+  funktioniert auch ohne mbstring).
+
+### Tests
+- `tests/frontend_kommentar_test.js`.
+
 ## v0.9.27 (Juli 2026) – Fix: Tischvorlage warf 500
 
 ### Behoben

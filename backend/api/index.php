@@ -48,7 +48,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.27', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.28', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -261,7 +261,7 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'lehrer-tischvorlage' && isset($se
     }
     // Buchungen (Kindname/Klasse) je Slot.
     $st = $pdo->prepare(
-        'SELECT b.slot_beginn,
+        'SELECT b.slot_beginn, b.kommentar,
                 TRIM(CONCAT(COALESCE(s.nachname,""),
                      IF(s.vorname IS NULL OR s.vorname = "", "",
                         CONCAT(", ", s.vorname)))) AS kind_name, s.klasse AS kind_klasse
@@ -274,13 +274,15 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'lehrer-tischvorlage' && isset($se
     $zeilen = [];
     foreach ($raster as $z) {
         if (($z['typ'] ?? '') === 'pause') {
-            $zeilen[] = ['slot_beginn' => $z['beginn'], 'kind_name' => 'Pause', 'kind_klasse' => ''];
+            $zeilen[] = ['slot_beginn' => $z['beginn'], 'kind_name' => 'Pause',
+                         'kind_klasse' => '', 'kommentar' => ''];
             continue;
         }
         $b = $belegt[$z['beginn']] ?? null;
         $zeilen[] = ['slot_beginn' => $z['beginn'],
                      'kind_name' => $b['kind_name'] ?? '',
-                     'kind_klasse' => $b['kind_klasse'] ?? ''];
+                     'kind_klasse' => $b['kind_klasse'] ?? '',
+                     'kommentar' => $b['kommentar'] ?? ''];
     }
     // Kopfdaten
     $stR = $pdo->prepare('SELECT r.kuerzel FROM sprechtag_lehrer sl
