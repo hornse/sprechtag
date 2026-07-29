@@ -1,5 +1,22 @@
 # Changelog – sprechtag
 
+## v0.9.30 (Juli 2026) – Admin-Feinschliff
+
+### Behoben
+- **Sonderlehrkraft hinzufügen sprang nach oben.** Nach „Hinzufügen"
+  (und „Entfernen") wurde die ganze Seite neu gezeichnet, wodurch der
+  aufgeklappte Bereich zuklappte und die Ansicht nach oben sprang. Jetzt wird
+  nur der Detailbereich aktualisiert und eine kurze Meldung (Toast) gezeigt –
+  der Bereich bleibt offen, die Position bleibt erhalten.
+- **CSV-Buttons unter „Dienstkonto & Schülerliste" waren nicht ausgerichtet.**
+  „CSV importieren" und „Gesamte Schülerliste löschen" stehen jetzt in einer
+  sauberen Aktionszeile mit Abstand.
+
+### Verbessert
+- **Datumsfelder mit Kalender.** Alle Datumseingaben (Sprechtag anlegen/
+  bearbeiten, Referenzzeitraum, Sondierung) sind jetzt echte Kalenderfelder
+  (Datepicker) statt Freitext.
+
 ## v0.9.29 (Juli 2026) – Logo-Caching, Auto-Laden, Ansicht bleibt beim Neuladen
 
 ### Verbessert

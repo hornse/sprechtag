@@ -2099,7 +2099,8 @@ function ansichtAdminDaten(ziel) {
   ta.placeholder = 'Aahan;Aahan;06B;1101130;31.07.2029\n'
     + 'Muster;Maxi;6b;1101131;31.07.2030';
   sl.appendChild(ta);
-  sl.appendChild(knopf('CSV importieren', 'klein', async () => {
+  const slAktionen = el('div', 'aktionen');
+  slAktionen.appendChild(knopf('CSV importieren', 'klein', async () => {
     const csv = wert('sl-csv');
     if (csv === '') {
       meldung('Bitte CSV-Daten einfügen.', 'fehler');
@@ -2122,7 +2123,7 @@ function ansichtAdminDaten(ziel) {
     } catch (f) { meldung(String(f.message), 'fehler'); }
   }));
 
-  sl.appendChild(knopf('Gesamte Schülerliste löschen', 'klein gefahr', async () => {
+  slAktionen.appendChild(knopf('Gesamte Schülerliste löschen', 'klein gefahr', async () => {
     if (!confirm('Alle Schülerdaten aus dem Tool löschen? Die Einladungsauswahl '
       + 'erfolgt danach wieder über Schüler-IDs.')) return;
     try {
@@ -2132,6 +2133,7 @@ function ansichtAdminDaten(ziel) {
       meldung('Schülerliste gelöscht.', 'ok');
     } catch (f) { meldung(String(f.message), 'fehler'); }
   }));
+  sl.appendChild(slAktionen);
   ziel.appendChild(sl);
 }
 
@@ -2292,7 +2294,7 @@ function ansichtAdminSprechtage(ziel) {
   nf.appendChild(feld('Bezeichnung', 'neu-name', 'text',
     'Elternsprechtag ' + new Date().getFullYear()));
   const z1 = el('div', 'zeile');
-  z1.appendChild(feld('Datum (JJJJ-MM-TT)', 'neu-datum'));
+  z1.appendChild(feld('Datum', 'neu-datum', 'date'));
   z1.appendChild(feld('Beginn', 'neu-beginn', 'text', '15:00'));
   z1.appendChild(feld('Ende', 'neu-ende', 'text', '19:00'));
   nf.appendChild(z1);
@@ -2350,7 +2352,7 @@ function sprechtagKarte(s) {
   const p = el('div');
   const z1 = el('div', 'zeile');
   z1.appendChild(feld('Bezeichnung', 'e-name-' + s.id, 'text', s.name));
-  z1.appendChild(feld('Datum', 'e-datum-' + s.id, 'text', s.datum));
+  z1.appendChild(feld('Datum', 'e-datum-' + s.id, 'date', s.datum));
   p.appendChild(z1);
   const z2 = el('div', 'zeile');
   z2.appendChild(feld('Beginn', 'e-beginn-' + s.id, 'text', String(s.beginn).slice(0, 5)));
@@ -2372,8 +2374,8 @@ function sprechtagKarte(s) {
     ' Pause nur bei durchgehender Belegung (dynamisch)'));
   p.appendChild(dynL);
   const z4 = el('div', 'zeile');
-  z4.appendChild(feld('Referenz von', 'e-refvon-' + s.id, 'text', s.referenz_von || ''));
-  z4.appendChild(feld('Referenz bis', 'e-refbis-' + s.id, 'text', s.referenz_bis || ''));
+  z4.appendChild(feld('Referenz von', 'e-refvon-' + s.id, 'date', s.referenz_von || ''));
+  z4.appendChild(feld('Referenz bis', 'e-refbis-' + s.id, 'date', s.referenz_bis || ''));
   p.appendChild(z4);
 
   // Klausur-Schalter
@@ -2834,9 +2836,11 @@ async function oeffneSonderlehrer(s) {
         lehrer_id: parseInt(wert('sl-lehrer'), 10),
         rolle_id: parseInt(wert('sl-rolle'), 10),
         jahrgaenge: wert('sl-jahrgaenge') } });
+      // Nur den Detailbereich neu aufbauen (toast statt meldung, damit die
+      // Seite nicht komplett neu zeichnet, zuklappt und nach oben springt).
       oeffneSonderlehrer(s);
-      meldung('Hinzugefügt.', 'ok');
-    } catch (f) { meldung(String(f.message), 'fehler'); }
+      toast('Hinzugefügt.', 'ok');
+    } catch (f) { toast(String(f.message), 'fehler'); }
   }));
 
   let liste = [];
@@ -2863,7 +2867,8 @@ async function oeffneSonderlehrer(s) {
       try {
         await api('/api/sonderlehrer/' + e.id, { method: 'DELETE' });
         oeffneSonderlehrer(s);
-      } catch (f) { meldung(String(f.message), 'fehler'); }
+        toast('Entfernt.', 'ok');
+      } catch (f) { toast(String(f.message), 'fehler'); }
     }));
     tr.appendChild(td);
     tab.appendChild(tr);
@@ -2890,8 +2895,8 @@ function ansichtSondierung(ziel) {
   z1.appendChild(feld('Passwort', 'so-passwort', 'password'));
   f.appendChild(z1);
   const z2 = el('div', 'zeile');
-  z2.appendChild(feld('Zeitraum von (JJJJ-MM-TT)', 'so-von', 'text', S0.von));
-  z2.appendChild(feld('Zeitraum bis', 'so-bis', 'text', S0.bis));
+  z2.appendChild(feld('Zeitraum von', 'so-von', 'date', S0.von));
+  z2.appendChild(feld('Zeitraum bis', 'so-bis', 'date', S0.bis));
   z2.appendChild(feld('Schüler-ID (optional)', 'so-schueler', 'text', S0.schueler));
   f.appendChild(z2);
   ziel.appendChild(f);
