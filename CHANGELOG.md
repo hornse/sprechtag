@@ -1,5 +1,57 @@
 # Changelog – sprechtag
 
+## v0.9.41 (Juli 2026) – Editierbarer Hilfetext – benötigt Migration `sql/17_hilfe_zusatz.sql`
+
+### Neu
+- **Eigener Hilfetext pro Schule** (Admin → „Hilfetext"). Ein optionaler
+  Markdown-Text, der ganz oben auf der Hilfeseite erscheint – zusätzlich zur
+  eingebauten Hilfe. Mit Live-Vorschau und einer Liste der Platzhalter.
+  - **Platzhalter:** {{kontakt}}, {{schulname}}, {{titel}} werden automatisch
+    eingesetzt (z. B. die hinterlegte Kontakt-E-Mail).
+  - **Formatierung:** Überschriften (##, ###), **fett**, *kursiv*,
+    Aufzählungen, nummerierte Listen, Links.
+  - Leer lassen = es wird nichts angezeigt; die eingebaute Hilfe bleibt immer
+    erhalten.
+
+### Sicherheit
+- Der Markdown-Text wird **serverseitig gerendert und dabei streng gesäubert**:
+  Der gesamte Eingabetext wird zuerst HTML-escaped, erst danach werden nur die
+  erlaubten Formatierungen in sichere HTML-Tags übersetzt. Es gibt keinen Pfad,
+  über den eingegebenes HTML oder JavaScript ins Ergebnis gelangt (XSS-Schutz).
+  Links sind auf http/https/mailto beschränkt.
+
+### Tests
+- `tests/run_markdown.php` (Schwerpunkt XSS-Sicherheit),
+  `tests/frontend_hilfetext_test.js`.
+
+### Hinweis für andere Schulen
+- Weitere auslagerbare Bereiche (Buchungs-/Login-Hinweistext) sind mit
+  derselben Technik später leicht ergänzbar.
+
+## v0.9.40 (Juli 2026) – Barrierefreiheit (schnelle Gewinne)
+
+### Verbessert
+- **Sichtbare Fokus-Rahmen** bei Tastaturbedienung. Wer die Seite ohne Maus
+  bedient, sieht jetzt deutlich, wo der Fokus steht (WCAG 2.4.7). Erscheint nur
+  bei Tastatur, nicht beim Mausklick.
+- **Skip-Link „Zum Inhalt springen"** am Seitenanfang – überspringt die
+  Navigation, wird bei Tastaturfokus sichtbar.
+- **Icons für Screenreader ausgeblendet** (aria-hidden), damit die Emojis nicht
+  vor jedem Menüpunkt mit vorgelesen werden. Jeder Knopf hat einen echten
+  Namen (aria-label); die aktive Ansicht ist als aria-current markiert.
+- **Statusmeldungen werden angesagt:** Toasts sind Live-Regionen (Fehler
+  assertiv, sonst höflich); der obere Meldungsstreifen ist eine Alert-Region.
+- **Beschreibender Alt-Text fürs Logo** (Schulname statt „Logo") und
+  aria-expanded am Menü (Hamburger, Administration).
+
+### Hinweis
+- Farbkontraste wurden noch nicht systematisch gemessen; das bleibt ein
+  separater Schritt. Eine vollständige BITV-/WCAG-Prüfung mit echten
+  Screenreadern ist damit nicht ersetzt.
+
+### Tests
+- `tests/frontend_barrierefreiheit_test.js`; Laufzeit-Mock erweitert.
+
 ## v0.9.39 (Juli 2026) – Buchungs-Bugfix + Buchen-Feinschliff
 
 ### Behoben (wichtig)

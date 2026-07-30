@@ -5,14 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Sprechtag FRG</title>
-<link rel="stylesheet" href="/style.css?v=20260730121602">
+<link rel="stylesheet" href="/style.css?v=20260730155537">
 </head>
 <body>
+
+<a href="#hauptinhalt" class="skip-link">Zum Inhalt springen</a>
 
 <div class="shell">
   <!-- Mobile: Kopfleiste mit Hamburger -->
   <div class="mobil-leiste">
-    <button type="button" id="mobil-menue" class="hamburger" aria-label="Menü">
+    <button type="button" id="mobil-menue" class="hamburger" aria-label="Menü"
+            aria-expanded="false" aria-controls="seitenleiste">
       <span></span><span></span><span></span>
     </button>
     <span id="mobil-titel" class="mobil-titel">Sprechtag</span>
@@ -32,7 +35,7 @@
         <span id="benutzer-name"></span>
         <span id="benutzer-rolle" class="badge"></span>
       </div>
-      <span id="marke-fusszeile">sprechtag v0.9.39 · GPL-3.0-or-later · Sebastian Horn</span>
+      <span id="marke-fusszeile">sprechtag v0.9.41 · GPL-3.0-or-later · Sebastian Horn</span>
     </div>
   </aside>
 
@@ -43,16 +46,16 @@
   <!-- Overlay zum Schließen des mobilen Menüs -->
   <div id="menue-overlay" class="menue-overlay"></div>
 
-  <!-- Kurzmeldung ohne Neuzeichnen (Toast) -->
-  <div id="toast" class="toast versteckt"></div>
+  <!-- Kurzmeldung ohne Neuzeichnen (Toast). aria-live sagt sie Screenreadern an. -->
+  <div id="toast" class="toast versteckt" role="status" aria-live="polite"></div>
 
-  <main id="app">
+  <main id="hauptinhalt" tabindex="-1">
     <section id="ansicht" class="karte">
       <p class="hinweis">Wird geladen …</p>
     </section>
   </main>
 </div>
 
-<script src="/app.js?v=20260730121602"></script>
+<script src="/app.js?v=20260730155537"></script>
 </body>
 </html>

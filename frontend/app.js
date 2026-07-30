@@ -45,6 +45,11 @@ const S = {
   loginLogListe: null,       // geladene Protokoll-Einträge
   loginLogListeLaedt: false, // Guard: Liste wird geladen
   loginLogFilter: '',        // Benutzername-Filter
+  hilfeZusatz: undefined,     // gerendertes Hilfe-Zusatz-HTML (undefined = ungeladen)
+  hilfeZusatzLaedt: false,    // Guard
+  hilfetextRoh: undefined,    // Rohtext im Editor (undefined = ungeladen)
+  hilfetextVorschau: '',      // gerenderte Vorschau
+  hilfetextLaedt: false,      // Guard
   gewaehlteLehrkraftAnsicht: null,   // Admin: wessen Termine werden gezeigt
   schuelerListe: null,               // Klassenliste für Einladungen
   svRaster: null,                    // Zeitraster der Lehrkraft (frei + belegt)
@@ -94,6 +99,8 @@ let toastTimer = null;
 function toast(text, art = 'info') {
   const t = $('#toast');
   if (!t) return;
+  // Fehler sofort ansagen (assertive), sonst höflich einreihen (polite).
+  t.setAttribute('aria-live', art === 'fehler' ? 'assertive' : 'polite');
   t.textContent = text;
   t.className = 'toast ' + art;
   if (toastTimer) clearTimeout(toastTimer);
@@ -453,6 +460,8 @@ function wendeMarkeAn(m) {
 
   const logo = $('#marke-logo');
   if (logo) {
+    // Beschreibender Alt-Text (Schulname) statt generisch „Logo".
+    logo.alt = 'Logo ' + (m.marke_schulname || 'der Schule');
     if (m.hat_logo) {
       // Stabile URL mit Versionskennung: nur bei echtem Logo-Wechsel neu laden.
       logo.src = '/api/einstellungen/logo?v=' + (m.logo_version || '0');
@@ -540,6 +549,7 @@ function zeichne() {
 
   if (S.meldung) {
     const m = el('div', 'meldung ' + S.meldung.art, S.meldung.text);
+    m.setAttribute('role', 'alert');
     ziel.appendChild(m);
   }
 
@@ -556,6 +566,7 @@ function zeichne() {
     'admin-sprechtage': ansichtAdminSprechtage,
     'admin-daten': ansichtAdminDaten,
     'admin-loginlog': ansichtAdminLoginLog,
+    'admin-hilfetext': ansichtAdminHilfetext,
     mitteilungen: ansichtMitteilungen,
     sondierung: ansichtSondierung,
     hilfe: ansichtHilfe,
@@ -573,12 +584,13 @@ function ansichtZuruecksetzen() {
   S.svFehler = null; S.gewaehlteLehrkraft = null;
   S.loginLogConf = undefined; S.loginLogListe = null;
   S.loginLogLaedt = false; S.loginLogListeLaedt = false;
+  S.hilfetextRoh = undefined; S.hilfetextLaedt = false;
 }
 
 // Gültige Ansichts-Schlüssel (für die URL-Hash-Wiederherstellung).
 const ANSICHT_KEYS = ['buchen', 'meine', 'lehrkraft', 'einladungen', 'admin',
   'admin-marke', 'admin-aktiv', 'admin-anzeige', 'admin-sprechtage',
-  'admin-daten', 'admin-loginlog', 'mitteilungen', 'sondierung', 'hilfe'];
+  'admin-daten', 'admin-loginlog', 'admin-hilfetext', 'mitteilungen', 'sondierung', 'hilfe'];
 
 function wechsleAnsicht(ziel) {
   if (S.ansicht !== ziel) ansichtZuruecksetzen();
@@ -616,7 +628,11 @@ function zeichneNavigation() {
       + (S.ansicht === ziel ? ' on' : ''));
     b.type = 'button';
     b.title = text;
-    b.appendChild(el('span', 'nv-icon', icon || '•'));
+    b.setAttribute('aria-label', text);
+    if (S.ansicht === ziel) b.setAttribute('aria-current', 'page');
+    const ic = el('span', 'nv-icon', icon || '•');
+    ic.setAttribute('aria-hidden', 'true');
+    b.appendChild(ic);
     b.appendChild(el('span', 'nv-text', text));
     b.addEventListener('click', () => wechsleAnsicht(ziel));
     return b;
@@ -636,7 +652,8 @@ function zeichneNavigation() {
   // Administration als aufklappbare Gruppe.
   if (S.user.rolle === 'admin') {
     const adminSeiten = ['admin', 'admin-marke', 'admin-aktiv', 'admin-anzeige',
-                         'admin-sprechtage', 'admin-daten', 'admin-loginlog'];
+                         'admin-sprechtage', 'admin-daten', 'admin-loginlog',
+                         'admin-hilfetext'];
     const adminAktiv = adminSeiten.includes(S.ansicht);
     if (adminAktiv) S.adminOffen = true;   // aktive Unterseite -> Gruppe offen
 
@@ -645,9 +662,14 @@ function zeichneNavigation() {
       + (S.adminOffen ? ' open' : ''));
     toggle.type = 'button';
     toggle.title = 'Administration';
-    toggle.appendChild(el('span', 'nv-icon', '⚙️'));
+    toggle.setAttribute('aria-label', 'Administration');
+    toggle.setAttribute('aria-expanded', S.adminOffen ? 'true' : 'false');
+    const tIcon = el('span', 'nv-icon', '⚙️');
+    tIcon.setAttribute('aria-hidden', 'true');
+    toggle.appendChild(tIcon);
     toggle.appendChild(el('span', 'nv-text', 'Administration'));
     const chev = el('span', 'nv-chev', '▾');
+    chev.setAttribute('aria-hidden', 'true');
     toggle.appendChild(chev);
     toggle.addEventListener('click', () => {
       S.adminOffen = !S.adminOffen;
@@ -663,6 +685,7 @@ function zeichneNavigation() {
     sub.appendChild(navKnopf('admin-sprechtage', 'Sprechtage', true, '🗓️'));
     sub.appendChild(navKnopf('admin-daten', 'Dienstkonto & Schülerliste', true, '👥'));
     sub.appendChild(navKnopf('admin-loginlog', 'Login-Protokoll', true, '🔒'));
+    sub.appendChild(navKnopf('admin-hilfetext', 'Hilfetext', true, '📝'));
     gruppe.appendChild(sub);
     nav.appendChild(gruppe);
 
@@ -676,7 +699,10 @@ function zeichneNavigation() {
   const ab = el('button', 'nv nv-abmelden');
   ab.type = 'button';
   ab.title = 'Abmelden';
-  ab.appendChild(el('span', 'nv-icon', '🚪'));
+  ab.setAttribute('aria-label', 'Abmelden');
+  const abIcon = el('span', 'nv-icon', '🚪');
+  abIcon.setAttribute('aria-hidden', 'true');
+  ab.appendChild(abIcon);
   ab.appendChild(el('span', 'nv-text', 'Abmelden'));
   ab.addEventListener('click', () => abmelden());
   nav.appendChild(ab);
@@ -690,10 +716,12 @@ function zeichneNavigation() {
 function menueOeffnen() {
   $('#seitenleiste')?.classList.add('offen');
   $('#menue-overlay')?.classList.add('sichtbar');
+  $('#mobil-menue')?.setAttribute('aria-expanded', 'true');
 }
 function menueSchliessen() {
   $('#seitenleiste')?.classList.remove('offen');
   $('#menue-overlay')?.classList.remove('sichtbar');
+  $('#mobil-menue')?.setAttribute('aria-expanded', 'false');
 }
 
 // ---------- Sprechtag-Auswahl (in mehreren Ansichten genutzt) -------------
@@ -787,6 +815,22 @@ function ansichtHilfe(ziel) {
     nav.appendChild(a);
   }
   ziel.appendChild(nav);
+
+  // Optionaler, von der Schule gepflegter Hilfetext (sicher serverseitig
+  // gerendert). Wird einmal geladen und oben angezeigt, wenn vorhanden.
+  if (S.hilfeZusatz === undefined) {
+    S.hilfeZusatz = null;
+    if (!S.hilfeZusatzLaedt) {
+      S.hilfeZusatzLaedt = true;
+      api('/api/einstellungen/hilfe').then((d) => {
+        S.hilfeZusatz = d.html || ''; S.hilfeZusatzLaedt = false; zeichne();
+      }).catch(() => { S.hilfeZusatzLaedt = false; });
+    }
+  } else if (S.hilfeZusatz) {
+    const box = el('div', 'hilfe-zusatz karte-innen');
+    box.innerHTML = S.hilfeZusatz;   // serverseitig gesäubertes HTML
+    ziel.appendChild(box);
+  }
 
   // Wenn nicht angemeldet: Weg zurück zur Anmeldung anbieten.
   if (!S.user) {
@@ -3169,6 +3213,78 @@ function ansichtAdminLoginLog(ziel) {
 }
 
 // Formatiert einen DATETIME-Wert aus dem Protokoll lesbar (de-DE).
+// ============================================================
+// ANSICHT: Hilfetext (optionaler, schulspezifischer Zusatz)
+// ============================================================
+function ansichtAdminHilfetext(ziel) {
+  ziel.appendChild(el('h2', null, 'Hilfetext'));
+
+  if (S.hilfetextRoh === undefined) {
+    ziel.appendChild(el('p', 'hinweis', 'Wird geladen …'));
+    if (!S.hilfetextLaedt) {
+      S.hilfetextLaedt = true;
+      api('/api/einstellungen/hilfe').then((d) => {
+        S.hilfetextRoh = d.roh || ''; S.hilfetextVorschau = d.html || '';
+        S.hilfetextLaedt = false; zeichne();
+      }).catch((f) => { S.hilfetextLaedt = false; meldung(String(f.message), 'fehler'); });
+    }
+    return;
+  }
+
+  const konf = sektion('Eigener Hilfetext (optional)');
+  konf.appendChild(el('p', 'hinweis',
+    'Dieser Text erscheint ganz oben auf der Hilfeseite – zusätzlich zur '
+    + 'eingebauten Hilfe. Ideal für schulspezifische Hinweise. Leer lassen = '
+    + 'es wird nichts angezeigt. Formatierung per Markdown.'));
+
+  // Variablen-Liste
+  const vars = el('div', 'daten-warnung');
+  vars.appendChild(el('strong', null, 'Verfügbare Platzhalter: '));
+  vars.appendChild(document.createTextNode(
+    '{{kontakt}} (Kontakt-E-Mail), {{schulname}}, {{titel}}. '
+    + 'Formatierung: ## Überschrift, ### Unterüberschrift, **fett**, *kursiv*, '
+    + '- Aufzählung, 1. nummeriert, [Link-Text](https://…).'));
+  konf.appendChild(vars);
+
+  const ta = el('textarea');
+  ta.id = 'hilfetext-roh';
+  ta.rows = 12;
+  ta.value = S.hilfetextRoh || '';
+  ta.style.width = '100%';
+  ta.style.fontFamily = 'ui-monospace, monospace';
+  ta.placeholder = '## Willkommen\n\nBei Fragen wenden Sie sich an {{kontakt}}.';
+  konf.appendChild(ta);
+
+  const aktionen = el('div', 'aktionen');
+  aktionen.appendChild(knopf('Speichern', null, async () => {
+    toast('Speichern …', 'info');
+    try {
+      const d = await api('/api/einstellungen/hilfe', { method: 'POST',
+        body: { hilfe_zusatz: wert('hilfetext-roh') } });
+      S.hilfetextRoh = wert('hilfetext-roh');
+      S.hilfetextVorschau = d.html || '';
+      S.hilfeZusatz = undefined;   // Hilfeseite neu laden lassen
+      toast('Hilfetext gespeichert.', 'ok');
+      zeichne();
+    } catch (f) { toast(String(f.message), 'fehler'); }
+  }));
+  konf.appendChild(aktionen);
+  ziel.appendChild(konf);
+
+  // Vorschau
+  const vor = sektion('Vorschau');
+  if (S.hilfetextVorschau) {
+    const box = el('div', 'hilfe-zusatz karte-innen');
+    box.innerHTML = S.hilfetextVorschau;   // serverseitig gesäubert
+    vor.appendChild(box);
+  } else {
+    vor.appendChild(el('p', 'hinweis',
+      'Noch kein Text gespeichert. Nach dem Speichern erscheint hier die '
+      + 'gerenderte Vorschau.'));
+  }
+  ziel.appendChild(vor);
+}
+
 function logZeit(s) {
   if (!s) return '';
   const d = new Date(String(s).replace(' ', 'T'));

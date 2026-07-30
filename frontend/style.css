@@ -17,6 +17,24 @@
 
 * { box-sizing: border-box; }
 
+/* Barrierefreiheit: deutlich sichtbarer Fokus-Rahmen bei Tastaturbedienung.
+   :focus-visible zeigt ihn nur bei Tastatur, nicht bei Mausklick. */
+:focus-visible {
+  outline: 3px solid var(--akzent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+/* Fallback für Browser ohne :focus-visible-Unterstützung. */
+a:focus, button:focus, input:focus, select:focus, textarea:focus, summary:focus {
+  outline: 3px solid var(--akzent);
+  outline-offset: 2px;
+}
+a:focus:not(:focus-visible), button:focus:not(:focus-visible),
+input:focus:not(:focus-visible), select:focus:not(:focus-visible),
+textarea:focus:not(:focus-visible), summary:focus:not(:focus-visible) {
+  outline: none;
+}
+
 body {
   margin: 0;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -24,6 +42,20 @@ body {
   background: #f4f6f9;
   line-height: 1.5;
 }
+
+/* Nur für Screenreader sichtbar (visuell versteckt, aber vorlesbar). */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+/* Skip-Link: springt zum Inhalt, wird erst bei Tastaturfokus sichtbar. */
+.skip-link {
+  position: absolute; left: .5rem; top: -3rem; z-index: 100;
+  background: var(--akzent); color: #fff; padding: .6rem 1rem;
+  border-radius: 0 0 8px 8px; text-decoration: none; font-weight: 600;
+  transition: top .15s;
+}
+.skip-link:focus { top: 0; }
 
 /* ---- Shell: Seitenleiste + Inhalt ---- */
 .shell { display: flex; min-height: 100vh; }
@@ -313,6 +345,15 @@ select.konflikt.kf-g, select.konflikt.kf-h {
 }
 
 .hinweis { color: var(--grau); font-size: .9rem; }
+
+/* Schulspezifischer Hilfe-Zusatztext (serverseitig gerendertes Markdown) */
+.hilfe-zusatz { background: var(--blau-hell); border-radius: 8px;
+                padding: 1rem 1.25rem; margin: .5rem 0 1.25rem; }
+.hilfe-zusatz h3 { margin: .3rem 0 .5rem; font-size: 1.1rem; }
+.hilfe-zusatz h4 { margin: .6rem 0 .3rem; font-size: 1rem; }
+.hilfe-zusatz p { margin: .5rem 0; }
+.hilfe-zusatz ul, .hilfe-zusatz ol { margin: .5rem 0; padding-left: 1.4rem; }
+.hilfe-zusatz a { color: var(--akzent); }
 
 .zeile { display: flex; gap: 1rem; flex-wrap: wrap; }
 .zeile label { flex: 1 1 16rem; }

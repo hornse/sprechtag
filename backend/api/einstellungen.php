@@ -175,6 +175,40 @@ function marke_route(array $seg, string $methode, array $body, array $cfg): bool
         json_ok(marke_lesen(db($cfg)));
     }
 
+    // ---- GET /api/einstellungen/hilfe : Hilfe-Zusatztext ----
+    // Öffentlich: liefert das sicher gerenderte HTML (mit ersetzten
+    // Platzhaltern) für die Anzeige. Für Admins zusätzlich den Rohtext.
+    if ($methode === 'GET' && ($seg[1] ?? '') === 'hilfe') {
+        $pdo = db($cfg);
+        $roh = marke_wert($pdo, 'hilfe_zusatz', '');
+        $werte = [
+            'kontakt'   => marke_wert($pdo, 'marke_kontakt', ''),
+            'schulname' => marke_schulname($pdo),
+            'titel'     => marke_wert($pdo, 'marke_titel', 'Sprechtag'),
+        ];
+        $html = $roh === '' ? '' : markdown_sicher(platzhalter_ersetzen($roh, $werte));
+        $antwort = ['html' => $html];
+        if (auth_ist_admin()) $antwort['roh'] = $roh;
+        json_ok($antwort);
+    }
+
+    // ---- POST /api/einstellungen/hilfe : Hilfe-Zusatztext speichern (admin) ----
+    if ($methode === 'POST' && ($seg[1] ?? '') === 'hilfe') {
+        auth_require_admin();
+        $pdo = db($cfg);
+        $roh = (string)($body['hilfe_zusatz'] ?? '');
+        $roh = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $roh) ?? '';
+        $roh = kuerze($roh, 8000);
+        marke_schreiben($pdo, 'hilfe_zusatz', $roh);
+        $werte = [
+            'kontakt'   => marke_wert($pdo, 'marke_kontakt', ''),
+            'schulname' => marke_schulname($pdo),
+            'titel'     => marke_wert($pdo, 'marke_titel', 'Sprechtag'),
+        ];
+        $html = $roh === '' ? '' : markdown_sicher(platzhalter_ersetzen($roh, $werte));
+        json_ok(['ok' => true, 'html' => $html]);
+    }
+
     // ---- POST /api/einstellungen : Marke speichern (admin) ----
     if ($methode === 'POST' && !isset($seg[1])) {
         auth_require_admin();
