@@ -97,7 +97,9 @@ function toast(text, art = 'info') {
   t.textContent = text;
   t.className = 'toast ' + art;
   if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { t.className = 'toast versteckt'; }, 3500);
+  // Fehler etwas länger stehen lassen – sie müssen gelesen werden.
+  const dauer = art === 'fehler' ? 6000 : 3500;
+  toastTimer = setTimeout(() => { t.className = 'toast versteckt'; }, dauer);
 }
 
 // ---------- kleine DOM-Helfer --------------------------------------------
@@ -497,9 +499,17 @@ function leisteEinklappen(zu) {
   const shell = document.querySelector('.shell');
   if (!shell) return;
   shell.classList.toggle('leiste-zu', zu);
+  const knopf = document.querySelector('#leiste-einklappen');
+  if (knopf) {
+    knopf.textContent = zu ? '»' : '«';
+    knopf.title = zu ? 'Menü ausklappen' : 'Menü einklappen';
+  }
   try { localStorage.setItem('leiste_zu', zu ? '1' : '0'); } catch (e) { /* egal */ }
 }
-$('#leiste-einklappen')?.addEventListener('click', () => leisteEinklappen(true));
+$('#leiste-einklappen')?.addEventListener('click', () => {
+  const shell = document.querySelector('.shell');
+  leisteEinklappen(!(shell && shell.classList.contains('leiste-zu')));
+});
 $('#leiste-ausklappen')?.addEventListener('click', () => leisteEinklappen(false));
 // Gemerkten Zustand beim Start anwenden.
 try { if (localStorage.getItem('leiste_zu') === '1') leisteEinklappen(true); }
@@ -599,24 +609,28 @@ function zeichneNavigation() {
   if (!S.user) { nav.classList.add('versteckt'); return; }
   nav.classList.remove('versteckt');
 
-  // Einen Navigationsknopf erzeugen.
-  const navKnopf = (ziel, text, kindEbene) => {
+  // Einen Navigationsknopf erzeugen. Das Icon (Emoji) wird in der eingeklappten
+  // schmalen Leiste angezeigt, der Text per Tooltip erreichbar.
+  const navKnopf = (ziel, text, kindEbene, icon) => {
     const b = el('button', 'nv' + (kindEbene ? ' nv-child' : '')
-      + (S.ansicht === ziel ? ' on' : ''), text);
+      + (S.ansicht === ziel ? ' on' : ''));
     b.type = 'button';
+    b.title = text;
+    b.appendChild(el('span', 'nv-icon', icon || '•'));
+    b.appendChild(el('span', 'nv-text', text));
     b.addEventListener('click', () => wechsleAnsicht(ziel));
     return b;
   };
 
   // Rollenabhängige Hauptpunkte.
   if (S.user.rolle === 'eltern' || S.user.rolle === 'schueler') {
-    nav.appendChild(navKnopf('buchen', 'Termin buchen'));
-    nav.appendChild(navKnopf('meine', 'Meine Termine'));
+    nav.appendChild(navKnopf('buchen', 'Termin buchen', false, '📅'));
+    nav.appendChild(navKnopf('meine', 'Meine Termine', false, '📋'));
   }
   if (S.user.rolle === 'lehrkraft' || S.user.rolle === 'admin') {
-    nav.appendChild(navKnopf('lehrkraft', 'Meine Termine'));
-    nav.appendChild(navKnopf('einladungen', 'Einladungen'));
-    nav.appendChild(navKnopf('mitteilungen', 'Mitteilungen'));
+    nav.appendChild(navKnopf('lehrkraft', 'Meine Termine', false, '📋'));
+    nav.appendChild(navKnopf('einladungen', 'Einladungen', false, '✉️'));
+    nav.appendChild(navKnopf('mitteilungen', 'Mitteilungen', false, '💬'));
   }
 
   // Administration als aufklappbare Gruppe.
@@ -628,8 +642,11 @@ function zeichneNavigation() {
 
     const gruppe = el('div', 'nv-group');
     const toggle = el('button', 'nv nv-group-toggle'
-      + (S.adminOffen ? ' open' : ''), 'Administration');
+      + (S.adminOffen ? ' open' : ''));
     toggle.type = 'button';
+    toggle.title = 'Administration';
+    toggle.appendChild(el('span', 'nv-icon', '⚙️'));
+    toggle.appendChild(el('span', 'nv-text', 'Administration'));
     const chev = el('span', 'nv-chev', '▾');
     toggle.appendChild(chev);
     toggle.addEventListener('click', () => {
@@ -640,24 +657,27 @@ function zeichneNavigation() {
 
     const sub = el('div', 'nv-sub');
     if (!S.adminOffen) sub.classList.add('versteckt');
-    sub.appendChild(navKnopf('admin-aktiv', 'Aktiver Sprechtag', true));
-    sub.appendChild(navKnopf('admin-marke', 'Erscheinungsbild', true));
-    sub.appendChild(navKnopf('admin-anzeige', 'Anzeige', true));
-    sub.appendChild(navKnopf('admin-sprechtage', 'Sprechtage', true));
-    sub.appendChild(navKnopf('admin-daten', 'Dienstkonto & Schülerliste', true));
-    sub.appendChild(navKnopf('admin-loginlog', 'Login-Protokoll', true));
+    sub.appendChild(navKnopf('admin-aktiv', 'Aktiver Sprechtag', true, '⭐'));
+    sub.appendChild(navKnopf('admin-marke', 'Erscheinungsbild', true, '🎨'));
+    sub.appendChild(navKnopf('admin-anzeige', 'Anzeige', true, '🖥️'));
+    sub.appendChild(navKnopf('admin-sprechtage', 'Sprechtage', true, '🗓️'));
+    sub.appendChild(navKnopf('admin-daten', 'Dienstkonto & Schülerliste', true, '👥'));
+    sub.appendChild(navKnopf('admin-loginlog', 'Login-Protokoll', true, '🔒'));
     gruppe.appendChild(sub);
     nav.appendChild(gruppe);
 
-    nav.appendChild(navKnopf('sondierung', 'Sondierung'));
+    nav.appendChild(navKnopf('sondierung', 'Sondierung', false, '🔍'));
   }
 
   // Hilfe für alle Rollen.
-  nav.appendChild(navKnopf('hilfe', 'Hilfe'));
+  nav.appendChild(navKnopf('hilfe', 'Hilfe', false, '❓'));
 
   // Abmelden unten.
-  const ab = el('button', 'nv nv-abmelden', 'Abmelden');
+  const ab = el('button', 'nv nv-abmelden');
   ab.type = 'button';
+  ab.title = 'Abmelden';
+  ab.appendChild(el('span', 'nv-icon', '🚪'));
+  ab.appendChild(el('span', 'nv-text', 'Abmelden'));
   ab.addEventListener('click', () => abmelden());
   nav.appendChild(ab);
 
@@ -1165,8 +1185,8 @@ async function buchen(lehrerId, slot, kommentar) {
     // Eigene Termine neu laden, damit die Kompaktübersicht oben stimmt.
     S.meineBuchungen = null; S.meineLaedt = false;
     await ladeRaster(lehrerId);
-    meldung('Termin um ' + slot + ' Uhr gebucht.', 'ok');
-  } catch (f) { meldung(String(f.message), 'fehler'); }
+    toast('Termin um ' + slot + ' Uhr gebucht.', 'ok');
+  } catch (f) { toast(String(f.message), 'fehler'); }
 }
 
 // ============================================================
@@ -1291,8 +1311,8 @@ async function stornieren(id) {
     if (S.ansicht === 'buchen' && S.gewaehlteLehrkraft) {
       await ladeRaster(S.gewaehlteLehrkraft);
     }
-    meldung('Termin abgesagt.', 'ok');
-  } catch (f) { meldung(String(f.message), 'fehler'); }
+    toast('Termin abgesagt.', 'ok');
+  } catch (f) { toast(String(f.message), 'fehler'); }
 }
 
 // ============================================================

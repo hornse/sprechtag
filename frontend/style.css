@@ -49,9 +49,24 @@ body {
                      border: none; border-radius: 8px; width: 2.4rem;
                      height: 2.4rem; font-size: 1.2rem; cursor: pointer;
                      box-shadow: 0 2px 8px rgba(0,0,0,.2); }
-.shell.leiste-zu .seitenleiste { display: none; }
-.shell.leiste-zu .leiste-ausklappen { display: block; }
-.shell.leiste-zu main { padding-left: 3.6rem; }
+/* Eingeklappt: schmale Icon-Leiste – Logo + Symbole bleiben sichtbar,
+   Texte werden ausgeblendet, Bedienung per Tooltip weiterhin möglich. */
+.shell.leiste-zu .seitenleiste { width: 58px; }
+.shell.leiste-zu .marke-titel,
+.shell.leiste-zu .marke-untertitel,
+.shell.leiste-zu .nv-text,
+.shell.leiste-zu .nv-chev,
+.shell.leiste-zu .benutzer-box,
+.shell.leiste-zu .seitenleiste-fuss { display: none; }
+.shell.leiste-zu .marke { padding: .6rem .4rem; text-align: center; }
+.shell.leiste-zu .marke-logo { max-width: 100%; margin: 0 auto; }
+.shell.leiste-zu .leiste-einklappen { position: static; margin: 0 auto .4rem; }
+.shell.leiste-zu .navigation { padding: .5rem .3rem; }
+.shell.leiste-zu .nv { justify-content: center; padding: .55rem 0; }
+.shell.leiste-zu .nv-sub { padding-left: 0; margin-left: 0; border-left: none; }
+.shell.leiste-zu .nv-icon { margin: 0; font-size: 1.15rem; }
+/* Der schwebende Ausklapp-Knopf wird in dieser Variante nicht gebraucht. */
+.shell.leiste-zu .leiste-ausklappen { display: none; }
 .marke-logo { max-height: 52px; max-width: 180px; display: block;
               margin-bottom: .5rem; object-fit: contain;
               background: var(--blau-hell); border-radius: 8px; padding: 6px; }
@@ -196,7 +211,7 @@ body.anzeige-modus { background: var(--akzent); }
 .bk-faecher { font-size: .8rem; color: var(--grau); }
 .bk-zeit { font-size: .8rem; color: var(--grau); margin-top: .15rem; }
 
-main { flex: 1; padding: 2rem 2.25rem; max-width: 76rem; }
+main { flex: 1; padding: 2rem 2.25rem; max-width: 100rem; margin: 0 auto; width: 100%; }
 
 .karte {
   background: #fff;
@@ -279,7 +294,11 @@ select.konflikt.kf-g, select.konflikt.kf-h {
   main { padding: 1rem; max-width: none; }
   /* Auf dem Handy übernimmt der Hamburger; Desktop-Einklappknöpfe aus. */
   .leiste-einklappen, .leiste-ausklappen { display: none !important; }
-  .shell.leiste-zu .seitenleiste { display: flex; }
+  .shell.leiste-zu .seitenleiste { width: 82vw; }
+  .shell.leiste-zu .marke-titel, .shell.leiste-zu .marke-untertitel,
+  .shell.leiste-zu .nv-text, .shell.leiste-zu .nv-chev,
+  .shell.leiste-zu .seitenleiste-fuss { display: revert; }
+  .shell.leiste-zu .nv { justify-content: flex-start; }
   .shell.leiste-zu main { padding-left: 1rem; }
 }
 

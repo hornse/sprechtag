@@ -582,6 +582,14 @@ if (($seg[0] ?? '') === 'buchungen') {
             if ($z['typ'] === 'slot' && $z['beginn'] === $slot) { $imRaster = true; break; }
         }
 
+        // Ist der gewünschte Slot bei DIESER Lehrkraft aktuell frei? (Diese
+        // Berechnung fehlte – dadurch wurde $frei nie gesetzt und jede Buchung
+        // fälschlich mit „bereits vergeben" abgelehnt.)
+        $stFrei = $pdo->prepare('SELECT COUNT(*) FROM buchungen
+                                 WHERE sprechtag_id = ? AND lehrer_id = ? AND slot_beginn = ?');
+        $stFrei->execute([$sid, $lid, $slot . ':00']);
+        $frei = (int)$stFrei->fetchColumn() === 0;
+
         $st = $pdo->prepare('SELECT COUNT(*) FROM buchungen
                              WHERE sprechtag_id = ? AND eltern_user_id = ?');
         $st->execute([$sid, $elternUserId]);

@@ -28,7 +28,7 @@ pruefe('Rollen abgedeckt (Eltern, Lehrkräfte, Administration)',
   && js.includes('Für die Administration'));
 pruefe('Login-Screen verlinkt Hilfe',
   js.includes("wechsleAnsicht('hilfe')") && js.includes('login-hilfe'));
-pruefe('Sidebar hat Hilfe-Eintrag', js.includes("navKnopf('hilfe', 'Hilfe')"));
+pruefe('Sidebar hat Hilfe-Eintrag', js.includes("navKnopf('hilfe', 'Hilfe'"));
 pruefe('ohne Anmeldung erreichbar (Zur-Anmeldung-Weg)',
   js.includes('!S.user') && js.includes("wechsleAnsicht('login')"));
 pruefe('Hilfe-CSS vorhanden', css.includes('.hilfe-nav') && css.includes('.hilfe-liste'));

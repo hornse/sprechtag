@@ -1,5 +1,28 @@
 # Changelog – sprechtag
 
+## v0.9.39 (Juli 2026) – Buchungs-Bugfix + Buchen-Feinschliff
+
+### Behoben (wichtig)
+- **Buchen schlug fälschlich mit „Dieser Termin ist bereits vergeben" fehl.**
+  Im Eltern-Buchungspfad wurde nicht geprüft, ob der gewählte Slot tatsächlich
+  frei ist – die entsprechende Variable blieb ungesetzt und wurde als „belegt"
+  gewertet. Dadurch ließ sich z. B. nach einer Absage kein neuer Termin buchen.
+  Die Frei-Prüfung wird jetzt korrekt durchgeführt.
+  (Hinweis: Ein Elternkonto kann weiterhin nicht zwei Termine zur selben
+  Uhrzeit haben – etwa für zwei Kinder. In dem Fall erscheint jetzt die klare
+  Meldung „Sie haben um … Uhr bereits einen Termin bei …".)
+
+### Verbessert
+- **Rückmeldungen beim Buchen/Absagen als Toast** (auffällige Einblendung unten
+  statt Hinweis ganz oben, der leicht übersehen wurde). Fehler bleiben länger
+  stehen.
+- **Eingeklappte Seitenleiste als schmale Icon-Leiste:** Logo und Symbole
+  bleiben sichtbar, sodass man auch eingeklappt navigieren kann (Text per
+  Tooltip). Der «-Knopf klappt ein und aus.
+- **Mehr Platz genutzt:** Der Inhalt darf auf großen Bildschirmen breiter
+  laufen und zentriert sich; die Lehrkraft-Kacheln füllen den Raum mit mehr
+  Spalten.
+
 ## v0.9.38 (Juli 2026) – Terminüberblick beim Buchen, einklappbare Seitenleiste
 
 ### Neu
