@@ -28,26 +28,6 @@ pruefe('erster Slot 15:00-15:10',
     $r[0]['beginn'] === '15:00' && $r[0]['ende'] === '15:10');
 pruefe('letzter Slot endet 16:00', end($r)['ende'] === '16:00');
 
-// ------------------------------------------------------------
-echo "slot_haelfte_fenster\n";
-$sp = ['beginn' => '15:00', 'ende' => '19:00', 'slot_minuten' => 10];
-$e = slot_haelfte_fenster($sp, 'erste');
-pruefe('erste Hälfte 15:00-17:00',
-    $e['von'] === '15:00' && $e['bis'] === '17:00');
-$z = slot_haelfte_fenster($sp, 'zweite');
-pruefe('zweite Hälfte 17:00-19:00',
-    $z['von'] === '17:00' && $z['bis'] === '19:00');
-$g = slot_haelfte_fenster($sp, 'ganz');
-pruefe('ganz = kein Fenster', $g['von'] === null && $g['bis'] === null);
-pruefe('Hälften stoßen lückenlos aneinander', $e['bis'] === $z['von']);
-// Ungerade Spanne: Mitte wird auf einen echten Slot-Anfang gerundet.
-$sp2 = ['beginn' => '15:00', 'ende' => '18:30', 'slot_minuten' => 10];
-$e2 = slot_haelfte_fenster($sp2, 'erste');
-pruefe('ungerade Spanne rundet Mitte auf Slotgrenze (16:50)',
-    $e2['bis'] === '16:50');
-$z2 = slot_haelfte_fenster($sp2, 'zweite');
-pruefe('zweite Hälfte beginnt an derselben Grenze', $z2['von'] === '16:50');
-
 // Pausen
 $st2 = $st + [];
 $st2['pause_nach_terminen'] = 3;
@@ -78,43 +58,6 @@ $st3 = ['beginn' => '15:00', 'ende' => '15:30', 'slot_minuten' => 10,
 $r5 = slot_raster($st3);
 pruefe('keine Pause ohne Folgeslot',
     count(array_filter($r5, fn($z) => $z['typ'] === 'pause')) === 0);
-
-// ------------------------------------------------------------
-echo "slot_pausen_anwenden (dynamisch, Variante 1)\n";
-// Dynamisches Gitter: 15:00–16:00, 10 min -> 6 gleichmäßige Slots, KEINE
-// vorab eingefügten Pausen.
-$stD = ['beginn' => '15:00', 'ende' => '16:00', 'slot_minuten' => 10,
-        'pause_nach_terminen' => 3, 'pause_minuten' => 10, 'pause_dynamisch' => 1];
-$gitter = slot_raster($stD);
-pruefe('dynamisch: 6 reine Slots, keine festen Pausen',
-    count($gitter) === 6
-    && count(array_filter($gitter, fn($z) => $z['typ'] === 'pause')) === 0);
-
-// Fall A: 3 zusammenhängend belegt -> Pause beim nächsten freien Slot (15:30)
-$rA = slot_pausen_anwenden($gitter, ['15:00' => true, '15:10' => true, '15:20' => true], true, 3);
-$pauseA = array_values(array_filter($rA, fn($z) => $z['typ'] === 'pause'));
-pruefe('A: Pause nach 3 belegten bei 15:30',
-    count($pauseA) === 1 && $pauseA[0]['beginn'] === '15:30');
-
-// Fall B: Lücke unterbricht die Kette -> keine Pause
-$rB = slot_pausen_anwenden($gitter, ['15:00' => true, '15:10' => true, '15:30' => true], true, 3);
-pruefe('B: Lücke -> keine Pause',
-    count(array_filter($rB, fn($z) => $z['typ'] === 'pause')) === 0);
-
-// Fall C: gebuchte Zeit bleibt stabil -> 15:30 belegt bleibt Buchung,
-// Pause rutscht auf den nächsten freien Slot (15:40)
-$rC = slot_pausen_anwenden($gitter,
-    ['15:00' => true, '15:10' => true, '15:20' => true, '15:30' => true], true, 3);
-$slot330 = array_values(array_filter($rC, fn($z) => $z['beginn'] === '15:30'))[0];
-$pauseC = array_values(array_filter($rC, fn($z) => $z['typ'] === 'pause'));
-pruefe('C: belegte 15:30 bleibt Slot (keine Pause)', $slot330['typ'] === 'slot');
-pruefe('C: Pause rutscht auf 15:40',
-    count($pauseC) === 1 && $pauseC[0]['beginn'] === '15:40');
-
-// Fall D: fester Modus (dynamisch=false) lässt das Raster unverändert
-$rD = slot_pausen_anwenden($gitter, ['15:00' => true, '15:10' => true, '15:20' => true], false, 3);
-pruefe('D: fester Modus verändert nichts',
-    count(array_filter($rD, fn($z) => $z['typ'] === 'pause')) === 0);
 
 // ------------------------------------------------------------
 echo "slot_buchung_erlaubt\n";

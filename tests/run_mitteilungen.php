@@ -85,12 +85,6 @@ pruefe('Raum genannt', str_contains($t['text'], 'Raum A101'));
 pruefe('leerer Raum ohne Klammer', !str_contains($t['text'], '(Raum )'));
 pruefe('beide Termine enthalten',
     substr_count($t['text'], 'Uhr:') === 2);
-// Schulname als Parameter (Auslagerung schulspezifischer Signatur)
-$tS = mit_text_bestaetigung('Sprechtag', '2026-11-20', [], 'Musterschule');
-pruefe('Signatur nutzt übergebenen Schulnamen', str_contains($tS['text'], 'Musterschule'));
-$tD = mit_text_bestaetigung('Sprechtag', '2026-11-20', []);
-pruefe('neutraler Standard ohne feste Schule',
-    str_contains($tD['text'], 'Ihre Schule') && !str_contains($tD['text'], 'Rückert'));
 
 echo "mit_text_absage\n";
 $a = mit_text_absage('Elternsprechtag Herbst', '2026-11-20', '15:00:00',
