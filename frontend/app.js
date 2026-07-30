@@ -40,6 +40,9 @@ const S = {
   lehrerLaedt: false,  // Auto-Load-Guard für die Lehrkraft-Liste
   kalenderLink: null,  // persönlicher iCal-Abo-Link (Eltern)
   lehrerKalenderLink: null,  // persönlicher iCal-Abo-Link (Lehrkraft)
+  loginLogConf: undefined,   // Einstellungen des Login-Protokolls (undefined = ungeladen)
+  loginLogListe: null,       // geladene Protokoll-Einträge
+  loginLogFilter: '',        // Benutzername-Filter
   gewaehlteLehrkraftAnsicht: null,   // Admin: wessen Termine werden gezeigt
   schuelerListe: null,               // Klassenliste für Einladungen
   svRaster: null,                    // Zeitraster der Lehrkraft (frei + belegt)
@@ -526,6 +529,7 @@ function zeichne() {
     'admin-anzeige': ansichtAdminAnzeige,
     'admin-sprechtage': ansichtAdminSprechtage,
     'admin-daten': ansichtAdminDaten,
+    'admin-loginlog': ansichtAdminLoginLog,
     mitteilungen: ansichtMitteilungen,
     sondierung: ansichtSondierung,
     hilfe: ansichtHilfe,
@@ -541,12 +545,13 @@ function ansichtZuruecksetzen() {
   S.meineBuchungen = null; S.meineLaedt = false; S.lehrerListe = null;
   S.raster = []; S.svRaster = null; S.svLaedt = false;
   S.svFehler = null; S.gewaehlteLehrkraft = null;
+  S.loginLogConf = undefined; S.loginLogListe = null;
 }
 
 // Gültige Ansichts-Schlüssel (für die URL-Hash-Wiederherstellung).
 const ANSICHT_KEYS = ['buchen', 'meine', 'lehrkraft', 'einladungen', 'admin',
   'admin-marke', 'admin-aktiv', 'admin-anzeige', 'admin-sprechtage',
-  'admin-daten', 'mitteilungen', 'sondierung', 'hilfe'];
+  'admin-daten', 'admin-loginlog', 'mitteilungen', 'sondierung', 'hilfe'];
 
 function wechsleAnsicht(ziel) {
   if (S.ansicht !== ziel) ansichtZuruecksetzen();
@@ -600,7 +605,7 @@ function zeichneNavigation() {
   // Administration als aufklappbare Gruppe.
   if (S.user.rolle === 'admin') {
     const adminSeiten = ['admin', 'admin-marke', 'admin-aktiv', 'admin-anzeige',
-                         'admin-sprechtage', 'admin-daten'];
+                         'admin-sprechtage', 'admin-daten', 'admin-loginlog'];
     const adminAktiv = adminSeiten.includes(S.ansicht);
     if (adminAktiv) S.adminOffen = true;   // aktive Unterseite -> Gruppe offen
 
@@ -623,6 +628,7 @@ function zeichneNavigation() {
     sub.appendChild(navKnopf('admin-anzeige', 'Anzeige', true));
     sub.appendChild(navKnopf('admin-sprechtage', 'Sprechtage', true));
     sub.appendChild(navKnopf('admin-daten', 'Dienstkonto & Schülerliste', true));
+    sub.appendChild(navKnopf('admin-loginlog', 'Login-Protokoll', true));
     gruppe.appendChild(sub);
     nav.appendChild(gruppe);
 
@@ -2921,6 +2927,150 @@ async function oeffneSonderlehrer(s) {
 
   // Jetzt erst austauschen: alten Inhalt durch den fertigen neuen ersetzen.
   ziel.replaceChildren(...neu.childNodes);
+}
+
+// ============================================================
+// ANSICHT: Login-Protokoll (optionales Admin-Feature)
+// ============================================================
+function ansichtAdminLoginLog(ziel) {
+  ziel.appendChild(el('h2', null, 'Login-Protokoll'));
+
+  // Einstellungen einmalig holen, dann Formular + Tabelle zeichnen.
+  if (S.loginLogConf === undefined) {
+    S.loginLogConf = null;
+    ziel.appendChild(el('p', 'hinweis', 'Wird geladen …'));
+    api('/api/login-log/einstellungen').then((c) => {
+      S.loginLogConf = c; zeichne();
+    }).catch((f) => { meldung(String(f.message), 'fehler'); });
+    return;
+  }
+  if (!S.loginLogConf) {
+    ziel.appendChild(el('p', 'hinweis', 'Wird geladen …'));
+    return;
+  }
+  const c = S.loginLogConf;
+
+  // ---- Einstellungen ----
+  const konf = sektion('Einstellungen');
+  konf.appendChild(el('p', 'hinweis',
+    'Zeichnet Anmeldungen auf, um Rückfragen zu klären („konnte mich nicht '
+    + 'anmelden") und Fehler nachzuvollziehen. Standardmäßig ausgeschaltet.'));
+  // Datenschutz-Warnung – bewusst prominent.
+  const warn = el('div', 'daten-warnung');
+  warn.appendChild(el('strong', null, 'Datenschutz-Hinweis: '));
+  warn.appendChild(document.createTextNode(
+    'Ein aktiviertes Protokoll erzeugt eine personenbeziehbare Aufzeichnung, '
+    + 'wer sich wann angemeldet hat – auch von Lehrkräften. Bitte Zweck und '
+    + 'Aufbewahrung vor der Aktivierung mit der/dem Datenschutzbeauftragten '
+    + '(und ggf. der Personalvertretung) abstimmen. Fehlgeschlagene Versuche '
+    + 'werden aus Sicherheitsgründen ohnehin kurzzeitig gespeichert.'));
+  konf.appendChild(warn);
+
+  const l1 = el('label', 'check-zeile');
+  const cbAktiv = document.createElement('input');
+  cbAktiv.type = 'checkbox'; cbAktiv.id = 'll-aktiv'; cbAktiv.checked = c.aktiv === 1;
+  l1.appendChild(cbAktiv);
+  l1.appendChild(document.createTextNode(' Protokoll aktivieren (Ansicht unten wird befüllt)'));
+  konf.appendChild(l1);
+
+  const l2 = el('label', 'check-zeile');
+  const cbErf = document.createElement('input');
+  cbErf.type = 'checkbox'; cbErf.id = 'll-erfolge'; cbErf.checked = c.erfolge === 1;
+  l2.appendChild(cbErf);
+  l2.appendChild(document.createTextNode(
+    ' Auch erfolgreiche Anmeldungen protokollieren (sonst nur Fehlschläge)'));
+  konf.appendChild(l2);
+
+  konf.appendChild(auswahl('Aufbewahrung', 'll-tage', [
+    { wert: 14, text: '14 Tage' }, { wert: 30, text: '30 Tage' },
+    { wert: 90, text: '90 Tage' },
+  ], c.tage));
+
+  const aktionen = el('div', 'aktionen');
+  aktionen.appendChild(knopf('Einstellungen speichern', null, async () => {
+    try {
+      await api('/api/login-log/einstellungen', { method: 'POST', body: {
+        aktiv: $('#ll-aktiv').checked ? 1 : 0,
+        erfolge: $('#ll-erfolge').checked ? 1 : 0,
+        tage: parseInt(wert('ll-tage'), 10) || 30 } });
+      S.loginLogConf = null; S.loginLogListe = null;
+      toast('Einstellungen gespeichert.', 'ok');
+      zeichne();
+    } catch (f) { toast(String(f.message), 'fehler'); }
+  }));
+  konf.appendChild(aktionen);
+  ziel.appendChild(konf);
+
+  // ---- Protokoll-Tabelle ----
+  if (c.aktiv !== 1) {
+    ziel.appendChild(el('p', 'hinweis',
+      'Das Protokoll ist ausgeschaltet. Aktivieren Sie es oben, um Anmeldungen '
+      + 'hier zu sehen.'));
+    return;
+  }
+
+  const box = sektion('Anmeldungen');
+  const filterZeile = el('div', 'zeile');
+  filterZeile.appendChild(feld('Nach Benutzername filtern', 'll-filter', 'text',
+    S.loginLogFilter || ''));
+  box.appendChild(filterZeile);
+  const fAktionen = el('div', 'aktionen');
+  fAktionen.appendChild(knopf('Suchen', 'klein', () => {
+    S.loginLogFilter = wert('ll-filter'); S.loginLogListe = null; zeichne();
+  }));
+  fAktionen.appendChild(knopf('Aktualisieren', 'klein', () => {
+    S.loginLogListe = null; zeichne();
+  }));
+  fAktionen.appendChild(knopf('Protokoll leeren', 'klein gefahr', async () => {
+    if (!confirm('Alle Protokolleinträge löschen?')) return;
+    try {
+      await api('/api/login-log', { method: 'DELETE' });
+      S.loginLogListe = null; toast('Protokoll geleert.', 'ok'); zeichne();
+    } catch (f) { toast(String(f.message), 'fehler'); }
+  }));
+  box.appendChild(fAktionen);
+  ziel.appendChild(box);
+
+  if (S.loginLogListe === null) {
+    box.appendChild(el('p', 'hinweis', 'Wird geladen …'));
+    const q = S.loginLogFilter ? ('?benutzer=' + encodeURIComponent(S.loginLogFilter)) : '';
+    api('/api/login-log' + q).then((d) => {
+      S.loginLogListe = d.eintraege || []; zeichne();
+    }).catch((f) => { meldung(String(f.message), 'fehler'); });
+    return;
+  }
+  if (S.loginLogListe.length === 0) {
+    box.appendChild(el('p', 'hinweis', 'Keine Einträge im gewählten Zeitraum.'));
+    return;
+  }
+
+  const tab = el('table', 'tabelle');
+  const kopf = el('tr');
+  for (const t of ['Zeitpunkt', 'Benutzername', 'Ergebnis', 'Rolle / Grund']) {
+    kopf.appendChild(el('th', null, t));
+  }
+  tab.appendChild(kopf);
+  for (const e of S.loginLogListe) {
+    const tr = el('tr');
+    tr.appendChild(el('td', null, logZeit(e.zeitpunkt)));
+    tr.appendChild(el('td', null, e.webuntis_benutzer));
+    const ok = parseInt(e.erfolgreich, 10) === 1;
+    const erg = el('td', null, ok ? 'erfolgreich' : 'fehlgeschlagen');
+    erg.style.color = ok ? 'var(--gruen)' : 'var(--rot)';
+    tr.appendChild(erg);
+    tr.appendChild(el('td', null, e.grund || ''));
+    tab.appendChild(tr);
+  }
+  box.appendChild(tab);
+}
+
+// Formatiert einen DATETIME-Wert aus dem Protokoll lesbar (de-DE).
+function logZeit(s) {
+  if (!s) return '';
+  const d = new Date(String(s).replace(' ', 'T'));
+  if (isNaN(d)) return String(s);
+  return d.toLocaleString('de-DE', { day: '2-digit', month: '2-digit',
+    year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' Uhr';
 }
 
 // ============================================================

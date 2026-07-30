@@ -48,7 +48,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.36', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.37', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -194,11 +194,88 @@ if (($seg[0] ?? '') === 'auth') {
         }
 
         auth_login_speichern($daten);
-        $pdo->prepare('INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, ip)
-                       VALUES (?, 1, ?, ?)')
-            ->execute([$benutzer, $daten['rolle'], $_SERVER['REMOTE_ADDR'] ?? '']);
+
+        // Optionales Login-Protokoll (Admin-Feature). Fehlschläge werden oben
+        // aus Sicherheitsgründen (Brute-Force-Bremse) immer festgehalten;
+        // ERFOLGE nur, wenn die Schule das Protokoll aktiviert und Erfolge
+        // ausdrücklich einbezogen hat.
+        $logAktiv = (int)marke_wert($pdo, 'login_log_aktiv', '0') === 1;
+        $logErfolge = (int)marke_wert($pdo, 'login_log_erfolge', '0') === 1;
+        if ($logAktiv && $logErfolge) {
+            $pdo->prepare('INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, ip)
+                           VALUES (?, 1, ?, ?)')
+                ->execute([$benutzer, $daten['rolle'], $_SERVER['REMOTE_ADDR'] ?? '']);
+        }
+        // Aufbewahrung begrenzen: Einträge älter als login_log_tage entfernen
+        // (Bereinigung bei Login, kein Cron nötig).
+        $tage = max(1, min(365, (int)marke_wert($pdo, 'login_log_tage', '30')));
+        $pdo->prepare('DELETE FROM login_log WHERE zeitpunkt < NOW() - INTERVAL ? DAY')
+            ->execute([$tage]);
+
         json_ok(['angemeldet' => true] + auth_user());
     }
+}
+
+// ============================================================
+// LOGIN-PROTOKOLL (optionales Admin-Feature)
+// ============================================================
+if (($seg[0] ?? '') === 'login-log') {
+    auth_require_admin();
+    $pdo = db($cfg);
+
+    // Einstellungen lesen
+    if ($methode === 'GET' && ($seg[1] ?? '') === 'einstellungen') {
+        json_ok([
+            'aktiv'   => (int)marke_wert($pdo, 'login_log_aktiv', '0'),
+            'erfolge' => (int)marke_wert($pdo, 'login_log_erfolge', '0'),
+            'tage'    => (int)marke_wert($pdo, 'login_log_tage', '30'),
+        ]);
+    }
+
+    // Einstellungen speichern
+    if ($methode === 'POST' && ($seg[1] ?? '') === 'einstellungen') {
+        $aktiv   = !empty($body['aktiv']) ? '1' : '0';
+        $erfolge = !empty($body['erfolge']) ? '1' : '0';
+        $tage    = (string)max(1, min(365, (int)($body['tage'] ?? 30)));
+        marke_schreiben($pdo, 'login_log_aktiv', $aktiv);
+        marke_schreiben($pdo, 'login_log_erfolge', $erfolge);
+        marke_schreiben($pdo, 'login_log_tage', $tage);
+        json_ok(['ok' => true]);
+    }
+
+    // Protokoll lesen (nur wenn aktiv)
+    if ($methode === 'GET' && !isset($seg[1])) {
+        if ((int)marke_wert($pdo, 'login_log_aktiv', '0') !== 1) {
+            json_ok(['aktiv' => false, 'eintraege' => []]);
+        }
+        $limit = max(1, min(500, (int)($_GET['limit'] ?? 200)));
+        // Optionaler Filter nach Benutzername
+        $filter = trim((string)($_GET['benutzer'] ?? ''));
+        if ($filter !== '') {
+            $st = $pdo->prepare(
+                'SELECT webuntis_benutzer, erfolgreich, grund, zeitpunkt
+                 FROM login_log WHERE webuntis_benutzer LIKE ?
+                 ORDER BY zeitpunkt DESC LIMIT ?');
+            $st->bindValue(1, '%' . $filter . '%');
+            $st->bindValue(2, $limit, PDO::PARAM_INT);
+            $st->execute();
+        } else {
+            $st = $pdo->prepare(
+                'SELECT webuntis_benutzer, erfolgreich, grund, zeitpunkt
+                 FROM login_log ORDER BY zeitpunkt DESC LIMIT ?');
+            $st->bindValue(1, $limit, PDO::PARAM_INT);
+            $st->execute();
+        }
+        json_ok(['aktiv' => true, 'eintraege' => $st->fetchAll()]);
+    }
+
+    // Protokoll leeren
+    if ($methode === 'DELETE' && !isset($seg[1])) {
+        $pdo->exec('DELETE FROM login_log');
+        json_ok(['ok' => true]);
+    }
+
+    json_err('Methode nicht unterstützt.', 405);
 }
 
 // ============================================================

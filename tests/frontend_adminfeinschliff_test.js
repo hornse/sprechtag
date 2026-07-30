@@ -20,7 +20,7 @@ const css = fs.readFileSync(path.join(__dirname, '..', 'frontend', 'style.css'),
 
 // ---- Sonderlehrer: toast statt meldung (kein Seiten-Neuaufbau) ----
 const slBlock = js.slice(js.indexOf('async function oeffneSonderlehrer'),
-                         js.indexOf('function ansichtSondierung'));
+                         js.indexOf('// ANSICHT: Login-Protokoll'));
 pruefe('Sonderlehrer Hinzufügen nutzt toast',
   slBlock.includes("toast('Hinzugefügt.', 'ok')"));
 pruefe('Sonderlehrer Entfernen nutzt toast',

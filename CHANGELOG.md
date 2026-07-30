@@ -1,5 +1,32 @@
 # Changelog – sprechtag
 
+## v0.9.37 (Juli 2026) – Optionales Login-Protokoll – benötigt Migration `sql/16_login_log.sql`
+
+### Neu
+- **Login-Protokoll im Admin** (neuer Unterpunkt „Login-Protokoll"). Zeigt,
+  wer sich wann angemeldet hat – hilft bei Rückfragen („konnte mich nicht
+  anmelden") und der Fehlersuche. Mit Filter nach Benutzername.
+
+### Datenschutz by design
+- **Standardmäßig ausgeschaltet.** Eine frische Installation protokolliert
+  nichts, bis eine Schule das Feature bewusst aktiviert.
+- **Voreinstellung: nur Fehlschläge, 30 Tage Aufbewahrung.** Ältere Einträge
+  werden bei jeder Anmeldung automatisch entfernt (kein Cron nötig).
+- Erfolgreiche Anmeldungen werden nur protokolliert, wenn ausdrücklich
+  aktiviert. Fehlversuche werden – wie bisher – aus Sicherheitsgründen
+  (Brute-Force-Bremse) ohnehin kurzzeitig gehalten.
+- **Deutlicher Datenschutz-Hinweis** an der Aktivierung: Zweck und
+  Aufbewahrung sind mit der/dem Datenschutzbeauftragten (und ggf. der
+  Personalvertretung) abzustimmen, da auch Lehrkräfte erfasst werden.
+- Die IP-Adresse wird intern (Sicherheit) gehalten, aber dem Admin nicht
+  angezeigt.
+
+### Einstellungen (im Admin umschaltbar)
+- An/Aus, „auch Erfolge protokollieren", Aufbewahrung 14/30/90 Tage.
+
+### Tests
+- `tests/frontend_loginlog_test.js`.
+
 ## v0.9.36 (Juli 2026) – Speichern im Erscheinungsbild repariert (ID-Kollision)
 
 ### Behoben
