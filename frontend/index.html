@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Sprechtag FRG</title>
-<link rel="stylesheet" href="/style.css?v=20260730072605">
+<link rel="stylesheet" href="/style.css?v=20260730080008">
 </head>
 <body>
 
@@ -20,6 +20,8 @@
 
   <aside id="seitenleiste" class="seitenleiste">
     <div class="marke">
+      <button type="button" id="leiste-einklappen" class="leiste-einklappen"
+              aria-label="Menü einklappen" title="Menü einklappen">«</button>
       <img id="marke-logo" class="marke-logo versteckt" alt="Logo">
       <div class="marke-titel" id="marke-titel">Sprechtag</div>
       <div class="marke-untertitel" id="marke-untertitel">Friedrich-Rückert-Gymnasium Düsseldorf</div>
@@ -30,9 +32,13 @@
         <span id="benutzer-name"></span>
         <span id="benutzer-rolle" class="badge"></span>
       </div>
-      <span id="marke-fusszeile">sprechtag v0.9.37 · GPL-3.0-or-later · Sebastian Horn</span>
+      <span id="marke-fusszeile">sprechtag v0.9.38 · GPL-3.0-or-later · Sebastian Horn</span>
     </div>
   </aside>
+
+  <!-- Erscheint, wenn die Seitenleiste eingeklappt ist (Desktop/Tablet) -->
+  <button type="button" id="leiste-ausklappen" class="leiste-ausklappen"
+          aria-label="Menü ausklappen" title="Menü ausklappen">☰</button>
 
   <!-- Overlay zum Schließen des mobilen Menüs -->
   <div id="menue-overlay" class="menue-overlay"></div>
@@ -47,6 +53,6 @@
   </main>
 </div>
 
-<script src="/app.js?v=20260730072605"></script>
+<script src="/app.js?v=20260730080008"></script>
 </body>
 </html>

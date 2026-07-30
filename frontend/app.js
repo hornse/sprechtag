@@ -41,7 +41,9 @@ const S = {
   kalenderLink: null,  // persönlicher iCal-Abo-Link (Eltern)
   lehrerKalenderLink: null,  // persönlicher iCal-Abo-Link (Lehrkraft)
   loginLogConf: undefined,   // Einstellungen des Login-Protokolls (undefined = ungeladen)
+  loginLogLaedt: false,      // Guard: Einstellungen werden geladen
   loginLogListe: null,       // geladene Protokoll-Einträge
+  loginLogListeLaedt: false, // Guard: Liste wird geladen
   loginLogFilter: '',        // Benutzername-Filter
   gewaehlteLehrkraftAnsicht: null,   // Admin: wessen Termine werden gezeigt
   schuelerListe: null,               // Klassenliste für Einladungen
@@ -489,6 +491,20 @@ $('#mobil-menue')?.addEventListener('click', () => {
 });
 $('#menue-overlay')?.addEventListener('click', () => menueSchliessen());
 
+// Seitenleiste ein-/ausklappen (Desktop/Tablet, spart horizontalen Platz).
+// Zustand wird gemerkt, damit die Wahl ein Neuladen überlebt.
+function leisteEinklappen(zu) {
+  const shell = document.querySelector('.shell');
+  if (!shell) return;
+  shell.classList.toggle('leiste-zu', zu);
+  try { localStorage.setItem('leiste_zu', zu ? '1' : '0'); } catch (e) { /* egal */ }
+}
+$('#leiste-einklappen')?.addEventListener('click', () => leisteEinklappen(true));
+$('#leiste-ausklappen')?.addEventListener('click', () => leisteEinklappen(false));
+// Gemerkten Zustand beim Start anwenden.
+try { if (localStorage.getItem('leiste_zu') === '1') leisteEinklappen(true); }
+catch (e) { /* egal */ }
+
 // ============================================================
 // Zeichnen
 // ============================================================
@@ -546,6 +562,7 @@ function ansichtZuruecksetzen() {
   S.raster = []; S.svRaster = null; S.svLaedt = false;
   S.svFehler = null; S.gewaehlteLehrkraft = null;
   S.loginLogConf = undefined; S.loginLogListe = null;
+  S.loginLogLaedt = false; S.loginLogListeLaedt = false;
 }
 
 // Gültige Ansichts-Schlüssel (für die URL-Hash-Wiederherstellung).
@@ -942,6 +959,10 @@ function ansichtBuchen(ziel) {
   });
   ziel.appendChild(kw);
 
+  // Kompakte, einklappbare Übersicht der eigenen Termine – damit Eltern beim
+  // Buchen den Überblick behalten, ohne auf „Meine Termine" wechseln zu müssen.
+  zeichneTermineKompakt(ziel);
+
   // Lehrkräfte automatisch laden.
   if (S.lehrerListe === null) {
     ziel.appendChild(el('p', 'hinweis', 'Lehrkräfte werden geladen …'));
@@ -978,6 +999,60 @@ function ansichtBuchen(ziel) {
   if (S.gewaehlteLehrkraft && S.raster.length) {
     zeichneRaster(ziel, S.gewaehlteLehrkraft);
   }
+}
+
+// Kompakte, einklappbare Übersicht der eigenen Termine für die Buchungsseite.
+// Zugeklappt zeigt sie die Kurzfassung; aufgeklappt die chronologische Liste
+// mit Absage-Möglichkeit. Startet eingeklappt (block() merkt sich den Zustand).
+function zeichneTermineKompakt(ziel) {
+  // Termine laden, falls noch nicht vorhanden (Guard gegen Mehrfachladen).
+  if (S.meineBuchungen === null) {
+    if (!S.meineLaedt) { S.meineLaedt = true; ladeMeineBuchungen(); }
+    return;
+  }
+  const termine = S.meineBuchungen.slice().sort(
+    (a, c) => String(a.slot_beginn).localeCompare(String(c.slot_beginn)));
+  const anzahl = termine.length;
+
+  const titel = anzahl === 0
+    ? 'Meine Termine: noch keine gebucht'
+    : ('Meine Termine: ' + anzahl + (anzahl === 1 ? ' Termin' : ' Termine'));
+  const b = block('buchen-uebersicht', titel);
+
+  if (anzahl === 0) {
+    b.appendChild(el('p', 'hinweis',
+      'Sobald Sie unten einen Termin buchen, erscheint er hier.'));
+    ziel.appendChild(b);
+    return;
+  }
+
+  const kindName = (id) => {
+    const k = (S.user.kinder || []).find((x) => x.id === id);
+    return k ? (k.name || ('Schüler-ID ' + id)) : ('Schüler-ID ' + id);
+  };
+
+  const liste = el('div', 'termine-kompakt');
+  for (const t of termine) {
+    const zeile = el('div', 'termin-zeile');
+    zeile.appendChild(el('span', 'termin-zeit', String(t.slot_beginn).slice(0, 5)));
+    const info = el('div', 'termin-info');
+    info.appendChild(el('span', 'termin-lehrer', t.name || t.kuerzel));
+    const detail = [t.raum_kuerzel ? ('Raum ' + t.raum_kuerzel) : null,
+      kindName(parseInt(t.schueler_id, 10))].filter(Boolean).join(' · ');
+    info.appendChild(el('span', 'termin-detail', detail));
+    zeile.appendChild(info);
+    if (t.phase !== 'phase1') {
+      zeile.appendChild(knopf('Absagen', 'klein gefahr', () => stornieren(t.id)));
+    } else {
+      zeile.appendChild(el('span', 'hinweis-klein', 'auf Einladung'));
+    }
+    liste.appendChild(zeile);
+  }
+  b.appendChild(liste);
+  const zurLink = knopf('Zur vollen Übersicht (Drucken, Kalender)', 'klein',
+    () => wechsleAnsicht('meine'));
+  b.appendChild(zurLink);
+  ziel.appendChild(b);
 }
 
 // Rendert die Lehrkraft-Kacheln (gefiltert nach dem Suchfeld) in den Container.
@@ -1087,6 +1162,8 @@ async function buchen(lehrerId, slot, kommentar) {
       sprechtag_id: S.aktiverSprechtag.id, lehrer_id: lehrerId,
       schueler_id: S.kind, slot_beginn: slot,
       kommentar: (kommentar || '').trim() } });
+    // Eigene Termine neu laden, damit die Kompaktübersicht oben stimmt.
+    S.meineBuchungen = null; S.meineLaedt = false;
     await ladeRaster(lehrerId);
     meldung('Termin um ' + slot + ' Uhr gebucht.', 'ok');
   } catch (f) { meldung(String(f.message), 'fehler'); }
@@ -1209,6 +1286,11 @@ async function stornieren(id) {
   try {
     await api('/api/buchungen/' + id, { method: 'DELETE' });
     await ladeMeineBuchungen();
+    // Falls gerade ein Buchungsraster offen ist, ebenfalls neu laden, damit der
+    // frei gewordene Slot dort sofort wieder auftaucht.
+    if (S.ansicht === 'buchen' && S.gewaehlteLehrkraft) {
+      await ladeRaster(S.gewaehlteLehrkraft);
+    }
     meldung('Termin abgesagt.', 'ok');
   } catch (f) { meldung(String(f.message), 'fehler'); }
 }
@@ -2935,17 +3017,16 @@ async function oeffneSonderlehrer(s) {
 function ansichtAdminLoginLog(ziel) {
   ziel.appendChild(el('h2', null, 'Login-Protokoll'));
 
-  // Einstellungen einmalig holen, dann Formular + Tabelle zeichnen.
-  if (S.loginLogConf === undefined) {
-    S.loginLogConf = null;
+  // Einstellungen einmalig holen. Guard-Flag verhindert Mehrfachladen und das
+  // frühere Problem, dass die Übersicht erst nach manuellem Neuladen erschien.
+  if (S.loginLogConf === undefined || S.loginLogConf === null) {
     ziel.appendChild(el('p', 'hinweis', 'Wird geladen …'));
-    api('/api/login-log/einstellungen').then((c) => {
-      S.loginLogConf = c; zeichne();
-    }).catch((f) => { meldung(String(f.message), 'fehler'); });
-    return;
-  }
-  if (!S.loginLogConf) {
-    ziel.appendChild(el('p', 'hinweis', 'Wird geladen …'));
+    if (!S.loginLogLaedt) {
+      S.loginLogLaedt = true;
+      api('/api/login-log/einstellungen').then((c) => {
+        S.loginLogConf = c; S.loginLogLaedt = false; zeichne();
+      }).catch((f) => { S.loginLogLaedt = false; meldung(String(f.message), 'fehler'); });
+    }
     return;
   }
   const c = S.loginLogConf;
@@ -3033,10 +3114,13 @@ function ansichtAdminLoginLog(ziel) {
 
   if (S.loginLogListe === null) {
     box.appendChild(el('p', 'hinweis', 'Wird geladen …'));
-    const q = S.loginLogFilter ? ('?benutzer=' + encodeURIComponent(S.loginLogFilter)) : '';
-    api('/api/login-log' + q).then((d) => {
-      S.loginLogListe = d.eintraege || []; zeichne();
-    }).catch((f) => { meldung(String(f.message), 'fehler'); });
+    if (!S.loginLogListeLaedt) {
+      S.loginLogListeLaedt = true;
+      const q = S.loginLogFilter ? ('?benutzer=' + encodeURIComponent(S.loginLogFilter)) : '';
+      api('/api/login-log' + q).then((d) => {
+        S.loginLogListe = d.eintraege || []; S.loginLogListeLaedt = false; zeichne();
+      }).catch((f) => { S.loginLogListeLaedt = false; meldung(String(f.message), 'fehler'); });
+    }
     return;
   }
   if (S.loginLogListe.length === 0) {

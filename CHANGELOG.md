@@ -1,5 +1,29 @@
 # Changelog – sprechtag
 
+## v0.9.38 (Juli 2026) – Terminüberblick beim Buchen, einklappbare Seitenleiste
+
+### Neu
+- **Kompakte Terminübersicht auf der Buchungsseite.** Direkt unter der
+  Kind-Auswahl zeigt eine einklappbare Übersicht die eigenen Termine
+  (chronologisch, mit Uhrzeit, Lehrkraft, Raum, Absage-Möglichkeit). So
+  behalten Eltern beim Buchen den Überblick, ohne auf „Meine Termine" zu
+  wechseln. Startet eingeklappt (platzsparend, v. a. auf dem Handy) und merkt
+  sich den Zustand. Aktualisiert sich sofort nach Buchung/Absage.
+- **Einklappbare Seitenleiste** (Desktop/Tablet). Über den «-Knopf lässt sich
+  das Menü einklappen, um mehr Platz für den Inhalt zu schaffen; ein kleiner
+  ☰-Knopf blendet es wieder ein. Der Zustand bleibt erhalten. Auf dem Handy
+  übernimmt weiterhin das bestehende Hamburger-Menü.
+- Die eigenständige Seite „Meine Termine" bleibt unverändert erhalten
+  (Kalender-Abo, Einzeltermine, Drucken).
+
+### Behoben
+- **Login-Protokoll** zeigte die Übersicht teils erst nach manuellem Neuladen.
+  Der Ladefluss nutzt jetzt dieselben Guard-Flags wie die übrigen Ansichten
+  und erscheint sofort.
+
+### Tests
+- `tests/frontend_buchen_uebersicht_test.js`.
+
 ## v0.9.37 (Juli 2026) – Optionales Login-Protokoll – benötigt Migration `sql/16_login_log.sql`
 
 ### Neu
