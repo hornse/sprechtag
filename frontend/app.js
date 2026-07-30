@@ -47,9 +47,12 @@ const S = {
   loginLogFilter: '',        // Benutzername-Filter
   hilfeZusatz: undefined,     // gerendertes Hilfe-Zusatz-HTML (undefined = ungeladen)
   hilfeZusatzLaedt: false,    // Guard
-  hilfetextRoh: undefined,    // Rohtext im Editor (undefined = ungeladen)
-  hilfetextVorschau: '',      // gerenderte Vorschau
-  hilfetextLaedt: false,      // Guard
+  buchungHinweis: undefined,  // gerendertes Buchungs-Hinweis-HTML
+  buchungHinweisLaedt: false,
+  loginHinweis: undefined,    // gerendertes Login-Hinweis-HTML
+  loginHinweisLaedt: false,
+  texte: null,                // Editor-Cache je Textschlüssel {roh, html}
+  texteLaedt: {},             // Guards je Textschlüssel
   gewaehlteLehrkraftAnsicht: null,   // Admin: wessen Termine werden gezeigt
   schuelerListe: null,               // Klassenliste für Einladungen
   svRaster: null,                    // Zeitraster der Lehrkraft (frei + belegt)
@@ -566,7 +569,7 @@ function zeichne() {
     'admin-sprechtage': ansichtAdminSprechtage,
     'admin-daten': ansichtAdminDaten,
     'admin-loginlog': ansichtAdminLoginLog,
-    'admin-hilfetext': ansichtAdminHilfetext,
+    'admin-texte': ansichtAdminTexte,
     mitteilungen: ansichtMitteilungen,
     sondierung: ansichtSondierung,
     hilfe: ansichtHilfe,
@@ -584,13 +587,13 @@ function ansichtZuruecksetzen() {
   S.svFehler = null; S.gewaehlteLehrkraft = null;
   S.loginLogConf = undefined; S.loginLogListe = null;
   S.loginLogLaedt = false; S.loginLogListeLaedt = false;
-  S.hilfetextRoh = undefined; S.hilfetextLaedt = false;
+  S.texte = null; S.texteLaedt = {};
 }
 
 // Gültige Ansichts-Schlüssel (für die URL-Hash-Wiederherstellung).
 const ANSICHT_KEYS = ['buchen', 'meine', 'lehrkraft', 'einladungen', 'admin',
   'admin-marke', 'admin-aktiv', 'admin-anzeige', 'admin-sprechtage',
-  'admin-daten', 'admin-loginlog', 'admin-hilfetext', 'mitteilungen', 'sondierung', 'hilfe'];
+  'admin-daten', 'admin-loginlog', 'admin-texte', 'mitteilungen', 'sondierung', 'hilfe'];
 
 function wechsleAnsicht(ziel) {
   if (S.ansicht !== ziel) ansichtZuruecksetzen();
@@ -653,7 +656,7 @@ function zeichneNavigation() {
   if (S.user.rolle === 'admin') {
     const adminSeiten = ['admin', 'admin-marke', 'admin-aktiv', 'admin-anzeige',
                          'admin-sprechtage', 'admin-daten', 'admin-loginlog',
-                         'admin-hilfetext'];
+                         'admin-texte'];
     const adminAktiv = adminSeiten.includes(S.ansicht);
     if (adminAktiv) S.adminOffen = true;   // aktive Unterseite -> Gruppe offen
 
@@ -685,7 +688,7 @@ function zeichneNavigation() {
     sub.appendChild(navKnopf('admin-sprechtage', 'Sprechtage', true, '🗓️'));
     sub.appendChild(navKnopf('admin-daten', 'Dienstkonto & Schülerliste', true, '👥'));
     sub.appendChild(navKnopf('admin-loginlog', 'Login-Protokoll', true, '🔒'));
-    sub.appendChild(navKnopf('admin-hilfetext', 'Hilfetext', true, '📝'));
+    sub.appendChild(navKnopf('admin-texte', 'Texte', true, '📝'));
     gruppe.appendChild(sub);
     nav.appendChild(gruppe);
 
@@ -758,6 +761,7 @@ function phaseText(p) {
 // ============================================================
 function ansichtLogin(ziel) {
   ziel.appendChild(el('h2', null, 'Anmeldung mit WebUntis'));
+  zeigeHinweisText(ziel, 'login_hinweis', 'loginHinweis');
   ziel.appendChild(el('p', 'hinweis',
     'Bitte mit den WebUntis-Zugangsdaten anmelden. Erziehungsberechtigte '
     + 'nutzen ihren eigenen Zugang – nicht den ihres Kindes.'));
@@ -822,7 +826,7 @@ function ansichtHilfe(ziel) {
     S.hilfeZusatz = null;
     if (!S.hilfeZusatzLaedt) {
       S.hilfeZusatzLaedt = true;
-      api('/api/einstellungen/hilfe').then((d) => {
+      api('/api/einstellungen/text/hilfe_zusatz').then((d) => {
         S.hilfeZusatz = d.html || ''; S.hilfeZusatzLaedt = false; zeichne();
       }).catch(() => { S.hilfeZusatzLaedt = false; });
     }
@@ -995,6 +999,7 @@ function hilfeSchluessel(text) {
 // ============================================================
 function ansichtBuchen(ziel) {
   ziel.appendChild(el('h2', null, 'Termin buchen'));
+  zeigeHinweisText(ziel, 'buchung_hinweis', 'buchungHinweis');
   if (!sprechtagWaehler(ziel)) return;
 
   const s = S.aktiverSprechtag;
@@ -1062,6 +1067,25 @@ function ansichtBuchen(ziel) {
 
   if (S.gewaehlteLehrkraft && S.raster.length) {
     zeichneRaster(ziel, S.gewaehlteLehrkraft);
+  }
+}
+
+// Zeigt einen schulspezifischen Hinweistext (serverseitig gerendert) an, wenn
+// hinterlegt. cacheKey ist das Zustandsfeld (z. B. 'buchungHinweis').
+function zeigeHinweisText(ziel, schluessel, cacheKey) {
+  if (S[cacheKey] === undefined) {
+    if (!S[cacheKey + 'Laedt']) {
+      S[cacheKey + 'Laedt'] = true;
+      api('/api/einstellungen/text/' + schluessel).then((d) => {
+        S[cacheKey] = d.html || ''; S[cacheKey + 'Laedt'] = false; zeichne();
+      }).catch(() => { S[cacheKey + 'Laedt'] = false; S[cacheKey] = ''; });
+    }
+    return;
+  }
+  if (S[cacheKey]) {
+    const box = el('div', 'hilfe-zusatz');
+    box.innerHTML = S[cacheKey];   // serverseitig gesäubert
+    ziel.appendChild(box);
   }
 }
 
@@ -3212,37 +3236,21 @@ function ansichtAdminLoginLog(ziel) {
   box.appendChild(tab);
 }
 
-// Formatiert einen DATETIME-Wert aus dem Protokoll lesbar (de-DE).
 // ============================================================
-// ANSICHT: Hilfetext (optionaler, schulspezifischer Zusatz)
+// ANSICHT: Eigene Texte (Hilfe-, Buchungs-, Login-Hinweis)
 // ============================================================
-function ansichtAdminHilfetext(ziel) {
-  ziel.appendChild(el('h2', null, 'Hilfetext'));
+function ansichtAdminTexte(ziel) {
+  ziel.appendChild(el('h2', null, 'Eigene Texte'));
+  ziel.appendChild(el('p', 'hinweis',
+    'Optionale, schulspezifische Texte (Markdown). Leer lassen = es wird nichts '
+    + 'angezeigt. Alle unterstützen dieselben Platzhalter und werden sicher '
+    + 'dargestellt.'));
 
-  if (S.hilfetextRoh === undefined) {
-    ziel.appendChild(el('p', 'hinweis', 'Wird geladen …'));
-    if (!S.hilfetextLaedt) {
-      S.hilfetextLaedt = true;
-      api('/api/einstellungen/hilfe').then((d) => {
-        S.hilfetextRoh = d.roh || ''; S.hilfetextVorschau = d.html || '';
-        S.hilfetextLaedt = false; zeichne();
-      }).catch((f) => { S.hilfetextLaedt = false; meldung(String(f.message), 'fehler'); });
-    }
-    return;
-  }
-
-  const konf = sektion('Eigener Hilfetext (optional)');
-  konf.appendChild(el('p', 'hinweis',
-    'Dieser Text erscheint ganz oben auf der Hilfeseite – zusätzlich zur '
-    + 'eingebauten Hilfe. Ideal für schulspezifische Hinweise. Leer lassen = '
-    + 'es wird nichts angezeigt. Formatierung per Markdown.'));
-
-  // Variablen-Liste – klar getrennt: Platzhalter | Bedeutung.
+  // Gemeinsame Platzhalter-/Formatierungshilfe (einmal oben).
   const vars = el('div', 'daten-warnung');
   vars.appendChild(el('strong', null, 'Verfügbare Platzhalter'));
   vars.appendChild(el('p', 'hinweis-klein',
-    'Diese Kürzel im Text werden beim Anzeigen automatisch durch die echten '
-    + 'Werte ersetzt:'));
+    'Diese Kürzel werden beim Anzeigen automatisch ersetzt:'));
   const vtab = el('table', 'platzhalter-tabelle');
   for (const [ph, was] of [
     ['{{kontakt}}', 'die hinterlegte Kontakt-E-Mail'],
@@ -3250,9 +3258,7 @@ function ansichtAdminHilfetext(ziel) {
     ['{{titel}}', 'der App-Titel'],
   ]) {
     const tr = el('tr');
-    const tdC = el('td');
-    tdC.appendChild(el('code', null, ph));
-    tr.appendChild(tdC);
+    const tdC = el('td'); tdC.appendChild(el('code', null, ph)); tr.appendChild(tdC);
     tr.appendChild(el('td', null, was));
     vtab.appendChild(tr);
   }
@@ -3260,45 +3266,71 @@ function ansichtAdminHilfetext(ziel) {
   vars.appendChild(el('p', 'hinweis-klein',
     'Formatierung: ## Überschrift, ### Unterüberschrift, **fett**, *kursiv*, '
     + '- Aufzählung, 1. nummeriert, [Link-Text](https://…).'));
-  konf.appendChild(vars);
+  ziel.appendChild(vars);
 
+  // Drei Editoren – jeweils Schlüssel, Titel, Beschreibung, Beispiel.
+  ziel.appendChild(textEditor('hilfe_zusatz', 'Hilfetext',
+    'Erscheint ganz oben auf der Hilfeseite – zusätzlich zur eingebauten Hilfe.',
+    '## Willkommen\n\nBei Fragen wenden Sie sich an {{kontakt}}.'));
+  ziel.appendChild(textEditor('buchung_hinweis', 'Buchungs-Hinweis',
+    'Erscheint oben auf der Buchungsseite (für Eltern und Schüler:innen).',
+    'Bitte buchen Sie Ihre Termine bis **Freitag**.'));
+  ziel.appendChild(textEditor('login_hinweis', 'Login-Hinweis',
+    'Erscheint auf der Anmeldeseite.',
+    'Melden Sie sich mit Ihrem persönlichen {{schulname}}-WebUntis-Zugang an.'));
+}
+
+// Wiederverwendbarer Editor für einen einzelnen Text (Markdown).
+// Lädt Rohtext + Vorschau bei Bedarf, speichert und zeigt Live-Vorschau.
+function textEditor(schluessel, titel, beschreibung, beispiel) {
+  const box = sektion(titel, beschreibung);
+  S.texte = S.texte || {};
+  const eintrag = S.texte[schluessel];
+
+  if (eintrag === undefined) {
+    box.appendChild(el('p', 'hinweis', 'Wird geladen …'));
+    if (!S.texteLaedt[schluessel]) {
+      S.texteLaedt[schluessel] = true;
+      api('/api/einstellungen/text/' + schluessel).then((d) => {
+        S.texte[schluessel] = { roh: d.roh || '', html: d.html || '' };
+        S.texteLaedt[schluessel] = false; zeichne();
+      }).catch((f) => { S.texteLaedt[schluessel] = false; meldung(String(f.message), 'fehler'); });
+    }
+    return box;
+  }
+
+  const taId = 'txt-' + schluessel;
   const ta = el('textarea');
-  ta.id = 'hilfetext-roh';
-  ta.rows = 12;
-  ta.value = S.hilfetextRoh || '';
-  ta.style.width = '100%';
-  ta.style.fontFamily = 'ui-monospace, monospace';
-  ta.placeholder = '## Willkommen\n\nBei Fragen wenden Sie sich an {{kontakt}}.';
-  konf.appendChild(ta);
+  ta.id = taId; ta.rows = 8; ta.value = eintrag.roh || '';
+  ta.style.width = '100%'; ta.style.fontFamily = 'ui-monospace, monospace';
+  ta.placeholder = beispiel;
+  box.appendChild(ta);
 
   const aktionen = el('div', 'aktionen');
   aktionen.appendChild(knopf('Speichern', null, async () => {
     toast('Speichern …', 'info');
     try {
-      const d = await api('/api/einstellungen/hilfe', { method: 'POST',
-        body: { hilfe_zusatz: wert('hilfetext-roh') } });
-      S.hilfetextRoh = wert('hilfetext-roh');
-      S.hilfetextVorschau = d.html || '';
-      S.hilfeZusatz = undefined;   // Hilfeseite neu laden lassen
-      toast('Hilfetext gespeichert.', 'ok');
+      const d = await api('/api/einstellungen/text/' + schluessel, { method: 'POST',
+        body: { text: wert(taId) } });
+      S.texte[schluessel] = { roh: wert(taId), html: d.html || '' };
+      // Anzeige-Caches der betroffenen Seiten verwerfen, damit sie neu laden.
+      if (schluessel === 'hilfe_zusatz') S.hilfeZusatz = undefined;
+      if (schluessel === 'buchung_hinweis') S.buchungHinweis = undefined;
+      if (schluessel === 'login_hinweis') S.loginHinweis = undefined;
+      toast(titel + ' gespeichert.', 'ok');
       zeichne();
     } catch (f) { toast(String(f.message), 'fehler'); }
   }));
-  konf.appendChild(aktionen);
-  ziel.appendChild(konf);
+  box.appendChild(aktionen);
 
   // Vorschau
-  const vor = sektion('Vorschau');
-  if (S.hilfetextVorschau) {
-    const box = el('div', 'hilfe-zusatz karte-innen');
-    box.innerHTML = S.hilfetextVorschau;   // serverseitig gesäubert
-    vor.appendChild(box);
-  } else {
-    vor.appendChild(el('p', 'hinweis',
-      'Noch kein Text gespeichert. Nach dem Speichern erscheint hier die '
-      + 'gerenderte Vorschau.'));
+  if (eintrag.html) {
+    box.appendChild(el('p', 'hinweis-klein', 'Vorschau:'));
+    const vor = el('div', 'hilfe-zusatz karte-innen');
+    vor.innerHTML = eintrag.html;   // serverseitig gesäubert
+    box.appendChild(vor);
   }
-  ziel.appendChild(vor);
+  return box;
 }
 
 function logZeit(s) {

@@ -175,38 +175,40 @@ function marke_route(array $seg, string $methode, array $body, array $cfg): bool
         json_ok(marke_lesen(db($cfg)));
     }
 
-    // ---- GET /api/einstellungen/hilfe : Hilfe-Zusatztext ----
-    // Öffentlich: liefert das sicher gerenderte HTML (mit ersetzten
-    // Platzhaltern) für die Anzeige. Für Admins zusätzlich den Rohtext.
-    if ($methode === 'GET' && ($seg[1] ?? '') === 'hilfe') {
+    // ---- GET/POST /api/einstellungen/text/{schluessel} : editierbare Texte ----
+    // Deckt Hilfe-Zusatz, Buchungs- und Login-Hinweis ab. Nur Schlüssel aus der
+    // Whitelist sind erlaubt. GET ist öffentlich (liefert sicher gerendertes
+    // HTML, für Admins zusätzlich den Rohtext); POST ist admin-only.
+    if (($seg[1] ?? '') === 'text') {
+        $erlaubt = ['hilfe_zusatz', 'buchung_hinweis', 'login_hinweis'];
+        $schluessel = (string)($seg[2] ?? '');
+        if (!in_array($schluessel, $erlaubt, true)) {
+            json_err('Unbekannter Textbereich.', 404);
+        }
         $pdo = db($cfg);
-        $roh = marke_wert($pdo, 'hilfe_zusatz', '');
         $werte = [
             'kontakt'   => marke_wert($pdo, 'marke_kontakt', ''),
             'schulname' => marke_schulname($pdo),
             'titel'     => marke_wert($pdo, 'marke_titel', 'Sprechtag'),
         ];
-        $html = $roh === '' ? '' : markdown_sicher(platzhalter_ersetzen($roh, $werte));
-        $antwort = ['html' => $html];
-        if (auth_ist_admin()) $antwort['roh'] = $roh;
-        json_ok($antwort);
-    }
 
-    // ---- POST /api/einstellungen/hilfe : Hilfe-Zusatztext speichern (admin) ----
-    if ($methode === 'POST' && ($seg[1] ?? '') === 'hilfe') {
-        auth_require_admin();
-        $pdo = db($cfg);
-        $roh = (string)($body['hilfe_zusatz'] ?? '');
-        $roh = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $roh) ?? '';
-        $roh = kuerze($roh, 8000);
-        marke_schreiben($pdo, 'hilfe_zusatz', $roh);
-        $werte = [
-            'kontakt'   => marke_wert($pdo, 'marke_kontakt', ''),
-            'schulname' => marke_schulname($pdo),
-            'titel'     => marke_wert($pdo, 'marke_titel', 'Sprechtag'),
-        ];
-        $html = $roh === '' ? '' : markdown_sicher(platzhalter_ersetzen($roh, $werte));
-        json_ok(['ok' => true, 'html' => $html]);
+        if ($methode === 'GET') {
+            $roh = marke_wert($pdo, $schluessel, '');
+            $html = $roh === '' ? '' : markdown_sicher(platzhalter_ersetzen($roh, $werte));
+            $antwort = ['html' => $html];
+            if (auth_ist_admin()) $antwort['roh'] = $roh;
+            json_ok($antwort);
+        }
+        if ($methode === 'POST') {
+            auth_require_admin();
+            $roh = (string)($body['text'] ?? '');
+            $roh = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $roh) ?? '';
+            $roh = kuerze($roh, 8000);
+            marke_schreiben($pdo, $schluessel, $roh);
+            $html = $roh === '' ? '' : markdown_sicher(platzhalter_ersetzen($roh, $werte));
+            json_ok(['ok' => true, 'html' => $html]);
+        }
+        json_err('Methode nicht unterstützt.', 405);
     }
 
     // ---- POST /api/einstellungen : Marke speichern (admin) ----

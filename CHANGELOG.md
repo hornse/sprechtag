@@ -1,5 +1,26 @@
 # Changelog – sprechtag
 
+## v0.9.43 (Juli 2026) – Buchungs- und Login-Hinweistext – benötigt Migration `sql/18_hinweistexte.sql`
+
+### Neu
+- **Zwei weitere editierbare Texte**, mit derselben sicheren Technik wie der
+  Hilfetext:
+  - **Buchungs-Hinweis** – erscheint oben auf der Buchungsseite (z. B.
+    „Bitte buchen Sie bis Freitag").
+  - **Login-Hinweis** – erscheint auf der Anmeldeseite.
+- Alle drei Texte (Hilfe, Buchung, Login) werden nun gemeinsam unter
+  **Admin → „Texte"** gepflegt (vorher „Hilfetext"). Jeder mit eigener
+  Vorschau; Platzhalter und Formatierung gelten für alle.
+
+### Intern
+- Backend-Route für editierbare Texte vereinheitlicht
+  (`/api/einstellungen/text/{schlüssel}`, Whitelist-geschützt). Der Editor im
+  Frontend ist ein wiederverwendbarer Baustein.
+
+### Tests
+- `tests/frontend_hilfetext_test.js` deckt jetzt alle drei Texte ab;
+  `tests/run_markdown.php` (XSS) unverändert gültig.
+
 ## v0.9.42 (Juli 2026) – Hilfetext-Editor: Platzhalter klarer
 
 ### Verbessert
