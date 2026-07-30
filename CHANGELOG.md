@@ -1,5 +1,15 @@
 # Changelog – sprechtag
 
+## v0.9.44 (Juli 2026) – Login-Hinweis ersetzt Standardtext (keine Dopplung)
+
+### Geändert
+- **Auf der Anmeldeseite ersetzt ein eigener Login-Hinweis den fest eingebauten
+  Standardsatz**, statt zusätzlich darüber zu erscheinen. Ist kein eigener Text
+  gesetzt, erscheint wie bisher nur der Standardhinweis.
+- (Hilfeseite bleibt bewusst „ergänzend": Der eigene Hilfetext steht wie zuvor
+  zusätzlich über der eingebauten Hilfe – dort ist das erwünscht. Die
+  Buchungsseite hat keinen doppelten Standardsatz.)
+
 ## v0.9.43 (Juli 2026) – Buchungs- und Login-Hinweistext – benötigt Migration `sql/18_hinweistexte.sql`
 
 ### Neu

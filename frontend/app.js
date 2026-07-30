@@ -761,10 +761,12 @@ function phaseText(p) {
 // ============================================================
 function ansichtLogin(ziel) {
   ziel.appendChild(el('h2', null, 'Anmeldung mit WebUntis'));
-  zeigeHinweisText(ziel, 'login_hinweis', 'loginHinweis');
-  ziel.appendChild(el('p', 'hinweis',
-    'Bitte mit den WebUntis-Zugangsdaten anmelden. Erziehungsberechtigte '
-    + 'nutzen ihren eigenen Zugang – nicht den ihres Kindes.'));
+  const eigener = zeigeHinweisText(ziel, 'login_hinweis', 'loginHinweis');
+  if (!eigener) {
+    ziel.appendChild(el('p', 'hinweis',
+      'Bitte mit den WebUntis-Zugangsdaten anmelden. Erziehungsberechtigte '
+      + 'nutzen ihren eigenen Zugang – nicht den ihres Kindes.'));
+  }
 
   const form = document.createElement('form');
   form.appendChild(feld('WebUntis-Benutzername', 'login-benutzer'));
@@ -1072,6 +1074,9 @@ function ansichtBuchen(ziel) {
 
 // Zeigt einen schulspezifischen Hinweistext (serverseitig gerendert) an, wenn
 // hinterlegt. cacheKey ist das Zustandsfeld (z. B. 'buchungHinweis').
+// Rückgabe: true, wenn ein eigener Text angezeigt wurde (dann kann der Aufrufer
+// den fest eingebauten Standardtext weglassen); false sonst. Solange der Text
+// noch lädt, wird ebenfalls false zurückgegeben (Standard erscheint kurz).
 function zeigeHinweisText(ziel, schluessel, cacheKey) {
   if (S[cacheKey] === undefined) {
     if (!S[cacheKey + 'Laedt']) {
@@ -1080,13 +1085,15 @@ function zeigeHinweisText(ziel, schluessel, cacheKey) {
         S[cacheKey] = d.html || ''; S[cacheKey + 'Laedt'] = false; zeichne();
       }).catch(() => { S[cacheKey + 'Laedt'] = false; S[cacheKey] = ''; });
     }
-    return;
+    return false;
   }
   if (S[cacheKey]) {
     const box = el('div', 'hilfe-zusatz');
     box.innerHTML = S[cacheKey];   // serverseitig gesäubert
     ziel.appendChild(box);
+    return true;
   }
+  return false;
 }
 
 // Kompakte, einklappbare Übersicht der eigenen Termine für die Buchungsseite.

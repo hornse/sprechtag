@@ -50,5 +50,10 @@ pruefe('Loginseite zeigt Hinweis',
 pruefe('innerHTML nur fuer serverseitig gesaeubertes HTML',
   js.includes('serverseitig gesäubert'));
 
+pruefe('Login: eigener Text ersetzt Standard',
+  js.includes('const eigener = zeigeHinweisText') && js.includes('if (!eigener)'));
+pruefe('zeigeHinweisText meldet Anzeige zurueck',
+  js.includes('return true;') && js.includes('return false;'));
+
 console.log(fehler === 0 ? '\nALLE TESTS GRUEN' : '\n' + fehler + ' FEHLER');
 process.exit(fehler === 0 ? 0 : 1);
