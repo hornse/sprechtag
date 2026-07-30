@@ -73,6 +73,13 @@ function auth_require_admin(): array
     return $u;
 }
 
+/** Prüft, ob der aktuelle Nutzer Admin ist (ohne Abbruch). */
+function auth_ist_admin(): bool
+{
+    $u = auth_user();
+    return $u !== null && $u['rolle'] === 'admin';
+}
+
 /** Erzwingt Lehrkraft oder Admin. */
 function auth_require_lehrkraft(): array
 {

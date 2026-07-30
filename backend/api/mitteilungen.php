@@ -208,7 +208,7 @@ function mit_senden(WebUntisRest $rest, int $empfaengerUserId,
  * Reine Funktion – offline testbar.
  */
 function mit_text_bestaetigung(string $sprechtagName, string $datum,
-                               array $termine): array
+                               array $termine, string $schule = 'Ihre Schule'): array
 {
     $zeilen = [];
     foreach ($termine as $t) {
@@ -222,7 +222,7 @@ function mit_text_bestaetigung(string $sprechtagName, string $datum,
         . implode("\n", $zeilen)
         . "\n\nBitte finden Sie sich einige Minuten vorher am jeweiligen Raum ein.\n\n"
         . "Mit freundlichen Grüßen\n"
-        . "Friedrich-Rückert-Gymnasium Düsseldorf";
+        . $schule;
 
     return ['betreff' => 'Ihre Termine: ' . $sprechtagName, 'text' => $text];
 }

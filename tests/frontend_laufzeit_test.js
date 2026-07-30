@@ -6,17 +6,20 @@ let quelle = fs.readFileSync(__dirname + '/../frontend/app.js', 'utf8');
 const elemente = {};
 function fakeEl(tag) {
   return { tagName: tag, className: '', textContent: '', value: '', type: '',
-    children: [], style: {}, classList: { add(){}, remove(){}, contains(){return false;} },
+    children: [], style: {}, classList: { add(){}, remove(){}, contains(){return false;}, toggle(){} },
     appendChild(k){ this.children.push(k); return k; },
     addEventListener(){}, querySelector(){ return null; },
-    querySelectorAll(){ return []; }, remove(){}, open: false };
+    querySelectorAll(){ return []; }, remove(){}, open: false,
+    setAttribute(){}, getAttribute(){ return null; }, removeAttribute(){},
+    replaceChildren(){ this.children = []; } };
 }
 global.document = {
+  documentElement: { style: { setProperty(){} } },
   querySelector: (sel) => elemente[sel] || (elemente[sel] = fakeEl('div')),
   querySelectorAll: () => [],
   createElement: (t) => fakeEl(t),
 };
-global.window = {};
+global.window = { location: { pathname: '/' } };
 global.fetch = async () => ({ ok: true, json: async () => ({ angemeldet: false }) });
 global.navigator = { clipboard: { writeText: async () => {} } };
 global.confirm = () => true;

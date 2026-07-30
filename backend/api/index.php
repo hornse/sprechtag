@@ -35,6 +35,8 @@ require_once __DIR__ . '/sondierung.php';
 require_once __DIR__ . '/mitteilungen.php';
 require_once __DIR__ . '/dienstkonto.php';
 require_once __DIR__ . '/schueler.php';
+require_once __DIR__ . '/einstellungen.php';
+require_once __DIR__ . '/kalender.php';
 
 $methode = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $pfad    = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
@@ -46,7 +48,108 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.2', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.42', 'db' => $db]);
+}
+
+// ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
+// Bewusst OHNE Login und OHNE persönliche oder Buchungsdaten: nur die
+// neutrale Raumzuordnung des aktiven Sprechtags (Kürzel, Name, Raum,
+// Anwesenheitszeit). Diese Information hängt am Sprechtag ohnehin öffentlich
+// aus. Keine Eltern, keine Slots, kein frei/belegt.
+if ($methode === 'GET' && ($seg[0] ?? '') === 'anzeige') {
+    $pdo = db($cfg);
+    $s = $pdo->query(
+        "SELECT id, name, datum, beginn, ende, phase FROM sprechtage
+         WHERE phase IN ('phase1','phase2')
+         ORDER BY datum ASC LIMIT 1")->fetch();
+    if (!$s) {
+        json_ok(['aktiv' => false, 'sprechtag' => null, 'lehrer' => []]);
+    }
+    // Anzeige-Einstellungen sammeln (Standardwerte, dann überschreiben).
+    $einst = ['anzeige_sortierung' => 'raum',
+              'anzeige_kacheln' => 'auto',
+              'anzeige_intervall' => '10'];
+    $stE = $pdo->query("SELECT schluessel, wert FROM einstellungen
+                        WHERE schluessel LIKE 'anzeige_%'");
+    foreach ($stE->fetchAll() as $r) {
+        $einst[(string)$r['schluessel']] = (string)$r['wert'];
+    }
+    $sortWahl = $einst['anzeige_sortierung'] === 'kuerzel' ? 'kuerzel' : 'raum';
+    $orderBy = $sortWahl === 'kuerzel'
+        ? 'l.kuerzel'
+        : 'r.kuerzel IS NULL, r.kuerzel, l.kuerzel';
+    $st = $pdo->prepare(
+        'SELECT l.kuerzel, l.name, l.halbtags,
+                sl.anwesend_von, sl.anwesend_bis,
+                r.kuerzel AS raum_kuerzel, r.name AS raum_name
+         FROM sprechtag_lehrer sl
+         JOIN lehrer l ON l.id = sl.lehrer_id
+         LEFT JOIN raeume r ON r.id = sl.raum_id
+         WHERE sl.sprechtag_id = ? AND sl.teilnahme = 1
+         ORDER BY ' . $orderBy);
+    $st->execute([(int)$s['id']]);
+    // Kacheln: 'auto' oder eine positive Zahl.
+    $kacheln = $einst['anzeige_kacheln'];
+    if ($kacheln !== 'auto') {
+        $kacheln = (string)max(1, min(60, (int)$kacheln));
+    }
+    $intervall = max(3, min(60, (int)$einst['anzeige_intervall'] ?: 10));
+    json_ok([
+        'aktiv' => true,
+        'sprechtag' => [
+            'name' => $s['name'], 'datum' => $s['datum'],
+            'beginn' => substr((string)$s['beginn'], 0, 5),
+            'ende' => substr((string)$s['ende'], 0, 5),
+        ],
+        'sortierung' => $sortWahl,
+        'kacheln' => $kacheln,        // 'auto' oder Zahl als String
+        'intervall' => $intervall,    // Sekunden
+        'lehrer' => $st->fetchAll(),
+    ]);
+}
+
+// ---- GET /api/kalender/{token}.ics : öffentlicher iCal-Abo-Feed ----
+// Der Token IST die Berechtigung (wie ein privater Kalender-Feed). Kein Login.
+// Liefert ausschließlich die eigenen Termine des zugehörigen Elternkontos.
+if ($methode === 'GET' && ($seg[0] ?? '') === 'kalender' && isset($seg[1])) {
+    $token = preg_replace('/\.ics$/', '', (string)$seg[1]);
+    if (!preg_match('/^[a-f0-9]{48}$/', (string)$token)) {
+        http_response_code(404);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'Nicht gefunden.';
+        exit;
+    }
+    $pdo = db($cfg);
+    // Lehrkraft-Feed? (Token gehört zu einer Lehrkraft -> Kind-zentrierte Events)
+    $lehrerId = kal_lehrer_aus_token($pdo, $token);
+    if ($lehrerId !== null) {
+        $buchungen = kal_lehrer_buchungen($pdo, $lehrerId);
+        $marke = $pdo->query("SELECT wert FROM einstellungen
+                              WHERE schluessel = 'marke_titel'")->fetchColumn();
+        $ics = kal_kalender(kal_vevents_lehrer($buchungen),
+            ($marke ?: 'Sprechtag') . ' – meine Termine');
+        kal_ausliefern($ics, 'sprechtag-lehrkraft.ics');
+    }
+    $st = $pdo->prepare('SELECT eltern_user_id FROM kalender_abo WHERE token = ?');
+    $st->execute([$token]);
+    $uid = $st->fetchColumn();
+    if ($uid === false) {
+        http_response_code(404);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'Nicht gefunden.';
+        exit;
+    }
+    $buchungen = kal_buchungen_laden($pdo, (int)$uid);
+    $marke = $pdo->query("SELECT wert FROM einstellungen
+                          WHERE schluessel = 'marke_titel'")->fetchColumn();
+    $ics = kal_kalender(kal_vevents($buchungen), ($marke ?: 'Sprechtag'));
+    kal_ausliefern($ics, 'sprechtag.ics');
+}
+
+// ---- /api/einstellungen (Branding) -------------------------
+// Eigene Guards je Route (GET öffentlich, POST/DELETE admin).
+if (marke_route($seg, $methode, $body, $cfg)) {
+    // marke_route hat bereits geantwortet und beendet.
 }
 
 // ============================================================
@@ -91,11 +194,223 @@ if (($seg[0] ?? '') === 'auth') {
         }
 
         auth_login_speichern($daten);
-        $pdo->prepare('INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, ip)
-                       VALUES (?, 1, ?, ?)')
-            ->execute([$benutzer, $daten['rolle'], $_SERVER['REMOTE_ADDR'] ?? '']);
+
+        // Optionales Login-Protokoll (Admin-Feature). Fehlschläge werden oben
+        // aus Sicherheitsgründen (Brute-Force-Bremse) immer festgehalten;
+        // ERFOLGE nur, wenn die Schule das Protokoll aktiviert und Erfolge
+        // ausdrücklich einbezogen hat.
+        $logAktiv = (int)marke_wert($pdo, 'login_log_aktiv', '0') === 1;
+        $logErfolge = (int)marke_wert($pdo, 'login_log_erfolge', '0') === 1;
+        if ($logAktiv && $logErfolge) {
+            $pdo->prepare('INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, ip)
+                           VALUES (?, 1, ?, ?)')
+                ->execute([$benutzer, $daten['rolle'], $_SERVER['REMOTE_ADDR'] ?? '']);
+        }
+        // Aufbewahrung begrenzen: Einträge älter als login_log_tage entfernen
+        // (Bereinigung bei Login, kein Cron nötig).
+        $tage = max(1, min(365, (int)marke_wert($pdo, 'login_log_tage', '30')));
+        $pdo->prepare('DELETE FROM login_log WHERE zeitpunkt < NOW() - INTERVAL ? DAY')
+            ->execute([$tage]);
+
         json_ok(['angemeldet' => true] + auth_user());
     }
+}
+
+// ============================================================
+// LOGIN-PROTOKOLL (optionales Admin-Feature)
+// ============================================================
+if (($seg[0] ?? '') === 'login-log') {
+    auth_require_admin();
+    $pdo = db($cfg);
+
+    // Einstellungen lesen
+    if ($methode === 'GET' && ($seg[1] ?? '') === 'einstellungen') {
+        json_ok([
+            'aktiv'   => (int)marke_wert($pdo, 'login_log_aktiv', '0'),
+            'erfolge' => (int)marke_wert($pdo, 'login_log_erfolge', '0'),
+            'tage'    => (int)marke_wert($pdo, 'login_log_tage', '30'),
+        ]);
+    }
+
+    // Einstellungen speichern
+    if ($methode === 'POST' && ($seg[1] ?? '') === 'einstellungen') {
+        $aktiv   = !empty($body['aktiv']) ? '1' : '0';
+        $erfolge = !empty($body['erfolge']) ? '1' : '0';
+        $tage    = (string)max(1, min(365, (int)($body['tage'] ?? 30)));
+        marke_schreiben($pdo, 'login_log_aktiv', $aktiv);
+        marke_schreiben($pdo, 'login_log_erfolge', $erfolge);
+        marke_schreiben($pdo, 'login_log_tage', $tage);
+        json_ok(['ok' => true]);
+    }
+
+    // Protokoll lesen (nur wenn aktiv)
+    if ($methode === 'GET' && !isset($seg[1])) {
+        if ((int)marke_wert($pdo, 'login_log_aktiv', '0') !== 1) {
+            json_ok(['aktiv' => false, 'eintraege' => []]);
+        }
+        $limit = max(1, min(500, (int)($_GET['limit'] ?? 200)));
+        // Optionaler Filter nach Benutzername
+        $filter = trim((string)($_GET['benutzer'] ?? ''));
+        if ($filter !== '') {
+            $st = $pdo->prepare(
+                'SELECT webuntis_benutzer, erfolgreich, grund, zeitpunkt
+                 FROM login_log WHERE webuntis_benutzer LIKE ?
+                 ORDER BY zeitpunkt DESC LIMIT ?');
+            $st->bindValue(1, '%' . $filter . '%');
+            $st->bindValue(2, $limit, PDO::PARAM_INT);
+            $st->execute();
+        } else {
+            $st = $pdo->prepare(
+                'SELECT webuntis_benutzer, erfolgreich, grund, zeitpunkt
+                 FROM login_log ORDER BY zeitpunkt DESC LIMIT ?');
+            $st->bindValue(1, $limit, PDO::PARAM_INT);
+            $st->execute();
+        }
+        json_ok(['aktiv' => true, 'eintraege' => $st->fetchAll()]);
+    }
+
+    // Protokoll leeren
+    if ($methode === 'DELETE' && !isset($seg[1])) {
+        $pdo->exec('DELETE FROM login_log');
+        json_ok(['ok' => true]);
+    }
+
+    json_err('Methode nicht unterstützt.', 405);
+}
+
+// ============================================================
+// LEHRKRAFT-EXPORT (iCal-Abo, iCal-Datei, druckbare Tischvorlage)
+// ============================================================
+if (($seg[0] ?? '') === 'lehrer-kalender') {
+    $u = auth_require();                       // Guard VOR db()
+    if ($u === null) json_err('Bitte anmelden', 401);
+    if ($u['lehrer_id'] === null) json_err('Nur für Lehrkräfte', 403);
+    $pdo = db($cfg);
+    if ($methode === 'POST' && ($seg[1] ?? '') === 'neu') {
+        $token = kal_lehrer_token_neu($pdo, (int)$u['lehrer_id']);
+        json_ok(['url' => kal_basis_url() . '/api/kalender/' . $token . '.ics']);
+    }
+    if ($methode === 'GET' && !isset($seg[1])) {
+        $token = kal_lehrer_token_holen($pdo, (int)$u['lehrer_id']);
+        json_ok(['url' => kal_basis_url() . '/api/kalender/' . $token . '.ics']);
+    }
+    json_err('Methode nicht unterstützt.', 405);
+}
+
+// ---- GET /api/lehrer-termine/{sprechtag}.ics : Tagesliste als .ics ----
+if ($methode === 'GET' && ($seg[0] ?? '') === 'lehrer-termine' && isset($seg[1])) {
+    $u = auth_require();
+    if ($u === null) json_err('Bitte anmelden', 401);
+    if ($u['lehrer_id'] === null) json_err('Nur für Lehrkräfte', 403);
+    $sid = (int)preg_replace('/\.ics$/', '', (string)$seg[1]);
+    $pdo = db($cfg);
+    $buchungen = kal_lehrer_buchungen($pdo, (int)$u['lehrer_id'], $sid);
+    $ics = kal_kalender(kal_vevents_lehrer($buchungen), 'Sprechtag – meine Termine');
+    kal_ausliefern($ics, 'meine-termine.ics');
+}
+
+// ---- GET /api/lehrer-tischvorlage/{sprechtag} : druckbare HTML-Liste ----
+if ($methode === 'GET' && ($seg[0] ?? '') === 'lehrer-tischvorlage' && isset($seg[1])) {
+    $u = auth_require();
+    if ($u === null) json_err('Bitte anmelden', 401);
+    if ($u['lehrer_id'] === null) json_err('Nur für Lehrkräfte', 403);
+    $sid = (int)$seg[1];
+    $lid = (int)$u['lehrer_id'];
+    $pdo = db($cfg);
+    // Sprechtag laden (bu_sprechtag ist an dieser Stelle noch nicht geladen).
+    $stS = $pdo->prepare('SELECT * FROM sprechtage WHERE id = ?');
+    $stS->execute([$sid]);
+    $s = $stS->fetch();
+    if (!$s) json_err('Sprechtag nicht gefunden', 404);
+    // Anwesenheitsfenster der Lehrkraft (NULL = ganzer Rahmen).
+    $stF = $pdo->prepare('SELECT anwesend_von, anwesend_bis
+                          FROM sprechtag_lehrer WHERE sprechtag_id = ? AND lehrer_id = ?');
+    $stF->execute([$sid, $lid]);
+    $fenster = $stF->fetch() ?: ['anwesend_von' => null, 'anwesend_bis' => null];
+    $raster = slot_raster($s, $fenster['anwesend_von'], $fenster['anwesend_bis']);
+    if ((int)($s['pause_dynamisch'] ?? 0) === 1) {
+        $stB = $pdo->prepare('SELECT slot_beginn FROM buchungen
+                              WHERE sprechtag_id = ? AND lehrer_id = ?');
+        $stB->execute([$sid, $lid]);
+        $bset = [];
+        foreach ($stB->fetchAll() as $b) { $bset[substr((string)$b['slot_beginn'], 0, 5)] = true; }
+        $raster = slot_pausen_anwenden($raster, $bset, true, (int)($s['pause_nach_terminen'] ?? 0));
+    }
+    // Buchungen (Kindname/Klasse) je Slot.
+    $st = $pdo->prepare(
+        'SELECT b.slot_beginn, b.kommentar,
+                TRIM(CONCAT(COALESCE(s.nachname,""),
+                     IF(s.vorname IS NULL OR s.vorname = "", "",
+                        CONCAT(", ", s.vorname)))) AS kind_name, s.klasse AS kind_klasse
+         FROM buchungen b LEFT JOIN schueler s ON s.webuntis_id = b.schueler_id
+         WHERE b.sprechtag_id = ? AND b.lehrer_id = ?');
+    $st->execute([$sid, $lid]);
+    $belegt = [];
+    foreach ($st->fetchAll() as $b) { $belegt[substr((string)$b['slot_beginn'], 0, 5)] = $b; }
+
+    $zeilen = [];
+    foreach ($raster as $z) {
+        if (($z['typ'] ?? '') === 'pause') {
+            $zeilen[] = ['slot_beginn' => $z['beginn'], 'kind_name' => 'Pause',
+                         'kind_klasse' => '', 'kommentar' => ''];
+            continue;
+        }
+        $b = $belegt[$z['beginn']] ?? null;
+        $zeilen[] = ['slot_beginn' => $z['beginn'],
+                     'kind_name' => $b['kind_name'] ?? '',
+                     'kind_klasse' => $b['kind_klasse'] ?? '',
+                     'kommentar' => $b['kommentar'] ?? ''];
+    }
+    // Kopfdaten
+    $stR = $pdo->prepare('SELECT r.kuerzel FROM sprechtag_lehrer sl
+                          LEFT JOIN raeume r ON r.id = sl.raum_id
+                          WHERE sl.sprechtag_id = ? AND sl.lehrer_id = ?');
+    $stR->execute([$sid, $lid]);
+    $raum = (string)($stR->fetchColumn() ?: '');
+    $kopf = [
+        'lehrer' => (string)($u['name'] ?: $u['kuerzel']),
+        'sprechtag' => (string)$s['name'],
+        'datum' => (string)$s['datum'],
+        'zeit' => substr((string)$s['beginn'], 0, 5) . '–' . substr((string)$s['ende'], 0, 5) . ' Uhr',
+        'raum' => $raum,
+    ];
+    kal_html_ausliefern(kal_tischvorlage_html($kopf, $zeilen));
+}
+
+// ============================================================
+// KALENDER-LINK (Abo-URL für Eltern)
+// ============================================================
+if (($seg[0] ?? '') === 'kalender-link') {
+    $u = auth_require();                       // Guard VOR db()
+    if ($u === null) json_err('Bitte anmelden', 401);
+    if ($u['user_id'] === null) json_err('Nur mit Elternkonto verfügbar', 403);
+    $pdo = db($cfg);
+
+    // Neu erzeugen (alten Link ungültig machen)
+    if ($methode === 'POST' && ($seg[1] ?? '') === 'neu') {
+        $token = kal_token_neu($pdo, (int)$u['user_id']);
+        json_ok(['url' => kal_basis_url() . '/api/kalender/' . $token . '.ics']);
+    }
+    if ($methode === 'GET' && !isset($seg[1])) {
+        $token = kal_token_holen($pdo, (int)$u['user_id']);
+        json_ok(['url' => kal_basis_url() . '/api/kalender/' . $token . '.ics']);
+    }
+    json_err('Methode nicht unterstützt.', 405);
+}
+
+// ---- GET /api/buchung/{id}.ics : einzelne Buchung als .ics-Datei ----
+if ($methode === 'GET' && ($seg[0] ?? '') === 'buchung' && isset($seg[1])) {
+    $u = auth_require();
+    if ($u === null) json_err('Bitte anmelden', 401);
+    if ($u['user_id'] === null) json_err('Nur mit Elternkonto verfügbar', 403);
+    $bid = (int)preg_replace('/\.ics$/', '', (string)$seg[1]);
+    if ($bid <= 0) json_err('Ungültige Buchung.');
+    $pdo = db($cfg);
+    // kal_buchungen_laden filtert bereits auf eltern_user_id -> nur eigene.
+    $buchungen = kal_buchungen_laden($pdo, (int)$u['user_id'], $bid);
+    if (!$buchungen) json_err('Buchung nicht gefunden.', 404);
+    $ics = kal_kalender(kal_vevents($buchungen), 'Sprechtag-Termin');
+    kal_ausliefern($ics, 'termin.ics');
 }
 
 // ============================================================
@@ -106,13 +421,27 @@ if (($seg[0] ?? '') === 'stammdaten') {
         auth_require();          // Guard VOR db(): 401 statt 503 bei DB-Ausfall
         $pdo = db($cfg);
         json_ok([
-            'lehrer' => $pdo->query('SELECT id, webuntis_id, kuerzel, name, aktiv
+            'lehrer' => $pdo->query('SELECT id, webuntis_id, kuerzel, name, aktiv, halbtags
                 FROM lehrer WHERE aktiv = 1 ORDER BY kuerzel')->fetchAll(),
             'raeume' => $pdo->query('SELECT id, webuntis_id, kuerzel, name
                 FROM raeume WHERE aktiv = 1 ORDER BY kuerzel')->fetchAll(),
             'sonderrollen' => $pdo->query('SELECT id, bezeichnung
                 FROM sonderrollen ORDER BY reihenfolge, bezeichnung')->fetchAll(),
         ]);
+    }
+
+    // ---- PATCH /api/stammdaten/lehrer/{id} : Halbtags-Kennzeichen ----
+    if ($methode === 'PATCH' && ($seg[1] ?? '') === 'lehrer'
+        && isset($seg[2]) && ctype_digit($seg[2])) {
+        auth_require_admin();
+        $pdo = db($cfg);
+        $lid = (int)$seg[2];
+        if (!array_key_exists('halbtags', $body)) {
+            json_err('Feld halbtags fehlt.');
+        }
+        $pdo->prepare('UPDATE lehrer SET halbtags = ? WHERE id = ?')
+            ->execute([(int)(bool)$body['halbtags'], $lid]);
+        json_ok(['ok' => true, 'halbtags' => (int)(bool)$body['halbtags']]);
     }
 
     if ($methode === 'POST' && ($seg[1] ?? '') === 'sync') {
@@ -128,6 +457,58 @@ if (($seg[0] ?? '') === 'stammdaten') {
             json_err('Stammdaten-Sync fehlgeschlagen: ' . $e->getMessage(), 502);
         }
     }
+}
+
+// ============================================================
+// ANZEIGE-EINSTELLUNGEN (Signage)
+// ============================================================
+if (($seg[0] ?? '') === 'anzeige-einstellungen') {
+    auth_require_admin();       // Guard VOR db()
+    $pdo = db($cfg);
+    $lesen = function (PDO $pdo): array {
+        $w = ['anzeige_sortierung' => 'raum', 'anzeige_kacheln' => 'auto',
+              'anzeige_intervall' => '10'];
+        foreach ($pdo->query("SELECT schluessel, wert FROM einstellungen
+                              WHERE schluessel LIKE 'anzeige_%'")->fetchAll() as $r) {
+            $w[(string)$r['schluessel']] = (string)$r['wert'];
+        }
+        return [
+            'sortierung' => $w['anzeige_sortierung'] === 'kuerzel' ? 'kuerzel' : 'raum',
+            'kacheln' => $w['anzeige_kacheln'],
+            'intervall' => (int)($w['anzeige_intervall'] ?: 10),
+        ];
+    };
+    if ($methode === 'GET') {
+        json_ok($lesen($pdo));
+    }
+    if ($methode === 'POST') {
+        $setzen = $pdo->prepare(
+            'INSERT INTO einstellungen (schluessel, wert) VALUES (?, ?)
+             ON DUPLICATE KEY UPDATE wert = VALUES(wert)');
+        if (isset($body['sortierung'])) {
+            $v = (string)$body['sortierung'];
+            if (!in_array($v, ['raum', 'kuerzel'], true)) {
+                json_err("sortierung muss 'raum' oder 'kuerzel' sein.");
+            }
+            $setzen->execute(['anzeige_sortierung', $v]);
+        }
+        if (isset($body['kacheln'])) {
+            $v = (string)$body['kacheln'];
+            if ($v !== 'auto') {
+                $n = (int)$v;
+                if ($n < 1 || $n > 60) json_err('kacheln: 1–60 oder "auto".');
+                $v = (string)$n;
+            }
+            $setzen->execute(['anzeige_kacheln', $v]);
+        }
+        if (isset($body['intervall'])) {
+            $n = (int)$body['intervall'];
+            if ($n < 3 || $n > 60) json_err('intervall: 3–60 Sekunden.');
+            $setzen->execute(['anzeige_intervall', (string)$n]);
+        }
+        json_ok(['ok' => true] + $lesen($pdo));
+    }
+    json_err('Methode nicht unterstützt.', 405);
 }
 
 // ============================================================
@@ -172,6 +553,16 @@ if (($seg[0] ?? '') === 'sprechtage') {
     $u = auth_require();         // Guard VOR db(): alle Sprechtag-Routen
     $pdo = db($cfg);
 
+    // Lokaler Sprechtag-Fetch – bu_sprechtag() aus buchungen.php wird erst
+    // am Dateiende geladen und steht hier noch nicht zur Verfügung.
+    $sprechtagHolen = static function (PDO $pdo, int $id): array {
+        $st = $pdo->prepare('SELECT * FROM sprechtage WHERE id = ?');
+        $st->execute([$id]);
+        $s = $st->fetch();
+        if (!$s) json_err('Sprechtag nicht gefunden', 404);
+        return $s;
+    };
+
     // ---- Liste ----
     if ($methode === 'GET' && !isset($seg[1])) {
         $sql = 'SELECT * FROM sprechtage';
@@ -191,8 +582,9 @@ if (($seg[0] ?? '') === 'sprechtage') {
         $ref = wu_referenzzeitraum($datum);
         $pdo->prepare('INSERT INTO sprechtage
             (name, datum, beginn, ende, slot_minuten, max_termine_pro_eltern,
-             pause_nach_terminen, pause_minuten, referenz_von, referenz_bis)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+             pause_nach_terminen, pause_minuten, pause_dynamisch,
+             referenz_von, referenz_bis)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
             ->execute([
                 req($body, 'name'), $datum,
                 (string)($body['beginn'] ?? '15:00'),
@@ -201,6 +593,7 @@ if (($seg[0] ?? '') === 'sprechtage') {
                 (int)($body['max_termine_pro_eltern'] ?? 6),
                 (int)($body['pause_nach_terminen'] ?? 0),
                 (int)($body['pause_minuten'] ?? 10),
+                (int)(bool)($body['pause_dynamisch'] ?? 0),
                 $ref['von'], $ref['bis'],
             ]);
         json_ok(['ok' => true, 'id' => (int)$pdo->lastInsertId()], 201);
@@ -213,7 +606,8 @@ if (($seg[0] ?? '') === 'sprechtage') {
         auth_require_admin();
         $erlaubt = ['name', 'datum', 'beginn', 'ende', 'slot_minuten',
             'max_termine_pro_eltern', 'pause_nach_terminen', 'pause_minuten',
-            'phase', 'referenz_von', 'referenz_bis', 'klausuren_werten'];
+            'pause_dynamisch', 'phase', 'referenz_von', 'referenz_bis',
+            'klausuren_werten'];
         $sets = []; $werte = [];
         foreach ($erlaubt as $feld) {
             if (!array_key_exists($feld, $body)) continue;
@@ -266,13 +660,15 @@ if (($seg[0] ?? '') === 'sprechtage') {
         $ref = wu_referenzzeitraum($datum);
         $pdo->prepare('INSERT INTO sprechtage
             (name, datum, beginn, ende, slot_minuten, max_termine_pro_eltern,
-             pause_nach_terminen, pause_minuten, phase, referenz_von, referenz_bis)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, "vorbereitung", ?, ?)')
+             pause_nach_terminen, pause_minuten, pause_dynamisch, phase,
+             referenz_von, referenz_bis)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, "vorbereitung", ?, ?)')
             ->execute([
                 (string)($body['name'] ?? ($alt['name'] . ' (Kopie)')), $datum,
                 $alt['beginn'], $alt['ende'], $alt['slot_minuten'],
                 $alt['max_termine_pro_eltern'], $alt['pause_nach_terminen'],
-                $alt['pause_minuten'], $ref['von'], $ref['bis'],
+                $alt['pause_minuten'], (int)($alt['pause_dynamisch'] ?? 0),
+                $ref['von'], $ref['bis'],
             ]);
         $neu = (int)$pdo->lastInsertId();
 
@@ -306,28 +702,171 @@ if (($seg[0] ?? '') === 'sprechtage') {
             $st->execute([$sid]);
             json_ok(['lehrer' => $st->fetchAll()]);
         }
-        if ($methode === 'PATCH' && isset($seg[3]) && ctype_digit($seg[3])) {
+        // ---- PUT .../lehrer : alle Zeilen auf einmal speichern (admin) ----
+        // Erwartet body.zeilen = [{lehrer_id, teilnahme, raum_id, haelfte|
+        // anwesend_von/bis}, …]. In einer Transaktion, damit entweder alles
+        // oder nichts gespeichert wird.
+        if ($methode === 'PUT' && !isset($seg[3])) {
             auth_require_admin();
+            $zeilen = $body['zeilen'] ?? null;
+            if (!is_array($zeilen)) json_err('Feld zeilen (Array) fehlt.');
+            $s = $sprechtagHolen($pdo, $sid);
+
+            $stmt = $pdo->prepare('INSERT INTO sprechtag_lehrer
+                (sprechtag_id, lehrer_id, anwesend_von, anwesend_bis, raum_id, teilnahme, bemerkung)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE anwesend_von = VALUES(anwesend_von),
+                    anwesend_bis = VALUES(anwesend_bis), raum_id = VALUES(raum_id),
+                    teilnahme = VALUES(teilnahme), bemerkung = VALUES(bemerkung)');
+
+            $pdo->beginTransaction();
+            try {
+                $anzahl = 0;
+                foreach ($zeilen as $z) {
+                    $lid = (int)($z['lehrer_id'] ?? 0);
+                    if ($lid <= 0) continue;
+                    $von = ($z['anwesend_von'] ?? '') !== '' ? $z['anwesend_von'] : null;
+                    $bis = ($z['anwesend_bis'] ?? '') !== '' ? $z['anwesend_bis'] : null;
+                    if (isset($z['haelfte'])) {
+                        $h = (string)$z['haelfte'];
+                        if (!in_array($h, ['erste', 'zweite', 'ganz'], true)) {
+                            throw new RuntimeException("Ungültige Hälfte bei Lehrkraft $lid");
+                        }
+                        $f = slot_haelfte_fenster($s, $h);
+                        $von = $f['von']; $bis = $f['bis'];
+                    }
+                    foreach ([$von, $bis] as $w) {
+                        if ($w !== null && !preg_match('/^\d{2}:\d{2}(:\d{2})?$/', (string)$w)) {
+                            throw new RuntimeException("Ungültige Zeit bei Lehrkraft $lid");
+                        }
+                    }
+                    $stmt->execute([$sid, $lid, $von, $bis,
+                        ($z['raum_id'] ?? '') !== '' ? (int)$z['raum_id'] : null,
+                        isset($z['teilnahme']) ? (int)(bool)$z['teilnahme'] : 1,
+                        substr((string)($z['bemerkung'] ?? ''), 0, 190)]);
+                    $anzahl++;
+                }
+                $pdo->commit();
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                json_err('Speichern abgebrochen: ' . $e->getMessage(), 400);
+            }
+            json_ok(['ok' => true, 'gespeichert' => $anzahl]);
+        }
+
+        if ($methode === 'PATCH' && isset($seg[3]) && ctype_digit($seg[3])) {
+            $u = auth_require();
             $lid = (int)$seg[3];
-            foreach (['anwesend_von', 'anwesend_bis'] as $feld) {
-                $w = (string)($body[$feld] ?? '');
-                if ($w !== '' && !preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $w)) {
+            // Admins dürfen jede Lehrkraft pflegen; eine Lehrkraft darf ihren
+            // EIGENEN Eintrag anpassen (z. B. die Hälfte selbst wählen).
+            $eigene = ($u['rolle'] === 'lehrkraft'
+                && (int)($u['lehrer_id'] ?? 0) === $lid);
+            if ($u['rolle'] !== 'admin' && !$eigene) {
+                json_err('Nur die Administration oder die Lehrkraft selbst darf '
+                    . 'diesen Eintrag ändern.', 403);
+            }
+
+            // Kurzwahl „haelfte": erste/zweite/ganz -> Fenster berechnen.
+            // Überschreibt anwesend_von/bis, damit niemand Zeiten tippen muss.
+            $von = ($body['anwesend_von'] ?? '') !== '' ? $body['anwesend_von'] : null;
+            $bis = ($body['anwesend_bis'] ?? '') !== '' ? $body['anwesend_bis'] : null;
+            if (isset($body['haelfte'])) {
+                $h = (string)$body['haelfte'];
+                if (!in_array($h, ['erste', 'zweite', 'ganz'], true)) {
+                    json_err("haelfte muss 'erste', 'zweite' oder 'ganz' sein");
+                }
+                $s = $sprechtagHolen($pdo, $sid);
+                $f = slot_haelfte_fenster($s, $h);
+                $von = $f['von'];
+                $bis = $f['bis'];
+            }
+            foreach (['anwesend_von' => $von, 'anwesend_bis' => $bis] as $feld => $w) {
+                if ($w !== null && !preg_match('/^\d{2}:\d{2}(:\d{2})?$/', (string)$w)) {
                     json_err("$feld muss das Format HH:MM haben");
                 }
             }
+
+            // Eine Lehrkraft darf an ihrem eigenen Eintrag nur Fenster/Hälfte
+            // ändern – nicht Raum, Teilnahme oder Bemerkung (das bleibt Admin).
+            if ($eigene) {
+                $pdo->prepare('INSERT INTO sprechtag_lehrer
+                    (sprechtag_id, lehrer_id, anwesend_von, anwesend_bis, teilnahme)
+                    VALUES (?, ?, ?, ?, 1)
+                    ON DUPLICATE KEY UPDATE anwesend_von = VALUES(anwesend_von),
+                        anwesend_bis = VALUES(anwesend_bis)')
+                    ->execute([$sid, $lid, $von, $bis]);
+                json_ok(['ok' => true, 'anwesend_von' => $von, 'anwesend_bis' => $bis]);
+            }
+
             $pdo->prepare('INSERT INTO sprechtag_lehrer
                 (sprechtag_id, lehrer_id, anwesend_von, anwesend_bis, raum_id, teilnahme, bemerkung)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE anwesend_von = VALUES(anwesend_von),
                     anwesend_bis = VALUES(anwesend_bis), raum_id = VALUES(raum_id),
                     teilnahme = VALUES(teilnahme), bemerkung = VALUES(bemerkung)')
-                ->execute([$sid, $lid,
-                    ($body['anwesend_von'] ?? '') !== '' ? $body['anwesend_von'] : null,
-                    ($body['anwesend_bis'] ?? '') !== '' ? $body['anwesend_bis'] : null,
+                ->execute([$sid, $lid, $von, $bis,
                     ($body['raum_id'] ?? '') !== '' ? (int)$body['raum_id'] : null,
                     isset($body['teilnahme']) ? (int)(bool)$body['teilnahme'] : 1,
                     substr((string)($body['bemerkung'] ?? ''), 0, 190)]);
-            json_ok(['ok' => true]);
+            json_ok(['ok' => true, 'anwesend_von' => $von, 'anwesend_bis' => $bis]);
+        }
+
+        // ---- POST .../lehrer/{lid}/ausfall : Lehrkraft fällt aus ----
+        // Setzt teilnahme=0, gibt alle gebuchten Termine dieser Lehrkraft
+        // wieder frei und benachrichtigt die betroffenen Eltern, dass ihr
+        // Termin entfällt. Für krankheitsbedingte Ausfälle.
+        if ($methode === 'POST' && isset($seg[3]) && ctype_digit($seg[3])
+            && ($seg[4] ?? '') === 'ausfall') {
+            auth_require_admin();
+            $lid = (int)$seg[3];
+            $s = $sprechtagHolen($pdo, $sid);
+
+            // Teilnahme abschalten (Eintrag ggf. anlegen).
+            $pdo->prepare('INSERT INTO sprechtag_lehrer
+                (sprechtag_id, lehrer_id, teilnahme) VALUES (?, ?, 0)
+                ON DUPLICATE KEY UPDATE teilnahme = 0')
+                ->execute([$sid, $lid]);
+
+            // Betroffene Buchungen einsammeln, dann freigeben.
+            $stB = $pdo->prepare(
+                'SELECT id, slot_beginn, eltern_user_id, schueler_id
+                 FROM buchungen WHERE sprechtag_id = ? AND lehrer_id = ?');
+            $stB->execute([$sid, $lid]);
+            $buchungen = $stB->fetchAll();
+
+            $stL = $pdo->prepare('SELECT kuerzel, name FROM lehrer WHERE id = ?');
+            $stL->execute([$lid]);
+            $le = $stL->fetch() ?: [];
+            $lehrkraft = (string)($le['name'] ?: ($le['kuerzel'] ?? 'die Lehrkraft'));
+            $grund = substr((string)($body['nachricht'] ?? ''), 0, 500);
+
+            $pdo->prepare('DELETE FROM buchungen WHERE sprechtag_id = ? AND lehrer_id = ?')
+                ->execute([$sid, $lid]);
+
+            // Betroffene Eltern benachrichtigen (Absage). Fehler beim
+            // einzelnen Versand dürfen die Freigabe nicht rückgängig machen.
+            $zugang = dk_lesen($cfg, $pdo);
+            $benachrichtigt = 0;
+            foreach ($buchungen as $b) {
+                try {
+                    $t = mit_text_absage((string)$s['name'], (string)$s['datum'],
+                        (string)$b['slot_beginn'], $lehrkraft, $grund);
+                    mit_einreihen_und_senden($cfg, $pdo, $sid,
+                        (int)$b['eltern_user_id'], 'absage', $t['betreff'], $t['text'],
+                        $zugang['benutzer'] ?? null, $zugang['passwort'] ?? null,
+                        (int)$b['schueler_id']);
+                    $benachrichtigt++;
+                } catch (Throwable $e) {
+                    error_log('sprechtag: Ausfall-Absage nicht vorgemerkt: '
+                        . $e->getMessage());
+                }
+            }
+
+            json_ok(['ok' => true,
+                'freigegeben'   => count($buchungen),
+                'benachrichtigt'=> $benachrichtigt,
+                'hinweis' => count($buchungen) . ' Termin(e) freigegeben, '
+                    . $benachrichtigt . ' Elternteil(e) benachrichtigt.']);
         }
     }
 
