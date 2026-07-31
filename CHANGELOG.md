@@ -1,5 +1,33 @@
 # Changelog – sprechtag
 
+## v0.9.45 (Juli 2026) – Erinnerungen vor dem Sprechtag – benötigt Migration `sql/19_erinnerungen.sql`
+
+### Neu
+- **Erinnerungen vor dem Sprechtag** (Admin → „Erinnerungen"). Sendet eine
+  allgemeine Erinnerung an eine benannte WebUntis-Empfängerliste (z. B.
+  „alle Eltern").
+  - **Weg B – bewusster Versand, kein Cron:** Der Admin prüft zuerst die
+    Empfängerzahl („Empfänger prüfen") und löst den Versand dann selbst aus.
+    Kein automatischer Hintergrundversand, kein gespeichertes Passwort über das
+    bereits vorhandene, verschlüsselte Dienstkonto hinaus.
+  - **Empfängerliste konfigurierbar:** Typ (DYNAMIC/QUICK) + Listen-ID
+    (referenceId) werden im Admin eingetragen – nicht fest verdrahtet, an jeder
+    Schule nutzbar.
+  - **Editierbarer Betreff/Text** mit sinnvollem Standard (verweist auf die
+    eigene Terminübersicht/das Kalender-Abo); Platzhalter {{schulname}},
+    {{titel}}, {{kontakt}}.
+  - **Robuster Versand:** Liste wird defensiv paginiert aufgelöst, dann
+    blockweise gesendet – auch für sehr große Listen (mehrere tausend).
+
+### Technischer Hinweis
+- Die genaue Pagination des WebUntis-Empfänger-Endpunkts und das Array-Limit
+  des Versands lassen sich nur an der echten Instanz endgültig bestätigen. Beim
+  ersten Einsatz bitte prüfen, ob die angezeigte Empfängerzahl der erwarteten
+  entspricht (Testliste mit wenigen Personen zuerst!).
+
+### Tests
+- `tests/frontend_erinnerungen_test.js`.
+
 ## v0.9.44 (Juli 2026) – Login-Hinweis ersetzt Standardtext (keine Dopplung)
 
 ### Geändert

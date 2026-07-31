@@ -53,6 +53,9 @@ const S = {
   loginHinweisLaedt: false,
   texte: null,                // Editor-Cache je Textschlüssel {roh, html}
   texteLaedt: {},             // Guards je Textschlüssel
+  erinnerungConf: undefined,  // Erinnerungs-Einstellungen (undefined = ungeladen)
+  erinnerungLaedt: false,     // Guard
+  erinnerungVorschau: null,   // Ergebnis der Empfänger-Prüfung
   gewaehlteLehrkraftAnsicht: null,   // Admin: wessen Termine werden gezeigt
   schuelerListe: null,               // Klassenliste für Einladungen
   svRaster: null,                    // Zeitraster der Lehrkraft (frei + belegt)
@@ -570,6 +573,7 @@ function zeichne() {
     'admin-daten': ansichtAdminDaten,
     'admin-loginlog': ansichtAdminLoginLog,
     'admin-texte': ansichtAdminTexte,
+    'admin-erinnerungen': ansichtAdminErinnerungen,
     mitteilungen: ansichtMitteilungen,
     sondierung: ansichtSondierung,
     hilfe: ansichtHilfe,
@@ -588,12 +592,13 @@ function ansichtZuruecksetzen() {
   S.loginLogConf = undefined; S.loginLogListe = null;
   S.loginLogLaedt = false; S.loginLogListeLaedt = false;
   S.texte = null; S.texteLaedt = {};
+  S.erinnerungConf = undefined; S.erinnerungLaedt = false; S.erinnerungVorschau = null;
 }
 
 // Gültige Ansichts-Schlüssel (für die URL-Hash-Wiederherstellung).
 const ANSICHT_KEYS = ['buchen', 'meine', 'lehrkraft', 'einladungen', 'admin',
   'admin-marke', 'admin-aktiv', 'admin-anzeige', 'admin-sprechtage',
-  'admin-daten', 'admin-loginlog', 'admin-texte', 'mitteilungen', 'sondierung', 'hilfe'];
+  'admin-daten', 'admin-loginlog', 'admin-texte', 'admin-erinnerungen', 'mitteilungen', 'sondierung', 'hilfe'];
 
 function wechsleAnsicht(ziel) {
   if (S.ansicht !== ziel) ansichtZuruecksetzen();
@@ -656,7 +661,7 @@ function zeichneNavigation() {
   if (S.user.rolle === 'admin') {
     const adminSeiten = ['admin', 'admin-marke', 'admin-aktiv', 'admin-anzeige',
                          'admin-sprechtage', 'admin-daten', 'admin-loginlog',
-                         'admin-texte'];
+                         'admin-texte', 'admin-erinnerungen'];
     const adminAktiv = adminSeiten.includes(S.ansicht);
     if (adminAktiv) S.adminOffen = true;   // aktive Unterseite -> Gruppe offen
 
@@ -689,6 +694,7 @@ function zeichneNavigation() {
     sub.appendChild(navKnopf('admin-daten', 'Dienstkonto & Schülerliste', true, '👥'));
     sub.appendChild(navKnopf('admin-loginlog', 'Login-Protokoll', true, '🔒'));
     sub.appendChild(navKnopf('admin-texte', 'Texte', true, '📝'));
+    sub.appendChild(navKnopf('admin-erinnerungen', 'Erinnerungen', true, '🔔'));
     gruppe.appendChild(sub);
     nav.appendChild(gruppe);
 
@@ -3338,6 +3344,125 @@ function textEditor(schluessel, titel, beschreibung, beispiel) {
     box.appendChild(vor);
   }
   return box;
+}
+
+// ============================================================
+// ANSICHT: Erinnerungen vor dem Sprechtag (Admin löst aus)
+// ============================================================
+function ansichtAdminErinnerungen(ziel) {
+  ziel.appendChild(el('h2', null, 'Erinnerungen'));
+
+  if (S.erinnerungConf === undefined) {
+    ziel.appendChild(el('p', 'hinweis', 'Wird geladen …'));
+    if (!S.erinnerungLaedt) {
+      S.erinnerungLaedt = true;
+      api('/api/erinnerungen/einstellungen').then((c) => {
+        S.erinnerungConf = c; S.erinnerungLaedt = false; zeichne();
+      }).catch((f) => { S.erinnerungLaedt = false; meldung(String(f.message), 'fehler'); });
+    }
+    return;
+  }
+  const c = S.erinnerungConf;
+
+  ziel.appendChild(el('p', 'hinweis',
+    'Sendet eine allgemeine Erinnerung an eine WebUntis-Empfängerliste (z. B. '
+    + '„alle Eltern"). Der Versand läuft über das hinterlegte Dienstkonto und '
+    + 'wird von Ihnen bewusst ausgelöst – es gibt keinen automatischen Versand.'));
+
+  // ---- Empfängerliste ----
+  const liste = sektion('Empfängerliste');
+  liste.appendChild(el('p', 'hinweis',
+    'Die Liste wird über ihren Typ und ihre WebUntis-ID angesprochen. Die ID '
+    + 'finden Sie in WebUntis (Nachricht verfassen → Liste auswählen); technisch '
+    + 'versierte Nutzer sehen sie im Netzwerk-Aufruf als „referenceId".'));
+  liste.appendChild(auswahl('Listen-Typ', 'er-typ', [
+    { wert: 'DYNAMIC', text: 'DYNAMIC (systemgepflegt, z. B. „alle Eltern")' },
+    { wert: 'QUICK', text: 'QUICK (manuell zusammengestellt)' },
+  ], c.liste_typ || 'DYNAMIC'));
+  liste.appendChild(feld('Listen-ID (referenceId)', 'er-id', 'text', c.liste_id || ''));
+  liste.appendChild(feld('Name der Liste (nur zur Info)', 'er-name', 'text', c.liste_name || ''));
+  ziel.appendChild(liste);
+
+  // ---- Nachricht ----
+  const nachricht = sektion('Nachricht');
+  nachricht.appendChild(el('p', 'hinweis-klein',
+    'Platzhalter {{schulname}}, {{titel}}, {{kontakt}} werden ersetzt. '
+    + 'Leer lassen = der vorbereitete Standardtext wird verwendet.'));
+  nachricht.appendChild(feld('Betreff', 'er-betreff', 'text', c.betreff || ''));
+  nachricht.appendChild(el('p', 'hinweis-klein',
+    'Standard-Betreff: „' + (c.standard_betreff || '') + '"'));
+  const ta = el('textarea');
+  ta.id = 'er-text'; ta.rows = 10; ta.value = c.text || '';
+  ta.style.width = '100%'; ta.style.fontFamily = 'ui-monospace, monospace';
+  ta.placeholder = c.standard_text || '';
+  nachricht.appendChild(el('label', null, 'Text (leer = Standardtext)'));
+  nachricht.appendChild(ta);
+
+  const spBtn = el('div', 'aktionen');
+  spBtn.appendChild(knopf('Einstellungen speichern', null, async () => {
+    toast('Speichern …', 'info');
+    try {
+      await api('/api/erinnerungen/einstellungen', { method: 'POST', body: {
+        liste_typ: wert('er-typ'), liste_id: parseInt(wert('er-id'), 10) || 0,
+        liste_name: wert('er-name'), betreff: wert('er-betreff'),
+        text: wert('er-text') } });
+      S.erinnerungConf = undefined; S.erinnerungVorschau = null;
+      toast('Einstellungen gespeichert.', 'ok'); zeichne();
+    } catch (f) { toast(String(f.message), 'fehler'); }
+  }));
+  nachricht.appendChild(spBtn);
+  ziel.appendChild(nachricht);
+
+  // ---- Versand ----
+  const versand = sektion('Versand');
+  const warn = el('div', 'daten-warnung');
+  warn.appendChild(el('strong', null, 'Vor dem Senden: '));
+  warn.appendChild(document.createTextNode(
+    'Bitte zuerst die Empfängerzahl prüfen. Der Versand geht an ALLE Personen '
+    + 'der Liste und kann nicht zurückgenommen werden. Erst speichern, dann '
+    + 'Empfänger prüfen, dann senden.'));
+  versand.appendChild(warn);
+
+  const va = el('div', 'aktionen');
+  va.appendChild(knopf('Empfänger prüfen', 'klein', async () => {
+    toast('Ermittle Empfänger …', 'info');
+    try {
+      const d = await api('/api/erinnerungen/vorschau');
+      S.erinnerungVorschau = d; zeichne();
+    } catch (f) { toast(String(f.message), 'fehler'); }
+  }));
+  versand.appendChild(va);
+
+  if (S.erinnerungVorschau) {
+    const v = S.erinnerungVorschau;
+    if (v.ok) {
+      const p = el('p', 'hinweis',
+        'Die Liste umfasst aktuell ' + v.anzahl + ' Empfänger.'
+        + (v.vollstaendig ? '' : ' (Achtung: möglicherweise nicht vollständig '
+          + 'aufgelöst – bitte mit der erwarteten Zahl vergleichen.)'));
+      versand.appendChild(p);
+      versand.appendChild(knopf('Erinnerung jetzt an ' + v.anzahl
+        + ' Empfänger senden', 'gefahr', async () => {
+        if (!confirm('Erinnerung wirklich an ' + v.anzahl + ' Empfänger senden? '
+          + 'Das kann nicht rückgängig gemacht werden.')) return;
+        toast('Sende … (das kann einen Moment dauern)', 'info');
+        try {
+          const r = await api('/api/erinnerungen/senden', { method: 'POST' });
+          S.erinnerungVorschau = null;
+          if (r.gesendet > 0) {
+            meldung('Erinnerung an ' + r.gesendet + ' Empfänger gesendet'
+              + (r.grund ? ' – ' + r.grund : '.'), 'ok');
+          } else {
+            meldung('Versand nicht erfolgreich: ' + (r.grund || 'unbekannt'), 'fehler');
+          }
+          zeichne();
+        } catch (f) { toast(String(f.message), 'fehler'); }
+      }));
+    } else {
+      versand.appendChild(el('p', 'hinweis-wichtig', v.grund || 'Keine Empfänger.'));
+    }
+  }
+  ziel.appendChild(versand);
 }
 
 function logZeit(s) {

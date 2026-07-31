@@ -37,6 +37,7 @@ require_once __DIR__ . '/dienstkonto.php';
 require_once __DIR__ . '/schueler.php';
 require_once __DIR__ . '/einstellungen.php';
 require_once __DIR__ . '/kalender.php';
+require_once __DIR__ . '/erinnerungen.php';
 
 $methode = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $pfad    = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
@@ -48,7 +49,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.44', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.45', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -214,6 +215,56 @@ if (($seg[0] ?? '') === 'auth') {
 
         json_ok(['angemeldet' => true] + auth_user());
     }
+}
+
+// ============================================================
+// ERINNERUNGEN vor dem Sprechtag (Admin löst aus, Weg B)
+// ============================================================
+if (($seg[0] ?? '') === 'erinnerungen') {
+    auth_require_admin();
+    $pdo = db($cfg);
+
+    // Einstellungen lesen
+    if ($methode === 'GET' && ($seg[1] ?? '') === 'einstellungen') {
+        json_ok([
+            'liste_typ'  => marke_wert($pdo, 'erinnerung_liste_typ', 'DYNAMIC'),
+            'liste_id'   => marke_wert($pdo, 'erinnerung_liste_id', ''),
+            'liste_name' => marke_wert($pdo, 'erinnerung_liste_name', ''),
+            'betreff'    => marke_wert($pdo, 'erinnerung_betreff', ''),
+            'text'       => marke_wert($pdo, 'erinnerung_text', ''),
+            'standard_betreff' => erinnerung_standard_betreff(marke_schulname($pdo)),
+            'standard_text'    => erinnerung_standard_text(),
+        ]);
+    }
+
+    // Einstellungen speichern
+    if ($methode === 'POST' && ($seg[1] ?? '') === 'einstellungen') {
+        $typ = strtoupper((string)($body['liste_typ'] ?? 'DYNAMIC'));
+        if (!in_array($typ, ['DYNAMIC', 'QUICK'], true)) $typ = 'DYNAMIC';
+        marke_schreiben($pdo, 'erinnerung_liste_typ', $typ);
+        marke_schreiben($pdo, 'erinnerung_liste_id',
+            (string)max(0, (int)($body['liste_id'] ?? 0)));
+        marke_schreiben($pdo, 'erinnerung_liste_name',
+            kuerze((string)($body['liste_name'] ?? ''), 80));
+        marke_schreiben($pdo, 'erinnerung_betreff',
+            kuerze((string)($body['betreff'] ?? ''), 190));
+        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '',
+            (string)($body['text'] ?? '')) ?? '';
+        marke_schreiben($pdo, 'erinnerung_text', kuerze($text, 8000));
+        json_ok(['ok' => true]);
+    }
+
+    // Vorschau: an wie viele Empfänger würde gesendet?
+    if ($methode === 'GET' && ($seg[1] ?? '') === 'vorschau') {
+        json_ok(erinnerung_empfaenger_ermitteln($cfg, $pdo));
+    }
+
+    // Versand auslösen
+    if ($methode === 'POST' && ($seg[1] ?? '') === 'senden') {
+        json_ok(erinnerung_versenden($cfg, $pdo));
+    }
+
+    json_err('Methode nicht unterstützt.', 405);
 }
 
 // ============================================================

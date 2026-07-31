@@ -249,6 +249,70 @@ class WebUntisRest
                 'users' => []];
     }
 
+    /**
+     * Löst eine benannte Empfängerliste (z. B. „alle Eltern") in ihre einzelnen
+     * Empfänger auf. Nutzt denselben CUSTOM/filter-Endpunkt, aber mit einem
+     * konkreten Filter { type: DYNAMIC|QUICK, referenceId }.
+     *
+     * Da große Listen (mehrere tausend Personen) vermutlich seitenweise
+     * geliefert werden, wird defensiv paginiert: Wir holen Seiten, bis keine
+     * neuen Empfänger mehr kommen oder eine Sicherheitsgrenze erreicht ist.
+     *
+     * Rückgabe: ['status' => int, 'users' => [...], 'seiten' => int,
+     *            'vollstaendig' => bool]
+     */
+    public function listeAufloesen(string $typ, int $referenceId,
+                                   int $maxSeiten = 100): array
+    {
+        $typ = strtoupper($typ) === 'QUICK' ? 'QUICK' : 'DYNAMIC';
+        $filter = ['filters' => [[
+            'type'  => $typ,
+            'items' => [['referenceId' => $referenceId]],
+        ]], 'searchText' => ''];
+
+        $alle = [];
+        $gesehen = [];        // user.id -> true (Duplikate/Endlosschleife vermeiden)
+        $seite = 0;
+        $letzterStatus = 0;
+        $vollstaendig = true;
+
+        while ($seite < $maxSeiten) {
+            // Verschiedene Pagination-Konventionen abdecken: viele WebUntis-
+            // Endpunkte akzeptieren start/limit. Wir setzen beides; ignoriert
+            // der Server sie, kommt einfach immer dieselbe (einzige) Seite –
+            // was wir über die Duplikaterkennung sauber abfangen.
+            $body = $filter + ['start' => $seite * 100, 'limit' => 100,
+                               'page' => $seite, 'pageSize' => 100];
+            $r = $this->post(
+                '/WebUntis/api/rest/view/v2/messages/recipients/CUSTOM/filter', $body);
+            $letzterStatus = $r['status'];
+            if ($r['status'] !== 200 || !isset($r['json']['users'])) {
+                $vollstaendig = false;
+                break;
+            }
+            $users = (array)$r['json']['users'];
+            if ($users === []) break;   // keine weiteren Empfänger
+
+            $neu = 0;
+            foreach ($users as $u) {
+                $id = (int)($u['id'] ?? 0);
+                if ($id <= 0 || isset($gesehen[$id])) continue;
+                $gesehen[$id] = true;
+                $alle[] = $u;
+                $neu++;
+            }
+            $seite++;
+            // Keine neuen Empfänger mehr -> Server paginiert nicht (oder Ende).
+            if ($neu === 0) break;
+            // Weniger als eine volle Seite -> letzte Seite erreicht.
+            if (count($users) < 100) break;
+        }
+        if ($seite >= $maxSeiten) $vollstaendig = false;
+
+        return ['status' => $letzterStatus, 'users' => $alle,
+                'seiten' => $seite, 'vollstaendig' => $vollstaendig];
+    }
+
     private function rohGet(string $pfadMitQuery, array $extraHeader = []): array
     {
         $headers = array_merge(['Accept: application/json, text/plain'], $extraHeader);
