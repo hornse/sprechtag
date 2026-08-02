@@ -3397,38 +3397,50 @@ function ansichtAdminErinnerungen(ziel) {
   ta.placeholder = c.standard_text || '';
   nachricht.appendChild(el('label', null, 'Text (leer = Standardtext)'));
   nachricht.appendChild(ta);
+  ziel.appendChild(nachricht);
 
+  // Gemeinsame Speicherfunktion für Liste UND Nachricht (beide Kästen).
+  const speichern = async () => {
+    await api('/api/erinnerungen/einstellungen', { method: 'POST', body: {
+      liste_typ: wert('er-typ'), liste_id: parseInt(wert('er-id'), 10) || 0,
+      liste_name: wert('er-name'), betreff: wert('er-betreff'),
+      text: wert('er-text') } });
+  };
+
+  // ---- Speichern (eigener Abschnitt, gilt für Liste + Nachricht) ----
+  const sp = sektion('Speichern');
+  sp.appendChild(el('p', 'hinweis-klein',
+    'Speichert Empfängerliste und Nachricht.'));
   const spBtn = el('div', 'aktionen');
-  spBtn.appendChild(knopf('Einstellungen speichern', null, async () => {
+  spBtn.appendChild(knopf('Alle Einstellungen speichern', null, async () => {
     toast('Speichern …', 'info');
     try {
-      await api('/api/erinnerungen/einstellungen', { method: 'POST', body: {
-        liste_typ: wert('er-typ'), liste_id: parseInt(wert('er-id'), 10) || 0,
-        liste_name: wert('er-name'), betreff: wert('er-betreff'),
-        text: wert('er-text') } });
+      await speichern();
       S.erinnerungConf = undefined; S.erinnerungVorschau = null;
-      toast('Einstellungen gespeichert.', 'ok'); zeichne();
+      toast('Gespeichert.', 'ok'); zeichne();
     } catch (f) { toast(String(f.message), 'fehler'); }
   }));
-  nachricht.appendChild(spBtn);
-  ziel.appendChild(nachricht);
+  sp.appendChild(spBtn);
+  ziel.appendChild(sp);
 
   // ---- Versand ----
   const versand = sektion('Versand');
   const warn = el('div', 'daten-warnung');
   warn.appendChild(el('strong', null, 'Vor dem Senden: '));
   warn.appendChild(document.createTextNode(
-    'Bitte zuerst die Empfängerzahl prüfen. Der Versand geht an ALLE Personen '
-    + 'der Liste und kann nicht zurückgenommen werden. Erst speichern, dann '
-    + 'Empfänger prüfen, dann senden.'));
+    'Der Versand geht an ALLE Personen der Liste und kann nicht zurückgenommen '
+    + 'werden. „Empfänger prüfen" speichert Ihre Eingaben und zeigt die aktuelle '
+    + 'Empfängerzahl – bitte immer zuerst prüfen.'));
   versand.appendChild(warn);
 
   const va = el('div', 'aktionen');
   va.appendChild(knopf('Empfänger prüfen', 'klein', async () => {
-    toast('Ermittle Empfänger …', 'info');
+    toast('Speichere & ermittle Empfänger …', 'info');
     try {
-      const d = await api('/api/erinnerungen/vorschau');
-      S.erinnerungVorschau = d; zeichne();
+      await speichern();               // erst speichern, damit die Prüfung
+      const d = await api('/api/erinnerungen/vorschau');  // die aktuellen Werte nutzt
+      // Conf neu laden lassen, aber Formulareingaben sind ja gespeichert.
+      S.erinnerungConf = undefined; S.erinnerungVorschau = d; zeichne();
     } catch (f) { toast(String(f.message), 'fehler'); }
   }));
   versand.appendChild(va);

@@ -1,5 +1,20 @@
 # Changelog – sprechtag
 
+## v0.9.46 (Juli 2026) – Erinnerungen: Bedienung klarer
+
+### Verbessert
+- **Speichern-Button aus dem „Nachricht"-Kasten herausgelöst** in einen eigenen
+  Abschnitt „Speichern" – er speichert Empfängerliste UND Nachricht gemeinsam,
+  was vorher missverständlich war (der Button saß im Nachrichten-Kasten,
+  speicherte aber auch die Listendaten darüber).
+- **„Empfänger prüfen" speichert jetzt automatisch vorher** die aktuellen
+  Eingaben. Damit ist die Reihenfolge egal und eingegebene Listendaten gehen
+  nicht mehr verloren, wenn man direkt auf Prüfen klickt.
+
+### Bestätigt
+- Empfänger-Auflösung an der echten Instanz getestet (Testliste QUICK/230 →
+  korrekt 2 Empfänger).
+
 ## v0.9.45 (Juli 2026) – Erinnerungen vor dem Sprechtag – benötigt Migration `sql/19_erinnerungen.sql`
 
 ### Neu
