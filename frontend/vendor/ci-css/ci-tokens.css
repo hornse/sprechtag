@@ -1,0 +1,201 @@
+/* VENDORED aus hornse/ci-css v1.2.1 – dort ändern, hierher kopieren! */
+/* ============================================================
+   ci-tokens.css – Design-Tokens der FRG-Projektreihe
+   Stufe 1 von 2. Enthält ausschließlich Werte, keine Regeln.
+
+   Diese Datei ist die einzige Stelle, an der Farben, Radien,
+   Abstände und Schriftgrößen festgelegt werden. Wer eine Farbe
+   ändern will, ändert sie hier – und zwar im Repo hornse/ci-css,
+   nicht in der vendored Kopie eines Projekts.
+
+   Einbindung: siehe EINBINDUNG.md
+
+   Copyright (C) 2026 Sebastian Horn, Friedrich-Rückert-Gymnasium
+   SPDX-License-Identifier: GPL-3.0-or-later
+   ci-css v1.0.0
+   ============================================================ */
+
+:root {
+
+    /* ---- Neutrale Palette ----------------------------------
+       Eine einzige Graustufenreihe für alle Projekte. Die Werte
+       sind leicht ins Blaue gezogen, damit sie neben den
+       Akzentfarben nicht schmutzig wirken. */
+    --ci-grau-50:  #f4f6f9;
+    --ci-grau-100: #e8ecf1;
+    --ci-grau-200: #d9e0e8;
+    --ci-grau-300: #bcc6d2;
+    --ci-grau-500: #697687;   /* AA gegen Weiß: 4.62 */
+    --ci-grau-600: #5b6773;
+    --ci-grau-800: #333e4a;
+    --ci-grau-900: #1c2733;
+
+    /* ---- Flächen ------------------------------------------- */
+    --ci-grund:      var(--ci-grau-50);    /* Seitenhintergrund */
+    --ci-flaeche:    #ffffff;              /* Karten, Formulare */
+    --ci-flaeche-2:  var(--ci-grau-100);   /* eingelassene Bereiche */
+
+    /* ---- Text ---------------------------------------------- */
+    --ci-text:        var(--ci-grau-900);
+    --ci-text-blass:  var(--ci-grau-600);  /* Hilfstexte, Beschriftungen */
+    --ci-text-schwach: var(--ci-grau-500); /* Platzhalter, Metadaten */
+
+    /* Auch der schwächste Textton erreicht gegen Weiß den
+       WCAG-Kontrast AA (4.5). Ein Platzhalter, den man nicht lesen
+       kann, ist kein gestalterisches Detail, sondern ein Fehler.
+       tests/pruefe.sh rechnet das bei jedem Lauf nach. */
+
+    /* ---- Linien -------------------------------------------- */
+    --ci-linie:       var(--ci-grau-200);
+    --ci-linie-stark: var(--ci-grau-300);
+
+    /* ---- Akzent -------------------------------------------
+       Vorgabe ist das Blau des Schullogos. Jedes Projekt setzt
+       seine eigene Farbe über das Attribut data-projekt am
+       <html>-Element (siehe unten) oder überschreibt die vier
+       Variablen direkt.
+
+       Die vier gehören zusammen:
+         --ci-akzent          Knopfflächen, aktive Zustände
+         --ci-akzent-hover    dieselbe Farbe, etwas heller
+         --ci-akzent-flaeche  sehr helle Tönung als Hintergrund
+         --ci-akzent-text     lesbare Schrift AUF der Tönung
+       Wer eine neue Farbe einträgt, muss alle vier setzen. */
+    --ci-akzent:         #1d4e89;
+    --ci-akzent-hover:   #2c6cb8;
+    --ci-akzent-flaeche: #e6f1fb;
+    --ci-akzent-text:    #0c447c;
+
+    /* ---- Rückmeldungen ------------------------------------- */
+    --ci-erfolg:          #1e7d3e;
+    --ci-erfolg-flaeche:  #f1f8f3;
+    --ci-erfolg-text:     #145c2c;
+
+    --ci-warnung:         #8a6a12;
+    --ci-warnung-flaeche: #fdf8ec;
+    --ci-warnung-text:    #6b5310;
+
+    --ci-fehler:          #a8322d;
+    --ci-fehler-flaeche:  #fbf1f0;
+    --ci-fehler-text:     #7d2622;
+
+    /* ---- Breiten -------------------------------------------
+       Der Inhaltsbereich bekommt eine Obergrenze, aber eine großzügige.
+       60rem stammen aus dem Fließtextsatz und sind für ein Bedienwerkzeug
+       zu knapp; ohne jede Grenze würde ein Titelfeld auf einem breiten
+       Bildschirm 1800px breit, und der Weg vom Label zum Feldende wäre
+       länger, als das Auge folgen mag.
+
+       Die eigentliche Lösung gegen verschenkten Platz ist nicht die
+       breitere Zeile, sondern die zweite Spalte - siehe .ci-raster. */
+    --ci-inhalt-breite: 76rem;   /* 1216px */
+
+    /* Obergrenze für Eingabefelder. Sie gilt AUCH in breiten Ansichten:
+       Die Grenze wandert damit vom Container auf das Bedienelement. */
+    --ci-feld-breite: 34rem;     /* 544px */
+
+    /* Kleinste sinnvolle Kartenbreite im Raster. Darunter bricht der
+       Inhalt einer Bildschirmkarte um. */
+    --ci-raster-min: 22rem;      /* 352px */
+
+    /* ---- Form ---------------------------------------------- */
+    --ci-radius:        8px;    /* Knöpfe, Felder */
+    --ci-radius-gross: 10px;    /* Karten */
+    --ci-radius-pille: 999px;   /* Marken */
+
+    /* ---- Abstände -----------------------------------------
+       Vier Stufen genügen. Mehr Auswahl führt nur dazu, dass in
+       jedem Projekt eine andere gewählt wird. */
+    --ci-abstand-xs: .35rem;
+    --ci-abstand-s:  .6rem;
+    --ci-abstand-m:  1rem;
+    --ci-abstand-l:  1.5rem;
+    --ci-abstand-xl: 2.5rem;
+
+    /* ---- Schrift ------------------------------------------
+       Systemschriften, bewusst ohne Webfont: Auf einem Schul-iPad
+       im WLAN der Turnhalle ist eine nicht geladene Schrift
+       ärgerlicher als eine, die überall etwas anders aussieht.
+       Nebenbei erspart es eine Verbindung zu Google Fonts und
+       damit eine datenschutzrechtliche Frage. */
+    --ci-schrift: system-ui, -apple-system, "Segoe UI", Roboto,
+                  "Helvetica Neue", Arial, sans-serif;
+    --ci-schrift-mono: ui-monospace, SFMono-Regular, "SF Mono",
+                       Menlo, Consolas, monospace;
+
+    --ci-groesse-klein:  .85rem;
+    --ci-groesse-normal: 1rem;
+    --ci-groesse-gross:  1.1rem;
+    --ci-groesse-titel:  1.4rem;
+
+    --ci-zeilenhoehe: 1.55;
+
+    /* ---- Wirkung ------------------------------------------- */
+    --ci-schatten: 0 1px 2px rgba(28, 39, 51, .08),
+                   0 4px 12px rgba(28, 39, 51, .05);
+
+    /* Der Fokusring ist kein Schmuck, sondern die einzige
+       Orientierung für alle, die per Tastatur bedienen. Er ist
+       deshalb absichtlich deutlich sichtbar. */
+    --ci-fokus: 0 0 0 3px var(--ci-akzent-flaeche),
+                0 0 0 5px var(--ci-akzent);
+
+    --ci-zeit: .15s;
+}
+
+/* ============================================================
+   Akzentfarben je Projekt
+
+   Einbinden mit <html lang="de" data-projekt="signage">.
+   Die Farben sind so gewählt, dass Weiß auf der Akzentfläche
+   und --ci-akzent-text auf --ci-akzent-flaeche jeweils den
+   WCAG-Kontrast AA erreichen.
+   ============================================================ */
+
+/* Aus sprechtag übernommen (dort --blau). */
+[data-projekt="sprechtag"] {
+    --ci-akzent:         #1d4e89;
+    --ci-akzent-hover:   #2c6cb8;
+    --ci-akzent-flaeche: #e6f1fb;
+    --ci-akzent-text:    #0c447c;
+}
+
+/* Aus fachkonferenzen übernommen (dort --tafel). */
+[data-projekt="fachkonferenzen"] {
+    --ci-akzent:         #2e5b4c;
+    --ci-akzent-hover:   #3d7665;
+    --ci-akzent-flaeche: #e6f2ee;
+    --ci-akzent-text:    #1f4034;
+}
+
+/* ACHTUNG: Für die folgenden drei Projekte lag mir kein
+   Farbwert aus dem Repo vor. Sie sind nach den Screenshots
+   geschätzt und gehören beim ersten Einbinden geprüft und
+   gegebenenfalls korrigiert. */
+[data-projekt="projektstunden"] {
+    --ci-akzent:         #3b6d11;
+    --ci-akzent-hover:   #4e8b1a;
+    --ci-akzent-flaeche: #eef5e4;
+    --ci-akzent-text:    #2b5009;
+}
+
+[data-projekt="schulprozesse"] {
+    --ci-akzent:         #534ab7;
+    --ci-akzent-hover:   #6a61cc;
+    --ci-akzent-flaeche: #eeedfe;
+    --ci-akzent-text:    #3c3489;
+}
+
+[data-projekt="signage"] {
+    --ci-akzent:         #993c1d;
+    --ci-akzent-hover:   #b8532f;
+    --ci-akzent-flaeche: #faece7;
+    --ci-akzent-text:    #712b13;
+}
+
+/* ============================================================
+   Bewegung nur, wenn erwünscht
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+    :root { --ci-zeit: 0s; }
+}

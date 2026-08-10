@@ -1,17 +1,20 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-projekt="sprechtag">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Sprechtag FRG</title>
-<link rel="stylesheet" href="/style.css?v=20260802101626">
+<!-- Tokens zuerst, die projekteigene Datei zuletzt: So gewinnt style.css
+     im Zweifel, und die Werte kommen dennoch aus einer Quelle. -->
+<link rel="stylesheet" href="/vendor/ci-css/ci-tokens.css?v=20260810085400">
+<link rel="stylesheet" href="/style.css?v=20260810085400">
 </head>
 <body>
 
 <a href="#hauptinhalt" class="skip-link">Zum Inhalt springen</a>
 
-<div class="shell">
+<div class="shell" data-ci-icons="/vendor/ci-css/ci-icons.svg?v=20260810085400">
   <!-- Mobile: Kopfleiste mit Hamburger -->
   <div class="mobil-leiste">
     <button type="button" id="mobil-menue" class="hamburger" aria-label="Menü"
@@ -25,17 +28,26 @@
     <div class="marke">
       <button type="button" id="leiste-einklappen" class="leiste-einklappen"
               aria-label="Menü einklappen" title="Menü einklappen">«</button>
-      <img id="marke-logo" class="marke-logo versteckt" alt="Logo">
-      <div class="marke-titel" id="marke-titel">Sprechtag</div>
+      <!-- alt="" statt alt="Logo": Das Bild steht direkt neben dem Titel
+           und ist rein dekorativ. Sonst läse ein Screenreader
+           „Grafik Logo Sprechtag Friedrich-Rückert-Gymnasium". -->
+      <img id="marke-logo" class="marke-logo versteckt" alt="">
+      <!-- Der Anwendungstitel ist die oberste Überschrift der Seite.
+           Vorher war er ein <div>, und die Gliederung begann bei <h2> –
+           wer per Überschriftensprung navigiert, fand keinen Einstieg. -->
+      <h1 class="marke-titel" id="marke-titel">Sprechtag</h1>
       <div class="marke-untertitel" id="marke-untertitel">Friedrich-Rückert-Gymnasium Düsseldorf</div>
     </div>
-    <nav id="navigation" class="navigation"></nav>
+    <nav id="navigation" class="navigation" aria-label="Hauptnavigation"></nav>
     <div class="seitenleiste-fuss">
       <div id="benutzer-box" class="benutzer-box versteckt">
         <span id="benutzer-name"></span>
         <span id="benutzer-rolle" class="badge"></span>
       </div>
-      <span id="marke-fusszeile">sprechtag v0.9.46 · GPL-3.0-or-later · Sebastian Horn</span>
+      <!-- Die Version trägt app.js aus /api/health nach. Fest im HTML
+           wurde sie bei jedem Release von Hand gepflegt – und zeigte
+           irgendwann dauerhaft eine falsche Zahl. -->
+      <span id="marke-fusszeile">sprechtag · GPL-3.0-or-later · Sebastian Horn</span>
     </div>
   </aside>
 
@@ -56,6 +68,6 @@
   </main>
 </div>
 
-<script src="/app.js?v=20260802101626"></script>
+<script src="/app.js?v=20260810085400"></script>
 </body>
 </html>

@@ -1,18 +1,69 @@
-/* sprechtag – style.css (Paket 1) */
+/* ============================================================
+   sprechtag – style.css
+
+   Farben, Radien, Abstände und Schriftgrößen kommen seit v0.9.47 aus
+   dem Modul `hornse/ci-css` (vendored unter frontend/vendor/ci-css/).
+   Diese Datei definiert keine eigenen Farbwerte mehr, sondern bildet
+   die gewachsenen Variablennamen auf die gemeinsamen Tokens ab.
+
+   REGEL: Kein Farbwert ohne Token. Fehlt hier eine Farbe, gehört sie
+   ins Modul – nicht hierher. Sonst laufen die fünf Anwendungen der
+   Reihe wieder auseinander.
+
+   Ausnahme sind die acht Kennfarben für mehrfach belegte Räume (--kf-*).
+   Sie sind eine Kategorienpalette, die nur dieses Projekt braucht;
+   ein Modul, das sie mitschleppt, hilft niemandem sonst. Alle acht
+   erreichen gegen Weiß den WCAG-Kontrast AA.
+
+   Die Klassennamen sind bewusst UNVERÄNDERT geblieben: app.js setzt
+   sie an über 200 Stellen, teils zusammengesetzt ('status-' + zustand).
+   Eine Massenumbenennung wäre ein Risiko ohne Gegenwert.
+
+   SPDX-License-Identifier: GPL-3.0-or-later
+   ============================================================ */
 
 :root {
-  --blau: #1d4e89;
-  --blau-hell: #eaf1f9;
-  --gruen: #1e7d3e;
-  --rot: #b3261e;
-  --gelb: #8a6d00;
-  --rand: #d5dbe3;
-  --text: #1c2733;
-  --grau: #5b6773;
-  /* Akzentfarben – per Branding überschreibbar (JS setzt sie auf
-     documentElement). Standard = die festen Hausfarben oben. */
-  --akzent: var(--blau);
-  --akzent2: var(--gruen);
+  /* ---- Abbildung auf die gemeinsamen Tokens ---------------- */
+  --blau:      var(--ci-akzent);
+  --blau-hell: var(--ci-akzent-flaeche);
+  --gruen:     var(--ci-erfolg);
+  --rot:       var(--ci-fehler);
+  --gelb:      var(--ci-warnung);
+  --rand:      var(--ci-linie);
+  --text:      var(--ci-text);
+  --grau:      var(--ci-text-blass);
+
+  /* Früher per Branding überschrieben. Seit v0.9.47 kommt die
+     Akzentfarbe aus ci-css: Sie kennzeichnet die ANWENDUNG, damit man
+     bei mehreren offenen Tabs sieht, wo man ist. Das Branding steuert
+     weiterhin Logo, Schulname und Titel. */
+  --akzent:  var(--ci-akzent);
+  --akzent2: var(--ci-erfolg);
+
+  /* ---- Flächen und Töne, die vorher fest im Blech standen --- */
+  --flaeche:      var(--ci-flaeche);
+  --flaeche-2:    var(--ci-flaeche-2);
+  --grund:        var(--ci-grund);
+  --erfolg-flaeche:  var(--ci-erfolg-flaeche);
+  --warnung-flaeche: var(--ci-warnung-flaeche);
+  --fehler-flaeche:  var(--ci-fehler-flaeche);
+  --schatten:     var(--ci-schatten);
+
+  /* ---- Transparenzen ---------------------------------------
+     Schatten und der Schleier hinter dem mobilen Menü sind keine
+     Farben der Palette, sondern Abstufungen von Schwarz. Sie stehen
+     hier, damit sie nicht verstreut im Blech liegen. */
+  --schatten-klein:  0 2px 8px rgba(0, 0, 0, .15);
+  --schatten-gross:  0 4px 14px rgba(0, 0, 0, .18);
+  --schatten-leiste: 2px 0 12px rgba(0, 0, 0, .15);
+  --schleier:        rgba(0, 0, 0, .35);
+  --aufhellung:      rgba(255, 255, 255, .12);
+
+  /* ---- Kennfarben für mehrfach belegte Räume ---------------
+     Acht unterscheidbare Töne, projektspezifisch. Kontrast gegen
+     Weiß zwischen 5.17 und 8.39 – alle über AA. */
+  --kf-a: #b3261e;  --kf-b: #8a6d00;  --kf-c: #1e7d3e;  --kf-d: #1d4e89;
+  --kf-e: #7b3fb3;  --kf-f: #b3005e;  --kf-g: #00707a;  --kf-h: #a34700;
 }
 
 * { box-sizing: border-box; }
@@ -39,19 +90,21 @@ body {
   margin: 0;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color: var(--text);
-  background: #f4f6f9;
+  background: var(--grund);
   line-height: 1.5;
 }
 
 /* Nur für Screenreader sichtbar (visuell versteckt, aber vorlesbar). */
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  /* clip ist seit Jahren abgekündigt; clip-path ist der Ersatz und
+     wird von allen Browsern unterstützt, die diese Anwendung erreicht. */
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
 }
 /* Skip-Link: springt zum Inhalt, wird erst bei Tastaturfokus sichtbar. */
 .skip-link {
   position: absolute; left: .5rem; top: -3rem; z-index: 100;
-  background: var(--akzent); color: #fff; padding: .6rem 1rem;
+  background: var(--akzent); color: var(--flaeche); padding: .6rem 1rem;
   border-radius: 0 0 8px 8px; text-decoration: none; font-weight: 600;
   transition: top .15s;
 }
@@ -61,7 +114,7 @@ body {
 .shell { display: flex; min-height: 100vh; }
 
 .seitenleiste {
-  width: 240px; flex-shrink: 0; background: #fff;
+  width: 240px; flex-shrink: 0; background: var(--flaeche);
   border-right: 1px solid var(--rand);
   display: flex; flex-direction: column;
   position: sticky; top: 0; height: 100vh; overflow-y: auto;
@@ -74,13 +127,13 @@ body {
                      border-radius: 6px; width: 1.7rem; height: 1.7rem;
                      cursor: pointer; color: var(--grau); font-size: 1rem;
                      line-height: 1; padding: 0; }
-.leiste-einklappen:hover { background: #f1f3f5; color: var(--text); }
+.leiste-einklappen:hover { background: var(--flaeche-2); color: var(--text); }
 /* Knopf zum Wieder-Ausklappen (nur sichtbar, wenn eingeklappt) */
 .leiste-ausklappen { display: none; position: fixed; top: .8rem; left: .8rem;
-                     z-index: 40; background: var(--akzent); color: #fff;
+                     z-index: 40; background: var(--akzent); color: var(--flaeche);
                      border: none; border-radius: 8px; width: 2.4rem;
                      height: 2.4rem; font-size: 1.2rem; cursor: pointer;
-                     box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+                     box-shadow: var(--schatten-klein); }
 /* Eingeklappt: schmale Icon-Leiste – Logo + Symbole bleiben sichtbar,
    Texte werden ausgeblendet, Bedienung per Tooltip weiterhin möglich. */
 .shell.leiste-zu .seitenleiste { width: 58px; }
@@ -96,14 +149,17 @@ body {
 .shell.leiste-zu .navigation { padding: .5rem .3rem; }
 .shell.leiste-zu .nv { justify-content: center; padding: .55rem 0; }
 .shell.leiste-zu .nv-sub { padding-left: 0; margin-left: 0; border-left: none; }
-.shell.leiste-zu .nv-icon { margin: 0; font-size: 1.15rem; }
+.shell.leiste-zu .nv-icon { margin: 0; }
 /* Der schwebende Ausklapp-Knopf wird in dieser Variante nicht gebraucht. */
 .shell.leiste-zu .leiste-ausklappen { display: none; }
 .marke-logo { max-height: 52px; max-width: 180px; display: block;
               margin-bottom: .5rem; object-fit: contain;
               background: var(--blau-hell); border-radius: 8px; padding: 6px; }
 .marke-logo.versteckt { display: none; }
-.marke-titel { font-size: 1rem; font-weight: 600; color: var(--akzent);
+/* .marke-titel ist seit v0.9.47 ein <h1>. Schriftgröße und Gewicht
+   setzt die Regel ohnehin; der Außenabstand des Browsers muss aber
+   ausdrücklich weg, sonst reißt die Marke auseinander. */
+.marke-titel { margin: 0; font-size: 1rem; font-weight: 600; color: var(--akzent);
                letter-spacing: .02em; }
 .marke-untertitel { font-size: .78rem; color: var(--grau); font-weight: 300;
                     margin-top: .15rem; }
@@ -116,14 +172,24 @@ body {
   border: none; background: none; width: 100%; text-align: left;
   transition: background .15s, color .15s;
 }
-.nv:hover { background: #f1f3f5; color: var(--text); }
+.nv:hover { background: var(--flaeche-2); color: var(--text); }
+
+/* .nv-icon ist seit v0.9.47 ein <svg> aus dem Symbolsatz, kein Emoji.
+   Feste Maße statt Schriftgröße: So sind alle Symbole gleich groß und
+   nehmen die Textfarbe an – Emoji konnten beides nicht. */
+.nv-icon {
+  width: 1.15rem; height: 1.15rem; flex: 0 0 auto;
+  fill: none; stroke: currentColor; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round;
+}
 .nv.on { background: var(--blau-hell); color: var(--akzent); font-weight: 600; }
 .nv-abmelden { margin-top: 1rem; color: var(--rot); }
 
 .nv-group { margin-top: .25rem; }
 .nv-group-toggle { position: relative; }
 .nv-group-toggle.open { color: var(--text); font-weight: 600; }
-.nv-chev { margin-left: auto; transition: transform .2s; font-size: .8rem; }
+.nv-chev { margin-left: auto; transition: transform .2s;
+           width: 1rem; height: 1rem; flex: 0 0 auto; }
 .nv-group-toggle.open .nv-chev { transform: rotate(180deg); }
 .nv-sub { padding-left: .5rem; border-left: 2px solid var(--rand);
           margin-left: .85rem; margin-top: .15rem; }
@@ -138,20 +204,20 @@ body {
 
 /* ---- Mobile Leiste + Hamburger ---- */
 .mobil-leiste { display: none; align-items: center; gap: .75rem;
-                background: var(--akzent); color: #fff; padding: .6rem 1rem;
+                background: var(--akzent); color: var(--flaeche); padding: .6rem 1rem;
                 position: sticky; top: 0; z-index: 30; }
 .mobil-titel { font-weight: 600; }
 .hamburger { display: flex; flex-direction: column; gap: 4px; background: none;
              border: none; cursor: pointer; padding: 4px; }
-.hamburger span { width: 22px; height: 2px; background: #fff; border-radius: 2px; }
+.hamburger span { width: 22px; height: 2px; background: var(--flaeche); border-radius: 2px; }
 .menue-overlay { display: none; position: fixed; inset: 0;
-                 background: rgba(0,0,0,.35); z-index: 20; }
+                 background: var(--schleier); z-index: 20; }
 .menue-overlay.sichtbar { display: block; }
 
 /* Toast – kurze Rückmeldung ohne Neuzeichnen */
 .toast { position: fixed; bottom: 1.25rem; right: 1.25rem; z-index: 50;
          padding: .7rem 1.1rem; border-radius: 8px; font-size: .9rem;
-         color: #fff; box-shadow: 0 4px 14px rgba(0,0,0,.18); max-width: 22rem; }
+         color: var(--flaeche); box-shadow: var(--schatten-gross); max-width: 22rem; }
 .toast.versteckt { display: none; }
 .toast.ok { background: var(--gruen); }
 .toast.fehler { background: var(--rot); }
@@ -169,7 +235,7 @@ body {
 .login-hilfe a { color: var(--akzent); cursor: pointer; }
 .check-zeile { display: flex; align-items: center; gap: .5rem; margin: .5rem 0;
                cursor: pointer; }
-.daten-warnung { background: #fef6e4; border-left: 4px solid var(--gelb);
+.daten-warnung { background: var(--warnung-flaeche); border-left: 4px solid var(--gelb);
                  padding: .7rem .9rem; border-radius: 6px; margin: .8rem 0;
                  font-size: .9rem; line-height: 1.5; }
 /* Kompakte Terminübersicht auf der Buchungsseite */
@@ -193,16 +259,16 @@ body {
 
 /* ---- Anzeige-Modus (Signage) ---- */
 body.anzeige-modus { background: var(--akzent); }
-.anzeige { min-height: 100vh; height: 100vh; padding: 2.5vh 3vw; color: #fff;
+.anzeige { min-height: 100vh; height: 100vh; padding: 2.5vh 3vw; color: var(--flaeche);
            display: flex; flex-direction: column; box-sizing: border-box; }
 .anzeige-kopf { position: relative; text-align: center; margin-bottom: 3vh;
                 flex: 0 0 auto; min-height: 12vh;
                 display: flex; flex-direction: column; justify-content: center; }
 .anzeige-logo-eck { position: absolute; left: 0; top: 50%;
                     transform: translateY(-50%); }
-.anzeige-logo { height: 10vh; max-height: 120px; width: auto; background: #fff;
+.anzeige-logo { height: 10vh; max-height: 120px; width: auto; background: var(--flaeche);
                 border-radius: 12px; padding: 1vh; object-fit: contain;
-                display: block; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+                display: block; box-shadow: var(--schatten-klein); }
 .anzeige-kopf-text { text-align: center; }
 .anzeige-titel { font-size: 4vw; font-weight: 700; letter-spacing: .02em; line-height: 1.05; }
 .anzeige-untertitel { font-size: 1.8vw; opacity: .9; margin-top: .5vh; }
@@ -212,7 +278,7 @@ body.anzeige-modus { background: var(--akzent); }
 .anzeige-gitter { display: grid; gap: 1.5vw;
                   grid-template-columns: repeat(auto-fill, minmax(18vw, 1fr));
                   align-content: start; height: 100%; }
-.anzeige-kachel { background: rgba(255,255,255,.12); border-radius: 12px;
+.anzeige-kachel { background: var(--aufhellung); border-radius: 12px;
                   padding: 1.6vw 1.4vw; text-align: center;
                   display: flex; flex-direction: column; gap: .4vh; }
 .anzeige-raum { font-size: 2.6vw; font-weight: 700; line-height: 1.1; }
@@ -230,11 +296,11 @@ body.anzeige-modus { background: var(--akzent); }
 .buchen-gitter { display: grid; gap: .8rem; margin-top: .8rem;
                  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); }
 .buchen-kachel { border: 1px solid var(--rand); border-radius: 10px;
-                 padding: .9rem 1rem; cursor: pointer; background: #fff;
+                 padding: .9rem 1rem; cursor: pointer; background: var(--flaeche);
                  display: flex; flex-direction: column; gap: .2rem;
                  transition: border-color .15s, box-shadow .15s, transform .05s; }
 .buchen-kachel:hover { border-color: var(--akzent);
-                       box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+                       box-shadow: var(--ci-schatten); }
 .buchen-kachel:active { transform: scale(.99); }
 .buchen-kachel.gewaehlt { border-color: var(--akzent);
                           background: var(--blau-hell); }
@@ -246,7 +312,7 @@ body.anzeige-modus { background: var(--akzent); }
 main { flex: 1; padding: 2rem 2.25rem; max-width: 100rem; margin: 0 auto; width: 100%; }
 
 .karte {
-  background: #fff;
+  background: var(--flaeche);
   border: 1px solid var(--rand);
   border-radius: 8px;
   padding: 1.25rem 1.5rem;
@@ -272,12 +338,12 @@ th.sortierbar { cursor: pointer; user-select: none; white-space: nowrap; }
 th.sortierbar:hover { color: var(--akzent); }
 
 /* Optionales Zeitfenster: Uhr-Symbol als Umschalter */
-.zeitfenster-schalter { border: 1px solid var(--rand); background: #fff;
+.zeitfenster-schalter { border: 1px solid var(--rand); background: var(--flaeche);
     border-radius: 6px; width: 1.9rem; height: 1.9rem; cursor: pointer;
     font-size: .95rem; line-height: 1; color: var(--grau);
     transition: background .15s, color .15s, border-color .15s; }
-.zeitfenster-schalter:hover { background: #f1f3f5; color: var(--text); }
-.zeitfenster-schalter.an { background: var(--akzent); color: #fff;
+.zeitfenster-schalter:hover { background: var(--flaeche-2); color: var(--text); }
+.zeitfenster-schalter.an { background: var(--akzent); color: var(--flaeche);
     border-color: var(--akzent); }
 .zeitfenster-label { font-size: .8rem; color: var(--grau); margin-left: .35rem; }
 .zeitfenster-felder { margin-top: .35rem; }
@@ -285,14 +351,14 @@ th.sortierbar:hover { color: var(--akzent); }
 
 /* Konfliktfarben – jede Tönung steht für einen mehrfach belegten Raum */
 .raum-warnung { display: block; margin-top: .2rem; font-size: .75rem; font-weight: 600; }
-.kf-a { --kf: #b3261e; } .kf-b { --kf: #8a6d00; } .kf-c { --kf: #1e7d3e; }
-.kf-d { --kf: #1d4e89; } .kf-e { --kf: #7b3fb3; } .kf-f { --kf: #b3005e; }
-.kf-g { --kf: #00707a; } .kf-h { --kf: #a34700; }
+.kf-a { --kf: var(--kf-a); } .kf-b { --kf: var(--kf-b); } .kf-c { --kf: var(--kf-c); }
+.kf-d { --kf: var(--kf-d); } .kf-e { --kf: var(--kf-e); } .kf-f { --kf: var(--kf-f); }
+.kf-g { --kf: var(--kf-g); } .kf-h { --kf: var(--kf-h); }
 select.konflikt.kf-a, select.konflikt.kf-b, select.konflikt.kf-c,
 select.konflikt.kf-d, select.konflikt.kf-e, select.konflikt.kf-f,
 select.konflikt.kf-g, select.konflikt.kf-h {
   border-color: var(--kf); border-width: 2px;
-  background: color-mix(in srgb, var(--kf) 8%, #fff);
+  background: color-mix(in srgb, var(--kf) 8%, var(--flaeche));
 }
 .raum-warnung.kf-a, .raum-warnung.kf-b, .raum-warnung.kf-c, .raum-warnung.kf-d,
 .raum-warnung.kf-e, .raum-warnung.kf-f, .raum-warnung.kf-g, .raum-warnung.kf-h {
@@ -301,17 +367,17 @@ select.konflikt.kf-g, select.konflikt.kf-h {
 
 /* Kompakte Icon-Buttons für Tabellen-Aktionen */
 .icon-knopf { width: 2rem; height: 2rem; padding: 0; margin-left: .25rem;
-              border: 1px solid var(--rand); border-radius: 6px; background: #fff;
+              border: 1px solid var(--rand); border-radius: 6px; background: var(--flaeche);
               cursor: pointer; font-size: 1rem; line-height: 1; color: var(--grau);
               transition: background .15s, color .15s, border-color .15s; }
-.icon-knopf:hover { background: #f1f3f5; color: var(--text); }
-.icon-knopf.speichern:hover { background: var(--gruen); color: #fff;
+.icon-knopf:hover { background: var(--flaeche-2); color: var(--text); }
+.icon-knopf.speichern:hover { background: var(--gruen); color: var(--flaeche);
                               border-color: var(--gruen); }
 .icon-knopf.ausfall { color: var(--grau); }
-.icon-knopf.ausfall:hover { background: var(--rot); color: #fff;
+.icon-knopf.ausfall:hover { background: var(--rot); color: var(--flaeche);
                             border-color: var(--rot); }
 .marke-logo-vorschau { max-height: 64px; max-width: 200px; border: 1px solid var(--rand);
-                       border-radius: 6px; padding: 4px; background: #fff; }
+                       border-radius: 6px; padding: 4px; background: var(--flaeche); }
 
 /* ---- Mobile: Seitenleiste als Overlay ---- */
 @media (max-width: 760px) {
@@ -320,7 +386,7 @@ select.konflikt.kf-g, select.konflikt.kf-h {
   .seitenleiste {
     position: fixed; top: 0; left: 0; height: 100vh; z-index: 25;
     transform: translateX(-100%); transition: transform .2s;
-    box-shadow: 2px 0 12px rgba(0,0,0,.15);
+    box-shadow: var(--schatten-leiste);
   }
   .seitenleiste.offen { transform: translateX(0); }
   main { padding: 1rem; max-width: none; }
@@ -359,7 +425,7 @@ select.konflikt.kf-g, select.konflikt.kf-h {
 .platzhalter-tabelle { border-collapse: collapse; margin: .4rem 0; }
 .platzhalter-tabelle td { padding: .2rem .8rem .2rem 0; vertical-align: top; }
 .platzhalter-tabelle code, .hinweis code {
-  background: #fff; border: 1px solid var(--rand); border-radius: 4px;
+  background: var(--flaeche); border: 1px solid var(--rand); border-radius: 4px;
   padding: .05rem .35rem; font-family: ui-monospace, monospace; font-size: .85rem;
 }
 
@@ -409,7 +475,7 @@ input[type=file] {
 button {
   font: inherit;
   font-weight: 600;
-  color: #fff;
+  color: var(--flaeche);
   background: var(--akzent);
   border: 0;
   border-radius: 6px;
@@ -419,7 +485,7 @@ button {
 button:hover { filter: brightness(1.1); }
 button:disabled { background: var(--grau); cursor: wait; }
 /* Links, die wie Buttons aussehen (z. B. Datei-/Druck-Export) */
-a.knopf { display: inline-block; font-weight: 600; color: #fff;
+a.knopf { display: inline-block; font-weight: 600; color: var(--flaeche);
           background: var(--akzent); border-radius: 6px; padding: .55rem 1.2rem;
           text-decoration: none; cursor: pointer; }
 a.knopf.klein { padding: .3rem .7rem; font-size: .8rem; }
@@ -450,7 +516,7 @@ a.knopf:hover { filter: brightness(1.1); }
 .probe.fehlt .st { color: var(--rot); }
 
 .probe pre {
-  background: #f7f8fa;
+  background: var(--flaeche-2);
   border: 1px solid var(--rand);
   border-radius: 4px;
   padding: .5rem;
@@ -461,8 +527,8 @@ a.knopf:hover { filter: brightness(1.1); }
 }
 
 .treffer {
-  background: #eaf7ee;
-  border: 1px solid #bfe3ca;
+  background: var(--erfolg-flaeche);
+  border: 1px solid var(--gruen);
   border-radius: 4px;
   padding: .4rem .6rem;
   margin: .3rem 0;
@@ -474,23 +540,23 @@ a.knopf:hover { filter: brightness(1.1); }
 
 .meldung { padding: .7rem 1rem; border-radius: 6px; margin-bottom: 1rem; font-size: .9rem; }
 .meldung.info   { background: var(--blau-hell); color: var(--blau); }
-.meldung.ok     { background: #eaf7ee; color: var(--gruen); }
-.meldung.fehler { background: #fdecea; color: var(--rot); font-weight: 600; }
+.meldung.ok     { background: var(--erfolg-flaeche); color: var(--gruen); }
+.meldung.fehler { background: var(--fehler-flaeche); color: var(--rot); font-weight: 600; }
 
 .hinweis-wichtig {
-  background: #fff8e1; border-left: 4px solid var(--gelb);
+  background: var(--warnung-flaeche); border-left: 4px solid var(--gelb);
   padding: .7rem 1rem; border-radius: 4px; font-size: .9rem;
 }
 .hinweis-klein { font-size: .78rem; color: var(--grau); }
 
 /* Flache Sektionskarte (Variante A) – kein Aufklappen */
-.sektion { background: #fff; border: 1px solid var(--rand); border-radius: 8px;
+.sektion { background: var(--flaeche); border: 1px solid var(--rand); border-radius: 8px;
            padding: 1.1rem 1.3rem; margin: 0 0 1.1rem; }
 .sektion-titel { margin: 0 0 .3rem; font-size: 1rem; font-weight: 600;
                  color: var(--text); }
 
 /* Aufklappbare Karte (Variante C) – moderner als graues <details> */
-.block { background: #fff; border: 1px solid var(--rand); border-radius: 8px;
+.block { background: var(--flaeche); border: 1px solid var(--rand); border-radius: 8px;
          padding: 0; margin: 0 0 .75rem; overflow: hidden; }
 .block > summary { cursor: pointer; font-weight: 600; font-size: .95rem;
                    padding: .85rem 1.2rem; list-style: none; display: flex;
@@ -499,7 +565,7 @@ a.knopf:hover { filter: brightness(1.1); }
 .block > summary::before { content: '▸'; color: var(--grau); font-size: .8rem;
                            transition: transform .2s; }
 .block[open] > summary::before { transform: rotate(90deg); }
-.block > summary:hover { background: #f7f9fb; }
+.block > summary:hover { background: var(--flaeche-2); }
 .block[open] > summary { border-bottom: 1px solid var(--rand); }
 /* Inhalt der Karte bekommt Innenabstand (alles außer dem summary) */
 .block > *:not(summary) { padding-left: 1.2rem; padding-right: 1.2rem; }
@@ -528,16 +594,16 @@ select.konflikt { border-width: 2px; }
           gap: .4rem; margin: .8rem 0; }
 .slot { padding: .5rem; text-align: center; border-radius: 5px; font-size: .85rem;
         border: 1px solid var(--rand); }
-.slot.frei { background: #eaf7ee; border-color: #bfe3ca; color: var(--gruen);
+.slot.frei { background: var(--erfolg-flaeche); border-color: var(--gruen); color: var(--gruen);
              cursor: pointer; font-weight: 600; }
-.slot.frei:hover { background: var(--gruen); color: #fff; }
-.slot.belegt { background: #f1f3f5; color: var(--grau); text-decoration: line-through; }
+.slot.frei:hover { background: var(--gruen); color: var(--flaeche); }
+.slot.belegt { background: var(--flaeche-2); color: var(--grau); text-decoration: line-through; }
 .slot.eigene { background: var(--blau-hell); border-color: var(--blau); color: var(--blau);
                font-weight: 600; }
-.slot.pause { background: #fff8e1; color: var(--gelb); font-size: .75rem; }
-.slot.frei-passiv { background: #eaf7ee; border-color: #bfe3ca; color: var(--gruen);
+.slot.pause { background: var(--warnung-flaeche); color: var(--gelb); font-size: .75rem; }
+.slot.frei-passiv { background: var(--erfolg-flaeche); border-color: var(--gruen); color: var(--gruen);
                     padding: .5rem; text-align: center; border-radius: 5px;
-                    font-size: .85rem; border: 1px solid #bfe3ca; }
+                    font-size: .85rem; border: 1px solid var(--gruen); }
 
 /* Lehrkraft-Raster: breitere Kacheln, damit Name + Zeit hineinpassen */
 .raster-breit { grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); }
@@ -548,9 +614,9 @@ select.konflikt { border-width: 2px; }
 .slot.belegt-info .slot-kind { font-size: .9rem; }
 .slot.belegt-info .slot-klasse { font-size: .72rem; color: var(--grau); }
 .slot.belegt-info .slot-absage { align-self: flex-end; margin-top: .15rem;
-                    font-size: .72rem; color: var(--rot, #c0392b); cursor: pointer;
+                    font-size: .72rem; color: var(--rot); cursor: pointer;
                     text-decoration: underline; }
-.slot.belegt-info .slot-absage:hover { color: #fff; background: var(--rot, #c0392b);
+.slot.belegt-info .slot-absage:hover { color: var(--flaeche); background: var(--rot);
                     padding: 0 .3rem; border-radius: 3px; text-decoration: none; }
 
 /* Kind-Suche für die stellvertretende Buchung */
@@ -558,7 +624,7 @@ select.konflikt { border-width: 2px; }
 .sv-treffer-liste { display: flex; flex-direction: column; gap: .2rem;
                     max-height: 14rem; overflow-y: auto; border: 1px solid var(--rand);
                     border-radius: 5px; padding: .3rem; }
-.sv-treffer-zeile { text-align: left; background: #fff; border: 1px solid transparent;
+.sv-treffer-zeile { text-align: left; background: var(--flaeche); border: 1px solid transparent;
                     border-radius: 4px; padding: .35rem .5rem; cursor: pointer;
                     font-size: .9rem; color: var(--text); }
 .sv-treffer-zeile:hover { background: var(--blau-hell); border-color: var(--blau); }
@@ -573,7 +639,7 @@ select.konflikt { border-width: 2px; }
 .tabelle td.zeit { font-weight: 600; white-space: nowrap; }
 
 .sondierung-ausgabe {
-  background: #f7f8fa; border: 1px solid var(--rand); border-radius: 4px;
+  background: var(--flaeche-2); border: 1px solid var(--rand); border-radius: 4px;
   padding: .6rem; font-size: .72rem; max-height: 30rem; overflow: auto;
   white-space: pre-wrap; word-break: break-all; margin-top: .8rem;
 }
