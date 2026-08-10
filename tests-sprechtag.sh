@@ -95,6 +95,16 @@ grep -q "setProperty('--akzent'" "$JS" \
     || gruen "Branding setzt keine Farben mehr"
 grep -q "versionAnzeigen" "$JS" \
     && gruen "Version kommt aus /api/health" || rot "Version steht noch fest im HTML"
+# Eigenes Element: Sonst konkurrieren Branding und Version um dieselbe
+# Stelle, und je nach Ladereihenfolge fällt eines still weg.
+grep -q 'id="marke-version"' "$HTML" \
+    && gruen "Version hat ein eigenes Element" \
+    || rot "kein #marke-version – Version konkurriert mit der Fußzeile"
+grep -q "\$('#marke-version')" "$JS" \
+    && gruen "app.js schreibt in #marke-version" || rot "app.js schreibt in die Fußzeile"
+grep -q "dataset.eigen" "$JS" \
+    && rot "Rückzug vor dem Branding noch vorhanden" \
+    || gruen "kein Rückzug mehr nötig"
 
 echo ""
 echo "Symbole statt Emoji"

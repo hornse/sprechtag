@@ -7,14 +7,14 @@
 <title>Sprechtag FRG</title>
 <!-- Tokens zuerst, die projekteigene Datei zuletzt: So gewinnt style.css
      im Zweifel, und die Werte kommen dennoch aus einer Quelle. -->
-<link rel="stylesheet" href="/vendor/ci-css/ci-tokens.css?v=20260810085400">
-<link rel="stylesheet" href="/style.css?v=20260810085400">
+<link rel="stylesheet" href="/vendor/ci-css/ci-tokens.css?v=20260810102745">
+<link rel="stylesheet" href="/style.css?v=20260810102745">
 </head>
 <body>
 
 <a href="#hauptinhalt" class="skip-link">Zum Inhalt springen</a>
 
-<div class="shell" data-ci-icons="/vendor/ci-css/ci-icons.svg?v=20260810085400">
+<div class="shell" data-ci-icons="/vendor/ci-css/ci-icons.svg?v=20260810102745">
   <!-- Mobile: Kopfleiste mit Hamburger -->
   <div class="mobil-leiste">
     <button type="button" id="mobil-menue" class="hamburger" aria-label="Menü"
@@ -44,10 +44,16 @@
         <span id="benutzer-name"></span>
         <span id="benutzer-rolle" class="badge"></span>
       </div>
-      <!-- Die Version trägt app.js aus /api/health nach. Fest im HTML
-           wurde sie bei jedem Release von Hand gepflegt – und zeigte
-           irgendwann dauerhaft eine falsche Zahl. -->
       <span id="marke-fusszeile">sprechtag · GPL-3.0-or-later · Sebastian Horn</span>
+      <!-- Die Version steht in einem EIGENEN Element, nicht in der
+           Fußzeile. Beides in denselben Text zu schreiben ließ Branding
+           und Versionsanzeige um dieselbe Stelle konkurrieren: Hat das
+           Branding eine Fußzeile hinterlegt – und das hatte es –, fiel
+           die Version stillschweigend weg.
+           app.js trägt sie aus /api/health nach; fest im HTML wurde sie
+           bei jedem Release von Hand gepflegt und zeigte irgendwann
+           dauerhaft eine falsche Zahl. -->
+      <span id="marke-version"></span>
     </div>
   </aside>
 
@@ -68,6 +74,6 @@
   </main>
 </div>
 
-<script src="/app.js?v=20260810085400"></script>
+<script src="/app.js?v=20260810102745"></script>
 </body>
 </html>

@@ -520,10 +520,7 @@ function wendeMarkeAn(m) {
   const unter = $('#marke-untertitel');
   if (unter && m.marke_untertitel) unter.textContent = m.marke_untertitel;
   const fuss = $('#marke-fusszeile');
-  if (fuss && m.marke_fusszeile) {
-    fuss.textContent = m.marke_fusszeile;
-    fuss.dataset.eigen = '1';   // versionAnzeigen() lässt sie dann in Ruhe
-  }
+  if (fuss && m.marke_fusszeile) fuss.textContent = m.marke_fusszeile;
   if (m.marke_titel) document.title = m.marke_titel;
 
   const logo = $('#marke-logo');
@@ -811,24 +808,24 @@ function tastaturBedienung() {
 }
 
 /**
- * Trägt die Version aus /api/health in die Fußzeile nach.
+ * Trägt die Version aus /api/health nach.
  *
- * Vorher stand sie fest im HTML und musste bei jedem Release von Hand
- * geändert werden – was irgendwann vergessen wird und dann dauerhaft
- * eine falsche Zahl zeigt.
+ * Das Ziel ist ein EIGENES Element neben der Fußzeile. Beides in
+ * denselben Text zu schreiben hieße, dass Branding und Versionsanzeige
+ * um dieselbe Stelle konkurrieren – und wer gewinnt, hinge daran, was
+ * zuerst geladen wird.
+ *
+ * Fest im HTML musste die Version bei jedem Release von Hand gepflegt
+ * werden; das wird irgendwann vergessen und zeigt dann dauerhaft eine
+ * falsche Zahl.
  */
 function versionAnzeigen() {
-  const fuss = $('#marke-fusszeile');
-  if (!fuss) return;
+  const ziel = $('#marke-version');
+  if (!ziel) return;
   fetch('/api/health', { cache: 'no-store' })
     .then((a) => a.json())
-    .then((d) => {
-      if (!d || !d.version) return;
-      // Nur ergänzen, wenn das Branding keine eigene Fußzeile gesetzt hat.
-      if (fuss.dataset.eigen === '1') return;
-      fuss.textContent = 'sprechtag v' + d.version + ' · GPL-3.0-or-later · Sebastian Horn';
-    })
-    .catch(() => { /* Die Fußzeile ist kein Grund für eine Fehlermeldung. */ });
+    .then((d) => { if (d && d.version) ziel.textContent = ' · v' + d.version; })
+    .catch(() => { /* Die Version ist kein Grund für eine Fehlermeldung. */ });
 }
 
 // ---------- Sprechtag-Auswahl (in mehreren Ansichten genutzt) -------------
