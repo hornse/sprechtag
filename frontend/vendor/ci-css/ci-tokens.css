@@ -1,4 +1,4 @@
-/* VENDORED aus hornse/ci-css v1.2.1 – dort ändern, hierher kopieren! */
+/* VENDORED aus hornse/ci-css v1.5.3 – dort ändern, hierher kopieren! */
 /* ============================================================
    ci-tokens.css – Design-Tokens der FRG-Projektreihe
    Stufe 1 von 2. Enthält ausschließlich Werte, keine Regeln.
@@ -134,6 +134,12 @@
     --ci-schatten: 0 1px 2px rgba(28, 39, 51, .08),
                    0 4px 12px rgba(28, 39, 51, .05);
 
+    /* Fuer Elemente, die beim Ueberfahren aufsteigen: Kacheln,
+       anklickbare Karten. Deutlicher als --ci-schatten, sonst waere
+       der Unterschied nicht wahrnehmbar. */
+    --ci-schatten-gross: 0 4px 12px rgba(28, 39, 51, .12),
+                         0 1px 3px rgba(28, 39, 51, .08);
+
     /* Der Fokusring ist kein Schmuck, sondern die einzige
        Orientierung für alle, die per Tastatur bedienen. Er ist
        deshalb absichtlich deutlich sichtbar. */
@@ -168,16 +174,22 @@
     --ci-akzent-text:    #1f4034;
 }
 
-/* ACHTUNG: Für die folgenden drei Projekte lag mir kein
-   Farbwert aus dem Repo vor. Sie sind nach den Screenshots
-   geschätzt und gehören beim ersten Einbinden geprüft und
-   gegebenenfalls korrigiert. */
+/* Projektstunden führte bis August 2026 #2d5a3d – ein Grün, das dem
+   Tafelgrün von fachkonferenzen (#2e5b4c) so nahe kommt, dass beide
+   Anwendungen aus dem Gedächtnis nicht auseinanderzuhalten waren.
+   Damit wäre der Zweck der Akzentfarbe verfehlt: beim Tabwechsel
+   erkennen, wo man ist. Der Ton ist deshalb kräftiger und gelbstichiger
+   gewählt – nah genug am Gewohnten, deutlich genug daneben. */
 [data-projekt="projektstunden"] {
     --ci-akzent:         #3b6d11;
     --ci-akzent-hover:   #4e8b1a;
     --ci-akzent-flaeche: #eef5e4;
     --ci-akzent-text:    #2b5009;
 }
+
+/* ACHTUNG: Für schulprozesse lag mir kein Farbwert aus dem Repo vor.
+   Der Wert ist nach dem Screenshot geschätzt und gehört beim ersten
+   Einbinden geprüft. */
 
 [data-projekt="schulprozesse"] {
     --ci-akzent:         #534ab7;
@@ -191,6 +203,19 @@
     --ci-akzent-hover:   #b8532f;
     --ci-akzent-flaeche: #faece7;
     --ci-akzent-text:    #712b13;
+}
+
+/* Petrol. Die größte Lücke im Farbkreis liegt zwischen dem Tafelgrün von
+   fachkonferenzen (160°) und dem Blau von sprechtag (213°); dieser Ton sitzt
+   mittig darin und hat zu beiden 26° Abstand — mehr ist bei fünf belegten
+   Tönen nicht zu holen. Bordeaux wäre rechnerisch weiter entfernt gewesen,
+   läge aber im selben roten Bereich wie signage: „welches Rot war das
+   nochmal" ist genau die Verwechslung, die die Akzentfarbe verhindern soll. */
+[data-projekt="lernzeiten"] {
+    --ci-akzent:         #0b5c65;
+    --ci-akzent-hover:   #0e737e;
+    --ci-akzent-flaeche: #edf9fa;
+    --ci-akzent-text:    #09474e;
 }
 
 /* ============================================================
