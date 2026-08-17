@@ -1,4 +1,4 @@
-/* VENDORED aus hornse/ci-css v1.5.3 – dort ändern, hierher kopieren! */
+/* VENDORED aus hornse/ci-css v1.5.4 – dort ändern, hierher kopieren! */
 /* ============================================================
    ci-tokens.css – Design-Tokens der FRG-Projektreihe
    Stufe 1 von 2. Enthält ausschließlich Werte, keine Regeln.
@@ -182,7 +182,7 @@
    gewählt – nah genug am Gewohnten, deutlich genug daneben. */
 [data-projekt="projektstunden"] {
     --ci-akzent:         #3b6d11;
-    --ci-akzent-hover:   #4e8b1a;
+    --ci-akzent-hover:   #498218;
     --ci-akzent-flaeche: #eef5e4;
     --ci-akzent-text:    #2b5009;
 }
