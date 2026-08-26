@@ -1,4 +1,4 @@
-/* VENDORED aus hornse/ci-css v1.5.5 – dort ändern, hierher kopieren! */
+/* VENDORED aus hornse/ci-css v1.5.6 – dort ändern, hierher kopieren! */
 /* ============================================================
    ci-tokens.css – Design-Tokens der FRG-Projektreihe
    Stufe 1 von 2. Enthält ausschließlich Werte, keine Regeln.
@@ -215,6 +215,17 @@
     --ci-akzent-hover:   #0e737e;
     --ci-akzent-flaeche: #edf9fa;
     --ci-akzent-text:    #09474e;
+}
+
+/* Aubergine. Zwischen Indigo (245°) und Ziegelrot von signage (15°) liegt
+   die größte verbliebene Lücke im Farbkreis, 130° breit. Mittig darin sind
+   es 63° Abstand zu beiden Nachbarn – mehr als doppelt so viel wie Petrol
+   hatte, und bei sieben Projekten der letzte wirklich freie Platz. */
+[data-projekt="kurse"] {
+    --ci-akzent:         #6b2d5f;
+    --ci-akzent-hover:   #8a3a7a;
+    --ci-akzent-flaeche: #f9edf6;
+    --ci-akzent-text:    #54244b;
 }
 
 /* ============================================================
