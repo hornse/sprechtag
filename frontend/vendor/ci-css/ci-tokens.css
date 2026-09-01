@@ -1,4 +1,4 @@
-/* VENDORED aus hornse/ci-css v1.6.0 – dort ändern, hierher kopieren! */
+/* VENDORED aus hornse/ci-css v1.7.0 – dort ändern, hierher kopieren! */
 /* ============================================================
    ci-tokens.css – Design-Tokens der FRG-Projektreihe
    Stufe 1 von 2. Enthält ausschließlich Werte, keine Regeln.
@@ -64,6 +64,25 @@
     --ci-akzent-hover:   #2c6cb8;
     --ci-akzent-flaeche: #e6f1fb;
     --ci-akzent-text:    #0c447c;
+
+    /* ---- Projektpalette -------------------------------------
+       Derselbe Textton wie --ci-akzent-text je Projektblock, aber
+       hier die EINE Quelle: am :root und damit unabhängig von
+       data-projekt verfügbar. Gebraucht von Übersichtsseiten, die
+       mehrere Projekte gleichzeitig zeigen — dort kann data-projekt
+       nicht greifen, weil es nur einen Wert je Dokument gibt.
+
+       Die [data-projekt="…"]-Blöcke weiter unten referenzieren diese
+       Werte über var() statt sie zu wiederholen. Damit kann
+       --ci-akzent-text eines Blocks nicht mehr von hier abweichen —
+       es gibt nur noch eine Stelle, an der der Wert steht. */
+    --ci-farbe-sprechtag:       #0c447c;
+    --ci-farbe-fachkonferenzen: #1f4034;
+    --ci-farbe-projektstunden:  #2b5009;
+    --ci-farbe-schulprozesse:   #3c3489;
+    --ci-farbe-signage:         #712b13;
+    --ci-farbe-lernzeiten:      #09474e;
+    --ci-farbe-kurse:           #54244b;
 
     /* ---- Rückmeldungen ------------------------------------- */
     --ci-erfolg:          #1e7d3e;
@@ -162,7 +181,7 @@
     --ci-akzent:         #1d4e89;
     --ci-akzent-hover:   #2c6cb8;
     --ci-akzent-flaeche: #e6f1fb;
-    --ci-akzent-text:    #0c447c;
+    --ci-akzent-text:    var(--ci-farbe-sprechtag);
 }
 
 /* Aus fachkonferenzen übernommen (dort --tafel). */
@@ -170,7 +189,7 @@
     --ci-akzent:         #2e5b4c;
     --ci-akzent-hover:   #3d7665;
     --ci-akzent-flaeche: #e6f2ee;
-    --ci-akzent-text:    #1f4034;
+    --ci-akzent-text:    var(--ci-farbe-fachkonferenzen);
 }
 
 /* Projektstunden führte bis August 2026 #2d5a3d – ein Grün, das dem
@@ -183,7 +202,7 @@
     --ci-akzent:         #3b6d11;
     --ci-akzent-hover:   #498218;
     --ci-akzent-flaeche: #eef5e4;
-    --ci-akzent-text:    #2b5009;
+    --ci-akzent-text:    var(--ci-farbe-projektstunden);
 }
 
 /* ACHTUNG: Für schulprozesse lag mir kein Farbwert aus dem Repo vor.
@@ -194,14 +213,14 @@
     --ci-akzent:         #534ab7;
     --ci-akzent-hover:   #6a61cc;
     --ci-akzent-flaeche: #eeedfe;
-    --ci-akzent-text:    #3c3489;
+    --ci-akzent-text:    var(--ci-farbe-schulprozesse);
 }
 
 [data-projekt="signage"] {
     --ci-akzent:         #993c1d;
     --ci-akzent-hover:   #b8532f;
     --ci-akzent-flaeche: #faece7;
-    --ci-akzent-text:    #712b13;
+    --ci-akzent-text:    var(--ci-farbe-signage);
 }
 
 /* Petrol. Die größte Lücke im Farbkreis liegt zwischen dem Tafelgrün von
@@ -214,7 +233,7 @@
     --ci-akzent:         #0b5c65;
     --ci-akzent-hover:   #0e737e;
     --ci-akzent-flaeche: #edf9fa;
-    --ci-akzent-text:    #09474e;
+    --ci-akzent-text:    var(--ci-farbe-lernzeiten);
 }
 
 /* Aubergine. Zwischen Indigo (245°) und Ziegelrot von signage (15°) liegt
@@ -225,7 +244,7 @@
     --ci-akzent:         #6b2d5f;
     --ci-akzent-hover:   #8a3a7a;
     --ci-akzent-flaeche: #f9edf6;
-    --ci-akzent-text:    #54244b;
+    --ci-akzent-text:    var(--ci-farbe-kurse);
 }
 
 /* ============================================================
