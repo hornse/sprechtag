@@ -1,14 +1,16 @@
-<!-- VENDORED aus hornse/koordination v1.0.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.1.0 – dort ändern, hierher kopieren! -->
 # Regeln der Reihe
 
 Gilt für alle Projekte, die diese Datei führen. **Quelle ist
 `hornse/koordination`**; die Kopien in den Projekten sind vendored und
 werden vom Bestandslauf gemessen.
 
-**Änderungen gehören in die Quelle** und werden von dort zurückkopiert,
-nie umgekehrt. Wer hier etwas ändert, ohne die Version zu erhöhen und
-neu zu verteilen, erzeugt genau die Drift, wegen der es diese Datei
-gibt.
+**Fällt beim Arbeiten in einem Projekt auf, dass eine Regel falsch,
+unvollständig oder überholt ist: die Kopie wird nicht geändert.** Der
+Befund gehört nach `koordination` — als Eintrag im Entscheidungsprotokoll
+oder als Auftragsdatei. Wer die Kopie ändert, bekommt beim nächsten
+Bestandslauf einen Befund und hat bis dahin eine zweite Wahrheit
+geschaffen. Genau so sind vier Fassungen desselben Moduls entstanden.
 
 **Kein Projektname steht in dieser Datei.** Der Geltungsbereich ist:
 wer sie führt.
@@ -69,9 +71,11 @@ sie als Testfall ins Repo. Ausgedachte Beispiele prüfen nur die eigenen
 Annahmen.
 
 **Und die Gegenprobe selbst wird geprüft**, indem der geprüfte Code
-absichtlich beschädigt wird. Schlägt sie dann nicht an, prüft sie nichts
-— das ist bereits vorgekommen, bei Gegenproben, die ein Auftrag
-ausdrücklich verlangt hatte.
+absichtlich beschädigt wird. Schlägt sie dann nicht an, prüft sie nichts.
+Das ist mehrfach vorgekommen — zuletzt bei einer Prüfung, deren einziger
+Zweck es war, Verluste beim Aufräumen zu fangen: Sie las nur Backticks
+und keine Code-Blöcke und meldete „OK" für eine Datei, aus der absichtlich
+etwas entfernt worden war.
 
 **Die Form des Ergebnisses prüfen, nicht nur das Verschwinden des
 Falschen.** Ein Ausdruck, der aus `?v=DEV` ein `?v=PROBEDEV` macht, hat
@@ -164,7 +168,9 @@ Skripte, Doku, Demoseiten.
 
 **Ein Ablageort ist eine Konvention, kein Merkmal.** Er trägt, solange
 alle Projekte dieselbe Konvention haben — eine gewachsene Reihe hat sie
-nicht. Herkunft wird am Inhalt erkannt, nicht am Pfad.
+nicht. Herkunft wird am Inhalt erkannt, nicht am Pfad. **Auch nicht an
+der Nachbarschaft:** Dass eine Datei neben einer vendorten liegt, macht
+sie nicht zur Kopie.
 
 **Konkrete Befehle in einer Auftragsdatei sind Vermutungen**, solange sie
 nicht gelaufen sind. Entweder etwas schreiben, das **nachsieht** (`find`
@@ -181,10 +187,29 @@ testen und das Ergebnis notieren.
 **Vor dem Lauf: `git status` in allen betroffenen Repos.** Sonst ist
 hinterher nicht zu trennen, was das Werkzeug getan hat.
 
+**Eine Änderung an einem Werkzeug, das über mehrere Repos läuft, wird im
+Probebaum durchgespielt.** Den Baum kopieren, das Werkzeug daraufsetzen,
+und **zuerst belegen, dass der Ausgangslauf dort Zahl für Zahl derselbe
+ist** — ohne diesen Beleg ist der Probebaum eine Annahme. Danach lässt
+sich die Änderung vollständig ausprobieren, ohne ein einziges Repo
+anzufassen. So wurde ein Fehler gefunden, der vierzehn falsche Befunde
+erzeugt hätte.
+
 **Der letzte Schritt bleibt manuell.** Ein Deploy über mehrere Repos
 macht eine Änderung wirksam, die niemand einzeln zurücknimmt — dabei soll
 ein Mensch die Ausgabe sehen. Innerhalb eines Projekts gehört
 `deploy.sh` weiterhin zum Auftrag.
+
+**Remote und Zweig werden ausdrücklich genannt.** Die Reihe ist
+gewachsen; die Upstreams zeigen je Repo verschieden mal auf die eine, mal
+auf die andere Gegenstelle. `git push` ohne Argument bedient deshalb
+nicht überall dieselbe Seite — in drei von vier Fällen bediente es die
+falsche, und das Repo sah hinterher aus wie erledigt.
+
+**Ein Push auf die Server-Gegenstelle ist eine Auslieferung**, keine
+Vorbereitung: Am Bare-Repo hängt ein Hook, der auscheckt oder ausrollt.
+Was mit hochgeht, geht damit in den Betrieb — auch Commits aus einem
+anderen Vorhaben, die zufällig darunter liegen.
 
 **Der Bericht jedes Laufs wird ins Repo committet.** Ohne abgelegten
 Vorbericht ist keine Vorher-Nachher-Aussage prüfbar — und darauf beruht
@@ -200,15 +225,16 @@ und die Stelle verloren, an der stand, was verlangt war.
 ## 6 — Vendoring, Module, Versionen
 
 **Vendored heißt kopiert, nicht abgetippt.** Änderungen gehören ins
-Modul-Repo und werden von dort zurückkopiert, nie umgekehrt.
+Quell-Repo und werden von dort zurückkopiert, nie umgekehrt.
 
 **Jede vendorte Datei trägt einen Kopfvermerk der Form**
 
 ```
-VENDORED aus hornse/<modul> vX.Y.Z – dort ändern, hierher kopieren!
+VENDORED aus hornse/<quelle> vX.Y.Z – dort ändern, hierher kopieren!
 ```
 
 Der Bestandslauf liest ihn; die Form ist deshalb keine Geschmacksfrage.
+In Markdown steht er als HTML-Kommentar.
 
 **Bewährtes gehört ins Modul — nicht kopieren.** Was sich in einem
 Projekt bewährt hat und allgemein nützlich ist, wandert ins Modul-Repo,
@@ -235,12 +261,13 @@ committen gibt.** `git commit` bricht sonst unter `set -e` ab. Muster:
 Ziffern. `?v=DEV` ändert sich sonst nie.
 
 **Nichts Ausgeliefertes an der Projektwurzel** — es sei denn, die
-Projektwurzel **ist** der Docroot. Der Dienst läuft mit Arbeitsverzeichnis
-gleich Projektwurzel; liegt dort ein Verzeichnis, dessen Name am Anfang
-einer ausgelieferten URL steht, wird die Datei am Router vorbei
-behandelt. Maßgeblich ist der Docroot, nicht ein bestimmter
-Verzeichnisname — die Reihe kennt dafür mehrere gleichwertige
-Anordnungen.
+Projektwurzel **ist** der Docroot. Der Dienst läuft mit
+Arbeitsverzeichnis gleich Projektwurzel; liegt dort ein Verzeichnis,
+dessen Name am Anfang einer ausgelieferten URL steht, wird die Datei am
+Router vorbei behandelt und läuft auf dem Server in einen Fatal, weil
+`doc_root` auf `/var/www/virtual/<benutzer>/` beschränkt ist. Maßgeblich
+ist der Docroot, nicht ein bestimmter Verzeichnisname — die Reihe kennt
+dafür mehrere gleichwertige Anordnungen.
 
 ---
 
@@ -251,12 +278,22 @@ Kategorienpaletten, die nur ein Projekt braucht: im `:root`-Block des
 Projekts, mit Kommentar, der die Entscheidung festhält. Diese Ausnahme
 ist ausdrücklich beschlossen und kein Schlupfloch.
 
+**Token-Werte werden gegen den Bestand geprüft**, nicht nur gegen die
+Rechenregel. Ein neuer Wert muss zu den bestehenden Einträgen passen —
+etwa: Der Hover ist heller als der Akzent. Ein rein kontrastoptimierter
+Wert war einmal dunkler und fiel aus der Reihe, obwohl er jede Prüfung
+bestand.
+
 **Keine erfundenen Modulklassennamen.** Ein geratener Klassenname sieht
 richtig aus und hat einfach keine Regel — so verschwanden einmal alle
 Karten eines Projekts. Wo ein Name nicht belegt ist, wird projekteigen
 gebaut, aus denselben Tokens.
 
-**Keine Webfonts, keine externen Ressourcen.**
+**Keine Webfonts, keine externen Ressourcen.** Das ist keine Vorliebe:
+Das Landgericht München I hat am 20.01.2022 (3 O 17493/20) entschieden,
+dass die Einbindung von Google Fonts über deren Server ohne Einwilligung
+das Persönlichkeitsrecht des Besuchers verletzt. Schriften werden
+mitgeliefert, oder es werden Systemschriften verwendet.
 
 **`[hidden]` hat das letzte Wort.** Jede `display`-Regel im Projekt-CSS
 berücksichtigt das Attribut; das Projekt-CSS wird nach dem Modul geladen
@@ -320,13 +357,6 @@ ist, statt zu verbergen, was verdächtig aussieht.
 
 ## 10 — Form der Projektdateien
 
-**`CLAUDE.md` wird bei jedem Sessionstart gelesen.** Sie liegt im Repo
-und wird per Push geteilt. Was dort steht, muss nicht mehr erklärt
-werden.
-
-**Keine Tagesaufgaben.** Dort stehen Dinge, die in sechs Monaten noch
-gelten sollen.
-
 **Entscheidungen mit Begründung stehen in `docs/ENTSCHEIDUNGEN.md`** und
 werden per `@`-Import eingebunden. Chronologisch, neue Einträge unten
 angefügt; alte werden nicht geändert, sondern durch neue aufgehoben.
@@ -337,3 +367,8 @@ angefügt; alte werden nicht geändert, sondern durch neue aufgehoben.
 
 **Keine Frameworks, kein Build-Schritt**, weder für PHP noch für
 JavaScript.
+
+*Was eine `CLAUDE.md` über sich selbst sagt — dass sie bei jedem
+Sessionstart gelesen wird und keine Tagesaufgaben enthält — steht in ihr
+selbst und nicht hier. Sie muss lesbar sein, bevor ihre Importe geladen
+sind.*

@@ -1,9 +1,11 @@
-<!-- VENDORED aus hornse/koordination v1.0.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.1.0 – dort ändern, hierher kopieren! -->
 # Fallstricke: PHP, Router, WebUntis
 
 Ergänzung zu `REIHENREGELN.md`. **Quelle ist `hornse/koordination`**; die
 Kopien in den Projekten sind vendored und werden vom Bestandslauf
-gemessen. Änderungen gehören in die Quelle.
+gemessen. Änderungen gehören in die Quelle — fällt hier ein Fehler auf,
+wird die Kopie nicht geändert, sondern der Befund nach `koordination`
+gemeldet.
 
 **Diese Datei führt, wer einen eigenen Router, einen supervisord-Dienst
 oder einen WebUntis-Zugang hat.** Ein rein statisches Projekt braucht sie
@@ -19,8 +21,10 @@ Weise, die sich wiederholen kann.
 
 ## 1 — Router und Sitzung
 
-**`session_name()` und `$_SERVER['HTTPS'] = 'on';` stehen ganz oben im
-Router, vor jedem `require`.**
+**`session_name()` und `$_SERVER['HTTPS'] = 'on';` stehen vor dem ersten
+Sitzungszugriff**, in der Regel ganz oben im Router und vor jedem
+`require`. Wer die Sitzung über eine eigene Klasse aufsetzt, hält die
+Regel dort ein — maßgeblich ist der Zeitpunkt, nicht die Datei.
 
 PHP liest den Cookie-Namen beim ersten Sitzungszugriff. Kommt
 `session_name()` zu spät, legt PHP bei jedem Request eine neue leere
@@ -31,15 +35,12 @@ antwortet trotzdem mit 401. Ohne `HTTPS = 'on'` fehlt zusätzlich das
 Cookies werden auf HTTPS-Seiten stillschweigend verworfen. Die Suche hat
 einmal einen halben Tag gekostet.
 
-**Deshalb kann in dieser einen Datei kein `declare(strict_types=1)`
+**In der Router-Datei kann deshalb kein `declare(strict_types=1)`
 stehen.** Alle anderen Dateien setzen es.
 
-**Wer die Sitzung über eine eigene Klasse aufsetzt statt im Router, ist
-davon nicht betroffen** — dann gilt die Regel für den Ort, an dem es
-tatsächlich geschieht. Maßgeblich ist: vor dem ersten Sitzungszugriff.
-
 **`session.save_path` gehört in die globale PHP-Konfiguration**, nicht in
-ein `ini_set()` im Projekt. Bei PHP-FPM greift es dort zu spät.
+ein `ini_set()` im Projekt. Bei PHP-FPM greift es dort zu spät. Nach der
+Änderung den PHP-Dienst neu starten.
 
 **Pfad-Traversal:** Der PHP built-in Server normalisiert `..` nicht.
 **Immer** `realpath()` plus Präfixprüfung mit Verzeichnistrenner.
@@ -86,11 +87,16 @@ Wer sie sieht, sucht die Ursache im Server-Log, nicht im JavaScript.
 **Ein `UPDATE` darf keine Fremdschlüsselspalte auf `0` setzen.** Bei
 fehlendem Wert die Spalte aus dem `UPDATE` weglassen.
 
-**SQLite ist nicht MariaDB.** Wo SQLite verwendet wird, gelten andere
-Ausdrücke: kein `AUTO_INCREMENT`, kein `ENGINE=InnoDB`, kein `NOW()`
-(sondern `datetime('now')`), kein `DATE_SUB()`. Welche Datenbank ein
-Projekt führt, steht in seiner `CLAUDE.md` — und der Unterschied fällt
-erst beim Einspielen auf.
+**SQLite ist nicht MariaDB.** Welche Datenbank ein Projekt führt, steht
+in seiner `CLAUDE.md`; der Unterschied fällt erst beim Einspielen auf.
+Die vier Ersetzungen:
+
+| MariaDB | SQLite |
+|---|---|
+| `AUTO_INCREMENT` | `INTEGER PRIMARY KEY AUTOINCREMENT` |
+| `ENGINE=InnoDB` | entfällt |
+| `NOW()` | `datetime('now')` |
+| `DATE_SUB(NOW(), INTERVAL 7 DAY)` | `datetime('now','-7 days')` |
 
 **SQL zweimal einspielen**, um Idempotenz zu belegen.
 
@@ -155,8 +161,8 @@ gefunden" bei rund 1200 Schülern ist keine Auskunft über den Bestand.
 Jede gelesene Liste braucht eine Vollständigkeitsprüfung, bevor gezählt
 wird.
 
-**Räume: Kapazität und Buchbarkeit sind zwei Felder.** Es gibt Räume mit
-Kapazität, die absichtlich nicht buchbar sind.
+**Räume: Kapazität und `canBeBooked` sind zwei Felder.** Es gibt Räume
+mit Kapazität, die absichtlich nicht buchbar sind.
 
 **Eine Viertelsekunde Pause zwischen zwei Aufrufen**, einstellbar. Ein
 Dutzend Anfragen in wenigen Sekunden hat einmal zu
@@ -192,10 +198,16 @@ Aufbau einer Antwort belegt ist, wird er genutzt; die allgemeine Suche
 bleibt Rückfall für unbekannte Formen.
 
 **Personenbezogene Endpunkte gehören nicht hinein.** Die
-Lehrkraft- und Schülerabfragen tragen Geburtsdatum, Geschlecht,
-Personalnummer und Deputate. Für eine Teilnehmerliste genügt das Kürzel
-aus dem Stundenplan. Wo ein Schlüssel gebraucht wird, werden nur
-Kennungen übernommen und alles andere sofort verworfen.
+Lehrkraftabfrage trägt `birthDate`, `gender`, `personnelNumber` und
+`varQuotas` (Deputate); die Schülerabfrage Namen und Geschlecht. Für eine
+Teilnehmerliste genügt das Kürzel aus dem Stundenplan. Wo ein Schlüssel
+gebraucht wird, werden nur `id` und `key` übernommen und alles andere
+sofort verworfen.
+
+**Es gibt keinen REST-Pfad für die Schülerliste.** Die Oberfläche ruft
+ein Struts-Formular auf. Zwei Vermutungen — der Anmeldeweg und die
+Schuljahres-Kopfzeile — haben zwei Tage gekostet, bevor der Mitschnitt es
+in Minuten geklärt hat.
 
 ---
 
@@ -207,7 +219,7 @@ das entscheidet jedes Projekt für sich und hält es in seiner `CLAUDE.md`
 fest.
 
 **Ein WebUntis-Admin (`personType 16`) hat `personId = -1`** und taucht
-in der Lehrkraftliste nicht auf, weil Admins keine Stundenplan-Personen
+in `getTeachers()` nicht auf, weil Admins keine Stundenplan-Personen
 sind. Bei `personId <= 0` wird die Abfrage übersprungen und der Name über
 das Kürzel aus der lokalen Datenbank geholt. Die Bedingung als **Bereich**
 prüfen, nicht als Gleichheit — dann ist der Fall der ID 0 aus Abschnitt 3
