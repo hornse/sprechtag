@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.1.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.2.0 – dort ändern, hierher kopieren! -->
 # Regeln der Reihe
 
 Gilt für alle Projekte, die diese Datei führen. **Quelle ist

@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.1.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.2.0 – dort ändern, hierher kopieren! -->
 # Fallstricke: PHP, Router, WebUntis
 
 Ergänzung zu `REIHENREGELN.md`. **Quelle ist `hornse/koordination`**; die
@@ -95,6 +95,7 @@ Die vier Ersetzungen:
 |---|---|
 | `AUTO_INCREMENT` | `INTEGER PRIMARY KEY AUTOINCREMENT` |
 | `ENGINE=InnoDB` | entfällt |
+| `DEFAULT CHARSET=utf8mb4` | entfällt — SQLite speichert immer UTF-8 |
 | `NOW()` | `datetime('now')` |
 | `DATE_SUB(NOW(), INTERVAL 7 DAY)` | `datetime('now','-7 days')` |
 
@@ -248,3 +249,19 @@ Kompetenz. Aufgefallen ist es erst beim Abgleich mit dem PDF des
 Kernlehrplans, Monate später.
 
 **Lieber die Quelle anfordern als rekonstruieren.**
+
+**Geprüft wird über Zählwerte je Gliederungseinheit**, nicht über
+Stichproben allein: Wie viele Einträge hat jede Einheit, und stimmt das
+mit der Quelle überein? Eine Zusammenfassung liest sich Wort für Wort
+plausibel und verrät sich an der **Verteilung** — zu wenige Einträge je
+Einheit. Die 227 Bereiche mit je einer Kompetenz waren an der Zahl `1`
+sofort erkennbar und an keiner Stichprobe.
+
+**Der Wortlautvergleich kommt danach**, stichprobenweise. Er entscheidet,
+ob die Einträge echte Formulierungen der Quelle sind oder
+Nacherzählungen. Wer mit Stichproben anfängt, findet plausible Sätze und
+hört auf.
+
+Das ist dieselbe Art Prüfung wie die Prüfungszahl in `REIHENREGELN.md`
+Abschnitt 2: eine Zahl, die einen Fehler zeigt, den kein Blick auf den
+Inhalt zeigt.
