@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.2.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.3.0 – dort ändern, hierher kopieren! -->
 # Fallstricke: PHP, Router, WebUntis
 
 Ergänzung zu `REIHENREGELN.md`. **Quelle ist `hornse/koordination`**; die
@@ -99,7 +99,12 @@ Die vier Ersetzungen:
 | `NOW()` | `datetime('now')` |
 | `DATE_SUB(NOW(), INTERVAL 7 DAY)` | `datetime('now','-7 days')` |
 
-**SQL zweimal einspielen**, um Idempotenz zu belegen.
+**SQL zweimal einspielen**, um Idempotenz zu belegen. Der statisch
+prüfbare Teil davon: `CREATE TABLE` und `ADD COLUMN` immer mit
+`IF NOT EXISTS`. **Für `INSERT` gilt das nicht** — dort sind mehrere
+Muster legitim (`INSERT IGNORE`, `ON DUPLICATE KEY UPDATE`, ein
+`DELETE`-Vorspann in einer Transaktion), und eine Prüfung darüber wäre
+löchrig oder falsch-rot.
 
 ---
 
@@ -226,8 +231,26 @@ das Kürzel aus der lokalen Datenbank geholt. Die Bedingung als **Bereich**
 prüfen, nicht als Gleichheit — dann ist der Fall der ID 0 aus Abschnitt 3
 mit abgedeckt.
 
-**Die Ablehnung ist einheitlich.** Es darf nicht erkennbar sein, ob ein
-Kürzel existiert.
+**Die Ablehnung ist einheitlich, solange ein Passwort im Spiel ist.** Es
+darf nicht erkennbar sein, ob ein Kürzel existiert — und ebenso wenig, ob
+das Passwort stimmte.
+
+Wo nach erfolgreicher Anmeldung ein **zweiter Schritt** über Freigabe
+oder Zuordnung entscheidet, darf sein Fehlschlag nicht anders aussehen
+als ein falsches Passwort: gleicher Wortlaut, gleicher Statuscode. Sonst
+unterscheidet ein Angreifer „Passwort falsch" von „Passwort richtig, kein
+Datensatz", und die Anwendung wird zum Prüfstand für fremde
+Zugangsdaten. **Der Grund gehört ins Protokoll, nicht in die Antwort** —
+wer nicht hineinkommt, meldet sich ohnehin bei jemandem, und der liest
+das Log.
+
+**Eine Rechteprüfung an einer bestehenden Sitzung darf unterscheiden.**
+Dort war kein Passwort im Spiel; wer die Sitzung hat, kennt es bereits.
+„Nicht angemeldet" gegen „diese Aktion ist der Verwaltung vorbehalten"
+ist richtig so.
+
+Die Trennlinie ist also nicht der Statuscode und nicht die Datei, sondern
+die Frage: **Wurde in diesem Vorgang ein Passwort geprüft?**
 
 **`session_regenerate_id(true)` beim Login.**
 

@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.2.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.3.0 – dort ändern, hierher kopieren! -->
 # Regeln der Reihe
 
 Gilt für alle Projekte, die diese Datei führen. **Quelle ist
@@ -103,6 +103,33 @@ Commit-Meldung festhalten, bei einem Modul zusätzlich im Changelog.
 **Wo eine Prüfung erweitert und ein Fehler behoben wird: die Prüfung
 zuerst.** Die rote Meldung dazwischen belegt, dass die Behebung nötig war
 und die Prüfung greift.
+
+**Ein Prüfausdruck darf nicht auf die Beschreibung der Regel
+anschlagen.** Je besser eine Regel dokumentiert ist, desto
+wahrscheinlicher steht ihr Wortlaut als Prosa in derselben Datei, die
+geprüft wird — die Prüfung wird also gerade dort unzuverlässig, wo
+sorgfältig gearbeitet wurde. Einmal traf ein ungeankerter Ausdruck den
+Kopfkommentar, der die Regel erklärt, statt der Zuweisung, die sie
+umsetzt; die Prüfung wäre grün geblieben, wenn nur der Kommentar
+übrig gewesen wäre. **Die Gegenprobe dazu lautet: den Code löschen, den
+Kommentar stehen lassen.**
+
+Dasselbe gilt für jedes Werkzeug, das eine Datei liest, die ihr eigenes
+Format erklärt: Beschreibung und Sache müssen trennbar sein. Eine
+Ausnahmedatei, deren Formvorschrift ein Beispiel enthielt, hat dieses
+Beispiel einmal als Eintrag gelesen.
+
+**Wo aus einem Vorfall bekannt ist, wie die falsche Fassung aussieht,
+sucht die Prüfung ausdrücklich nach ihr.** Die Anwesenheit der richtigen
+Form allein genügt nicht — sie schließt nicht aus, dass die falsche
+danebensteht. Wer prüft, ob `$id > 0` vorkommt, muss zusätzlich prüfen,
+dass `$id === -1` **nicht** vorkommt.
+
+**Wo eine Prüfung die Nachbarschaft zweier Stellen misst statt eines
+Vorkommens, braucht sie zwei Gegenproben:** die benachbarte Bedingung
+entfernen, **und** sie entwerten, ohne sie zu entfernen — etwa zu
+`if (true)`. Bleibt die Prüfung im zweiten Fall grün, misst sie Textnähe
+und nicht Wirkung.
 
 **Ein Test auf Vorhandensein ist kein Test auf Richtigkeit.** Wo ein Wert
 von woanders stammt, prüft der Test die **Verbindung** zur Quelle. Und wo
