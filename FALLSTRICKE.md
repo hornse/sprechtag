@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.4.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.5.0 – dort ändern, hierher kopieren! -->
 # Fallstricke: PHP, Router, WebUntis
 
 Ergänzung zu `REIHENREGELN.md`. **Quelle ist `hornse/koordination`**; die
@@ -311,3 +311,11 @@ gehört zum Datensatz, nicht in eine Notiz.
 jeden Fachimport aus einem PDF. Wer den Umfang der Extraktion nicht
 gegen das Original hält, verarbeitet stillschweigend eine gekürzte
 Quelle.
+
+**Zeichenzahlen aus einer Extraktion taugen nicht als Sollwert.** Sie
+hängen von der Fassung des Werkzeugs ab — dieselbe Datei ergab 106 153
+und 106 149 Zeichen bei verschiedenen poppler-Ständen. Eine Prüfung
+darauf schlägt auf einem anderen Rechner grundlos an und wird dann
+abgeschaltet. **Strukturzahlen sind der richtige Sollwert:** Bereiche,
+Einträge je Bereich, Abschnitte. Sie hängen an der Quelle, nicht am
+Werkzeug.

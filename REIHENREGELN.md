@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.4.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.5.0 – dort ändern, hierher kopieren! -->
 # Regeln der Reihe
 
 Gilt für alle Projekte, die diese Datei führen. **Quelle ist
@@ -180,8 +180,11 @@ Commit, der Dateien von außen übernimmt.
 
 * **`#` ist dort kein Kommentarzeichen.** Ein erklärender Zusatz am
   Zeilenende wird zum Argument. Einmal hat er eine Zählprüfung
-  stillschweigend übersprungen — kein Fehler, kein Hinweis, nur ein
-  falsches Ergebnis.
+  stillschweigend übersprungen — **und die `||`-Absicherung daneben
+  meldete daraufhin Erfolg, weil ein leerer Lauf wie ein sauberer
+  aussah.** Der Schaden entsteht nicht durch die Falle allein, sondern
+  durch ihr Zusammentreffen mit einem `|| true`, das mehr abfängt als den
+  Erfolgsfall.
 * **Glob-Muster für ein Werkzeug gehören in Anführungszeichen.**
   `--include=*.js` expandiert die Shell selbst und bricht ab;
   `--include="*.js"` erreicht `grep`.
@@ -189,6 +192,14 @@ Commit, der Dateien von außen übernimmt.
 In einem Skript mit `#!/bin/bash` gilt beides nicht. Der Unterschied
 zwischen dem, was in einem Skript steht, und dem, was von Hand
 eingetippt wird, ist hier keine Formalie.
+
+**Eine Sollzahl ist eine Vermutung über die Umgebung des Empfängers.**
+Wer für einen anderen einen Auftrag schreibt und eine erwartete Zahl mit
+einem Werkzeug ermittelt, hat sich auf dieses Werkzeug festgelegt —
+ohne zu wissen, ob es dort vorhanden ist und in welcher Fassung. Der
+Auftrag prüft deshalb zuerst, dass das Werkzeug existiert, oder er
+kennzeichnet die Zahl als ungeprüft. Das ist derselbe Fall wie ein
+Befehl aus dem Gedächtnis, nur in Zahlenform.
 
 ---
 
@@ -300,6 +311,12 @@ committen gibt.** `git commit` bricht sonst unter `set -e` ab. Muster:
 
 **Cache-Busting mit einem Ausdruck über beliebige Zeichen**, nicht nur
 Ziffern. `?v=DEV` ändert sich sonst nie.
+
+**Eine Ablage, die in der Summe klein ist, kann einen einzelnen Vorgang
+sprengen.** Sechzehn Megabyte sind für ein Repo unerheblich, für einen
+Push über HTTPS nicht: `HTTP 400`, Abbruch, und die Meldung nennt die
+Ursache nicht. Abhilfe ist `http.postBuffer`. Beim erstmaligen
+Hinzufügen größerer Bestände gehört das dazugesagt.
 
 **Nichts Ausgeliefertes an der Projektwurzel** — es sei denn, die
 Projektwurzel **ist** der Docroot. Der Dienst läuft mit
