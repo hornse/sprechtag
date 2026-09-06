@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.3.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.4.0 – dort ändern, hierher kopieren! -->
 # Fallstricke: PHP, Router, WebUntis
 
 Ergänzung zu `REIHENREGELN.md`. **Quelle ist `hornse/koordination`**; die
@@ -250,7 +250,12 @@ Dort war kein Passwort im Spiel; wer die Sitzung hat, kennt es bereits.
 ist richtig so.
 
 Die Trennlinie ist also nicht der Statuscode und nicht die Datei, sondern
-die Frage: **Wurde in diesem Vorgang ein Passwort geprüft?**
+die Frage: **Entschied in diesem Vorgang ein Passwort über den Zugang?**
+
+**Der Passwortwechsel ist deshalb kein Fall dieser Regel.** Dort wird ein
+Passwort geprüft, aber der Aufrufer ist bereits angemeldet und ändert
+sein eigenes — die Antwort „altes Passwort ist falsch" verrät nichts über
+ein fremdes Konto. Formal betroffen, dem Zweck nach nicht.
 
 **`session_regenerate_id(true)` beim Login.**
 
@@ -288,3 +293,21 @@ hört auf.
 Das ist dieselbe Art Prüfung wie die Prüfungszahl in `REIHENREGELN.md`
 Abschnitt 2: eine Zahl, die einen Fehler zeigt, den kein Blick auf den
 Inhalt zeigt.
+
+**Zählwerte unterscheiden aber keine Fassungen derselben Quelle.** Ein
+Entwurf und die verabschiedete Fassung eines Lehrplans hatten identisch
+30 Bereiche, 197 Erwartungen und dieselbe Verteilung je Phase — der
+Unterschied lag allein im Wortlaut. Die Zählung trennt
+**Zusammenfassung von Vollständigkeit**, nicht **Fassung von Fassung**.
+Das sind zwei verschiedene Fehler und brauchen zwei verschiedene
+Prüfungen.
+
+**Welche Fassung verarbeitet wurde, entscheidet die Prüfsumme der
+Quelldatei**, nicht ihr Dateiname und nicht ihr Inhaltsverzeichnis. Sie
+gehört zum Datensatz, nicht in eine Notiz.
+
+**`pdftotext` ohne `-layout` verliert Text.** Bei einer geprüften Datei
+16 Prozent, ohne Fehlermeldung; Sätze brechen mitten ab. Das betrifft
+jeden Fachimport aus einem PDF. Wer den Umfang der Extraktion nicht
+gegen das Original hält, verarbeitet stillschweigend eine gekürzte
+Quelle.

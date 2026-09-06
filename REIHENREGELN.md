@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.3.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.4.0 – dort ändern, hierher kopieren! -->
 # Regeln der Reihe
 
 Gilt für alle Projekte, die diese Datei führen. **Quelle ist
@@ -175,6 +175,20 @@ auf dem Server.
 `grep`.** `grep` über eine vorhandene Datei prüft ihren Inhalt, nicht die
 Anwesenheit der Datei daneben. `ls -1` und `git status --short` vor jedem
 Commit, der Dateien von außen übernimmt.
+
+**Zwei Fallen der interaktiven zsh**, beide schon eingetreten:
+
+* **`#` ist dort kein Kommentarzeichen.** Ein erklärender Zusatz am
+  Zeilenende wird zum Argument. Einmal hat er eine Zählprüfung
+  stillschweigend übersprungen — kein Fehler, kein Hinweis, nur ein
+  falsches Ergebnis.
+* **Glob-Muster für ein Werkzeug gehören in Anführungszeichen.**
+  `--include=*.js` expandiert die Shell selbst und bricht ab;
+  `--include="*.js"` erreicht `grep`.
+
+In einem Skript mit `#!/bin/bash` gilt beides nicht. Der Unterschied
+zwischen dem, was in einem Skript steht, und dem, was von Hand
+eingetippt wird, ist hier keine Formalie.
 
 ---
 
