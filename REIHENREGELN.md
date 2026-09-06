@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.5.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.6.0 – dort ändern, hierher kopieren! -->
 # Regeln der Reihe
 
 Gilt für alle Projekte, die diese Datei führen. **Quelle ist
@@ -145,6 +145,25 @@ sie recht hätte.
 dazugesagt.** Eine Gegenprobe zeigt, dass eine Prüfung funktioniert. Sie
 zeigt nicht, dass sie die Wirklichkeit trifft.
 
+**Das erste Exemplar einer Sorte hat keinen Vergleich und braucht
+deshalb mehr.** Wo eine Prüfung darin besteht, gegen einen bereits
+geprüften Bestand zu vergleichen, fehlt sie beim ersten Mal ersatzlos —
+und das ist der Normalfall, nicht die Ausnahme. Bei einem Datensatz fand
+der Vergleich mit dem Vorgänger fünf Fehler, beim nächsten drei; beim
+ersten seiner Art hätte er nichts gefunden, weil es ihn nicht gab.
+
+Daraus folgt keine Prüfung, sondern zweierlei: Der erste Datensatz einer
+neuen Sorte wird von Hand gegengelesen, **und es wird vermerkt, dass hier
+nichts geprüft hat.** Und wo die Reihenfolge frei ist, lohnt es, zwei
+gleichartige nacheinander zu nehmen — das zweite prüft das erste
+rückwirkend mit.
+
+**Eine gekürzte Ausgabe kann die einzige Zeile verlieren, die zählt.**
+`tail -3` über einen Testlauf, `-A2` über eine Suche: Wo ein Ergebnis
+beschnitten wird, ist das Fehlen einer Zeile keine Auskunft. Bei einem
+roten Lauf, der sich danach nicht mehr herstellen ließ, blieb dadurch
+unbekannt, welche Prüfung gefallen war.
+
 **Vor jeder Auslieferung: nicht behaupten, sondern ausführen.**
 
 ---
@@ -238,6 +257,18 @@ testen und das Ergebnis notieren.
 
 **Vor dem Lauf: `git status` in allen betroffenen Repos.** Sonst ist
 hinterher nicht zu trennen, was das Werkzeug getan hat.
+
+**Wer in einem fremden Repo committet, addiert namentlich — nie
+`git add -A`.** Ein Auftrag weiß, welche Dateien er anfasst; wenn nicht,
+ist das das eigentliche Problem. Einmal lagen hundert Sekunden zwischen
+einem Vendoring-Commit und zwei Dateien aus einer parallelen Sitzung.
+Wären sie früher da gewesen, hätte `-A` sie mitgenommen, und ein Push auf
+die Server-Gegenstelle hätte eine halbfertige Migration ausgeliefert.
+
+**Und ein sauberer Ausgangsstand ist keine Zusicherung über die
+Laufzeit.** Der `git status` vor dem Lauf hätte diesen Fall nicht
+gefangen — die Dateien entstanden danach. An mehreren Repos wird selten
+allein gearbeitet, auch wenn nur eine Person beteiligt ist.
 
 **Eine Änderung an einem Werkzeug, das über mehrere Repos läuft, wird im
 Probebaum durchgespielt.** Den Baum kopieren, das Werkzeug daraufsetzen,

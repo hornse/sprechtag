@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.5.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.6.0 – dort ändern, hierher kopieren! -->
 # Fallstricke: PHP, Router, WebUntis
 
 Ergänzung zu `REIHENREGELN.md`. **Quelle ist `hornse/koordination`**; die
@@ -319,3 +319,14 @@ darauf schlägt auf einem anderen Rechner grundlos an und wird dann
 abgeschaltet. **Strukturzahlen sind der richtige Sollwert:** Bereiche,
 Einträge je Bereich, Abschnitte. Sie hängen an der Quelle, nicht am
 Werkzeug.
+
+**Und was ankommt, enthält Zeichen, die niemand sieht.** `U+0003` aus
+einer PDF-Extraktion ist in Python kein `\s` und überlebt jede übliche
+Normalisierung; ein Seitenumbruch am Zeilenanfang bricht jeden Ausdruck
+der Form `^ *X`. Gefunden wurde das nicht durch Suchen, sondern weil eine
+Zahl nicht aufging.
+
+**Damit lügt eine PDF-Quelle in drei Richtungen:** Text fehlt, die
+Zeichenzahl schwankt mit dem Werkzeug, und das Angekommene enthält
+Unsichtbares. Wer daraus importiert, prüft alle drei — und verlässt sich
+auf Strukturzahlen, weil nur die an der Quelle hängen.
