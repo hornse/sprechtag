@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.6.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.8.0 – dort ändern, hierher kopieren! -->
 # Regeln der Reihe
 
 Gilt für alle Projekte, die diese Datei führen. **Quelle ist
@@ -40,6 +40,18 @@ Umsetzung gewandert.
 das Werkzeug die eine nur zusammen mit der anderen kann, ist **das** das
 Problem, das zuerst gelöst wird. Zwei Änderungen auf einmal machen jedes
 Ergebnis unlesbar.
+
+**Bleibt eine Behebung ohne sichtbare Wirkung, suche eine zweite
+Ursache, bevor du die erste verwirfst.** Zwei Fehler mit demselben
+Symptom sind der Fall, in dem eine richtige Korrektur wie ein Irrtum
+aussieht — und dann rückgängig gemacht wird. Einmal traf ein Selektor nie
+und ein Mengenvergleich ebenso wenig; beide erzeugten „nichts ist
+ausgewählt", und wer nur den ersten kannte, suchte nach seiner Behebung
+am falschen Ort weiter.
+
+Das ist die Rückseite der vorigen Regel: Sie sorgt dafür, dass ein
+Ergebnis lesbar ist. Diese sorgt dafür, dass ein **ausbleibendes**
+Ergebnis richtig gelesen wird.
 
 **Rückfragen vor Entscheidungen mit Tragweite, nicht danach.**
 
@@ -84,6 +96,17 @@ Falschen.** Ein Ausdruck, der aus `?v=DEV` ein `?v=PROBEDEV` macht, hat
 **Eine Prüfung ohne ihre Voraussetzung gilt nicht als bestanden, sie
 sagt es.** Null Funde sind ein Fehler, kein Ergebnis; ein leerer Lauf
 sieht sonst aus wie ein sauberer.
+
+**Und ein Prüfschritt, dessen Voraussetzung von Hand hergestellt werden
+muss, wird nie ausgeführt.** Das ist nicht derselbe Fall: Bei einer
+fehlenden Voraussetzung meldet sich die Prüfung. Hier schweigt sie, und
+**Schweigen ist von Bestehen nicht zu unterscheiden.** Einmal verlangte
+ein Prüfschritt einen Cookie aus einem fehlgeschlagenen Login — er lief
+nie, also fiel er nie auf.
+
+Ein solcher Schritt stellt seine Voraussetzung selbst her, oder er ist
+keine Prüfung, sondern eine Anleitung. Beides ist zulässig; nur muss
+dabeistehen, was von beidem es ist.
 
 **Wird eine Prüfung erweitert, muss die Prüfungszahl um den erwarteten
 Betrag steigen.** Bleibt sie gleich oder steigt sie um weniger, ist die
@@ -135,6 +158,17 @@ und nicht Wirkung.
 von woanders stammt, prüft der Test die **Verbindung** zur Quelle. Und wo
 sich die Verbindung strukturell herstellen lässt — eine Referenz statt
 einer Kopie —, ist das besser als jede Prüfung.
+
+**Eine Prüfung, die eine bestimmte Datei liest, prüft diese Datei — nicht
+die Regel.** Wo eine Regel für ein ganzes Projekt gilt, sucht die Prüfung
+im ganzen Projekt und nicht dort, wo der Fall zuerst auftrat. Einmal las
+die Prüfung auf Rohfarben eine Stilvorlage, während sieben Hexwerte im
+JavaScript standen: Grün war eine Aussage über die Prüfstelle, nicht über
+den Bestand.
+
+**Das ist schwerer zu finden als eine fehlende Prüfung**, weil niemand
+nachsieht, wo eine bestandene Prüfung hingeschaut hat. Bei einer
+fehlenden fehlt wenigstens eine Zahl.
 
 **Prüfe das Eindeutige gründlich, das Uneindeutige gar nicht.** Wo ein
 Zwischenzustand legitim ist, schlägt eine Rot/Grün-Prüfung grundlos an —
@@ -335,6 +369,17 @@ unterblieben, ohne dass es jemandem auffiel.
 **Eine Angabe, die nicht gepflegt wird, ist schlechter als keine.** Sie
 sieht aus wie eine Auskunft und ist eine Falle. Wo sich ein Zustand
 ableiten lässt, wird er nicht aufgeschrieben.
+
+**Eine nicht versionierte Konfigurationsdatei driftet unbemerkt in zwei
+Richtungen** — gegenüber ihrer Vorlage im Repo und gegenüber der Fassung
+auf dem Server. Sie steht aus gutem Grund in `.gitignore`; die Folge ist,
+dass eine Korrektur auf dem Server monatelang neben einer unkorrigierten
+lokalen Fassung stehen kann, ohne dass etwas warnt. Kein Bestandslauf
+sieht sie, kein `git diff`, kein Test.
+
+**Vor der Auslieferung wird deshalb die Struktur verglichen, nicht die
+Werte:** Schlüssel, Aufbau, Vorhandensein. Werte müssen abweichen — das
+ist ihr Zweck.
 
 **`deploy.sh` muss den Push auch dann erreichen, wenn es nichts zu
 committen gibt.** `git commit` bricht sonst unter `set -e` ab. Muster:
