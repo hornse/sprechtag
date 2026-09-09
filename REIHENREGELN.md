@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.8.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.9.0 – dort ändern, hierher kopieren! -->
 # Regeln der Reihe
 
 Gilt für alle Projekte, die diese Datei führen. **Quelle ist
@@ -211,8 +211,12 @@ kann ein Zahlenvergleich je nach Locale unterschiedlich ausfallen.
 Erfolgsfall ist. `|| true` anhängen — aber **nur** um den echten
 Erfolgsfall abzufangen, nie um einen Werkzeugfehler.
 
-**Prüfskripte schlagen auf ihre eigenen Suchmuster an.** `--exclude` für
-das Skript selbst.
+**Prüfskripte, die über den eigenen Baum nach Textmustern suchen,
+schlagen auf ihre eigenen Suchmuster an.** `--exclude` für das Skript
+selbst. **Für Skripte ohne Suchmuster gilt das nicht** — eines, das
+Klammern in einer Stilvorlage zählt, hat nichts, woran es anschlagen
+könnte. Die Regel ist bedingt und liest sich sonst als allgemeine
+Vorschrift, die zwei von zehn Skripten scheinbar verletzen.
 
 **Trocken ist der Standard.** Wo ein Skript etwas Zerstörendes tun kann,
 verlangt der echte Lauf einen ausdrücklichen Schalter
@@ -402,6 +406,21 @@ Router vorbei behandelt und läuft auf dem Server in einen Fatal, weil
 `doc_root` auf `/var/www/virtual/<benutzer>/` beschränkt ist. Maßgeblich
 ist der Docroot, nicht ein bestimmter Verzeichnisname — die Reihe kennt
 dafür mehrere gleichwertige Anordnungen.
+
+**Dieselbe Beschränkung schützt, was nicht ausgeliefert werden soll — und
+zwar nur nebenbei.** Ein Abruf auf eine Konfigurationsdatei außerhalb des
+Docroots wird von PHP-FPM abgelehnt (`Primary script unknown`), bevor die
+Datei geöffnet wird; nach außen erscheint das als `500`. Das ist ein
+echter Schutz, aber niemand hat ihn zu diesem Zweck eingerichtet: Ändert
+sich `doc_root` oder der Ort des Dienstes, fällt er weg, und nichts
+warnt.
+
+**Geprüft wird deshalb der Inhalt, nicht der Statuscode.** Ein `500` sagt
+nichts darüber, ob die Datei gelesen wurde — es ist derselbe Code für
+„abgelehnt, nie geöffnet" und für „ausgeführt und abgestürzt". Die
+brauchbare Prüfung ist: Der Abruf gibt **keine Zeichenfolge aus der
+Datei** zurück. Das gilt unabhängig davon, welchen Code der Server
+liefert.
 
 ---
 
