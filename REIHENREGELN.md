@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.9.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.13.0 – dort ändern, hierher kopieren! -->
 # Regeln der Reihe
 
 Gilt für alle Projekte, die diese Datei führen. **Quelle ist
@@ -192,6 +192,17 @@ nichts geprüft hat.** Und wo die Reihenfolge frei ist, lohnt es, zwei
 gleichartige nacheinander zu nehmen — das zweite prüft das erste
 rückwirkend mit.
 
+**Läuft ein Erzeuger neu, wird vollständig gegen den ausgelieferten Stand
+verglichen.** Nicht stichprobenweise — vollständig. Einmal fand dieser
+Diff drei Fehler, die keine Prüfung und keine Stichprobe fangen konnte:
+**Ein Eintrag, der mitten im Satz auf einem heilen Wort abbricht, besteht
+jede Einzelprüfung.** Er ist grammatisch in Ordnung, er ist plausibel, und
+er ist falsch. Nur das Vorher zeigt, dass etwas fehlt.
+
+Der Vergleich ist bei einem neu laufenden Erzeuger billig und immer
+verfügbar — der ausgelieferte Stand ist der Vorgänger, den das erste
+Exemplar sonst nicht hat.
+
 **Eine gekürzte Ausgabe kann die einzige Zeile verlieren, die zählt.**
 `tail -3` über einen Testlauf, `-A2` über eine Suche: Wo ein Ergebnis
 beschnitten wird, ist das Fehlen einer Zeile keine Auskunft. Bei einem
@@ -292,6 +303,43 @@ ausdrücklich als ungeprüft kennzeichnen.
 
 **Ausgangsstand zuerst.** Vor jeder Änderung die betroffenen Projekte
 testen und das Ergebnis notieren.
+
+**Was ein Auftrag aus einem anderen Repo braucht, steht im
+Ausgangsstand.** Verweist er auf eine bestimmte fremde Datei — als
+Vorbild, als Vergleich, als Vorlage —, wird sie beigelegt oder
+ausdrücklich als Voraussetzung genannt. Sonst hängt der Lauf an einer
+Rückfrage, die mitten in der Arbeit kommt.
+
+**Wer dagegen den Bestand ermittelt, braucht Zugriff auf alle** und kann
+nichts beilegen. Die Trennlinie ist: eine **benannte** Datei wird
+beigelegt, ein **ermittelter** Bestand wird vorausgesetzt und im ersten
+Schritt geprüft.
+
+Das ist dieselbe Einsicht wie bei einem Prüfschritt, dessen Voraussetzung
+von Hand hergestellt werden muss — eine Ebene höher: **Eine
+Voraussetzung, die erst mitten im Lauf auffällt, ist eine, die im
+Ausgangsstand fehlte.**
+
+**Und eine Auftragsdatei benennt, welche Abschnitte einer vorhandenen
+Erhebung sie voraussetzt.** Nicht die Datei — den Abschnitt. Bei einer
+Erhebung von einigem Umfang liest man den Anfang und arbeitet dann; wer
+die Stelle nennt, zwingt zum Nachschlagen an der richtigen.
+
+Einmal wurde eine Strukturerhebung eigens beauftragt, weil dreimal auf
+Stichproben entschieden worden war — und bei den **beiden** Vorgängen
+danach stand die entscheidende Auskunft ungelesen darin. Ein Datensatz
+ging beschädigt in Betrieb. **Eine Erhebung, deren Ergebnis beim Bauen
+nicht gelesen wird, ist verlorene Arbeit** — und schlimmer als keine,
+weil sie den Eindruck erzeugt, die Frage sei geklärt.
+
+**Es ist kein Aufmerksamkeitsproblem.** Dieselbe Person hatte den Auftrag
+geschrieben und die Zeile beim Bauen nicht gelesen. Wer eine Erhebung
+beauftragt, hat sie beim Schreiben im Kopf und beim Bauen nicht mehr —
+deshalb steht die Benennung in der Auftragsdatei und nicht im Gedächtnis.
+
+**Die Umkehrung gehört dazu:** Ein Abschnitt, den nach mehreren Aufträgen
+keiner voraussetzt, war entweder überflüssig oder ist es geworden. Das
+ist der Anlass, ihn zu streichen oder zu schärfen — nicht ein Gefühl.
 
 **Vor dem Lauf: `git status` in allen betroffenen Repos.** Sonst ist
 hinterher nicht zu trennen, was das Werkzeug getan hat.
@@ -460,6 +508,19 @@ und überschriebe es sonst.
 sachlich unmöglich ist, muss eigens abgefangen werden — sonst ist die
 Prüfkette lückenlos und trotzdem wertlos.
 
+**Ein Vergleich prüft vorher seine Operanden.** Null Überschneidung in
+**beide** Richtungen ist fast immer ein leerer Operand, kein Befund.
+Einmal meldeten drei Proben null, weil eine Antwortdatei 79 Byte
+Fehlermeldung enthielt statt der erwarteten Daten. Die Prüfung war
+stimmig — sie verglich korrekt, nur nichts mit nichts.
+
+**Wo mehrere fremde Aufrufe hintereinander laufen, nennt die
+Fehlermeldung, welcher gescheitert ist** — mit Methode, Adresse und
+Status. Ohne das kostet ein Fehlercode Zeit, der etwas anderes bedeutet
+als er sagt: `-32601 Method not found` beantwortete einmal eine falsche
+**Signatur**, nicht einen falschen Namen, und war eine halbe Stunde lang
+nicht zuzuordnen.
+
 **Widersprüche werden als Widerspruch ausgegeben, nicht als Ergebnis.**
 „Daten da, Treffer null" heißt *kein Befund*, nicht *negativer Befund*.
 
@@ -505,6 +566,16 @@ Längenprüfungen weiter etwas prüfen. Nicht umgekehrt.
 belegt ist und keine Personendaten enthält, tritt eine gezielte
 Auswertung an die Stelle des Anonymisierers — sie gibt aus, was benannt
 ist, statt zu verbergen, was verdächtig aussieht.
+
+**Und das Schwärzwerkzeug darf nicht das Untersuchungswerkzeug sein.**
+Ein `sed`, das jeden Text zwischen Tags entfernt, hält Personendaten aus
+der Ausgabe — und entfernt zugleich die Spaltenüberschriften, wegen derer
+abgefragt wurde. Einmal ist daraus eine falsch begründete Entscheidung
+entstanden, die erst Tage später berichtigt wurde.
+
+Wer fremdes HTML untersucht, braucht zwei Durchläufe: einen, der die
+Struktur zeigt, und einen, der die Werte schwärzt. Ein Werkzeug, das
+beides zugleich tut, tut keines von beiden zuverlässig.
 
 ---
 
