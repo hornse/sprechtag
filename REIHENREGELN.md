@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.14.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.15.0 – dort ändern, hierher kopieren! -->
 # Regeln der Reihe
 
 Gilt für alle Projekte, die diese Datei führen. **Quelle ist
@@ -93,12 +93,38 @@ etwas entfernt worden war.
 nachher, oder eine Zahl, die sich verändern muss. Viermal in einer
 Sitzung hat nicht der geprüfte Code versagt, sondern das Prüfwerkzeug —
 ein Suchmuster traf nicht, eine Ersetzung benannte zwei Stellen gleich,
-ein mehrzeiliges Muster brach beim Kompilieren ab. **Dreimal war die
-Ausgabe grün oder still, und „keine rote Zeile" nach einem
-fehlgeschlagenen Eingriff liest sich wie Bestehen.**
+ein mehrzeiliges Muster brach beim Kompilieren ab, eine Variable wurde
+überschrieben. **Dreimal war die Ausgabe grün oder still, und „keine rote
+Zeile" nach einem fehlgeschlagenen Eingriff liest sich wie Bestehen.**
 
 Ein Eingriff ohne Wirkungsnachweis belegt nichts — auch nicht, dass die
 Prüfung greift.
+
+**Ein sauberer Ausgangszustand belegt nur, dass die Prüfungen grün sind
+— nicht, dass sie hinsehen.** Einmal nahm eine Prüfung den
+Verzeichnisnamen als Bezugspunkt; im echten Repo stimmte er, in jeder
+Kopie und jedem Probebaum fiel die Kette stillschweigend ins `else` und
+prüfte nichts. Die Zeile „Ausgang: 0 rot" stand in allen vorherigen
+Läufen da und war für diesen Zweig bedeutungslos.
+
+**Mutationen werden in Serie gefahren, nicht einzeln.** Mehrere
+Nichttreffer sind ein Muster, einer ist Rauschen — und ein einzelner
+Durchrutscher verleitet zur Einzelfallerklärung. Der Fall oben fiel nur
+auf, weil zwei Mutationen nacheinander nicht anschlugen.
+
+**Wonach gesucht wird, wird dort gesucht, wo es wirken soll** — im Rumpf
+der Funktion, nicht in der Datei. Eine Suche über eine ganze Datei belegt
+**Vorkommen, nicht Wirkung**: Einmal blieb eine Prüfung grün, weil
+dieselbe Zeichenkette an einer zweiten Stelle derselben Datei stand,
+während sie an der gemeinten entfernt worden war. Das ist die subtilere
+Verwandte des Treffers im Kommentar — dort war er unecht, hier ist er
+echt und nur am falschen Ort.
+
+**Wo zwei Stufen dieselbe Gefahr abwehren, wird jede einzeln belegt.**
+Für die Dauer der Gegenprobe wird die andere ausgehängt. Sonst prüft man
+die Redundanz statt der Stufen: Eine Mutation kann nur eine Stufe
+entfernen, die zweite fängt, und alles meldet grün — vier Prüfungen
+standen so grün und belegten keine der beiden.
 
 **Die Form des Ergebnisses prüfen, nicht nur das Verschwinden des
 Falschen.** Ein Ausdruck, der aus `?v=DEV` ein `?v=PROBEDEV` macht, hat
@@ -274,6 +300,10 @@ Durchgang die einzige ist.
 * **Glob-Muster für ein Werkzeug gehören in Anführungszeichen.**
   `--include=*.js` expandiert die Shell selbst und bricht ab;
   `--include="*.js"` erreicht `grep`.
+* **Eine unquotierte Variable wird nicht in Wörter zerlegt.**
+  `for f in $dateien` läuft in zsh einmal mit der ganzen Zeichenkette
+  statt je Datei. In bash wäre dasselbe richtig — und genau das macht es
+  gefährlich, weil Beispiele von außen fast immer bash voraussetzen.
 
 In einem Skript mit `#!/bin/bash` gilt beides nicht. Der Unterschied
 zwischen dem, was in einem Skript steht, und dem, was von Hand
