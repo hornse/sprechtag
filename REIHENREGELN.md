@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.13.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.14.0 – dort ändern, hierher kopieren! -->
 # Regeln der Reihe
 
 Gilt für alle Projekte, die diese Datei führen. **Quelle ist
@@ -88,6 +88,17 @@ Das ist mehrfach vorgekommen — zuletzt bei einer Prüfung, deren einziger
 Zweck es war, Verluste beim Aufräumen zu fangen: Sie las nur Backticks
 und keine Code-Blöcke und meldete „OK" für eine Datei, aus der absichtlich
 etwas entfernt worden war.
+
+**Die Beschädigung muss belegt angekommen sein.** Trefferzahl vorher und
+nachher, oder eine Zahl, die sich verändern muss. Viermal in einer
+Sitzung hat nicht der geprüfte Code versagt, sondern das Prüfwerkzeug —
+ein Suchmuster traf nicht, eine Ersetzung benannte zwei Stellen gleich,
+ein mehrzeiliges Muster brach beim Kompilieren ab. **Dreimal war die
+Ausgabe grün oder still, und „keine rote Zeile" nach einem
+fehlgeschlagenen Eingriff liest sich wie Bestehen.**
+
+Ein Eingriff ohne Wirkungsnachweis belegt nichts — auch nicht, dass die
+Prüfung greift.
 
 **Die Form des Ergebnisses prüfen, nicht nur das Verschwinden des
 Falschen.** Ein Ausdruck, der aus `?v=DEV` ein `?v=PROBEDEV` macht, hat
@@ -244,6 +255,13 @@ auf dem Server.
 Anwesenheit der Datei daneben. `ls -1` und `git status --short` vor jedem
 Commit, der Dateien von außen übernimmt.
 
+**Und nach dem Commit wird der Durchgang geleert.** Eine Datei, die im
+Übergabeordner liegenbleibt, lässt Platte und Repo auseinanderlaufen,
+ohne dass etwas warnt — einmal führte das zu der Frage, ob ein Auftrag
+noch offen sei, und im schlechteren Fall zu einer doppelten Ausführung.
+Das `rm` kommt **nach** dem Commit, nie davor, solange die Kopie im
+Durchgang die einzige ist.
+
 **Zwei Fallen der interaktiven zsh**, beide schon eingetreten:
 
 * **`#` ist dort kein Kommentarzeichen.** Ein erklärender Zusatz am
@@ -306,14 +324,24 @@ testen und das Ergebnis notieren.
 
 **Was ein Auftrag aus einem anderen Repo braucht, steht im
 Ausgangsstand.** Verweist er auf eine bestimmte fremde Datei — als
-Vorbild, als Vergleich, als Vorlage —, wird sie beigelegt oder
-ausdrücklich als Voraussetzung genannt. Sonst hängt der Lauf an einer
-Rückfrage, die mitten in der Arbeit kommt.
+Vorbild, als Vergleich, als Vorlage —, wird sie **beigelegt**: als Kopie
+im eigenen Repo, nicht als Zugriff über Verzeichnisgrenzen. Einmal blieb
+ein Lauf genau daran stehen, mitten in der Arbeit. Der Nebengewinn: Im
+Repo steht dann, welche Fassung als Vorbild diente.
 
 **Wer dagegen den Bestand ermittelt, braucht Zugriff auf alle** und kann
 nichts beilegen. Die Trennlinie ist: eine **benannte** Datei wird
 beigelegt, ein **ermittelter** Bestand wird vorausgesetzt und im ersten
 Schritt geprüft.
+
+**Eine Aussage über einen Zustand wird mit Datum weitergegeben oder vor
+der Verwendung geprüft.** Versionsstand, Prüfungszahl, welches Repo was
+führt — das veraltet von selbst. **Eine Entscheidung gilt, bis sie
+aufgehoben wird; ein Zustand nicht.** Einmal wurde ein Befund über eine
+unmarkierte Kopie siebzehn Tage später weitergereicht — das betroffene
+Repo war inzwischen archiviert. Und einmal war eine genannte
+Prüfungszahl schon am Tag ihrer Entstehung überholt, während die
+Zeilenangaben daneben stimmten. Das machte es tückisch.
 
 Das ist dieselbe Einsicht wie bei einem Prüfschritt, dessen Voraussetzung
 von Hand hergestellt werden muss — eine Ebene höher: **Eine
