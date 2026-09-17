@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.15.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.18.0 – dort ändern, hierher kopieren! -->
 # Regeln der Reihe
 
 Gilt für alle Projekte, die diese Datei führen. **Quelle ist
@@ -211,6 +211,22 @@ fehlenden fehlt wenigstens eine Zahl.
 Zwischenzustand legitim ist, schlägt eine Rot/Grün-Prüfung grundlos an —
 und wird dann abgeschaltet oder ignoriert. Dann fehlt sie auch dort, wo
 sie recht hätte.
+
+**Eine Sicherung, die aus einem Vorfall stammt, bekommt beim nächsten
+Umbau der Umgebung eine Bedingung — oder sie wird erneut begründet.** Als
+der Vorfall geschah, deckte sie genau einen Fall ab. Klärt sich die
+Umgebung, deckt dieselbe Regel womöglich zwei, und einer davon ist der
+Normalfall: Einmal hielt eine Prüfung „Zeilen, aber kein Mitglied" für
+einen Auswertungsfehler — bis feststand, dass eine frisch angelegte
+Gruppe genau so aussieht.
+
+**Niemand hat die Regel geändert; die Wirklichkeit ist unter ihr
+weitergegangen.** Sie ist dann nicht falsch, sondern ohne Bedingung.
+
+**Wo ein Bild zwei Ursachen haben kann, trennt keine schärfere Zählung —
+sondern eine zweite, unabhängige Quelle.** Dieselbe Lage, zwei
+Deutungen: Aus einer Quelle allein ist das nicht auflösbar, aus zweien
+oft in einem Blick.
 
 **Wo eine Prüfung nur durch Gegenproben belegt ist, wird das
 dazugesagt.** Eine Gegenprobe zeigt, dass eine Prüfung funktioniert. Sie
@@ -566,6 +582,21 @@ und überschriebe es sonst.
 sachlich unmöglich ist, muss eigens abgefangen werden — sonst ist die
 Prüfkette lückenlos und trotzdem wertlos.
 
+**Und Stimmigkeit ist nicht Bedeutung.** Eine Prüfung, die ein Ergebnis
+gegen seine Eingabe hält, prüft nicht, ob die Eingabe die Wirklichkeit
+trifft. Einmal beruhten drei Fehler auf einem falschen Modell der fremden
+Daten — **kein Wächter hätte angeschlagen**, weil der gebaute Körper zum
+gelesenen Bestand passte. Er meinte nur etwas anderes.
+
+**Mehrere Prüfungen, die dieselbe Eingabe teilen, sind eine Prüfung.**
+Vier Sicherungen ließen einmal einen leeren Bestand durch: Der
+Eingangswächter prüfte den falschen Fall, der Körperwächter hielt null
+gegen null, das Gegenlesen verglich gegen eine ebenfalls leere Erwartung —
+und der Rückweg, der den Schaden hätte rückgängig machen sollen, entstand
+aus demselben leeren Bestand und hätte ihn bestätigt.
+
+**Eine Prüfkette ist nur so gut wie ihr unabhängigster Teil.**
+
 **Ein Vergleich prüft vorher seine Operanden.** Null Überschneidung in
 **beide** Richtungen ist fast immer ein leerer Operand, kein Befund.
 Einmal meldeten drei Proben null, weil eine Antwortdatei 79 Byte
@@ -587,6 +618,17 @@ nicht.** Der erste ist oft der leere.
 
 **Ein verbreiteter Feldname allein ist kein Erkennungsmerkmal.** Es
 braucht einen eindeutigen Pfad oder eine Kombination.
+
+**Und dieselbe Vorsicht gilt für die Menge der Felder.** Dass eine
+Abfrage ein Merkmal führt, heißt nicht, dass die Nachbarabfrage es auch
+führt — zwei Quellen, zwei Feldmengen. Einmal wurde ein Merkmal aus einer
+Listenseite mit einer Stammdatenabfrage zu einer Frage verbunden, die
+sich so gar nicht stellen ließ: Die eine führt es, die andere nicht.
+
+**Ein Auftrag, der ein Merkmal aus einem anderen Projekt heranzieht,
+nennt den Aufruf, aus dem es stammt** — nicht den Protokolleintrag, der
+es erwähnt. Steht der Aufruf da, fällt der Fehler beim Schreiben auf;
+steht nur die Nummer da, erst beim Ausführen.
 
 **Wo die Struktur einer fremden Antwort geraten werden musste, liefert
 der Bericht die Struktur mit** — Schlüsselpfade und Typen, keine Werte.
