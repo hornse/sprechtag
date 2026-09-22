@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.18.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.20.0 – dort ändern, hierher kopieren! -->
 # Fallstricke: PHP, Router, WebUntis
 
 Ergänzung zu `REIHENREGELN.md`. **Quelle ist `hornse/koordination`**; die
@@ -79,6 +79,16 @@ in ein verstecktes `<input>` im DOM; die Variable bleibt Rückfall.
 **Ein PHP-Fehler kommt als HTML zurück.** Im Browser erscheint dann
 `Unexpected token '<'` — eine Meldung, die nichts über die Ursache sagt.
 Wer sie sieht, sucht die Ursache im Server-Log, nicht im JavaScript.
+
+**Ein leeres `catch` ist die PHP-Form von `|| true`.** Einmal verschluckte
+`catch (Throwable $e) { /* idempotent */ }` jeden Migrationsfehler, und
+der Lauf ging weiter, als wäre alles eingespielt. Dasselbe gilt für jedes
+Schlucken: den `@`-Operator, ein `?? []` auf einem Rückgabewert, der auch
+scheitern kann.
+
+**Und der begründende Kommentar daneben macht es schlimmer.**
+*„idempotent"* beantwortete die Frage, statt sie zu stellen. Ein `catch`
+fängt, was es behandeln kann, und reicht den Rest weiter.
 
 ---
 

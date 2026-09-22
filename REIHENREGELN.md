@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.18.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.20.0 – dort ändern, hierher kopieren! -->
 # Regeln der Reihe
 
 Gilt für alle Projekte, die diese Datei führen. **Quelle ist
@@ -65,6 +65,20 @@ Ersatzvorgehen für den Fall, dass es nichts zu sehen gibt.
 im Auftrag liegen oder der Auftrag sonst nicht ausführbar ist —
 andernfalls gehören sie in den Bericht, nicht in denselben Commit.
 
+**Eine örtliche Behebung ist keine Behebung.** Wo ein Fehler eine *Art*
+hat, gehört die Frage dazu, wie viele Stellen dieser Art es gibt — und
+ob sich eine **Engstelle** bauen lässt, an der es nur noch eine gibt.
+Einmal wurde „null Räume gelesen" an einer Stelle behoben; zwei Wochen
+später stand dieselbe Sorte Fehler an der nächsten und beendete einen
+Aufruf mit einem Fatal.
+
+**Und eine Engstelle ist statisch prüfbar, wo ein Datenfluss es nicht
+ist.** „Läuft irgendwo jemand über eine ungeprüfte Antwort" bräuchte eine
+Datenflussanalyse. „In keiner Anwendungsdatei steht ein unmittelbarer
+Aufruf" ist ein `grep` und gibt dieselbe Zusicherung. **Wo eine Regel
+über Werte nicht entscheidbar ist, ist die Regel über Aufrufstellen oft
+gleichwertig und billig.**
+
 **Bei einem roten Testlauf anhalten und melden, nicht reparieren.** Das
 ist die Grenze der vorigen Regel: Ein Fund nebenbei darf mitbehoben
 werden, ein rotes Testergebnis nicht.
@@ -81,6 +95,18 @@ herstellen, die Prüfung muss anschlagen. Sonst weiß niemand, ob sie
 gegen eine nachgebildete. Sobald eine fremde Struktur belegt ist, gehört
 sie als Testfall ins Repo. Ausgedachte Beispiele prüfen nur die eigenen
 Annahmen.
+
+**Das gilt auch für jede Ausprägung einer bekannten Struktur.** Einmal
+war ein Zusammenbau geprüft — mit Daten, die nur Einzelstunden enthielten.
+Doppelstunden erschienen danach mit ihrer ersten Stundennummer. **Eine
+Prüfung ist nur so gut wie die Fälle in ihren Daten.**
+
+**Eine Herkunftsangabe in Testdaten ist eine Behauptung.** Einmal gab
+eine Testdatei „Zeiten aus der Auskunft der Schule" an — eine solche
+Auskunft gab es nicht, und die Zeiten widersprachen dem belegten
+Zeitraster. Wer Testdaten beschriftet, belegt jede Angabe einzeln oder
+nennt sie **erfunden**. Und eine Prüfung hält die Angabe fest, sonst
+driftet sie wie jede andere ungepflegte Angabe.
 
 **Und die Gegenprobe selbst wird geprüft**, indem der geprüfte Code
 absichtlich beschädigt wird. Schlägt sie dann nicht an, prüft sie nichts.
@@ -119,6 +145,18 @@ dieselbe Zeichenkette an einer zweiten Stelle derselben Datei stand,
 während sie an der gemeinten entfernt worden war. Das ist die subtilere
 Verwandte des Treffers im Kommentar — dort war er unecht, hier ist er
 echt und nur am falschen Ort.
+
+**Dasselbe gilt für Stilregeln und für doppelte Darstellungen.** Steht
+eine CSS-Eigenschaft in mehreren Regeln, wird **in der Regel** gesucht,
+nicht in der Datei. Und wo eine Oberfläche dieselbe Sache zweimal
+darstellt, **zählt** die Prüfung die Vorkommen, statt eines zu suchen —
+sonst übersteht das Entfernen aus einer der beiden jede Prüfung.
+
+**Eine Prüfung an einem Intervall braucht einen Fall genau auf der
+Grenze.** Einmal schlug die Mutation „das Ende zählt mit" nicht an — kein
+Testfall berührte die Grenze. Ohne einen solchen Fall ist die Gegenprobe
+zur Grenzbedingung wirkungslos, und das fällt nur auf, wenn man sie
+fährt.
 
 **Wo zwei Stufen dieselbe Gefahr abwehren, wird jede einzeln belegt.**
 Für die Dauer der Gegenprobe wird die andere ausgehängt. Sonst prüft man
@@ -179,6 +217,14 @@ Format erklärt: Beschreibung und Sache müssen trennbar sein. Eine
 Ausnahmedatei, deren Formvorschrift ein Beispiel enthielt, hat dieses
 Beispiel einmal als Eintrag gelesen.
 
+**Und eine Zeichenkette ist so gefährlich wie ein Kommentar.** Die
+Beschriftung einer Prüfung — `pruefe('lz_raumhinweis() wird gerufen', …)` —
+sieht für jeden Suchausdruck wie ein Aufruf aus. **Gerade sorgfältig
+benannte Suiten sind davon betroffen.** Für PHP trennt der Tokenizer
+Kommentar, Zeichenkette und Code; für JavaScript und CSS fehlt ein
+solches Werkzeug, und dort schlugen zwei Prüfungen auf ihre eigenen
+Kommentare an.
+
 **Wo aus einem Vorfall bekannt ist, wie die falsche Fassung aussieht,
 sucht die Prüfung ausdrücklich nach ihr.** Die Anwesenheit der richtigen
 Form allein genügt nicht — sie schließt nicht aus, dass die falsche
@@ -206,6 +252,38 @@ den Bestand.
 **Das ist schwerer zu finden als eine fehlende Prüfung**, weil niemand
 nachsieht, wo eine bestandene Prüfung hingeschaut hat. Bei einer
 fehlenden fehlt wenigstens eine Zahl.
+
+**Eine Darstellung wird am Dargestellten geprüft, nicht am Wert im
+Code.** Zwei Fälle, beide grün und beide falsch: Ein Langname stand als
+`title` im DOM — auf dem Telefon unerreichbar, am Monitor ein bis zwei
+Zeichen breit als Ziel. Und ein `max-width: 90rem` war wirkungslos, weil
+ein umgebendes Element auf 76rem begrenzte. **Eine Messgröße wirkt erst
+am bestimmenden Element.** Wo es um Sichtbares geht, prüft die Prüfung
+den sichtbaren Text — dafür muss dessen Bildung eine ausführbare Funktion
+sein —, und für Größen braucht es einen Blick im Browser.
+
+**Ein Skript, das aus der Suite genommen wird, wird geteilt, nicht
+herausgenommen.** Einmal lief eine Testdatei nicht mit, weil ein Teil
+davon eine Datenbank braucht — und verlor damit auch die Prüfungen, die
+keine brauchen. Es fehlte ein `require`, und niemand hat es gemerkt.
+
+**Ein Weg, den niemand aufruft, ist eine zweite Wahrheit.** Zwei
+Projekte haben es unabhängig voneinander gemeldet: Eine Funktion baute
+dieselbe Liste wie der lebende Weg, wurde nie aufgerufen, und eine dort
+eingebaute Auskunft kam nie an. Im anderen war es eine **Sperre gegen das
+Produktivsystem**, die definiert und nie aufgerufen war. **Ein toter Weg
+ist schlimmer als ein falscher** — ein falscher fällt auf. Wie viele
+Funktionen niemand aufruft, ist billig zu zählen und gehört in den
+Bericht; als Rot/Grün-Prüfung erzeugte es Fehlalarme bei
+Schnittstellen, die bewusst für später gebaut sind.
+
+**Ein Name ist eine Schnittstelle.** In JavaScript gewinnt die letzte
+Deklaration einer Funktion im selben Geltungsbereich — ohne Warnung,
+gültiger Code, `node --check` schweigt. Einmal entstand eine zweite
+Funktion gleichen Namens, und **die Anmeldung war zwölf Stunden lang
+zu**: Ein Feld lieferte ein Element statt eines Werts. **Eine Prüfung
+„kein Funktionsname zweimal im selben Geltungsbereich" ist ein
+Zehnzeiler und trifft jede künftige Funktion.**
 
 **Prüfe das Eindeutige gründlich, das Uneindeutige gar nicht.** Wo ein
 Zwischenzustand legitim ist, schlägt eine Rot/Grün-Prüfung grundlos an —
@@ -290,7 +368,14 @@ echten Lauf über sechs Repos geworden.
 
 **Vor der Verwendung nachsehen, nicht annehmen** — und im Zweifel die
 portable Form wählen. Die Werkzeuge auf dem Arbeitsrechner sind nicht die
-auf dem Server.
+auf dem Server. **`grep -P` gibt es auf macOS nicht** — und ein
+nachgestelltes `|| echo` verschluckte einmal genau diesen Werkzeugfehler:
+Null Treffer sahen aus wie ein sauberer Lauf.
+
+**Eine Mutation wird aus einer Sicherungskopie zurückgenommen, nie aus
+dem Index.** `git checkout <datei>` stellt den letzten Commit her und
+verwirft dabei alles, was in derselben Sitzung korrigiert, aber noch
+nicht committet war. Zweimal aufgetreten.
 
 **Anwesenheit einer Datei wird durch Auflisten geprüft, nicht durch
 `grep`.** `grep` über eine vorhandene Datei prüft ihren Inhalt, nicht die
@@ -304,7 +389,7 @@ noch offen sei, und im schlechteren Fall zu einer doppelten Ausführung.
 Das `rm` kommt **nach** dem Commit, nie davor, solange die Kopie im
 Durchgang die einzige ist.
 
-**Zwei Fallen der interaktiven zsh**, beide schon eingetreten:
+**Vier Fallen der interaktiven zsh**, alle schon eingetreten:
 
 * **`#` ist dort kein Kommentarzeichen.** Ein erklärender Zusatz am
   Zeilenende wird zum Argument. Einmal hat er eine Zählprüfung
@@ -316,6 +401,19 @@ Durchgang die einzige ist.
 * **Glob-Muster für ein Werkzeug gehören in Anführungszeichen.**
   `--include=*.js` expandiert die Shell selbst und bricht ab;
   `--include="*.js"` erreicht `grep`.
+* **Ein `:` nach einem Variablennamen wird als Modifikator gelesen** —
+  auch in doppelten Anführungszeichen. Aus `"$t:FALLSTRICKE.md"` wurde
+  einmal `…/v1.16.0LLSTRICKE.md`; `${t}:FALLSTRICKE.md` ist richtig.
+
+  **Diese Falle ist gefährlicher als die drei anderen**, weil sie nicht
+  abbricht und keinen Unsinn liefert, sondern ein **plausibles Ergebnis**:
+  Die nachfolgende Prüfsumme bekam leere Eingabe und lieferte dreimal
+  denselben Wert — was wie „an allen Ständen identisch" aussah und
+  zufällig die richtige Antwort vorgetäuscht hätte.
+
+  **`da39a3ee5e6b` ist die Prüfsumme der leeren Eingabe.** Wer sie einmal
+  kennt, erkennt sie wieder. Belegen lässt sie sich mit
+  `printf '' | shasum`.
 * **Eine unquotierte Variable wird nicht in Wörter zerlegt.**
   `for f in $dateien` läuft in zsh einmal mit der ganzen Zeichenkette
   statt je Datei. In bash wäre dasselbe richtig — und genau das macht es
@@ -483,6 +581,14 @@ In Markdown steht er als HTML-Kommentar.
 Projekt bewährt hat und allgemein nützlich ist, wandert ins Modul-Repo,
 und die anderen bedienen sich daraus.
 
+**Fehlt eine Modulvariante, bleibt der bisherige Zustand — oder es kommt
+eine örtliche, vorläufige Zeile mit Verweis auf den Befund. Nie ein
+schlechterer Zustand.** Die Vorgabe „nicht selbst bauen" hatte keine
+Bedingung für den Fall, dass das Modul noch nicht liefert: Einmal wurde
+deshalb eine bestehende Begrenzung entfernt und keine neue gesetzt — eine
+Anmeldekarte wurde bildschirmbreit. **Die vorläufige Zeile ist die
+Bedingung, die fehlte**, und sie fällt weg, sobald das Modul liefert.
+
 **Vor dem Vergeben einer Versionsnummer den Bestand ansehen:** Ist sie
 frei, und ist der eigene Ausgangsstand der neueste? Mehrfach hat eine
 Nummer etwas anderes behauptet als der Inhalt.
@@ -572,7 +678,29 @@ mitgeliefert, oder es werden Systemschriften verwendet.
 
 **`[hidden]` hat das letzte Wort.** Jede `display`-Regel im Projekt-CSS
 berücksichtigt das Attribut; das Projekt-CSS wird nach dem Modul geladen
-und überschriebe es sonst.
+und überschriebe es sonst. **Das gilt für die Modulklassen ebenso** — und
+das Modul hat es zweimal selbst verletzt, bei der Navigation und beim
+Knopf. Die Prüfungen der Projekte fingen es nicht, weil sie nur
+projekteigene Klassen darauf prüften.
+
+**Ein Modulmodifikator wirkt nur auf der Modulklasse.** `ci-knopf--leise`
+auf einem projekteigenen Knopf verliert: gleiche Spezifität, und das
+Projekt-CSS wird danach geladen. Der Knopf sah aus wie der kräftige
+daneben. Die Regel gegen erfundene Klassennamen deckt das nicht ab — der
+Name existiert. **Ein Modifikator wird nur zusammen mit seiner
+Grundklasse benutzt**, und das ist prüfbar: Jeder `ci-*--*`-Name
+verlangt den zugehörigen `ci-*`-Namen am selben Element.
+
+**Eine Rückmeldung erscheint dort, wo gehandelt wurde.** Einmal hieß ein
+Befund „Buchen tut nichts" — der Server antwortete richtig, die Meldung
+erschien am Seitenkopf, der angeklickte Termin stand weit darunter.
+**„Es passiert nichts" ist ein Befund über die Oberfläche**, und die
+naheliegende Suche — Endpunkt, Fehlerbehandlung — geht daran vorbei.
+
+**Eingabemasken sind `<form>`-Elemente** mit einem `submit`-Ereignis und
+einem Knopf vom Typ `submit`. Eine Anmeldung aus `<div>` und einem Knopf
+mit `click` kannte die Eingabetaste nicht — und auf einem Telefon ist sie
+der Weg, den die Tastatur anbietet.
 
 ---
 
@@ -684,6 +812,17 @@ beides zugleich tut, tut keines von beiden zuverlässig.
 **Entscheidungen mit Begründung stehen in `docs/ENTSCHEIDUNGEN.md`** und
 werden per `@`-Import eingebunden. Chronologisch, neue Einträge unten
 angefügt; alte werden nicht geändert, sondern durch neue aufgehoben.
+
+**Vergebene Nummern werden nie neu vergeben und nie verschoben** — E, M,
+und jede Nummerierung in einer Befunddatei. Neue kommen ans Ende. Ein
+Zusatzbuchstabe (`B15b`) ist keine Lösung, sondern eine zweite Nummer für
+dieselbe Stelle. **Eine Nummer ist ein Name:** Einmal wurde eine
+Befunddatei am selben Tag umnummeriert, und dieselbe Nummer bedeutete an
+zwei Orten Verschiedenes. Anders als im Code fällt es nicht auf — beide
+Dokumente bleiben lesbar, nur der Verweis stimmt nicht mehr.
+
+**Und ein Verweis auf eine Nummer nennt das Projekt**, aus dem sie
+stammt. Mehrere Projekte führen eigene E-Reihen mit denselben Zahlen.
 
 **Sprache ist Deutsch** — Bezeichner, Kommentare, Ausgaben, Commits.
 
