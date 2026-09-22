@@ -1,4 +1,4 @@
-/* VENDORED aus hornse/ci-css v1.7.0 – dort ändern, hierher kopieren! */
+/* VENDORED aus hornse/ci-css v1.8.0 – dort ändern, hierher kopieren! */
 /* ============================================================
    ci-tokens.css – Design-Tokens der FRG-Projektreihe
    Stufe 1 von 2. Enthält ausschließlich Werte, keine Regeln.
@@ -108,6 +108,27 @@
        breitere Zeile, sondern die zweite Spalte - siehe .ci-raster. */
     --ci-inhalt-breite: 76rem;   /* 1216px */
 
+    /* Fließtextbreite. Das sind die 60rem, die der Absatz darüber
+       nennt und für ein Bedienwerkzeug verwirft - für eine Hilfe-,
+       Impressums- oder Datenschutzseite gilt der Einwand nicht: Sie
+       IST Fließtext. Der Wert ist von dort übernommen und nicht neu
+       hergeleitet; es gibt ihn nur noch nicht als Klasse.
+       Siehe .ci-inhalt-innen--lesen in ci-shell.css. */
+    --ci-lese-breite: 60rem;     /* 960px */
+
+    /* Für eine Seite, die aus genau EINEM Formular besteht: Anmeldung,
+       Passwortwechsel, Bestätigungsdialog. Dort steht sonst eine Karte
+       in voller Inhaltsbreite um ein Formular von --ci-feld-breite -
+       dreimal so breit wie ihr Inhalt.
+
+       Der Wert ist nicht frei gewählt: Eine .ci-karte trägt 1.25rem
+       Polsterung je Seite und 1px Rahmen. 34rem + 2 * 1.25rem = 36.5rem
+       ist das Mindestmaß, damit das Feld seine eigene Grenze überhaupt
+       erreicht; 38rem lassen etwas Luft. Das Gegenargument gegen breite
+       Zeilen - "die Lösung ist die zweite Spalte" - greift hier nicht,
+       weil es bei einer Anmeldung keine zweite Spalte gibt. */
+    --ci-formular-breite: 38rem; /* 608px */
+
     /* Obergrenze für Eingabefelder. Sie gilt AUCH in breiten Ansichten:
        Die Grenze wandert damit vom Container auf das Bedienelement. */
     --ci-feld-breite: 34rem;     /* 544px */
@@ -116,10 +137,29 @@
        Inhalt einer Bildschirmkarte um. */
     --ci-raster-min: 22rem;      /* 352px */
 
+    /* ZWEITE Größe, nicht eine andere: 22rem sind für eine
+       Bildschirmkarte richtig und bleiben unverändert. Auf einem
+       Telefon ergeben sie aber immer eine Spalte, auch dort, wo zwei
+       schmale Kacheln nebeneinander gehören.
+
+       9.5rem ist die größte halbe rem, bei der zwei Spalten auf ein
+       Telefon von 360px passen: .ci-inhalt polstert unter 48rem mit
+       1rem je Seite, bleiben 328px; 2 * 152px + 16px Spalt = 320px.
+       Bei 10rem wären es 336px und damit wieder eine Spalte.
+       Siehe .ci-raster--schmal in ci-komponenten.css. */
+    --ci-raster-min-schmal: 9.5rem; /* 152px */
+
     /* ---- Form ---------------------------------------------- */
     --ci-radius:        8px;    /* Knöpfe, Felder */
     --ci-radius-gross: 10px;    /* Karten */
     --ci-radius-pille: 999px;   /* Marken */
+
+    /* Kleinstes Ziel für einen Finger. Gilt NUR unter
+       @media (pointer: coarse) - siehe .ci-knopf in
+       ci-komponenten.css. Als Token, damit ein Projekt das Maß für
+       eigene Bedienelemente übernehmen kann, statt 44px abzuschreiben:
+       genau das ist in lernzeiten passiert. */
+    --ci-beruehrung-min: 44px;
 
     /* ---- Abstände -----------------------------------------
        Vier Stufen genügen. Mehr Auswahl führt nur dazu, dass in
