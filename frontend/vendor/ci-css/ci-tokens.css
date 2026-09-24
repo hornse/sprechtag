@@ -1,4 +1,4 @@
-/* VENDORED aus hornse/ci-css v1.8.0 – dort ändern, hierher kopieren! */
+/* VENDORED aus hornse/ci-css v1.9.0 – dort ändern, hierher kopieren! */
 /* ============================================================
    ci-tokens.css – Design-Tokens der FRG-Projektreihe
    Stufe 1 von 2. Enthält ausschließlich Werte, keine Regeln.
@@ -9,6 +9,22 @@
    nicht in der vendored Kopie eines Projekts.
 
    Einbindung: siehe EINBINDUNG.md
+
+   NAMEN, DIE NICHT ZU ERRATEN SIND. Ein geratener Tokenname richtet
+   mehr an als ein geratener Klassenname: var() ohne Ersatzwert ist
+   invalid at computed-value time – nicht der Wert fällt aus, sondern
+   die GANZE Deklaration. Ein erfundener Radiusname hat so sieben Tage
+   lang Ecken eckig gemacht, ohne dass etwas gemeldet hat. Deshalb
+   stehen die Radien hier beim Namen, bevor jemand einen erfindet:
+
+     --ci-radius-klein   kleine Kacheln und Inline-Marken, Elemente
+                         von etwa einer Zeilenhöhe
+     --ci-radius         Knöpfe, Felder
+     --ci-radius-gross   Karten
+     --ci-radius-pille   was ganz rund sein soll
+
+   Die Werte stehen unten bei den Tokens, nicht hier – eine zweite
+   Stelle veraltet.
 
    Copyright (C) 2026 Sebastian Horn, Friedrich-Rückert-Gymnasium
    SPDX-License-Identifier: GPL-3.0-or-later
@@ -150,6 +166,15 @@
     --ci-raster-min-schmal: 9.5rem; /* 152px */
 
     /* ---- Form ---------------------------------------------- */
+    /* 4px, nicht 6: --ci-radius (8px) sitzt an Knöpfen von
+       --ci-beruehrung-min (44px) - knapp 0,18 der Höhe. Dasselbe
+       Verhältnis an einem Element von etwa einer Zeilenhöhe
+       (1rem ergibt rund 19px Inhaltshöhe) sind 3,5px. 4px ist die
+       nächste ganze Stufe und zugleich die Hälfte der Basis.
+       6px wäre nur ein Viertel kleiner und an einer 19px hohen
+       Marke von 8px nicht zu unterscheiden - ein Token, dessen
+       Wirkung man nicht sieht, wird wieder geraten. */
+    --ci-radius-klein:  4px;    /* kleine Kacheln, Inline-Marken */
     --ci-radius:        8px;    /* Knöpfe, Felder */
     --ci-radius-gross: 10px;    /* Karten */
     --ci-radius-pille: 999px;   /* Marken */
