@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.20.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.23.0 – dort ändern, hierher kopieren! -->
 # Fallstricke: PHP, Router, WebUntis
 
 Ergänzung zu `REIHENREGELN.md`. **Quelle ist `hornse/koordination`**; die
@@ -89,6 +89,31 @@ scheitern kann.
 **Und der begründende Kommentar daneben macht es schlimmer.**
 *„idempotent"* beantwortete die Frage, statt sie zu stellen. Ein `catch`
 fängt, was es behandeln kann, und reicht den Rest weiter.
+
+**`catch (Throwable …)` fängt auch `Error`** — also den Programmierfehler,
+nicht nur den Betriebsfehler. Deshalb sah einmal eine kaputte Wache wie
+ein Netzproblem aus: Der Aufruf warf einen `Error`, das `catch` fing ihn,
+und die Anwendung meldete „nicht erreichbar", **ohne je eine Verbindung
+versucht zu haben**. Zwei Tage Fehlersuche an der falschen Stelle. **Wo
+nur Betriebsfehler behandelt werden sollen, fängt `catch (Exception …)`
+das Richtige.**
+
+**`method_exists()` meldet auch private Methoden als vorhanden** —
+ebenso `property_exists()`. Eine Wache, die so gebaut ist, lässt den
+Aufruf durch, und dann greift der Absatz oben. **Richtig ist
+`is_callable()`:** Es meldet nur, was von der aufrufenden Stelle aus
+tatsächlich aufrufbar ist.
+
+**Eine Prüfung auf Vorhandensein ist keine auf Benutzbarkeit.** Und der
+Unterschied ist an einer öffentlichen Methode **nicht zu sehen** — beide
+liefern dasselbe. Wer ihn dort erklärt, hält die Regel für Pedanterie;
+gezeigt wird er an einer privaten.
+
+**Wer einen Modulaufruf nachbaut, muss die Nachbildung halten.** Einmal
+baute ein Diagnosewerkzeug einen Tokenabruf selbst nach und ließ einen
+Schlüssel im Cookie weg, den die Modulmethode anhängt. Gemeldet wurde ein
+Status, der zu einem anderen Aufruf gehörte — **eine Auskunft über den
+eigenen Code, verkleidet als Auskunft über das fremde System.**
 
 ---
 

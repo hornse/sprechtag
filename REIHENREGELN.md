@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.20.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.23.0 – dort ändern, hierher kopieren! -->
 # Regeln der Reihe
 
 Gilt für alle Projekte, die diese Datei führen. **Quelle ist
@@ -101,6 +101,20 @@ war ein Zusammenbau geprüft — mit Daten, die nur Einzelstunden enthielten.
 Doppelstunden erschienen danach mit ihrer ersten Stundennummer. **Eine
 Prüfung ist nur so gut wie die Fälle in ihren Daten.**
 
+**Und welche Fälle es gibt, entscheidet der Kenntnisstand, nicht die
+Sorgfalt.** Einmal übernahm eine Anwendung eine Kennung für jede Rolle
+und prüfte nur ihren Bereich — bis belegt war, dass auch ein anderer
+Kontotyp sie trägt. Bis dahin **konnte** kein Testfall ihn führen. Die
+Prüfungen bildeten ab, was man wusste.
+
+**Deshalb bekommt ein neuer Beleg über ein fremdes System eine zweite
+Frage**, nicht nur einen Eintrag in der Befunddatei:
+
+> **Was ändert dieser Beleg an dem, was wir prüfen?**
+
+Sie ist billig: In vier von fünf Fällen lautet die Antwort „nichts" — im
+fünften findet sie einen Fehler, der im Betrieb steht.
+
 **Eine Herkunftsangabe in Testdaten ist eine Behauptung.** Einmal gab
 eine Testdatei „Zeiten aus der Auskunft der Schule" an — eine solche
 Auskunft gab es nicht, und die Zeiten widersprachen dem belegten
@@ -126,6 +140,22 @@ Zeile" nach einem fehlgeschlagenen Eingriff liest sich wie Bestehen.**
 Ein Eingriff ohne Wirkungsnachweis belegt nichts — auch nicht, dass die
 Prüfung greift.
 
+**Und wo eine Gegenprobe zwei Ergebnisse vergleicht, gehört der Nachweis
+dazu, dass sie sich überhaupt unterscheiden.** Einmal lautete sie „ein
+anderes Raster ergibt andere Blöcke" und verglich gegen eines, das
+**zufällig dieselbe Folge** ergab — die Mutation schlug nicht an. Besser
+als eine Ungleichheit ist eine eigene Prüfung mit dem **erwarteten
+Wert**.
+
+**Ein Versuch, der gutgeht, sagt nichts über den Fall, den er nicht
+enthielt.** Einmal beantwortete eine Messsitzung vier Fragen, drei davon
+günstig; die vierte — und gefährlichste — kam nur, weil derselbe Versuch
+**wiederholt** wurde, einmal unter der anderen Voraussetzung.
+
+**Und ein Beleg, dessen Werkzeug fehlt, ist nicht wiederholbar.** Das
+Werkzeug, mit dem Gegenproben gefahren werden, gehört zu den Belegen —
+einmal ließ es sich am nächsten Tag nur deshalb wiederherstellen.
+
 **Ein sauberer Ausgangszustand belegt nur, dass die Prüfungen grün sind
 — nicht, dass sie hinsehen.** Einmal nahm eine Prüfung den
 Verzeichnisnamen als Bezugspunkt; im echten Repo stimmte er, in jeder
@@ -137,6 +167,25 @@ Läufen da und war für diesen Zweig bedeutungslos.
 Nichttreffer sind ein Muster, einer ist Rauschen — und ein einzelner
 Durchrutscher verleitet zur Einzelfallerklärung. Der Fall oben fiel nur
 auf, weil zwei Mutationen nacheinander nicht anschlugen.
+
+**Und die Rücknahme braucht ihren eigenen Nachweis.** Einmal sicherte
+ein Mutationswerkzeug in ein Verzeichnis aus einem früheren Durchgang;
+die Rücknahme scheiterte, drei Mutationen blieben im Code, und alle
+folgenden liefen auf mutiertem Stand. **Der Lauf meldete „1 rot, 2 rot,
+3 rot", und die Zahlen waren wertlos.**
+
+**Eine Rücknahme, die nicht ankommt, ist gefährlicher als eine Mutation,
+die nicht trifft** — die eine verschweigt einen Fehler, die andere
+verdirbt jede folgende Messung. Aufgefallen ist es an einer Meldung des
+Werkzeugs, nicht an einer roten Prüfung, und das war Zufall. Nach jeder
+Rücknahme gehört deshalb der Vergleich gegen den Sollstand: Prüfsumme
+oder leerer `git diff`.
+
+**Eine Prüfumgebung darf nicht mehr kennen als der Betrieb.** Einmal legte
+der DOM-Ersatz der Tests eine Kennung selbst an, die in Wahrheit im HTML
+stehen muss — die Mutation „das Element verliert seine Kennung" machte
+keine Prüfung rot. **Wo die Umgebung großzügiger ist als die
+Wirklichkeit, prüft sie die eigene Großzügigkeit mit.**
 
 **Wonach gesucht wird, wird dort gesucht, wo es wirken soll** — im Rumpf
 der Funktion, nicht in der Datei. Eine Suche über eine ganze Datei belegt
@@ -151,6 +200,21 @@ eine CSS-Eigenschaft in mehreren Regeln, wird **in der Regel** gesucht,
 nicht in der Datei. Und wo eine Oberfläche dieselbe Sache zweimal
 darstellt, **zählt** die Prüfung die Vorkommen, statt eines zu suchen —
 sonst übersteht das Entfernen aus einer der beiden jede Prüfung.
+
+**Eine Quelle ist nicht eine Darstellung.** Eine Prüfung, die belegt,
+dass zwei Ansichten aus **derselben Funktion** kommen, verhindert zwei
+Wahrheiten — und sagt nichts darüber, ob auch nur **eine** erscheint.
+Einmal standen beide zugleich da. **Zwei richtige Anzeigen desselben sind
+trotzdem eine zu viel.**
+
+Neben „eine Quelle" gehört deshalb „genau eine Darstellung". Die erste
+misst den Code, die zweite das Ergebnis — und nur die zweite braucht eine
+ausgeführte Anzeige.
+
+**Und die Entscheidung gehört an eine Stelle.** Dort entschied eine
+Medienabfrage im CSS über das Aussehen, während die Anzeige unabhängig
+davon beides zeichnete. **Zwei Schwellen für dieselbe Frage sind zwei
+Wahrheiten, auch wenn beide dieselbe Zahl tragen.**
 
 **Eine Prüfung an einem Intervall braucht einen Fall genau auf der
 Grenze.** Einmal schlug die Mutation „das Ende zählt mit" nicht an — kein
@@ -262,6 +326,18 @@ am bestimmenden Element.** Wo es um Sichtbares geht, prüft die Prüfung
 den sichtbaren Text — dafür muss dessen Bildung eine ausführbare Funktion
 sein —, und für Größen braucht es einen Blick im Browser.
 
+**Und was sich nicht messen lässt, wird nicht als grüne Prüfung
+geführt.** Einmal waren Kacheln im dritten Durchgang unterschiedlich
+falsch hoch, und die Prüfungen dazu waren jedes Mal grün — sie prüften,
+**dass** eine Regel dasteht, nicht **was** sie bewirkt.
+
+> **Was offline messbar ist, wird gemessen. Was nur im Browser sichtbar
+> ist, gehört als Abnahmepunkt in die Ausrollanleitung — nicht als grüne
+> Prüfung.**
+
+Eine Prüfung, die eine Darstellung nicht messen kann, soll nicht so tun.
+Sonst zählt sie mit und belegt nichts.
+
 **Ein Skript, das aus der Suite genommen wird, wird geteilt, nicht
 herausgenommen.** Einmal lief eine Testdatei nicht mit, weil ein Teil
 davon eine Datenbank braucht — und verlor damit auch die Prüfungen, die
@@ -277,6 +353,20 @@ Funktionen niemand aufruft, ist billig zu zählen und gehört in den
 Bericht; als Rot/Grün-Prüfung erzeugte es Fehlalarme bei
 Schnittstellen, die bewusst für später gebaut sind.
 
+**Eine geprüfte Regel sagt nichts darüber, ob sie gefragt wird.** Einmal
+standen sieben Prüfungen zu einer Entscheidungsfunktion, alle grün — und
+die Aufrufstelle fragte sie zu spät, nach einem Rücksprung. Die Klasse
+des letzten Zeichnens blieb stehen.
+
+**Das ist die Kehrseite eines Vorteils:** Eine reine Funktion ist
+prüfbar, und **genau deshalb** wandert die Aufmerksamkeit dorthin. Der
+Aufruf bleibt in der Schicht zurück, die niemand ausführt.
+
+**Wo eine Entscheidung als reine Funktion herausgezogen wird, prüft
+mindestens eine Prüfung die Aufrufstelle.** Und wo die Entscheidung vor
+einem Rücksprung fallen muss, prüft sie die **Reihenfolge** im
+Quelltext, nicht das Vorkommen — der Aufruf stand da, nur zu spät.
+
 **Ein Name ist eine Schnittstelle.** In JavaScript gewinnt die letzte
 Deklaration einer Funktion im selben Geltungsbereich — ohne Warnung,
 gültiger Code, `node --check` schweigt. Einmal entstand eine zweite
@@ -284,6 +374,15 @@ Funktion gleichen Namens, und **die Anmeldung war zwölf Stunden lang
 zu**: Ein Feld lieferte ein Element statt eines Werts. **Eine Prüfung
 „kein Funktionsname zweimal im selben Geltungsbereich" ist ein
 Zehnzeiler und trifft jede künftige Funktion.**
+
+**Dasselbe in CSS, und dort schweigt alles.** Ein Klassenname mit zwei
+Grundregeln in derselben Datei: Die spätere gewinnt, kein Werkzeug sagt
+etwas, und eine Überschrift war einen Durchgang lang klein und blass,
+ohne dass es jemand entschieden hätte.
+
+**Eine Grundregel je Klassenname — Varianten und Medienabfragen
+ausgenommen**, sonst wäre die Prüfung sofort rot und würde
+abgeschaltet.
 
 **Prüfe das Eindeutige gründlich, das Uneindeutige gar nicht.** Wo ein
 Zwischenzustand legitim ist, schlägt eine Rot/Grün-Prüfung grundlos an —
@@ -389,7 +488,9 @@ noch offen sei, und im schlechteren Fall zu einer doppelten Ausführung.
 Das `rm` kommt **nach** dem Commit, nie davor, solange die Kopie im
 Durchgang die einzige ist.
 
-**Vier Fallen der interaktiven zsh**, alle schon eingetreten:
+**Fünf Fallen der interaktiven zsh**, alle schon eingetreten — und für
+zwei davon gibt es **eine** Vorbeugung: **nach einem Variablennamen immer
+`${…}`.** Der Doppelpunkt und die eckige Klammer sind derselbe Fall.
 
 * **`#` ist dort kein Kommentarzeichen.** Ein erklärender Zusatz am
   Zeilenende wird zum Argument. Einmal hat er eine Zählprüfung
@@ -418,10 +519,29 @@ Durchgang die einzige ist.
   `for f in $dateien` läuft in zsh einmal mit der ganzen Zeichenkette
   statt je Datei. In bash wäre dasselbe richtig — und genau das macht es
   gefährlich, weil Beispiele von außen fast immer bash voraussetzen.
+* **Ein führendes `=` wird als Befehlspfad gelesen.** `echo ======`
+  bricht ab; in Anführungszeichen läuft es. Betrifft jede Trennlinie in
+  einer Ausgabe.
 
 In einem Skript mit `#!/bin/bash` gilt beides nicht. Der Unterschied
 zwischen dem, was in einem Skript steht, und dem, was von Hand
 eingetippt wird, ist hier keine Formalie.
+
+**Ein Block zum Einfügen ist ein Skript ohne Kopfzeile.** Er läuft in der
+Shell, die der Leser hat, und jede Annahme darüber kann fallen. Einmal
+stand in einer Anleitung `TROCKEN=${TROCKEN:-1}     # 1 = nur anzeigen` —
+in der interaktiven zsh ist das `#` kein Kommentar, die Zuweisung gilt
+nur für dessen Umgebung, und **der erste Einfügevorgang kopierte 35
+Dateien**. Unter dem Block stand „trocken ist der Standard".
+
+**Wer eine Anleitung zum Einfügen schreibt, schreibt stattdessen ein
+Skript** — oder verweist auf eines.
+
+**BSD-`grep` hält eine Datei mit Sonderzeichen für binär** und findet
+dann still nichts. Einmal galt daraufhin „kommt in der Shell-Historie
+nicht vor" als Befund; `-a` lieferte 44 Treffer. **Gefangen hat es die
+Gegenprobe mit einem Muster, das treffen musste** — ohne sie wäre der
+Werkzeugfehler zur Auskunft geworden.
 
 **Eine Sollzahl ist eine Vermutung über die Umgebung des Empfängers.**
 Wer für einen anderen einen Auftrag schreibt und eine erwartete Zahl mit
@@ -556,6 +676,11 @@ anderen Vorhaben, die zufällig darunter liegen.
 Vorbericht ist keine Vorher-Nachher-Aussage prüfbar — und darauf beruht
 die Regel über Prüfungszahlen.
 
+**Und der Bericht eines Laufs ist nicht die Ausgabe seines Werkzeugs.**
+Einmal lag nur die Ausgabe des Bestandslaufs im Repo; der Bericht, der
+sie deutete, stand in der Sitzung. Ein späterer Auftrag berief sich auf
+ihn — und nannte damit eine Grundlage, die es nicht gab.
+
 **Ein Eintrag, der eine Auftragsdatei benennt, wird nicht ohne sie
 committet.** Ein angekündigter Auftrag, der fehlt, verleitet dazu, ihn
 aus seiner eigenen Ankündigung abzuleiten. Dann ist der Beleg ein Zirkel
@@ -665,10 +790,36 @@ etwa: Der Hover ist heller als der Akzent. Ein rein kontrastoptimierter
 Wert war einmal dunkler und fiel aus der Reihe, obwohl er jede Prüfung
 bestand.
 
-**Keine erfundenen Modulklassennamen.** Ein geratener Klassenname sieht
-richtig aus und hat einfach keine Regel — so verschwanden einmal alle
-Karten eines Projekts. Wo ein Name nicht belegt ist, wird projekteigen
-gebaut, aus denselben Tokens.
+**Kein erfundener Name aus dem Namensraum des Moduls** — weder ein
+Klassenname noch ein Symbolname noch ein Token. Ein geratener Name sieht
+richtig aus und hat einfach keine Regel. **Und dieselbe Frage stellt sich
+für jeden Namen, den zwei Stellen teilen müssen** — auch für eine
+Kennung im HTML, die das JavaScript erwartet. Vier Auflagen desselben
+Falls:
+
+| | Wirkung |
+|---|---|
+| Klassenname | hat keine Regel — so verschwanden alle Karten eines Projekts |
+| Symbolname | zeigt ein leeres Feld |
+| **Tokenname** | macht die **ganze Deklaration** ungültig |
+| Kennung im DOM | das Element wird nicht gefunden — und ein DOM-Ersatz, der sie selbst anlegt, verdeckt es |
+
+**Der Tokenname ist der stillste.** `var(--name)` ohne Ersatzwert ist
+*invalid at computed-value time*: Nicht der Wert fällt aus, sondern die
+Deklaration. Einmal waren dadurch sieben Tage lang Ecken eckig, die rund
+sein sollten, und keine von über tausend Prüfungen sah hin.
+
+**Wer einen Namensraum des Moduls benutzt, bringt die Prüfung dazu
+mit.** Sie **ermittelt den Bestand** aus den vendorten Dateien, statt ihn
+aufzuzählen — sonst veraltet sie mit der nächsten Modulfassung.
+
+**Und die zweite Gegenprobe ist die wichtigere:** `var(--name, 4px)`
+**mit** Ersatzwert ist zulässig und darf **nicht** anschlagen. Eine
+Prüfung, die jedes `var()` mit unbekanntem Namen meldet, schlüge bei der
+richtigen Form an — und würde abgeschaltet.
+
+Wo ein Name nicht belegt ist, wird projekteigen gebaut, aus denselben
+Tokens.
 
 **Keine Webfonts, keine externen Ressourcen.** Das ist keine Vorliebe:
 Das Landgericht München I hat am 20.01.2022 (3 O 17493/20) entschieden,
