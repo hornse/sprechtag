@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.23.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.25.0 – dort ändern, hierher kopieren! -->
 # Fallstricke: PHP, Router, WebUntis
 
 Ergänzung zu `REIHENREGELN.md`. **Quelle ist `hornse/koordination`**; die
@@ -98,6 +98,20 @@ versucht zu haben**. Zwei Tage Fehlersuche an der falschen Stelle. **Wo
 nur Betriebsfehler behandelt werden sollen, fängt `catch (Exception …)`
 das Richtige.**
 
+**`?? 'x'` liefert den Ersatzwert auch bei `null`.** Eine Prüfung, die so
+schreibt, kann **„fehlt" und „ist null" nicht unterscheiden** — und das
+in dem Werkzeug, dessen Zweck es ist, Unterschiede sichtbar zu machen.
+Wo beide Zustände verschiedene Dinge bedeuten, trennt `array_key_exists`
+sie.
+
+**`$a + $b` behält bei gleichen Schlüsseln den linken Wert.** Eine
+Prüfung, die so zusammenführt, **misst womöglich ihre eigene Eingabe
+statt der Mutation.** Für „rechts gewinnt" gibt es `array_merge` oder den
+Streuoperator.
+
+**Beide gehören zusammen:** Ein Sprachkonstrukt, das stillschweigend
+einen Wert einsetzt, macht aus einer Prüfung eine Bestätigung.
+
 **`method_exists()` meldet auch private Methoden als vorhanden** —
 ebenso `property_exists()`. Eine Wache, die so gebaut ist, lässt den
 Aufruf durch, und dann greift der Absatz oben. **Richtig ist
@@ -133,6 +147,22 @@ Die vier Ersetzungen:
 | `DEFAULT CHARSET=utf8mb4` | entfällt — SQLite speichert immer UTF-8 |
 | `NOW()` | `datetime('now')` |
 | `DATE_SUB(NOW(), INTERVAL 7 DAY)` | `datetime('now','-7 days')` |
+
+**Und sie zählen nach einem `UPDATE` verschieden:** MariaDB meldet die
+**geänderten** Zeilen, SQLite die **gefundenen**. Wer `rowCount()` als
+„gefunden" liest, bekommt gegen SQLite grün und im Betrieb einen Fehler.
+**Die Prüfung sagt dann das Falsche, nicht nichts** — und das ist die
+schlechtere Hälfte.
+
+**Auch die Testdatenbank altert.** Einmal fehlten ihr acht Tage lang drei
+Migrationen; eine Nachstellung lief gegen ein Schema, das es im Betrieb
+nicht mehr gab.
+
+**Das Gefährliche ist nicht die fehlende Tabelle, sondern die fehlende
+Einschränkung:** Hätte ein eindeutiger Schlüssel gefehlt, hätte die
+Messung eine doppelte Buchung zugelassen — **und das als Ergebnis
+ausgegeben.** Eine Prüfumgebung, die großzügiger ist als der Betrieb,
+prüft die eigene Großzügigkeit mit.
 
 **SQL zweimal einspielen**, um Idempotenz zu belegen. Der statisch
 prüfbare Teil davon: `CREATE TABLE` und `ADD COLUMN` immer mit
@@ -173,6 +203,16 @@ häufigste Ursache ist ein POST ohne CSRF-Token oder ein POST, wo die
 Oberfläche GET schickt. Ein 500 heißt „Pfad da, Anfrage unvollständig",
 ein 404 „gibt es nicht". Wenn sich die Rechte nicht geändert haben
 können, liegt es nicht an den Rechten.
+
+**Und bei einem Pfad mit Kennung kann ein 404 „diese Kennung gibt es
+nicht" heißen, nicht „diesen Pfad gibt es nicht".** Wer ihn als
+Pfadbefund liest, streicht einen Weg, den es gibt — und sucht danach
+einen anderen, den es nicht gibt.
+
+**Prüfbar ist es am Körper:** Ein 404 **mit** `validationErrors` ist eine
+Aussage über die **Kennung**, einer **ohne** eine über den **Pfad**.
+Belegt an einem Fall, in dem eine Unterrichtsnummer als Fach-ID
+eingetragen war — die Kennung gab es, nur nicht als Fach.
 
 **Feldnamen aus fremden Formularen gelten nur für den Aufruf, an dem sie
 beobachtet wurden.** Derselbe Name kann in zwei Formularen zwei
@@ -365,3 +405,33 @@ Zahl nicht aufging.
 Zeichenzahl schwankt mit dem Werkzeug, und das Angekommene enthält
 Unsichtbares. Wer daraus importiert, prüft alle drei — und verlässt sich
 auf Strukturzahlen, weil nur die an der Quelle hängen.
+
+---
+
+## 10 — Dateien, die jemand öffnet
+
+**Eine Datei, die jemand öffnet, kann etwas auslösen.** Das gilt für
+jeden Export und jeden Upload, und beide Fälle der Reihe sehen
+verschieden aus.
+
+**CSV ist eine Formelsprache.** Ein Feld, das mit `=`, `+`, `-` oder `@`
+beginnt, wird in Excel und LibreOffice als **Formel** ausgewertet. Wo ein
+Freitext in eine CSV gerät, den jemand anderes geschrieben hat, gehört
+ein Anführungszeichen davor.
+
+**Und zwar vor dem Umschließen**, nicht danach — sonst steht es
+außerhalb der Anführungszeichen und wirkt nicht. Das ist die Stelle, an
+der die Vorsichtsmaßnahme still ausfällt.
+
+**Das BOM gehört dazu, aus einem anderen Grund:** Ohne es zeigt Excel
+Umlaute falsch an. **Kein Sicherheitspunkt, sondern Lesbarkeit** — und
+getrennt zu halten, damit beim nächsten Umbau nicht das eine mit dem
+anderen wegfällt.
+
+**Eine SVG-Datei ist XML und kann Skript tragen.** Wo ein Logo oder eine
+andere SVG hochgeladen wird, prüft die Annahme vier Merkmale —
+`script`, `foreignObject`, `javascript:` und Ereignisattribute —, den
+Inhaltstyp **aus der Datei** statt aus dem Namen, und eine Größengrenze.
+
+**Ein Logo steht auf jeder Seite, auch auf der der Verwaltung.** Wer die
+Prüfung vergisst, hat eine gespeicherte Skriptlücke im Kopf jeder Seite.

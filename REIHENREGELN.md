@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.23.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v1.25.0 – dort ändern, hierher kopieren! -->
 # Regeln der Reihe
 
 Gilt für alle Projekte, die diese Datei führen. **Quelle ist
@@ -64,6 +64,15 @@ Ersatzvorgehen für den Fall, dass es nichts zu sehen gibt.
 **Gefundene Fehler werden immer gemeldet.** Behoben werden sie, wenn sie
 im Auftrag liegen oder der Auftrag sonst nicht ausführbar ist —
 andernfalls gehören sie in den Bericht, nicht in denselben Commit.
+
+**Was geschrieben ist, ist nicht, was angekommen ist.** Einmal wurde ein
+Auftrag formuliert, **nicht abgeschickt** und trotzdem als erteilt
+behandelt. Dasselbe gilt für eine Datei, die bereitliegt und nicht
+kopiert wurde, und für einen Befehlsblock, von dem nur die Hälfte lief.
+
+**Wer einen Auftrag erteilt, nennt im nächsten Schritt etwas, das nur
+nach seiner Ausführung dasteht** — eine Zahl, eine Zeile, einen Commit.
+Das kostet nichts und trennt „gesagt" von „geschehen".
 
 **Eine örtliche Behebung ist keine Behebung.** Wo ein Fehler eine *Art*
 hat, gehört die Frage dazu, wie viele Stellen dieser Art es gibt — und
@@ -228,6 +237,14 @@ die Redundanz statt der Stufen: Eine Mutation kann nur eine Stufe
 entfernen, die zweite fängt, und alles meldet grün — vier Prüfungen
 standen so grün und belegten keine der beiden.
 
+**Und wo sie sich nicht aushängen lassen, prüft die Gegenprobe den
+Wortlaut der Meldung**, nicht nur dass eine kommt. Eine anschlagende
+Mutation sagt sonst nicht, **welche** Stufe angeschlagen hat.
+
+**Voraussetzung dafür ist, dass die Stufen sich unterschiedlich
+melden** — zwei Sicherungen mit demselben Satz sind für die Gegenprobe
+eine.
+
 **Die Form des Ergebnisses prüfen, nicht nur das Verschwinden des
 Falschen.** Ein Ausdruck, der aus `?v=DEV` ein `?v=PROBEDEV` macht, hat
 `?v=DEV` auch beseitigt — und trotzdem alles falsch gemacht.
@@ -317,6 +334,18 @@ den Bestand.
 nachsieht, wo eine bestandene Prüfung hingeschaut hat. Bei einer
 fehlenden fehlt wenigstens eine Zahl.
 
+**Wird der Aufruf einer ganzen Suite gelöscht, wird nichts rot** — nur
+die Prüfungszahl sinkt. Das trifft jede Anwendung, die ihre Suiten als
+Liste von Aufrufen führt, **und es trifft genau die Zahl, auf die sich
+diese Reihe stützt.**
+
+**Zwei Abhilfen, beide mit benanntem Schwachpunkt:** Eine Mindestzahl je
+Suite müsste selbst gepflegt werden; die Suiten aus dem Verzeichnis zu
+ermitteln fängt eine vergessene Zeile, aber keine gelöschte Datei.
+
+**Solange keine gebaut ist, gilt: Eine gesunkene Prüfungszahl wird
+erklärt, nicht hingenommen.** Sie ist das einzige Signal.
+
 **Eine Darstellung wird am Dargestellten geprüft, nicht am Wert im
 Code.** Zwei Fälle, beide grün und beide falsch: Ein Langname stand als
 `title` im DOM — auf dem Telefon unerreichbar, am Monitor ein bis zwei
@@ -366,6 +395,28 @@ Aufruf bleibt in der Schicht zurück, die niemand ausführt.
 mindestens eine Prüfung die Aufrufstelle.** Und wo die Entscheidung vor
 einem Rücksprung fallen muss, prüft sie die **Reihenfolge** im
 Quelltext, nicht das Vorkommen — der Aufruf stand da, nur zu spät.
+
+**Aber eine Prüfung auf Reihenfolge ist keine auf Wirkung.** Drei
+Stufen, und nur die dritte misst die Sache:
+
+| Stufe | Was gemessen wird |
+|---|---|
+| „das Wort steht da" | Quelltext |
+| „die Zeile steht an der richtigen Stelle" | **immer noch Quelltext** |
+| „ohne Zeitraum wird nichts abgefragt" | die Eigenschaft |
+
+Einmal stand die Wache an der richtigen Stelle, und ein `if (false)`
+davor kam durch — **ein leeres Datum hätte jede Zeile der Datenbank
+getroffen.**
+
+**Die mittlere Stufe ist die gefährlichere der beiden schwachen.** Die
+erste fällt beim Lesen auf; die zweite nicht, weil sie wie eine
+Strukturprüfung aussieht — und Strukturprüfungen gelten hier als das
+stärkere Mittel.
+
+**Wo sich die Eigenschaft ausführen lässt, wird sie ausgeführt.** Die
+Reihenfolge ist der Rückfall für den Fall, dass das nicht geht, und
+gehört dann als solcher gekennzeichnet.
 
 **Ein Name ist eine Schnittstelle.** In JavaScript gewinnt die letzte
 Deklaration einer Funktion im selben Geltungsbereich — ohne Warnung,
@@ -543,6 +594,16 @@ nicht vor" als Befund; `-a` lieferte 44 Treffer. **Gefangen hat es die
 Gegenprobe mit einem Muster, das treffen musste** — ohne sie wäre der
 Werkzeugfehler zur Auskunft geworden.
 
+**Ein Suchbefehl über mehrere Repos beginnt mit dem Nachweis, dass er
+sie sieht.** Einmal lief eine Schleife über neun Projektnamen im falschen
+Arbeitsverzeichnis: `grep` fand die Verzeichnisse nicht, `2>/dev/null`
+verschluckte den Grund, **und neun Nullen sahen aus wie „kommt nirgends
+vor".**
+
+`pwd` und `ls -d` auf zwei der Namen kosten nichts und machen aus den
+Nullen eine Messung. **Und `2>/dev/null` gehört dort nicht hin** — es
+fängt genau den Fehler ab, der die Auskunft entwertet.
+
 **Eine Sollzahl ist eine Vermutung über die Umgebung des Empfängers.**
 Wer für einen anderen einen Auftrag schreibt und eine erwartete Zahl mit
 einem Werkzeug ermittelt, hat sich auf dieses Werkzeug festgelegt —
@@ -601,7 +662,13 @@ Schritt geprüft.
 **Eine Aussage über einen Zustand wird mit Datum weitergegeben oder vor
 der Verwendung geprüft.** Versionsstand, Prüfungszahl, welches Repo was
 führt — das veraltet von selbst. **Eine Entscheidung gilt, bis sie
-aufgehoben wird; ein Zustand nicht.** Einmal wurde ein Befund über eine
+aufgehoben wird; ein Zustand nicht.**
+
+**Und ein Datum aus einem Auftrag ist keine Messung.** Mehrfach wurde
+eines eingetragen, das aus einer Anweisung stammte und nie geprüft war.
+**Ein relatives Wort ist dieselbe Falle** — „gestern" wird ausgerechnet,
+und wer es ausrechnet, braucht einen Bezugspunkt, den er ebenfalls nicht
+gemessen hat. Einmal wurde ein Befund über eine
 unmarkierte Kopie siebzehn Tage später weitergereicht — das betroffene
 Repo war inzwischen archiviert. Und einmal war eine genannte
 Prüfungszahl schon am Tag ihrer Entstehung überholt, während die
@@ -723,9 +790,32 @@ in einer Commit-Meldung, einem Changelog oder einem Kopfvermerk ist eine
 Behauptung; ein Tag ist der Beleg. Fünfmal hintereinander ist das Taggen
 unterblieben, ohne dass es jemandem auffiel.
 
+**Und ein Tag zeigt auf den Commit, der seinen Changelog-Eintrag
+trägt.** Einmal stand er **eine Änderung zu früh**: Wer die Nummer
+auscheckte, bekam den Stand der vorigen Fassung. Aufgefallen ist es nur,
+weil ein Lauf je Zwischenschritt maß, statt den Tags zu glauben — zwei
+Fassungen mit gleicher Prüfsumme wurden nicht übergangen, sondern
+nachgesehen.
+
+**Das ist mechanisch prüfbar:** Für jeden Tag `vX.Y.Z` führt der
+getaggte Commit die Überschrift `[X.Y.Z]` im Changelog. **Ein Tag, der
+etwas anderes trägt, als er benennt, ist dieselbe Falle wie eine
+ungepflegte Angabe** — nur schwerer zu sehen, weil er nach Beleg
+aussieht.
+
 **Eine Angabe, die nicht gepflegt wird, ist schlechter als keine.** Sie
 sieht aus wie eine Auskunft und ist eine Falle. Wo sich ein Zustand
 ableiten lässt, wird er nicht aufgeschrieben.
+
+**Und bevor eine Eigenschaft ins Modul wandert, ist zu prüfen, ob sie
+gesetzt werden muss.** Einmal war eine Zeile für das Modul vorgeschlagen,
+verhandelt und fast gebaut — sie beschrieb die **Voreinstellung**, die
+ohnehin gilt. **Sie hätte nichts getan, außer den Eindruck zu erwecken,
+hier sei etwas entschieden worden.**
+
+Beim nächsten Umbau steht sie da, und niemand weiß, ob sie eine Absicht
+trägt oder ein Rest ist. **Gefunden hat es ein Blick auf eine echte
+Seite**, nicht ein Argument.
 
 **Eine nicht versionierte Konfigurationsdatei driftet unbemerkt in zwei
 Richtungen** — gegenüber ihrer Vorlage im Repo und gegenüber der Fassung
@@ -960,9 +1050,27 @@ beides zugleich tut, tut keines von beiden zuverlässig.
 
 ## 10 — Form der Projektdateien
 
-**Entscheidungen mit Begründung stehen in `docs/ENTSCHEIDUNGEN.md`** und
-werden per `@`-Import eingebunden. Chronologisch, neue Einträge unten
-angefügt; alte werden nicht geändert, sondern durch neue aufgehoben.
+**Entscheidungen mit Begründung stehen in `docs/ENTSCHEIDUNGEN.md`.**
+Chronologisch, neue Einträge unten angefügt; alte werden nicht geändert,
+sondern durch neue aufgehoben.
+
+**Was wächst, wird nicht bei jedem Start geladen.** Einmal waren die
+`@`-Importe einer `CLAUDE.md` auf 1,1 MB angewachsen, bei einer Grenze
+von 150k — **also wurde seit Wochen nicht geladen, was dort stand.**
+
+**Die Unterscheidung, die es löst:**
+
+| | wächst | wird geladen |
+|---|---|---|
+| **Protokoll** | nur, nie gekürzt | bei Bedarf, genannt statt importiert |
+| **Gedächtnis** | gepflegt, darf schrumpfen | bei jedem Start |
+
+**Geladen wird, was gepflegt wird.** Ein Protokoll wird im Kopf genannt,
+nicht importiert — wer es braucht, liest es.
+
+**Und eine Prüfung zählt die Importe und wird über der Grenze rot.** Ohne
+sie fällt nur auf, dass etwas nicht ankommt — und das sieht aus wie
+Vergesslichkeit, nicht wie ein Fehler.
 
 **Vergebene Nummern werden nie neu vergeben und nie verschoben** — E, M,
 und jede Nummerierung in einer Befunddatei. Neue kommen ans Ende. Ein
