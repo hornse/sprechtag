@@ -86,6 +86,75 @@ function erinnerung_empfaenger_ermitteln(array $cfg, PDO $pdo): array
     }
 }
 
+/**
+ * Deutet die Antwort von POST /v2/messages/users für EINEN Block.
+ *
+ * Gemessen am 07.10.2026 (Produktivsystem, Liste „testen", 2 Empfänger):
+ *   POST .../v2/messages/users
+ *   -> {"numberOfRecipients": 2, "numberOfCCRecipients": null}
+ * Die Antwort trägt also dieselbe Erfolgsangabe wie /v2/messages.
+ *
+ * WICHTIG: Ein Status 2xx allein ist KEIN Beleg, dass etwas hinausging –
+ * erst numberOfRecipients sagt, wie viele erreicht wurden. Fehler- und
+ * Teilerfolgsfälle sind NICHT gemessen; alles Ungemessene gilt deshalb als
+ * 'unklar' und NICHT als Erfolg (ein falscher Erfolg bliebe unbemerkt, ein
+ * falsches „unklar" kostet nur einen Blick in WebUntis unter „Gesendet").
+ *
+ * Rückgabe: ['stand' => 'gesendet'|'fehler'|'unklar',
+ *            'erreicht' => int, 'grund' => string]
+ */
+function erinnerung_antwort_deuten(array $r, int $erwartet): array
+{
+    $status = (int)($r['status'] ?? 0);
+    $zahl   = $r['json']['numberOfRecipients'] ?? null;
+
+    // Verbindung kam nicht zustande -> sicher nichts hinausgegangen.
+    if ($status === 0) {
+        // postMultipart() legt den curl-Text bei Status 0 in 'text' ab,
+        // mit dem Präfix 'cURL: '.
+        $text = (string)($r['text'] ?? '');
+        if (strpos($text, 'cURL: Failed to connect to') === 0
+            || strpos($text, 'cURL: Could not resolve host') === 0) {
+            return ['stand' => 'fehler', 'erreicht' => 0,
+                    'grund' => 'Keine Verbindung zu WebUntis – nichts gesendet.'];
+        }
+        // Zeitüberschreitung u. Ä.: die Nachricht KANN angekommen sein.
+        return ['stand' => 'unklar', 'erreicht' => 0,
+                'grund' => 'Keine Antwort von WebUntis erhalten. Ob die '
+                    . 'Mitteilung hinausging, ist unklar – bitte in WebUntis '
+                    . 'unter „Gesendet" nachsehen, bevor erneut gesendet wird.'];
+    }
+    if ($status === 401 || $status === 403) {
+        return ['stand' => 'fehler', 'erreicht' => 0,
+                'grund' => 'WebUntis hat den Zugang abgelehnt (HTTP ' . $status
+                    . ') – Dienstkonto prüfen.'];
+    }
+    if ($status < 200 || $status >= 300) {
+        return ['stand' => 'fehler', 'erreicht' => 0,
+                'grund' => 'WebUntis antwortete mit HTTP ' . $status . '.'];
+    }
+
+    // 2xx: jetzt entscheidet die Empfängerzahl.
+    if (!is_int($zahl) && !(is_string($zahl) && ctype_digit($zahl))) {
+        return ['stand' => 'unklar', 'erreicht' => 0,
+                'grund' => 'WebUntis hat angenommen, nennt aber keine '
+                    . 'Empfängerzahl – bitte in WebUntis unter „Gesendet" '
+                    . 'nachsehen.'];
+    }
+    $zahl = (int)$zahl;
+    if ($zahl === 0) {
+        return ['stand' => 'fehler', 'erreicht' => 0,
+                'grund' => 'WebUntis meldet 0 Empfänger – es ging nichts hinaus.'];
+    }
+    if ($zahl === $erwartet) {
+        return ['stand' => 'gesendet', 'erreicht' => $zahl, 'grund' => ''];
+    }
+    // Weniger (oder mehr) als erwartet: angekommen, aber nicht wie geplant.
+    return ['stand' => 'unklar', 'erreicht' => $zahl,
+            'grund' => 'WebUntis meldet ' . $zahl . ' statt ' . $erwartet
+                . ' Empfänger – bitte in WebUntis nachsehen.'];
+}
+
 /** Extrahiert eindeutige, gültige user.id-Werte aus der WebUntis-Antwort. */
 function erinnerung_ids_aus_users(array $users): array
 {
@@ -110,13 +179,13 @@ function erinnerung_versenden(array $cfg, PDO $pdo, int $blockGroesse = 500): ar
     $typ = marke_wert($pdo, 'erinnerung_liste_typ', 'DYNAMIC');
     $listeId = (int)marke_wert($pdo, 'erinnerung_liste_id', '0');
     if ($listeId <= 0) {
-        return ['gesendet' => 0, 'empfaenger' => 0, 'bloecke' => 0,
+        return ['gesendet' => 0, 'empfaenger' => 0, 'bloecke' => 0, 'unklar' => false,
                 'vollstaendig' => false,
                 'grund' => 'Keine Empfängerliste konfiguriert.'];
     }
     $zugang = dk_lesen($cfg, $pdo);
     if ($zugang === null) {
-        return ['gesendet' => 0, 'empfaenger' => 0, 'bloecke' => 0,
+        return ['gesendet' => 0, 'empfaenger' => 0, 'bloecke' => 0, 'unklar' => false,
                 'vollstaendig' => false, 'grund' => 'Kein Dienstkonto hinterlegt.'];
     }
 
@@ -143,7 +212,7 @@ function erinnerung_versenden(array $cfg, PDO $pdo, int $blockGroesse = 500): ar
         $rest->mitSessionCookie((string)$wu->sessionCookie());
         $rest->setzeTimeout(30);
         if (!$rest->tokenHolen()) {
-            return ['gesendet' => 0, 'empfaenger' => 0, 'bloecke' => 0,
+            return ['gesendet' => 0, 'empfaenger' => 0, 'bloecke' => 0, 'unklar' => false,
                     'vollstaendig' => false,
                     'grund' => 'Kein REST-Zugang (JWT) über das Dienstkonto.'];
         }
@@ -153,14 +222,14 @@ function erinnerung_versenden(array $cfg, PDO $pdo, int $blockGroesse = 500): ar
         $res = $rest->listeAufloesen($typ, $listeId);
         $ids = erinnerung_ids_aus_users($res['users']);
         if ($ids === []) {
-            return ['gesendet' => 0, 'empfaenger' => 0, 'bloecke' => 0,
+            return ['gesendet' => 0, 'empfaenger' => 0, 'bloecke' => 0, 'unklar' => false,
                     'vollstaendig' => (bool)$res['vollstaendig'],
                     'grund' => 'Keine Empfänger ermittelt.'];
         }
 
         // 2) Blockweise senden
         $bloecke = array_chunk($ids, max(1, $blockGroesse));
-        $gesendet = 0; $blockNr = 0; $fehler = '';
+        $gesendet = 0; $blockNr = 0; $fehler = ''; $unklar = false;
         foreach ($bloecke as $block) {
             $blockNr++;
             $payload = [
@@ -173,25 +242,35 @@ function erinnerung_versenden(array $cfg, PDO $pdo, int $blockGroesse = 500): ar
             ];
             $r = $rest->postMultipart(
                 '/WebUntis/api/rest/view/v2/messages/users', $payload);
-            if ($r['status'] >= 200 && $r['status'] < 300) {
-                $gesendet += count($block);
-            } else {
-                $fehler = 'Block ' . $blockNr . ' fehlgeschlagen (HTTP '
-                    . $r['status'] . ').';
-                break;   // bei Fehler abbrechen – lieber melden als blind weiter
-            }
+            $d = erinnerung_antwort_deuten($r, count($block));
+            $gesendet += $d['erreicht'];
+
+            if ($d['stand'] === 'gesendet') continue;
+
+            // Weder sicherer Erfolg noch Weitermachen: In beiden Fällen
+            // abbrechen und den Stand ehrlich melden. Bei 'unklar' ist
+            // besonders wichtig, dass NICHT einfach weitergesendet wird –
+            // es gibt keinen Schutz gegen doppelte Mitteilungen.
+            $unklar = ($d['stand'] === 'unklar');
+            $fehler = 'Block ' . $blockNr . ' von ' . count($bloecke) . ': '
+                . $d['grund'];
+            break;
         }
 
-        $vollstaendig = ($gesendet === count($ids)) && (bool)$res['vollstaendig'];
-        $grund = $fehler !== '' ? $fehler
+        // Vollständig heißt: alle Empfänger bestätigt UND die Liste war
+        // vollständig aufgelöst.
+        $vollstaendig = ($gesendet === count($ids))
+            && !$unklar && $fehler === '' && (bool)$res['vollstaendig'];
+        $grund = $fehler !== ''
+            ? $fehler
             : ($res['vollstaendig'] ? '' : 'Hinweis: Empfängerliste evtl. '
                 . 'nicht vollständig aufgelöst – bitte Anzahl prüfen.');
         return ['gesendet' => $gesendet, 'empfaenger' => count($ids),
                 'bloecke' => $blockNr, 'vollstaendig' => $vollstaendig,
-                'grund' => $grund];
+                'unklar' => $unklar, 'grund' => $grund];
     } catch (Throwable $e) {
         error_log('sprechtag: Erinnerungsversand fehlgeschlagen: ' . $e->getMessage());
-        return ['gesendet' => 0, 'empfaenger' => 0, 'bloecke' => 0,
+        return ['gesendet' => 0, 'empfaenger' => 0, 'bloecke' => 0, 'unklar' => false,
                 'vollstaendig' => false,
                 'grund' => 'Versand fehlgeschlagen: ' . $e->getMessage()];
     } finally {

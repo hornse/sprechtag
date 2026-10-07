@@ -1,5 +1,38 @@
 # Changelog – sprechtag
 
+## v0.9.47 (Oktober 2026) – Erinnerungen: Erfolg wird belegt, nicht angenommen
+
+### Behoben
+- **Der Versand meldete Erfolg, sobald WebUntis mit 2xx antwortete** – auch
+  dann, wenn gar niemand erreicht wurde. Bei einem Massenversand wäre so eine
+  Falschmeldung („an 1102 Empfänger gesendet") unbemerkt geblieben.
+  Ausgewertet wird jetzt `numberOfRecipients` aus der Antwort und mit der
+  Blockgröße verglichen.
+
+### Grundlage (gemessen)
+- 07.10.2026, Produktivsystem, Liste „testen" mit 2 Personen:
+  `POST /v2/messages/users` → `{"numberOfRecipients": 2,
+  "numberOfCCRecipients": null}`. Der Endpunkt trägt dieselbe Erfolgsangabe
+  wie `/v2/messages`. Die `recipientPersons` der Gesendet-Liste bestätigen
+  zudem, dass wir mit `user.id` adressieren (nicht `personId`).
+
+### Drei Stände statt zwei
+- **gesendet** – 2xx und bestätigte Empfängerzahl.
+- **unklar** – angenommen, aber ohne oder mit abweichender Zahl, oder
+  Zeitüberschreitung. Gilt bewusst **nicht** als Erfolg; der Versand bricht
+  ab und weist darauf hin, vor einem erneuten Versuch in WebUntis unter
+  „Gesendet" nachzusehen (es gibt keinen Schutz gegen doppelte Mitteilungen).
+- **fehler** – 0 Empfänger, abgelehnter Zugang, Fehlerstatus oder eine
+  Verbindung, die nachweislich nicht zustande kam.
+
+### Tests
+- `tests/run_erinnerung_antwort.php` (11 Fälle, Schwerpunkt: 2xx allein ist
+  kein Erfolg).
+
+### Dank
+- Die Vorgehensweise bei der Deutung unsicherer Antworten ist aus dem
+  Schwesterprojekt `lernzeiten` übernommen (Auskunft vom 06./07.10.2026).
+
 ## v0.9.46 (Juli 2026) – Erinnerungen: Bedienung klarer
 
 ### Verbessert

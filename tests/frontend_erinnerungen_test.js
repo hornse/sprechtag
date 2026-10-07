@@ -56,5 +56,14 @@ pruefe('Versand mit Bestaetigung', js.includes("api('/api/erinnerungen/senden'")
   && js.includes('kann nicht rückgängig'));
 pruefe('Datenschutz-/Warnhinweis vor Versand', js.includes('Vor dem Senden'));
 
+pruefe('Antwort wird ausgewertet, nicht nur der Status',
+  eri.includes('function erinnerung_antwort_deuten')
+  && eri.includes('numberOfRecipients'));
+pruefe('2xx allein gilt nicht als Erfolg',
+  eri.includes("'stand' => 'unklar'"));
+pruefe('Frontend unterscheidet unklar vom Erfolg',
+  js.includes('r.unklar') && js.includes('Gesendet'));
+pruefe('Versandergebnis fuehrt unklar-Feld', eri.includes("'unklar' => false"));
+
 console.log(fehler === 0 ? '\nALLE TESTS GRUEN' : '\n' + fehler + ' FEHLER');
 process.exit(fehler === 0 ? 0 : 1);

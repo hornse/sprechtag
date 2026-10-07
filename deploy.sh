@@ -17,11 +17,7 @@ sed -i '' -E "s/\?v=[A-Za-z0-9]+/?v=${STEMPEL}/g" frontend/index.html 2>/dev/nul
   || sed -i -E "s/\?v=[A-Za-z0-9]+/?v=${STEMPEL}/g" frontend/index.html
 
 git add -A
-if ! git diff --cached --quiet; then
-  git commit -m "${NACHRICHT}"
-else
-  echo "  (nichts zu committen)"
-fi
+git commit -m "${NACHRICHT}"
 git push github main
 git push uberspace main
 

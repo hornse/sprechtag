@@ -123,54 +123,6 @@ function el(tag, klasse, text) {
   return e;
 }
 /**
- * Erzeugt ein Symbol aus dem Sprite von ci-css.
- *
- * Ersetzt die früheren Emoji: Die sahen je nach Betriebssystem
- * unterschiedlich aus, ließen sich nicht einfärben und waren in der
- * eingeklappten Leiste unterschiedlich groß.
- *
- * aria-hidden, weil der Knopf daneben bereits title und aria-label
- * trägt – sonst würde jeder Punkt doppelt vorgelesen.
- */
-function symbol(name) {
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('class', 'nv-icon');
-  svg.setAttribute('aria-hidden', 'true');
-  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-  use.setAttribute('href', '#ci-i-' + name);
-  svg.appendChild(use);
-  return svg;
-}
-
-/**
- * Holt den Symbolsatz einmalig und hängt ihn an den Anfang der Seite.
- *
- * Warum nicht direkt <use href="datei.svg#id">? Das funktioniert über
- * HTTPS zwar, erzeugt aber je Symbol einen eigenen Abruf. Einmal
- * einbetten und lokal referenzieren ist sparsamer.
- *
- * Schlägt der Abruf fehl, läuft alles Übrige weiter – eine Navigation
- * ohne Symbole ist immer noch bedienbar, denn jeder Punkt trägt seinen
- * Text.
- */
-function symboleEinbetten() {
-  const pfad = $('.shell')?.dataset.ciIcons;
-  if (!pfad || document.getElementById('ci-icons-sprite')) return;
-
-  fetch(pfad, { cache: 'force-cache' })
-    .then((a) => { if (!a.ok) throw new Error('HTTP ' + a.status); return a.text(); })
-    .then((text) => {
-      const behaelter = document.createElement('div');
-      behaelter.id = 'ci-icons-sprite';
-      behaelter.setAttribute('aria-hidden', 'true');
-      behaelter.style.display = 'none';
-      behaelter.innerHTML = text;
-      document.body.insertBefore(behaelter, document.body.firstChild);
-    })
-    .catch((f) => console.warn('[sprechtag] Symbole nicht ladbar:', f.message));
-}
-
-/**
  * Erzeugt einen <details>-Block, dessen Auf-/Zugeklappt-Zustand ein
  * Neuzeichnen der Ansicht übersteht (meldung() ruft zeichne() auf).
  */
@@ -260,13 +212,6 @@ function zeitstempel(iso) {
 
 // ---------- Start ---------------------------------------------------------
 async function start() {
-  // Symbole holen, bevor gezeichnet wird. Ohne await: Ein langsamer
-  // Abruf soll die Anmeldung nicht aufhalten – die Symbole erscheinen
-  // dann eben eine Zehntelsekunde später.
-  symboleEinbetten();
-  tastaturBedienung();
-  versionAnzeigen();
-
   // Marke zuerst laden und anwenden (öffentlich, auch vor dem Login) –
   // so erscheint die Seite gleich im richtigen Gewand.
   try {
@@ -504,16 +449,12 @@ function anzeigeZeit(l) {
   return 'bis ' + bis + ' Uhr';
 }
 
-// Wendet die Marke auf Kopf, Titel und Fußzeile an.
-//
-// Die Akzentfarbe kommt seit v0.9.47 NICHT mehr von hier, sondern aus
-// ci-css über <html data-projekt="sprechtag">. Grund: Die Farbe
-// kennzeichnet die ANWENDUNG, damit man bei mehreren offenen Tabs
-// sieht, wo man ist. Trüge man über das Branding in allen Projekten
-// dieselbe Hausfarbe ein, sähen sie wieder gleich aus. Das Branding
-// steuert weiterhin Logo, Schulname und Titel.
+// Wendet die Marke auf Kopf, Titel, Fußzeile und Akzentfarben an.
 function wendeMarkeAn(m) {
   if (!m) return;
+  const root = document.documentElement;
+  if (m.marke_farbe)  root.style.setProperty('--akzent', m.marke_farbe);
+  if (m.marke_farbe2) root.style.setProperty('--akzent2', m.marke_farbe2);
 
   const titel = $('#marke-titel');
   if (titel && m.marke_titel) titel.textContent = m.marke_titel;
@@ -688,7 +629,7 @@ function zeichneNavigation() {
   if (!S.user) { nav.classList.add('versteckt'); return; }
   nav.classList.remove('versteckt');
 
-  // Einen Navigationsknopf erzeugen. Das Symbol wird in der eingeklappten
+  // Einen Navigationsknopf erzeugen. Das Icon (Emoji) wird in der eingeklappten
   // schmalen Leiste angezeigt, der Text per Tooltip erreichbar.
   const navKnopf = (ziel, text, kindEbene, icon) => {
     const b = el('button', 'nv' + (kindEbene ? ' nv-child' : '')
@@ -697,7 +638,9 @@ function zeichneNavigation() {
     b.title = text;
     b.setAttribute('aria-label', text);
     if (S.ansicht === ziel) b.setAttribute('aria-current', 'page');
-    b.appendChild(symbol(icon || 'datei'));
+    const ic = el('span', 'nv-icon', icon || '•');
+    ic.setAttribute('aria-hidden', 'true');
+    b.appendChild(ic);
     b.appendChild(el('span', 'nv-text', text));
     b.addEventListener('click', () => wechsleAnsicht(ziel));
     return b;
@@ -705,13 +648,13 @@ function zeichneNavigation() {
 
   // Rollenabhängige Hauptpunkte.
   if (S.user.rolle === 'eltern' || S.user.rolle === 'schueler') {
-    nav.appendChild(navKnopf('buchen', 'Termin buchen', false, 'kalender'));
-    nav.appendChild(navKnopf('meine', 'Meine Termine', false, 'uebersicht'));
+    nav.appendChild(navKnopf('buchen', 'Termin buchen', false, '📅'));
+    nav.appendChild(navKnopf('meine', 'Meine Termine', false, '📋'));
   }
   if (S.user.rolle === 'lehrkraft' || S.user.rolle === 'admin') {
-    nav.appendChild(navKnopf('lehrkraft', 'Meine Termine', false, 'uebersicht'));
-    nav.appendChild(navKnopf('einladungen', 'Einladungen', false, 'umschlag'));
-    nav.appendChild(navKnopf('mitteilungen', 'Mitteilungen', false, 'nachricht'));
+    nav.appendChild(navKnopf('lehrkraft', 'Meine Termine', false, '📋'));
+    nav.appendChild(navKnopf('einladungen', 'Einladungen', false, '✉️'));
+    nav.appendChild(navKnopf('mitteilungen', 'Mitteilungen', false, '💬'));
   }
 
   // Administration als aufklappbare Gruppe.
@@ -729,10 +672,12 @@ function zeichneNavigation() {
     toggle.title = 'Administration';
     toggle.setAttribute('aria-label', 'Administration');
     toggle.setAttribute('aria-expanded', S.adminOffen ? 'true' : 'false');
-    toggle.appendChild(symbol('einstellungen'));
+    const tIcon = el('span', 'nv-icon', '⚙️');
+    tIcon.setAttribute('aria-hidden', 'true');
+    toggle.appendChild(tIcon);
     toggle.appendChild(el('span', 'nv-text', 'Administration'));
-    const chev = symbol('runter');
-    chev.classList.add('nv-chev');
+    const chev = el('span', 'nv-chev', '▾');
+    chev.setAttribute('aria-hidden', 'true');
     toggle.appendChild(chev);
     toggle.addEventListener('click', () => {
       S.adminOffen = !S.adminOffen;
@@ -742,29 +687,31 @@ function zeichneNavigation() {
 
     const sub = el('div', 'nv-sub');
     if (!S.adminOffen) sub.classList.add('versteckt');
-    sub.appendChild(navKnopf('admin-aktiv', 'Aktiver Sprechtag', true, 'stern'));
-    sub.appendChild(navKnopf('admin-marke', 'Erscheinungsbild', true, 'inhalte'));
-    sub.appendChild(navKnopf('admin-anzeige', 'Anzeige', true, 'bildschirm'));
-    sub.appendChild(navKnopf('admin-sprechtage', 'Sprechtage', true, 'kalender'));
-    sub.appendChild(navKnopf('admin-daten', 'Dienstkonto & Schülerliste', true, 'personen'));
-    sub.appendChild(navKnopf('admin-loginlog', 'Login-Protokoll', true, 'datei'));
-    sub.appendChild(navKnopf('admin-texte', 'Texte', true, 'stift'));
-    sub.appendChild(navKnopf('admin-erinnerungen', 'Erinnerungen', true, 'glocke'));
+    sub.appendChild(navKnopf('admin-aktiv', 'Aktiver Sprechtag', true, '⭐'));
+    sub.appendChild(navKnopf('admin-marke', 'Erscheinungsbild', true, '🎨'));
+    sub.appendChild(navKnopf('admin-anzeige', 'Anzeige', true, '🖥️'));
+    sub.appendChild(navKnopf('admin-sprechtage', 'Sprechtage', true, '🗓️'));
+    sub.appendChild(navKnopf('admin-daten', 'Dienstkonto & Schülerliste', true, '👥'));
+    sub.appendChild(navKnopf('admin-loginlog', 'Login-Protokoll', true, '🔒'));
+    sub.appendChild(navKnopf('admin-texte', 'Texte', true, '📝'));
+    sub.appendChild(navKnopf('admin-erinnerungen', 'Erinnerungen', true, '🔔'));
     gruppe.appendChild(sub);
     nav.appendChild(gruppe);
 
-    nav.appendChild(navKnopf('sondierung', 'Sondierung', false, 'suche'));
+    nav.appendChild(navKnopf('sondierung', 'Sondierung', false, '🔍'));
   }
 
   // Hilfe für alle Rollen.
-  nav.appendChild(navKnopf('hilfe', 'Hilfe', false, 'hilfe'));
+  nav.appendChild(navKnopf('hilfe', 'Hilfe', false, '❓'));
 
   // Abmelden unten.
   const ab = el('button', 'nv nv-abmelden');
   ab.type = 'button';
   ab.title = 'Abmelden';
   ab.setAttribute('aria-label', 'Abmelden');
-  ab.appendChild(symbol('abmelden'));
+  const abIcon = el('span', 'nv-icon', '🚪');
+  abIcon.setAttribute('aria-hidden', 'true');
+  ab.appendChild(abIcon);
   ab.appendChild(el('span', 'nv-text', 'Abmelden'));
   ab.addEventListener('click', () => abmelden());
   nav.appendChild(ab);
@@ -781,51 +728,9 @@ function menueOeffnen() {
   $('#mobil-menue')?.setAttribute('aria-expanded', 'true');
 }
 function menueSchliessen() {
-  const warOffen = $('#seitenleiste')?.classList.contains('offen');
   $('#seitenleiste')?.classList.remove('offen');
   $('#menue-overlay')?.classList.remove('sichtbar');
   $('#mobil-menue')?.setAttribute('aria-expanded', 'false');
-  // Fokus zurück auf den Knopf, der das Menü geöffnet hat. Ohne das
-  // landet der Tastaturfokus nach dem Schließen im Nichts, und der
-  // nächste Tabulatorsprung beginnt wieder ganz oben.
-  if (warOffen) $('#mobil-menue')?.focus();
-}
-
-/**
- * Tastaturbedienung, die vorher fehlte.
- *
- * Escape schließt das mobile Menü. Ohne diese Behandlung war das Menü
- * nur mit der Maus zu schließen – auf einem Tablet mit Tastatur eine
- * Sackgasse.
- */
-function tastaturBedienung() {
-  document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
-    if ($('#seitenleiste')?.classList.contains('offen')) {
-      menueSchliessen();
-    }
-  });
-}
-
-/**
- * Trägt die Version aus /api/health nach.
- *
- * Das Ziel ist ein EIGENES Element neben der Fußzeile. Beides in
- * denselben Text zu schreiben hieße, dass Branding und Versionsanzeige
- * um dieselbe Stelle konkurrieren – und wer gewinnt, hinge daran, was
- * zuerst geladen wird.
- *
- * Fest im HTML musste die Version bei jedem Release von Hand gepflegt
- * werden; das wird irgendwann vergessen und zeigt dann dauerhaft eine
- * falsche Zahl.
- */
-function versionAnzeigen() {
-  const ziel = $('#marke-version');
-  if (!ziel) return;
-  fetch('/api/health', { cache: 'no-store' })
-    .then((a) => a.json())
-    .then((d) => { if (d && d.version) ziel.textContent = ' · v' + d.version; })
-    .catch(() => { /* Die Version ist kein Grund für eine Fehlermeldung. */ });
 }
 
 // ---------- Sprechtag-Auswahl (in mehreren Ansichten genutzt) -------------
@@ -3556,9 +3461,24 @@ function ansichtAdminErinnerungen(ziel) {
         try {
           const r = await api('/api/erinnerungen/senden', { method: 'POST' });
           S.erinnerungVorschau = null;
-          if (r.gesendet > 0) {
-            meldung('Erinnerung an ' + r.gesendet + ' Empfänger gesendet'
-              + (r.grund ? ' – ' + r.grund : '.'), 'ok');
+          // Drei Stände: bestätigt gesendet, unklar, Fehlschlag.
+          // „Unklar" ist bewusst KEIN Erfolg: WebUntis hat die Mitteilung
+          // womöglich angenommen, aber nicht bestätigt. Erneut zu senden
+          // kann Doppelte erzeugen – deshalb der Hinweis aufs Nachsehen.
+          if (r.unklar) {
+            meldung('Unklarer Versandstand: ' + (r.gesendet > 0
+              ? r.gesendet + ' Empfänger wurden bestätigt, danach brach es ab. '
+              : '') + (r.grund || '')
+              + ' Bitte in WebUntis unter „Gesendet" nachsehen, bevor Sie '
+              + 'erneut senden – es gibt keinen Schutz gegen doppelte '
+              + 'Mitteilungen.', 'fehler');
+          } else if (r.gesendet > 0 && r.vollstaendig) {
+            meldung('Erinnerung an ' + r.gesendet
+              + ' Empfänger gesendet und von WebUntis bestätigt.', 'ok');
+          } else if (r.gesendet > 0) {
+            meldung('Teilweise gesendet: ' + r.gesendet + ' von '
+              + r.empfaenger + ' Empfängern bestätigt. '
+              + (r.grund || ''), 'fehler');
           } else {
             meldung('Versand nicht erfolgreich: ' + (r.grund || 'unbekannt'), 'fehler');
           }
