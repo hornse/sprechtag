@@ -57,6 +57,35 @@ TREFFER=$(printf '%s' "$REST" | grep -oE 'rgba?\([^)]*\)' | sort -u || true)
 [ -z "$TREFFER" ] && gruen "keine rgb/rgba-Angaben" \
     || rot "rgba: $(echo "$TREFFER" | tr '\n' ' ')"
 
+# Dasselbe im JavaScript (v0.9.52, E7): Die Prüfung oben las nur die
+# Stilvorlage, während im JS zwei Hexwerte als Voreinstellung der
+# Farbfelder standen. Die Dateien werden ermittelt, nicht aufgezählt;
+# keine gefunden ist ein Fehler. Entfernt werden Blockkommentare und
+# ganze Kommentarzeilen – nicht „//“ mitten in einer Zeile, sonst fiele
+# 'http://…' in einer Zeichenkette mit weg.
+#
+# BEKANNTE GRENZE (bewusst so, v0.9.52): Ein Farbwert in einem Kommentar
+# HINTER Code in derselben Zeile – `x(); // #1d4e89` – wird rot, obwohl
+# er nur Kommentar ist. Lieber falsch-rot als ein stilles Loch. Abhilfe
+# im Einzelfall: den Kommentar auf eine eigene Zeile setzen.
+JSDATEIEN=$(find frontend -path frontend/vendor -prune -o -type f -name '*.js' -print | sort)
+JSANZAHL=$(printf '%s\n' "$JSDATEIEN" | grep -c . || true)
+JSREST=""
+for D in $JSDATEIEN; do
+    JSREST="$JSREST$(perl -0777 -pe 's{/\*.*?\*/}{}gs; s{^\s*//[^\n]*}{}mg' "$D")"
+done
+if [ "$JSANZAHL" -eq 0 ]; then
+    rot "keine JS-Datei im Frontend gefunden – Rohfarben im JS nicht geprüft"
+    rot "keine JS-Datei im Frontend gefunden – rgb/hsl im JS nicht geprüft"
+else
+    TREFFER=$(printf '%s' "$JSREST" | grep -oE '#[0-9a-fA-F]{3,8}\b' | sort -u || true)
+    [ -z "$TREFFER" ] && gruen "keine Hexfarben im JavaScript ($JSANZAHL Datei(en))" \
+        || rot "Hexfarben im JavaScript: $(echo "$TREFFER" | tr '\n' ' ')"
+    TREFFER=$(printf '%s' "$JSREST" | grep -oE '(rgba?|hsla?)\([^)]*\)' | sort -u || true)
+    [ -z "$TREFFER" ] && gruen "keine rgb/hsl-Angaben im JavaScript" \
+        || rot "rgb/hsl im JavaScript: $(echo "$TREFFER" | tr '\n' ' ')"
+fi
+
 echo ""
 echo "Tokens vollständig"
 UNBEKANNT=""

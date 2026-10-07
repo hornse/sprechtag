@@ -28,7 +28,7 @@ Bedienung: `docs/BEDIENUNG.md` · Mitteilungen: `docs/MITTEILUNGEN.md`
 
 **Für die Administration**
 - Sprechtage anlegen, Phasen steuern, Räume verteilen, archivieren
-- Branding (Schulname, Logo, Farben) über die Oberfläche
+- Branding (Schulname, Logo, Texte) über die Oberfläche
 - Editierbare Texte in Markdown (Hilfe, Buchungs- und Login-Hinweis),
   serverseitig gegen XSS gesäubert, mit Platzhaltern (`{{kontakt}}`,
   `{{schulname}}`, `{{titel}}`)

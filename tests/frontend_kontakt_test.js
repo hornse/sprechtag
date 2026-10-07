@@ -45,7 +45,7 @@ pruefe('Aufrufer übergibt marke_schulname',
 const html = fs.readFileSync(path.join(__dirname, '..', 'frontend', 'index.html'), 'utf8');
 const kopfIds = ['marke-titel', 'marke-untertitel', 'marke-fusszeile', 'marke-logo'];
 const formFelder = ['f-marke-schulname', 'f-marke-titel', 'f-marke-untertitel',
-  'f-marke-fusszeile', 'f-marke-kontakt', 'f-marke-farbe', 'f-marke-farbe2'];
+  'f-marke-fusszeile', 'f-marke-kontakt'];  // Farbfelder entfernt (v0.9.52, E7)
 pruefe('Kopf-Elemente behalten ihre IDs', kopfIds.every((id) => html.includes('id="' + id + '"')));
 pruefe('Formularfelder nutzen eigenes f-Präfix (keine ID-Kollision)',
   formFelder.every((id) => js.includes("'" + id + "'")));

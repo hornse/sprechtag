@@ -203,3 +203,89 @@ ins Leere greift, kann jedes Projekt mit asynchronem Einstieg treffen.
 `start()` selbst abwarten und auswerten (oder `unhandledRejection`
 abfangen und als eigenen Fehler melden). Wenigstens ein angemeldeter
 Weg gehört dazu. Ihr Name sagt danach, was sie prüft.
+
+---
+
+## E6 — Das Logo im Kopf ist dekorativ
+
+**Eingetragen:** 07.10.2026 · **wirksam seit:** v0.9.52
+
+**Entschieden:** Das Logo im Seitenkopf trägt `alt=""` und bekommt zur
+Laufzeit keinen Alt-Text. Die Zeile `logo.alt = 'Logo ' + schulname` in
+`wendeMarkeAn()` ist entfernt.
+
+**Warum:** Der Schulname steht direkt neben dem Logo als Text. Mit
+Alt-Text liest ein Screenreader ihn zweimal. Der CI-Umbau vom August
+hatte das richtig entschieden und im HTML begründet; die JS-Zeile aus
+v0.9.40 überschrieb es zur Laufzeit, weil sie übersehen hatte, dass der
+Titel daneben steht. Im Browser galt deshalb von August bis v0.9.51 das
+Gegenteil dessen, was das HTML zusagte.
+
+**Wie das zwei Monate stehen konnte:** Zwei Prüfungen, beide grün —
+`tests-sprechtag.sh` las das HTML („dekorativ“), die
+Barrierefreiheits-Suite las das JavaScript („beschreibender Alt-Text“).
+Prüfungen, die verschiedene Schichten messen, können sich nicht
+widersprechen; der Widerspruch entsteht erst dort, wo beide Schichten
+zusammenkommen.
+
+**Daraus folgt:** Die Barrierefreiheits-Suite prüft jetzt beides an
+einer Stelle: `alt=""` im HTML **und** dass `wendeMarkeAn()` keinen
+Alt-Text vergibt. Ein leerer oder umbenannter Funktionsrumpf zählt dabei
+nicht als bestanden. Das Vorschaubild im Admin-Formular behält seinen
+Alt-Text — dort steht kein Name daneben.
+
+---
+
+## E7 — Keine Farbfelder im Erscheinungsbild
+
+**Eingetragen:** 07.10.2026 · **wirksam seit:** v0.9.52 (Migration
+`sql/20_farbfelder_entfernen.sql` von Hand einzuspielen)
+
+**Entschieden:** Akzent- und Sekundärfarbe sind aus dem Admin-Formular,
+aus der Annahme im Backend, aus dem Seed `10_branding.sql` und — per
+Migration — aus der Datenbank entfernt. Sie werden **nicht** wieder
+wirksam gemacht. Das Formular sagt in einem Satz, warum es sie nicht
+gibt.
+
+**Warum:** Der CI-Umbau vom 10.08.2026 hat entschieden, dass die
+Akzentfarbe die **Anwendung** kennzeichnet, nicht die Schule — damit
+man bei mehreren offenen Tabs sieht, wo man ist. Seitdem setzte das
+Branding keine Farbe mehr. Die Felder blieben stehen, ließen sich
+ausfüllen und speichern und bewirkten nichts. **Ein Formularfeld, das
+nichts tut, ist schlimmer als keines: Es verspricht etwas.** Die Farben
+wieder wirksam zu machen hieße, eine bewusst getroffene Entscheidung
+rückgängig zu machen.
+
+**Warum es zwei Monate niemandem auffiel:** Die August-Entscheidung
+stand **nur in einem Code-Kommentar** über `wendeMarkeAn()` — nicht in
+der Commit-Meldung („ci-css, h1, Escape, Fokus, Symbole“), nicht im
+Changelog, nicht in einem Entscheidungsprotokoll. Wer das Formular
+pflegte, las diesen Kommentar nicht; wer den Kommentar schrieb, sah das
+Formular nicht. Ihre Folge — fünf Stellen, die weiter Farben versprachen
+(Formularfelder, Abschnittstitel, Hilfetext, README und
+`docs/signage-wiederverwenden.md`) — stand nirgends. **Eine
+Entscheidung, die nur am Ort ihrer Umsetzung steht, erreicht die Orte
+ihrer Folgen nicht.** Dafür gibt es diese Datei.
+
+**Die Datenbank gehört dazu:** `marke_lesen()` liefert jede
+`marke_%`-Zeile über das öffentliche `GET /api/einstellungen` aus.
+Stehengelassene Werte gingen weiter an jeden Aufrufer, als bedeuteten
+sie etwas — dieselbe zweite Wahrheit wie das Formularfeld, eine Schicht
+tiefer. Und die Migration allein genügte nicht: `10_branding.sql` legte
+die Werte per `INSERT IGNORE` an und hätte sie bei jedem erneuten
+Einspielen oder einer Neueinrichtung zurückgebracht. Beides ist
+entfernt.
+
+**Rückweg:** Vor dem Einspielen werden die gespeicherten Werte einmal
+gelesen und im Bericht festgehalten (die Abfrage steht im Kopf der
+Migration). Eine hinterlegte Schulfarbe ist dann nicht spurlos weg.
+
+**Daraus folgt:**
+- Die Rohfarben-Prüfung in `tests-sprechtag.sh` liest jetzt auch das
+  JavaScript. Sie las bisher nur `style.css`, während die
+  Voreinstellungen der Farbfelder als Hexwerte im JS standen. Bekannte,
+  bewusste Grenze: ein Farbwert in einem Kommentar hinter Code in
+  derselben Zeile wird rot.
+- Die Marke-Suite prüft, dass weder Formular noch Hilfe noch Backend
+  noch Seed die Farben zurückbringen, und dass die Migration beide
+  Schlüssel entfernt.

@@ -32,7 +32,7 @@ const S = {
   mitteilungen: null,
   mittLaedt: false,                  // Auto-Load-Guard Mitteilungen
   dienstkonto: null,   // Status des hinterlegten Dienstkontos
-  marke: null,         // Branding: Schulname, Titel, Farben, Logo
+  marke: null,         // Branding: Schulname, Titel, Logo (keine Farben, E7)
   adminOffen: false,   // Admin-Gruppe in der Seitenleiste aufgeklappt?
   lehrerSort: null,    // Sortierung der Lehrer-Tabelle {feld, richtung}
   anzeigeEinst: null,  // Signage-Einstellungen (Sortierung)
@@ -525,8 +525,9 @@ function wendeMarkeAn(m) {
 
   const logo = $('#marke-logo');
   if (logo) {
-    // Beschreibender Alt-Text (Schulname) statt generisch „Logo".
-    logo.alt = 'Logo ' + (m.marke_schulname || 'der Schule');
+    // Kein Alt-Text: Das Logo bleibt dekorativ (alt="" im HTML), denn der
+    // Schulname steht direkt daneben als Text – sonst läse ein Screenreader
+    // ihn zweimal (docs/ENTSCHEIDUNGEN.md, E6).
     if (m.hat_logo) {
       // Stabile URL mit Versionskennung: nur bei echtem Logo-Wechsel neu laden.
       logo.src = '/api/einstellungen/logo?v=' + (m.logo_version || '0');
@@ -971,7 +972,7 @@ function ansichtHilfe(ziel) {
     'Unter „Aktiver Sprechtag" wird der laufende Sprechtag direkt verwaltet.',
     'Lehrkräfte, Anwesenheit und Räume werden in der Tabelle des Sprechtags '
       + 'gepflegt; „Alle speichern" schreibt alle Zeilen auf einmal.',
-    'Das Erscheinungsbild (Logo, Farben, Texte) lässt sich unter '
+    'Das Erscheinungsbild (Logo, Texte) lässt sich unter '
       + '„Erscheinungsbild" anpassen.',
   ]));
   ziel.appendChild(schnell);
@@ -2146,7 +2147,7 @@ async function ladeEinladungen() {
 // ---- Branding / Individualisierung --------------------------------------
 function zeichneMarkeBlock(ziel) {
   const m = S.marke || {};
-  const b = sektion('Erscheinungsbild (Logo, Farben, Texte)');
+  const b = sektion('Erscheinungsbild (Logo, Texte)');
   b.appendChild(el('p', 'hinweis',
     'Passen Sie den Auftritt an Ihre Schule an. Änderungen gelten sofort '
     + 'für alle. Das Logo wird als Datei gespeichert (PNG, JPG oder SVG, '
@@ -2163,10 +2164,13 @@ function zeichneMarkeBlock(ziel) {
     'Erscheint in Hinweisen für Eltern (z. B. bei Anmeldeproblemen). Leer '
     + 'lassen zeigt einen neutralen Text ohne Adresse.'));
 
-  const farben = el('div', 'zeile');
-  farben.appendChild(feld('Akzentfarbe', 'f-marke-farbe', 'color', m.marke_farbe || '#1d4e89'));
-  farben.appendChild(feld('Sekundärfarbe', 'f-marke-farbe2', 'color', m.marke_farbe2 || '#1e7d3e'));
-  b.appendChild(farben);
+  // Keine Farbfelder mehr (docs/ENTSCHEIDUNGEN.md, E7): Sie bewirkten seit
+  // dem CI-Umbau nichts. Der Satz erklärt der Verwaltung, warum es sie
+  // nicht gibt.
+  b.appendChild(el('p', 'hinweis-klein',
+    'Eine Farbe lässt sich hier nicht einstellen: Die Akzentfarbe kennzeichnet '
+    + 'die Anwendung, nicht die Schule – so sieht man bei mehreren offenen '
+    + 'Tabs, in welcher man ist.'));
 
   // ---- Logo: Vorschau + Upload + Entfernen ----
   const logoZeile = el('div', 'marke-logo-zeile');
@@ -2205,8 +2209,6 @@ async function markeSpeichern() {
     marke_untertitel: wert('f-marke-untertitel'),
     marke_fusszeile:  wert('f-marke-fusszeile'),
     marke_kontakt:    wert('f-marke-kontakt'),
-    marke_farbe:      wert('f-marke-farbe'),
-    marke_farbe2:     wert('f-marke-farbe2'),
   };
   try {
     await api('/api/einstellungen', { method: 'POST', body: gesendet });

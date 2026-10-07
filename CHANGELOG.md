@@ -1,5 +1,38 @@
 # Changelog - sprechtag
 
+## v0.9.52 (Oktober 2026) – Logo dekorativ, Farbfelder entfernt – benötigt Migration `sql/20_farbfelder_entfernen.sql`
+
+### Geändert
+- **Das Logo im Kopf bleibt dekorativ** (E6). `wendeMarkeAn()` überschrieb
+  das `alt=""` aus dem HTML zur Laufzeit mit „Logo <Schulname>“; der Name
+  steht aber direkt daneben und wurde doppelt vorgelesen. Zeile entfernt.
+- **Die Farbfelder im Erscheinungsbild sind entfernt** (E7). Sie bewirkten
+  seit dem CI-Umbau im August nichts. Das Formular sagt jetzt, warum es
+  keine gibt: Die Akzentfarbe kennzeichnet die Anwendung. Entfernt auch
+  aus Backend-Annahme, Seed (`10_branding.sql`) und Datenbank.
+- Abschnittstitel, Hilfetext, README und `docs/signage-wiederverwenden.md`
+  versprachen noch Farben – berichtigt.
+
+### Migration
+- `sql/20_farbfelder_entfernen.sql` entfernt die gespeicherten Farbwerte.
+  **Vorher** die Werte einmal lesen und festhalten (Abfrage im Kopf der
+  Datei). Idempotent, zweimal gegen eine Wegwerf-Datenbank belegt.
+
+### Tests
+- `tests-sprechtag.sh`: Rohfarben werden jetzt auch im JavaScript gesucht
+  (Dateien ermittelt, keine gefunden = rot). Bekannte Grenze im Kopf der
+  Prüfung vermerkt. 27 → 29 Prüfungen.
+- `frontend_barrierefreiheit_test.js`: „Logo dekorativ“ statt
+  „beschreibender Alt-Text“, an HTML und JS zugleich. 14 → 15.
+- `frontend_marke_test.js`: Formular, Hilfe, Backend, Seed und Migration
+  ohne Farbfelder. 17 → 19.
+- `frontend_kontakt_test.js`: Feldliste ohne Farbfelder (15, unverändert).
+- Rumpfsuche als gemeinsame Hilfe `tests/rumpf.js` statt zweier Kopien.
+- `tests/mutationen.sh`: 12 → 27 Mutationen, alle angeschlagen, dazu eine
+  Gegenprobe, die grün bleiben muss (Farbwert in einer Kommentarzeile).
+- Stand: `tests-sprechtag.sh` 29/29, 44 Suiten grün, 697 ✓-Zeilen
+  (vorher 692).
+
 ## v0.9.51 (Oktober 2026) – Stiller Rückschritt behoben, deploy.sh abgesichert
 
 ### Behoben

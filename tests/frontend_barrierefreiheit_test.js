@@ -27,33 +27,8 @@ const css  = fs.readFileSync(path.join(__dirname, '..', 'frontend', 'style.css')
 const html = fs.readFileSync(path.join(__dirname, '..', 'frontend', 'index.html'), 'utf8')
   .replace(/<!--[\s\S]*?-->/g, '');
 
-// Rumpf einer Funktion ohne Kommentare. `kopf` muss genau einmal
-// vorkommen; sonst kommt '' zurück und die Prüfung wird rot, statt auf
-// einem leeren oder falschen Rumpf zu bestehen. Zeichenketten werden
-// übersprungen, damit Klammern oder „//" darin nicht mitzählen.
-function rumpf(kopf) {
-  const anzahl = js.split(kopf).length - 1;
-  if (anzahl !== 1) {
-    console.log('    (Voraussetzung: „' + kopf + '" kommt ' + anzahl + '-mal vor, erwartet 1)');
-    return '';
-  }
-  const start = js.indexOf('{', js.indexOf(kopf) + kopf.length);
-  let tiefe = 0, aus = '', k = start;
-  while (k < js.length) {
-    const c = js[k], n = js[k + 1];
-    if (c === '/' && n === '/') { k = js.indexOf('\n', k); if (k < 0) break; continue; }
-    if (c === '/' && n === '*') { const e = js.indexOf('*/', k + 2); if (e < 0) break; k = e + 2; continue; }
-    if (c === "'" || c === '"' || c === '`') {
-      let e = k + 1;
-      while (e < js.length && js[e] !== c) { if (js[e] === '\\') e++; e++; }
-      aus += js.slice(k, e + 1); k = e + 1; continue;
-    }
-    if (c === '{') tiefe++;
-    if (c === '}') { tiefe--; if (tiefe === 0) return aus.slice(1); }
-    aus += c; k++;
-  }
-  return '';
-}
+// Rumpf einer Funktion ohne Kommentare – gemeinsame Hilfe, siehe rumpf.js.
+const rumpf = (kopf) => require('./rumpf.js').rumpf(js, kopf);
 
 // Inhalt einer CSS-Regel mit genau diesem Selektor (Kommentare entfernt).
 function regel(selektor) {
@@ -98,12 +73,18 @@ pruefe('meldung() als role=alert',
   rumpf('function zeichne(').includes("setAttribute('role', 'alert')"));
 
 // ---- Kleinere Verbesserungen ----
-// OFFEN (v0.9.51): Diese Aussage widerspricht tests-sprechtag.sh („Logo ist
-// als dekorativ ausgezeichnet", alt="" im HTML). Im Browser gilt das JS.
-// Hier nur örtlich enger gefasst, nicht entschieden; die Entscheidung
-// steht aus und bekommt einen eigenen Eintrag in docs/ENTSCHEIDUNGEN.md.
-pruefe('Logo mit beschreibendem Alt-Text',
-  rumpf('function wendeMarkeAn(').includes("logo.alt = 'Logo '"));
+// Entschieden in v0.9.52 (docs/ENTSCHEIDUNGEN.md, E6): Das Logo im Kopf
+// ist dekorativ – der Schulname steht direkt daneben als Text, sonst läse
+// ein Screenreader ihn zweimal. Geprüft wird beides: das alt="" im HTML
+// und dass wendeMarkeAn() es nicht zur Laufzeit überschreibt (so war es
+// von v0.9.40 bis v0.9.51). Ein leerer Rumpf zählt nicht als bestanden.
+pruefe('Logo im Kopf ist im HTML dekorativ (alt="")',
+  tag('id="marke-logo"').includes('alt=""'));
+const markeRumpf = rumpf('function wendeMarkeAn(');
+pruefe('wendeMarkeAn() vergibt dem Logo keinen Alt-Text',
+  markeRumpf !== ''
+  && !/\.alt\s*=\s*(?!''|"")/.test(markeRumpf)
+  && !/setAttribute\(\s*['"`]alt['"`]/.test(markeRumpf));
 pruefe('Hamburger aria-expanded gepflegt',
   rumpf('function menueOeffnen(').includes("setAttribute('aria-expanded', 'true')")
   && rumpf('function menueSchliessen(').includes("setAttribute('aria-expanded', 'false')"));

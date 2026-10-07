@@ -1,0 +1,21 @@
+-- ============================================================
+-- 20_farbfelder_entfernen.sql – gespeicherte Farbwerte entfernen (v0.9.52)
+--
+-- Die Farbfelder im Erscheinungsbild bewirkten seit dem CI-Umbau
+-- (August 2026) nichts: Die Akzentfarbe kennzeichnet die Anwendung und
+-- kommt aus ci-tokens.css. Mit v0.9.52 sind Formularfeld und
+-- Backend-Annahme entfernt (docs/ENTSCHEIDUNGEN.md, E7).
+--
+-- Die gespeicherten Werte gingen sonst weiter über das öffentliche
+-- GET /api/einstellungen hinaus, denn marke_lesen() liefert jede
+-- marke_%-Zeile aus. 10_branding.sql legt sie seit v0.9.52 nicht mehr
+-- an; sonst brächte ein erneutes Einspielen sie zurück.
+--
+-- VORHER einmal ausführen und die Werte im Bericht festhalten
+-- (Rückweg, falls eine Schulfarbe hinterlegt war):
+--   SELECT schluessel, wert FROM einstellungen WHERE schluessel LIKE 'marke_farbe%';
+--
+-- Idempotent: Ein zweites Einspielen findet nichts mehr und ändert nichts.
+-- ============================================================
+
+DELETE FROM einstellungen WHERE schluessel IN ('marke_farbe', 'marke_farbe2');

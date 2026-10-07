@@ -44,4 +44,6 @@ function starteAnzeige() {
 ## Wichtig
 - Der Anzeige-Endpunkt sollte OHNE Login funktionieren und nur unkritische,
   ohnehin öffentliche Daten liefern (keine personenbezogenen/Buchungsdaten).
-- Logo und Akzentfarbe kommen automatisch aus dem Branding (`/api/einstellungen`).
+- Das Logo kommt automatisch aus dem Branding (`/api/einstellungen`), die
+  Akzentfarbe aus `ci-tokens.css` – das Branding setzt keine Farbe
+  (`docs/ENTSCHEIDUNGEN.md`, E7).

@@ -93,6 +93,40 @@ mut_lauf() {
   ruecknahme "$name" "$datei"
 }
 
+# tests-sprechtag.sh: erwartete Zeile rot
+mut_sh() {
+  local name=$1 datei="$R/$2" ausdruck=$3 erwartet=$4
+  if ! einbauen "$datei" "$ausdruck"; then
+    echo "$name: MUTATION NICHT ANGEKOMMEN – Suchmuster prüfen"; FEHLT=$((FEHLT + 1))
+  else
+    local aus e treffer
+    aus=$("$R/tests-sprechtag.sh" 2>&1); e=$?
+    treffer=$(printf '%s\n' "$aus" | grep -cF "✗ $erwartet" || true)
+    if [ "$e" -ne 0 ] && [ "$treffer" -ge 1 ]; then
+      echo "$name: angeschlagen („$erwartet“)"
+    else
+      echo "$name: NICHT ANGESCHLAGEN (exit=$e, „$erwartet“ rot: $treffer)"; FEHLT=$((FEHLT + 1))
+    fi
+  fi
+  ruecknahme "$name" "$datei"
+}
+
+# Gegenprobe der anderen Richtung: Diese Änderung ist zulässig und darf
+# NICHT anschlagen – sonst wäre die Prüfung bei jeder Erklärung rot.
+mut_sh_gruen() {
+  local name=$1 datei="$R/$2" ausdruck=$3
+  if ! einbauen "$datei" "$ausdruck"; then
+    echo "$name: MUTATION NICHT ANGEKOMMEN – Suchmuster prüfen"; FEHLT=$((FEHLT + 1))
+  else
+    if "$R/tests-sprechtag.sh" > /dev/null 2>&1; then
+      echo "$name: bleibt grün, wie verlangt"
+    else
+      echo "$name: SCHLÄGT FÄLSCHLICH AN"; FEHLT=$((FEHLT + 1))
+    fi
+  fi
+  ruecknahme "$name" "$datei"
+}
+
 B=tests/frontend_barrierefreiheit_test.js
 M=tests/frontend_marke_test.js
 
@@ -124,6 +158,43 @@ mut M2 frontend/app.js 's/(function wendeMarkeAn\(m\) \{)/$1\n  document.documen
 
 echo "== Laufzeit"
 mut_lauf L1 frontend/app.js 's/(async function start\(\) \{)/$1\n  nichtDefiniert();/'
+
+echo "== Logo dekorativ (E6)"
+mut G1 frontend/app.js "s/(function wendeMarkeAn\(m\) \{)/\$1\n  \$('#marke-logo').alt = 'Logo ' + m.marke_schulname;/" \
+  $B "wendeMarkeAn() vergibt dem Logo keinen Alt-Text"
+mut G2 frontend/app.js "s/(function wendeMarkeAn\(m\) \{)/\$1\n  \$('#marke-logo').setAttribute(\"alt\", 'Logo');/" \
+  $B "wendeMarkeAn() vergibt dem Logo keinen Alt-Text"
+mut G3 frontend/index.html 's/(id="marke-logo" class="marke-logo versteckt") alt=""/$1 alt="Logo"/' \
+  $B "Logo im Kopf ist im HTML dekorativ (alt=\"\")"
+mut G4 frontend/app.js 's/function wendeMarkeAn\(m\) \{/function wendeMarkeAnUmbenannt(m) {/' \
+  $B "wendeMarkeAn() vergibt dem Logo keinen Alt-Text"
+
+echo "== Farbfelder (E7)"
+mut F1 frontend/app.js "s/(function zeichneMarkeBlock\(ziel\) \{)/\$1\n  feld('Akzentfarbe', 'f-marke-farbe', 'color', '');/" \
+  $M "Admin-Formular bietet keine Farbfelder"
+mut F2 frontend/app.js "s/'Das Erscheinungsbild \(Logo, Texte\)/'Das Erscheinungsbild (Logo, Farben, Texte)/" \
+  $M "Admin-Formular bietet keine Farbfelder"
+mut F3 frontend/app.js "s/kennzeichnet '\n    \+ 'die Anwendung/kennzeichnet '\n    + 'das Programm/" \
+  $M "Formular sagt, warum es keine Farbfelder gibt"
+mut F4 backend/api/einstellungen.php "s/('marke_kontakt'    => \['text', 160\],)/\$1\n            'marke_farbe'      => ['text', 7],/" \
+  $M "Backend kennt keine Farbfelder mehr"
+
+echo "== Datenbank (E7)"
+mut D1 sql/10_branding.sql "s/(    \('marke_untertitel', 'Elternsprechtag'\),)/\$1\n    ('marke_farbe',      '#1d4e89'),/" \
+  $M "Branding-Seed legt keine Farbfelder an"
+mut D2 sql/20_farbfelder_entfernen.sql "s/IN \('marke_farbe', 'marke_farbe2'\)/IN ('marke_farbe')/" \
+  $M "Migration entfernt beide Farbfelder"
+mut D3 sql/20_farbfelder_entfernen.sql 's/\nDELETE FROM einstellungen/\n-- DELETE FROM einstellungen/' \
+  $M "Migration entfernt beide Farbfelder"
+
+echo "== Rohfarben im JavaScript (E7)"
+mut_sh H1 frontend/app.js "s/(function zeichneMarkeBlock\(ziel\) \{)/\$1\n  const vorgabe = '#1d4e89';/" \
+  "Hexfarben im JavaScript"
+mut_sh H2 frontend/app.js "s/(function zeichneMarkeBlock\(ziel\) \{)/\$1\n  const schatten = 'rgba(0,0,0,.2)';/" \
+  "rgb/hsl im JavaScript"
+mut_sh H3 frontend/app.js "s/(function zeichneMarkeBlock\(ziel\) \{)/\$1\n  const ton = 'hsl(210, 60%, 30%)';/" \
+  "rgb/hsl im JavaScript"
+mut_sh_gruen H4 frontend/app.js "s/(function zeichneMarkeBlock\(ziel\) \{)/\$1\n  \/\/ früher Voreinstellung #1d4e89 – entfernt, E7/"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi

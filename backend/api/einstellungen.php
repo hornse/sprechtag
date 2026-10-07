@@ -3,8 +3,9 @@
 // einstellungen.php – Individualisierung (Branding)
 //
 // Erlaubt der Administration, das Erscheinungsbild anzupassen:
-// Schulname, Titel, Untertitel, zwei Akzentfarben, Fußzeile und
-// ein Logo. Alles landet in der bestehenden Key-Value-Tabelle
+// Schulname, Titel, Untertitel, Fußzeile, Kontakt und ein Logo.
+// Farben gehören nicht dazu: Die Akzentfarbe kennzeichnet die
+// Anwendung, nicht die Schule (docs/ENTSCHEIDUNGEN.md, E7). Alles landet in der bestehenden Key-Value-Tabelle
 // `einstellungen` (Präfix „marke_"); das Logo liegt als Datei
 // unter backend/data/logos/ und wird nur über einen eigenen
 // Endpunkt ausgeliefert.
@@ -34,8 +35,6 @@ function marke_standard(): array
         'marke_schulname'  => 'Ihre Schule',
         'marke_titel'      => 'Sprechtag',
         'marke_untertitel' => 'Elternsprechtag',
-        'marke_farbe'      => '#1d4e89',
-        'marke_farbe2'     => '#1e7d3e',
         'marke_fusszeile'  => 'sprechtag · GPL-3.0-or-later',
         // Kontakt für Rückfragen (E-Mail o. Ä.). Leer = neutraler Hinweistext.
         'marke_kontakt'    => '',
@@ -88,12 +87,6 @@ function marke_wert(PDO $pdo, string $schluessel, string $fallback = ''): string
 function marke_schulname(PDO $pdo): string
 {
     return marke_wert($pdo, 'marke_schulname', 'Ihre Schule');
-}
-
-/** #RRGGBB? */
-function marke_ist_farbe(string $f): bool
-{
-    return (bool) preg_match('/^#[0-9A-Fa-f]{6}$/', $f);
 }
 
 /** Kürzt und säubert einen Text (Steuerzeichen raus, Länge begrenzt). */
@@ -222,20 +215,11 @@ function marke_route(array $seg, string $methode, array $body, array $cfg): bool
             'marke_untertitel' => ['text', 120],
             'marke_fusszeile'  => ['text', 200],
             'marke_kontakt'    => ['text', 160],
-            'marke_farbe'      => ['farbe', 0],
-            'marke_farbe2'     => ['farbe', 0],
         ];
         $gespeichert = [];
-        foreach ($regeln as $key => [$typ, $max]) {
+        foreach ($regeln as $key => [, $max]) {   // alle Einträge sind Text
             if (!array_key_exists($key, $body)) continue;
-            $wert = (string)$body[$key];
-            if ($typ === 'farbe') {
-                if (!marke_ist_farbe($wert)) {
-                    json_err("Ungültige Farbe bei $key (erwartet #RRGGBB).");
-                }
-            } else {
-                $wert = marke_text($wert, $max);
-            }
+            $wert = marke_text((string)$body[$key], $max);
             marke_schreiben($pdo, $key, $wert);
             $gespeichert[$key] = $wert;
         }
