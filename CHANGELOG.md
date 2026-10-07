@@ -1,4 +1,13 @@
-# Changelog – sprechtag
+# Changelog - sprechtag
+
+## v0.9.49 (Oktober 2026) - Sondierung: Klassenleitung
+
+### Neu
+- Die Stammdaten-Sondierung weist jetzt aus, **ob getKlassen die
+  Klassenleitung mitliefert** (`teacher1`/`teacher2`) und **welche Klassen das
+  angemeldete Konto leitet**. Grundlage fuer die geplante Vorbelegung der
+  eigenen Klassen in der Einladungsauswahl (Phase 1).
+- Die Beispiele im Bericht zeigen die Klassenleitung mit an.
 
 ## v0.9.48 (Oktober 2026) – Mitteilungen unter dem eigenen Konto
 

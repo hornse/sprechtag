@@ -121,7 +121,8 @@ function sondierung_schueler_ids(array $funde, string $manuell = '', int $max = 
  * Ausgegeben werden nur Feldnamen, Anzahlen und – zur Strukturprüfung –
  * ein anonymisiertes Beispiel (Namensfelder durch "…" ersetzt).
  */
-function sondierung_stammdaten(WebUntisAuth $wu, WebUntisRest $rest): array
+function sondierung_stammdaten(WebUntisAuth $wu, WebUntisRest $rest,
+                               int $meinePersonId = 0): array
 {
     $bericht = [];
 
@@ -158,12 +159,36 @@ function sondierung_stammdaten(WebUntisAuth $wu, WebUntisRest $rest): array
     // jüngsten bekannten Schuljahres.
     try {
         $klassen = $wu->getKlassen();
+        // Trägt die Antwort die Klassenleitung? Das entscheidet, ob die
+        // Einladungsauswahl in Phase 1 die EIGENEN Klassen vorbelegen kann.
+        $mitLeitung = 0;
+        $eigene = [];
+        foreach ($klassen as $k) {
+            $t1 = (int)($k['teacher1'] ?? 0);
+            $t2 = (int)($k['teacher2'] ?? 0);
+            if ($t1 > 0 || $t2 > 0) $mitLeitung++;
+            if ($meinePersonId > 0 && ($t1 === $meinePersonId || $t2 === $meinePersonId)) {
+                $eigene[] = (string)($k['name'] ?? '');
+            }
+        }
         $bericht['getKlassen'] = [
             'variante'        => 'ohne schoolyearId',
             'anzahl'          => count($klassen),
             'felder'          => $klassen === [] ? [] : array_keys($klassen[0]),
+            'mit_klassenleitung' => $mitLeitung,
+            'eigene_klassen'  => $eigene,
+            'bewertung'       => $mitLeitung === 0
+                ? 'Keine Klassenleitung in der Antwort – Vorbelegung der '
+                    . 'eigenen Klassen so nicht möglich.'
+                : ($eigene === []
+                    ? 'Klassenleitung vorhanden, dieses Konto leitet aber keine '
+                        . 'Klasse (oder die Kennung passt nicht – prüfen).'
+                    : 'Klassenleitung vorhanden und diesem Konto zugeordnet – '
+                        . 'Vorbelegung möglich.'),
             'beispiele'       => array_slice(array_map(
-                fn($k) => ['id' => $k['id'] ?? null, 'name' => $k['name'] ?? ''],
+                fn($k) => ['id' => $k['id'] ?? null, 'name' => $k['name'] ?? '',
+                           'teacher1' => $k['teacher1'] ?? null,
+                           'teacher2' => $k['teacher2'] ?? null],
                 $klassen), 0, 8),
         ];
     } catch (Throwable $e) {
@@ -624,7 +649,8 @@ function sondierung_ausfuehren(
 
         // ---- 5b. Stammdaten (Klassen, Schüler:innen, Gruppen) --------------
         if (in_array('stammdaten', $gruppen, true)) {
-            $bericht['stammdaten'] = sondierung_stammdaten($wu, $rest);
+            $bericht['stammdaten'] = sondierung_stammdaten($wu, $rest,
+                (int)($auth['personId'] ?? 0));
         }
 
         // ---- 6. Statische Kandidaten-Gruppen --------------------------------
