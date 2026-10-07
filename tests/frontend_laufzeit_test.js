@@ -5,8 +5,11 @@ let quelle = fs.readFileSync(__dirname + '/../frontend/app.js', 'utf8');
 
 const elemente = {};
 function fakeEl(tag) {
+  // dataset: seit dem CI-Umbau (August 2026) liest start() über
+  // symboleEinbetten() $('.shell').dataset.ciIcons. Leer gelassen, damit
+  // der Ersatz nicht mehr weiß als nötig – ohne Pfad wird nichts geladen.
   return { tagName: tag, className: '', textContent: '', value: '', type: '',
-    children: [], style: {}, classList: { add(){}, remove(){}, contains(){return false;}, toggle(){} },
+    children: [], style: {}, dataset: {}, classList: { add(){}, remove(){}, contains(){return false;}, toggle(){} },
     appendChild(k){ this.children.push(k); return k; },
     addEventListener(){}, querySelector(){ return null; },
     querySelectorAll(){ return []; }, remove(){}, open: false,
@@ -17,6 +20,9 @@ global.document = {
   documentElement: { style: { setProperty(){} } },
   querySelector: (sel) => elemente[sel] || (elemente[sel] = fakeEl('div')),
   querySelectorAll: () => [],
+  // Seit dem CI-Umbau hängt tastaturBedienung() einen keydown-Listener
+  // an document (Escape schließt das mobile Menü).
+  addEventListener(){},
   createElement: (t) => fakeEl(t),
 };
 global.window = { location: { pathname: '/' } };

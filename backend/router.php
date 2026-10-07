@@ -29,6 +29,11 @@ $statisch = [
     '/app.js'      => ['frontend/app.js',      'application/javascript; charset=utf-8'],
     '/style.css'   => ['frontend/style.css',   'text/css; charset=utf-8'],
     '/favicon.svg' => ['frontend/favicon.svg', 'image/svg+xml'],
+    // Vendored aus hornse/ci-css – Design-Tokens und Symbolsatz.
+    '/vendor/ci-css/ci-tokens.css'
+        => ['frontend/vendor/ci-css/ci-tokens.css', 'text/css; charset=utf-8'],
+    '/vendor/ci-css/ci-icons.svg'
+        => ['frontend/vendor/ci-css/ci-icons.svg',  'image/svg+xml'],
 ];
 if (isset($statisch[$uri])) {
     [$pfad, $typ] = $statisch[$uri];

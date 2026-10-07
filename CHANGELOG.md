@@ -1,5 +1,47 @@
 # Changelog - sprechtag
 
+## v0.9.51 (Oktober 2026) – Stiller Rückschritt behoben, deploy.sh abgesichert
+
+### Behoben
+- **Der CI-Umbau vom August war seit dem 07.10. (`70f3811`) zurückgedreht
+  und ausgeliefert.** Der Commit beruhte auf einem Stand vom 02.08. und
+  überschrieb nebenbei app.js, style.css, index.html, router.php,
+  deploy.sh, README.md und WebUntisRest.php. Wiederhergestellt aus
+  `70f3811~1`; app.js per Drei-Wege-Zusammenführung (August + der
+  Oktober-Abschnitt zum Erinnerungsversand), die übrigen trugen keinen
+  Oktober-Anteil. Hergang und Vorkehrung: `docs/ENTSCHEIDUNGEN.md`, E3.
+- Wieder da: Token-Einbindung (`ci-tokens.css`), h1, Escape schließt das
+  mobile Menü, Fokus-Rücksprung, Symbole statt Emoji, Version aus
+  `/api/health` in eigenem Element, `WebUntisRest.php` in Fassung
+  `webuntis-client-php v1.7.0` (gegen Modul-Commit `6cd8afd` verglichen).
+- README: Die Angabe, `php -l` laufe in deploy.sh, war falsch (E4).
+
+### Geändert
+- **deploy.sh** (E4): Dateien werden namentlich übergeben
+  (`./deploy.sh "Nachricht" datei …`), kein `git add -A`. Unverfolgte oder
+  nicht genannte Änderungen halten den Lauf an. Vor dem Commit laufen
+  `tests-sprechtag.sh` und alle Suiten in `tests/`. Leerer Commit erreicht
+  den Push. Scheitert ein Push, wird angehalten und genannt, welche
+  Gegenstelle welchen Stand hat.
+
+### Tests
+- Drei Suiten waren seit dem CI-Umbau rot, ohne dass es jemand sah – nichts
+  rief `tests/` auf:
+  - `frontend_barrierefreiheit_test.js`: sucht jetzt im Rumpf der Funktion
+    bzw. am Element, Kommentare entfernt; neu „navKnopf ruft symbol() auf".
+    13 → 14 Prüfungen.
+  - `frontend_marke_test.js`: umgekehrt auf „Branding setzt keine
+    Akzentfarbe" (15 Prüfungen, unverändert).
+  - `frontend_laufzeit_test.js`: Ersatz-DOM um `dataset` und
+    `document.addEventListener` ergänzt. Die Prüfung deckt weniger ab, als
+    ihr Name sagt – E5.
+- Gegenproben: 12 Mutationen, alle angeschlagen, Rücknahme je per
+  Prüfsumme belegt. Fünf davon (aria-live, aria-current, :focus-visible,
+  Skip-Link `top: 0`, aria-expanded beim Schließen) hätte die alte Suite
+  nicht bemerkt.
+- Stand: `tests-sprechtag.sh` 27/27, 44 Suiten in `tests/` grün,
+  692 ✓-Zeilen (vorher 691).
+
 ## v0.9.50 (Oktober 2026) - Sondierung berichtigt und erweitert
 
 ### Berichtigt

@@ -1,9 +1,7 @@
 <?php
 // ============================================================
 // WebUntisRest.php – Client für die INTERNE WebUntis-REST-API
-// VENDORED aus hornse/webuntis-client-php – dort ändern, hierher kopieren!
-// (Ergänzung für sprechtag: setzeTimeout() für kurze Sondierproben –
-//  bei Übernahme ins Modul-Repo mitnehmen.)
+// VENDORED aus hornse/webuntis-client-php v1.7.0 – dort ändern, hierher kopieren!
 //
 // ⚠️ UNDOKUMENTIERTE API: kann sich mit jedem WebUntis-Update
 // ändern. Für Produktivbetrieb den offiziellen JSON-RPC-Weg
@@ -26,6 +24,7 @@ class WebUntisRest
     private ?string $jwt      = null;
     private ?string $tenantId = null;
     private int $timeout      = 25;
+    private array $zusatzKopfzeilen = [];   // eigene Kopfzeilen: name => wert
 
     public function __construct(string $baseUrl, string $school)
     {
@@ -37,6 +36,22 @@ class WebUntisRest
     public function setzeTimeout(int $sekunden): void
     {
         $this->timeout = max(1, $sekunden);
+    }
+
+    /**
+     * Setzt eine eigene Kopfzeile, die künftig bei jeder Anfrage mitgeschickt
+     * wird (get, post, postMultipart, auch tokenHolen). Anlass: WebUntis
+     * erwartet bei schuljahresabhängigen REST-Aufrufen z. B.
+     * "X-Webuntis-Api-School-Year-Id" – ohne aktives Schuljahr (zwischen
+     * zwei Schuljahren) sonst nicht zuverlässig auszuwerten.
+     *
+     *   $rest->setzeKopfzeile('X-Webuntis-Api-School-Year-Id', '28');
+     *
+     * Ohne Aufruf ändert sich nichts am bisherigen Verhalten.
+     */
+    public function setzeKopfzeile(string $name, string $wert): void
+    {
+        $this->zusatzKopfzeilen[$name] = $wert;
     }
 
     /** Übernimmt den JSESSIONID-Cookie einer bestehenden JSON-RPC-Session. */
@@ -111,24 +126,20 @@ class WebUntisRest
     /** GET mit Bearer-Auth. Liefert ['status','contentType','text','json']. */
     public function get(string $pfad, array $query = []): array
     {
-        $extra = [];
-        if ($this->jwt !== null)      $extra[] = 'Authorization: Bearer ' . $this->jwt;
-        if ($this->tenantId !== null) $extra[] = 'tenant-id: ' . $this->tenantId;
-        return $this->rohGet($pfad . ($query ? '?' . http_build_query($query) : ''), $extra);
+        return $this->rohGet($pfad . ($query ? '?' . http_build_query($query) : ''));
     }
 
     /**
-     * POST mit Bearer-Auth und JSON-Body (Ergänzung v1.3.0).
+     * POST mit Bearer-Auth und JSON-Body.
      * ACHTUNG: schreibender Zugriff – nur mit ausdrücklicher Absicht nutzen.
      * Liefert ['status','contentType','text','json'].
      */
     public function post(string $pfad, array $daten): array
     {
-        $headers = ['Accept: application/json, text/plain',
-                    'Content-Type: application/json'];
-        if ($this->jwt !== null)      $headers[] = 'Authorization: Bearer ' . $this->jwt;
-        if ($this->tenantId !== null) $headers[] = 'tenant-id: ' . $this->tenantId;
-        if ($this->cookie !== null)   $headers[] = 'Cookie: ' . $this->cookie;
+        $headers = $this->baueKopfzeilen(
+            'application/json, text/plain',
+            'application/json'
+        );
 
         $ch = curl_init($this->baseUrl . $pfad);
         curl_setopt_array($ch, [
@@ -182,11 +193,10 @@ class WebUntisRest
             . $json . "\r\n"
             . "--$grenze--\r\n";
 
-        $headers = ['Accept: application/json, text/plain, */*',
-                    'Content-Type: multipart/form-data; boundary=' . $grenze];
-        if ($this->jwt !== null)      $headers[] = 'Authorization: Bearer ' . $this->jwt;
-        if ($this->tenantId !== null) $headers[] = 'tenant-id: ' . $this->tenantId;
-        if ($this->cookie !== null)   $headers[] = 'Cookie: ' . $this->cookie;
+        $headers = $this->baueKopfzeilen(
+            'application/json, text/plain, */*',
+            'multipart/form-data; boundary=' . $grenze
+        );
 
         $ch = curl_init($this->baseUrl . $pfad);
         curl_setopt_array($ch, [
@@ -313,10 +323,30 @@ class WebUntisRest
                 'seiten' => $seite, 'vollstaendig' => $vollstaendig];
     }
 
-    private function rohGet(string $pfadMitQuery, array $extraHeader = []): array
+    /**
+     * Baut die Kopfzeilen für einen Aufruf: Accept, optional Content-Type,
+     * Authorization (falls JWT vorhanden), tenant-id (falls ermittelt),
+     * eigene Kopfzeilen aus setzeKopfzeile(), zuletzt Cookie (falls
+     * vorhanden). Eine Stelle für alle drei sendenden Methoden (rohGet,
+     * post, postMultipart) – lässt sich ohne Netzzugriff testen, weil sie
+     * kein cURL aufruft.
+     */
+    private function baueKopfzeilen(string $accept, ?string $contentType = null): array
     {
-        $headers = array_merge(['Accept: application/json, text/plain'], $extraHeader);
+        $headers = ['Accept: ' . $accept];
+        if ($contentType !== null) $headers[] = 'Content-Type: ' . $contentType;
+        if ($this->jwt !== null)      $headers[] = 'Authorization: Bearer ' . $this->jwt;
+        if ($this->tenantId !== null) $headers[] = 'tenant-id: ' . $this->tenantId;
+        foreach ($this->zusatzKopfzeilen as $name => $wert) {
+            $headers[] = $name . ': ' . $wert;
+        }
         if ($this->cookie !== null) $headers[] = 'Cookie: ' . $this->cookie;
+        return $headers;
+    }
+
+    private function rohGet(string $pfadMitQuery): array
+    {
+        $headers = $this->baueKopfzeilen('application/json, text/plain');
 
         $ch = curl_init($this->baseUrl . $pfadMitQuery);
         curl_setopt_array($ch, [

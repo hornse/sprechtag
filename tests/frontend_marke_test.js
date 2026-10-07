@@ -25,8 +25,12 @@ const html = fs.readFileSync(path.join(__dirname, '..', 'frontend', 'index.html'
 // ---- Frontend ----
 pruefe('Marke wird beim Start geladen',
   js.includes("api('/api/einstellungen')") && js.includes('wendeMarkeAn'));
-pruefe('Akzentfarben werden auf documentElement gesetzt',
-  js.includes("setProperty('--akzent'") && js.includes("setProperty('--akzent2'"));
+// Umgekehrt seit dem CI-Umbau (August 2026): Die Farben kommen aus
+// ci-tokens.css, das Branding setzt keine mehr (siehe tests-sprechtag.sh).
+// Bleibt als Prüfung stehen, damit ein versehentliches Zurückholen auffällt.
+// Gesucht wird jede Schreibweise, auch mit doppelten Anführungszeichen.
+pruefe('Branding setzt keine Akzentfarbe',
+  !/setProperty\(\s*['"`]--akzent/.test(js));
 pruefe('Logo wird per Cache-Busting geladen',
   js.includes("'/api/einstellungen/logo?'"));
 pruefe('Speichern schickt alle Marke-Felder',
