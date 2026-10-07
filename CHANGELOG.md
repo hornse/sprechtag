@@ -1,5 +1,23 @@
 # Changelog - sprechtag
 
+## v0.9.50 (Oktober 2026) - Sondierung berichtigt und erweitert
+
+### Berichtigt
+- **Der Scope-Hinweis war falsch.** Die Sondierung behauptete, ein Konto mit
+  `mg:r` duerfe Mitteilungen nur lesen, nicht senden - daraus war 2026-07 die
+  Entscheidung fuer das Dienstkonto entstanden. Gemessen ist inzwischen das
+  Gegenteil: Die WebUntis-Oberflaeche traegt denselben Scope, und sprechtag
+  hat am 07.10.2026 mit einer Lehrkraft-Sitzung gesendet. Der Scope sagt
+  nichts ueber das Senderecht.
+- Statt des Scopes wird jetzt `messages/permissions` abgefragt - das zeigt,
+  was die Benutzergruppe wirklich darf.
+
+### Neu
+- Pruefung, ob `pageconfig?type=5` die Schild-Liste abloesen kann: Anzahl
+  aktiver Schueler, wie viele eine Klasse tragen, wie viele einen externKey
+  haben, und vor allem der **Kennungsvergleich mit getStudents** (gleicher
+  Nummernkreis oder nicht). Es werden nur Zahlen festgehalten, keine Namen.
+
 ## v0.9.49 (Oktober 2026) - Sondierung: Klassenleitung
 
 ### Neu

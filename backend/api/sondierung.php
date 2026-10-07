@@ -222,6 +222,71 @@ function sondierung_stammdaten(WebUntisAuth $wu, WebUntisRest $rest,
         }
     }
 
+    // ---- Kann pageconfig?type=5 die Schild-Liste ablösen? ---------------
+    // Drei Fragen entscheiden das:
+    //   1. Sind es nur AKTIVE Schüler? (getStudents liefert auch Ehemalige)
+    //   2. Ist die Kennung dieselbe wie bei getStudents? (sonst Nummernkreis-
+    //      Problem – Buchungen hingen an falschen Kindern)
+    //   3. Trägt externKey die Schild-ID? (wäre die Brücke zu allem anderen)
+    //
+    // DATENSCHUTZ: Es werden nur Zahlen und Feldnamen festgehalten, keine
+    // Namen und keine einzelnen Kennungen.
+    try {
+        $pc = $rest->get('/WebUntis/api/public/timetable/weekly/pageconfig',
+            ['type' => 5]);
+        $liste = $pc['json']['data']['elements']
+            ?? $pc['json']['data']
+            ?? [];
+        if (!is_array($liste)) $liste = [];
+
+        // Vergleich mit getStudents: Wie viele Kennungen kommen in BEIDEN vor?
+        $pcIds = [];
+        $mitKlasse = 0;
+        $mitExtern = 0;
+        foreach ($liste as $e) {
+            if (!is_array($e)) continue;
+            $id = (int)($e['id'] ?? 0);
+            if ($id > 0) $pcIds[$id] = true;
+            if ((int)($e['klasseId'] ?? 0) > 0) $mitKlasse++;
+            if ((string)($e['externKey'] ?? '') !== '') $mitExtern++;
+        }
+        $gsIds = [];
+        try {
+            foreach ($wu->getStudents() as $s) {
+                $id = (int)($s['id'] ?? 0);
+                if ($id > 0) $gsIds[$id] = true;
+            }
+        } catch (Throwable $e) { /* unten als „offen" ausgewiesen */ }
+        $schnitt = $gsIds === [] ? null
+            : count(array_intersect_key($pcIds, $gsIds));
+
+        $bericht['pageconfig_schueler'] = [
+            'status'            => $pc['status'],
+            'anzahl'            => count($pcIds),
+            'mit_klasse'        => $mitKlasse,
+            'mit_externkey'     => $mitExtern,
+            'getStudents_anzahl' => count($gsIds),
+            'ids_in_beiden'     => $schnitt,
+            'bewertung'         => count($pcIds) === 0
+                ? 'Keine Datensätze – Struktur der Antwort prüfen.'
+                : ($schnitt === null
+                    ? 'getStudents nicht abrufbar – Kennungsvergleich offen.'
+                    : ($schnitt === count($pcIds)
+                        ? 'ALLE Kennungen kommen auch in getStudents vor: '
+                            . 'derselbe Nummernkreis. pageconfig kann die '
+                            . 'Schild-Liste ablösen (Klasse + aktive Auswahl).'
+                        : ($schnitt === 0
+                            ? 'KEINE gemeinsame Kennung – zwei Nummernkreise. '
+                                . 'Ablösung nur mit Zuordnung über externKey '
+                                . 'oder Namen möglich.'
+                            : 'Nur ' . $schnitt . ' von ' . count($pcIds)
+                                . ' Kennungen kommen in getStudents vor – '
+                                . 'teilweise Überschneidung, genauer prüfen.'))),
+        ];
+    } catch (Throwable $e) {
+        $bericht['pageconfig_schueler'] = ['fehler' => $e->getMessage()];
+    }
+
     // ---- Klassenstundenplan: liefert er die Lehrkräfte? -------------
     // Entscheidende Probe für Weg A: eine Klasse, eine Woche des
     // vergangenen Schuljahres.
@@ -544,23 +609,42 @@ function sondierung_ausfuehren(
             return $bericht;
         }
 
-        // ---- 2b. JWT-Scopes: darf DIESES Konto Mitteilungen SENDEN? --------
-        // Entscheidet, ob Mitteilungen unter dem angemeldeten (Lehrer-)Konto
-        // versendet werden können oder ob dafür das Dienstkonto nötig bleibt.
-        //   mg:rw = lesen UND senden   |   mg:r = nur lesen
+        // ---- 2b. JWT-Scopes (nur informativ!) ------------------------------
+        // ACHTUNG, BERICHTIGT am 07.10.2026: Frühere Fassungen deuteten
+        // „mg:r" als „darf nur lesen" und schlossen daraus, eine Lehrkraft
+        // könne per API nicht senden. DAS WAR FALSCH.
+        //
+        // Gemessen (FRG-Produktivsystem):
+        //   * Der Schlüssel der WebUntis-Oberfläche trägt ebenfalls nur mg:r
+        //     und sendet damit (lernzeiten, 06.10.2026).
+        //   * Eigener Code hat mit der Sitzung eines reinen Lehrerkontos
+        //     gesendet (lernzeiten, 06.10.2026, 14:23).
+        //   * sprechtag selbst hat am 07.10.2026 gesendet, bestätigt über
+        //     numberOfRecipients und im Postfach angekommen.
+        //
+        // Der Scope sagt also NICHTS über das Senderecht. Entscheidend sind
+        // die Rechte der WebUntis-Benutzergruppe – und die lassen sich hier
+        // nicht ablesen, sondern nur über messages/permissions erfragen.
         $scopes = $rest->jwtScopes();
-        $darfSenden = in_array('mg:rw', $scopes, true);
         $bericht['rest_zugang']['scopes'] = $scopes;
-        $bericht['rest_zugang']['mitteilungen_senden'] = $darfSenden;
-        $bericht['rest_zugang']['scope_hinweis'] = $darfSenden
-            ? 'Dieses Konto darf Mitteilungen senden (mg:rw). Versand unter '
-                . 'eigenem Namen ist damit grundsätzlich möglich.'
-            : (in_array('mg:r', $scopes, true)
-                ? 'Dieses Konto darf Mitteilungen nur LESEN (mg:r), nicht '
-                    . 'senden. Für den Versand ist ein Konto mit „Nachrichten '
-                    . 'senden"-Recht nötig (z. B. das Dienstkonto).'
-                : 'Kein Mitteilungs-Scope (mg:r/mg:rw) im JWT gefunden. Prüfen, '
-                    . 'ob das Konto Zugriff auf das Nachrichtenzentrum hat.');
+        $bericht['rest_zugang']['scope_hinweis'] =
+            'Nur informativ: Der Scope sagt nichts über das Senderecht. '
+            . 'Gemessen am 07.10.2026 sendet dieses System mit einer '
+            . 'Lehrkraft-Sitzung, obwohl der Scope nur „mg:r" lautet – die '
+            . 'WebUntis-Oberfläche verwendet denselben Wert. Was eine '
+            . 'Benutzergruppe darf, zeigt messages/permissions (unten).';
+
+        // Was darf diese Benutzergruppe wirklich? Das ist die belastbare
+        // Quelle – im Gegensatz zum Scope.
+        $perm = $rest->get('/WebUntis/api/rest/view/v1/messages/permissions');
+        $bericht['rest_zugang']['mitteilungen_rechte'] = [
+            'status' => $perm['status'],
+            'empfaengerarten' => $perm['json']['recipientOptions'] ?? null,
+            'max_treffer_suche' => $perm['json']['recipientSearchMaxResult'] ?? null,
+            'hinweis' => ($perm['json']['recipientOptions'] ?? []) === []
+                ? 'Keine Empfängerarten – dieses Konto kann vermutlich nicht senden.'
+                : 'Diese Empfängerarten stehen dem Konto zur Verfügung.',
+        ];
 
         $rest->tenantErmitteln();
 
