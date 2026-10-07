@@ -102,9 +102,22 @@ function wu_login(array $cfg, PDO $pdo, string $benutzer, string $passwort): arr
         } else {
             $ergebnis['rolle'] = 'eltern';   // personType 12 = LEGAL_GUARDIAN
         }
-    } finally {
-        $wu->logout();
+    } catch (Throwable $e) {
+        // Bei einem Fehler die WebUntis-Sitzung freigeben und weiterwerfen.
+        try { $wu->logout(); } catch (Throwable $e2) { /* egal */ }
+        throw $e;
     }
+
+    // Die WebUntis-Sitzung bleibt bei erfolgreicher Anmeldung BEWUSST offen.
+    // Der Cookie wandert in die PHP-Session, damit die Lehrkraft während
+    // ihrer Sitzung unter EIGENEM Namen Mitteilungen senden kann – ohne dass
+    // ihr Passwort je gespeichert wird.
+    //
+    // Gemessen (lernzeiten, 29.09.2026, Produktivsystem): Die Sitzung lebt
+    // 25–30 Minuten (Lehrkraft) und verlängert sich NICHT durch Nutzung.
+    // Danach ist ein erneutes Anmelden nötig; der Versand meldet das als
+    // „nicht gesendet – bitte neu anmelden", die Mitteilung bleibt offen.
+    $ergebnis['wu_cookie'] = (string)$wu->sessionCookie();
 
     // ---- Lehrkraft in lokaler DB nachschlagen + Admin per Kürzel ---------
     if ($ergebnis['kuerzel'] !== null && $ergebnis['kuerzel'] !== '') {

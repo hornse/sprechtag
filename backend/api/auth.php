@@ -42,6 +42,24 @@ function auth_login_speichern(array $daten): void
     $_SESSION['user_id']   = $daten['user_id'];
     $_SESSION['person_id'] = $daten['person_id'];
     $_SESSION['kinder']    = $daten['kinder'];
+    // WebUntis-Sitzungscookie: ermöglicht Mitteilungen unter dem Namen der
+    // handelnden Person, ohne ihr Passwort zu speichern. Steht BEWUSST NICHT
+    // in auth_user(), damit er nicht versehentlich ans Frontend gelangt.
+    $_SESSION['wu_cookie'] = (string)($daten['wu_cookie'] ?? '');
+}
+
+/**
+ * Liefert den WebUntis-Sitzungscookie der angemeldeten Person, falls
+ * vorhanden. Nur für serverseitige Aufrufe – NIE an das Frontend geben.
+ *
+ * Die Sitzung lebt begrenzt (gemessen 25–30 Minuten bei Lehrkräften) und
+ * verlängert sich nicht durch Nutzung. Aufrufer müssen damit rechnen, dass
+ * sie abgelaufen ist, und das als solches melden.
+ */
+function auth_wu_cookie(): ?string
+{
+    $c = (string)($_SESSION['wu_cookie'] ?? '');
+    return $c !== '' ? $c : null;
 }
 
 function auth_logout(): void

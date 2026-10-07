@@ -449,25 +449,80 @@ function mit_einreihen_und_senden(
             kuerze($betreff, 190), $text]);
     $id = (int)$pdo->lastInsertId();
 
+    // 1. Wahl: die Sitzung der angemeldeten Person. Dann steht ihr Name als
+    //    Absender in WebUntis – nicht das anonyme Dienstkonto.
+    $rest = mit_rest_aus_sitzung($cfg);
+    if ($rest !== null) {
+        $ergebnis = mit_versand_ausfuehren($cfg, $pdo, [$id], '', '', $rest);
+        return ['id' => $id,
+                'status' => $ergebnis['gesendet'] > 0 ? 'gesendet' : 'fehler',
+                'grund'  => $ergebnis['grund'],
+                'absender' => 'eigenes Konto'];
+    }
+
+    // 2. Wahl: Dienstkonto. Greift, wenn die WebUntis-Sitzung abgelaufen ist
+    //    (sie lebt nur 25–30 Minuten) oder niemand angemeldet ist.
     if ($benutzer === null || $passwort === null || $benutzer === '' || $passwort === '') {
         return ['id' => $id, 'status' => 'offen',
-                'grund' => 'Kein Versand angefordert – Mitteilung vorgemerkt.'];
+                'grund' => 'Die WebUntis-Sitzung ist abgelaufen und es ist kein '
+                    . 'Dienstkonto hinterlegt. Die Mitteilung ist vorgemerkt – '
+                    . 'bitte neu anmelden und erneut senden.'];
     }
 
     $ergebnis = mit_versand_ausfuehren($cfg, $pdo, [$id], $benutzer, $passwort);
     return ['id' => $id,
             'status' => $ergebnis['gesendet'] > 0 ? 'gesendet' : 'fehler',
-            'grund'  => $ergebnis['grund']];
+            'grund'  => $ergebnis['grund'],
+            'absender' => 'Dienstkonto'];
 }
 
 /**
- * Versendet offene Mitteilungen. Öffnet EINE WebUntis-Session für alle.
+ * Baut einen REST-Client aus der WebUntis-Sitzung der ANGEMELDETEN PERSON.
+ *
+ * Damit gehen Mitteilungen unter ihrem eigenen Namen hinaus statt unter dem
+ * des Dienstkontos – ohne dass ihr Passwort je gespeichert wird. Grundlage
+ * ist der beim Login festgehaltene Sitzungscookie.
+ *
+ * Belegt (lernzeiten, 06.10.2026): Eine Lehrkraft darf senden; der Scope
+ * mg:r begrenzt das nicht. Gemessen ebenda: Die Sitzung lebt 25–30 Minuten
+ * und verlängert sich NICHT durch Nutzung.
+ *
+ * Rückgabe: der Client, oder NULL wenn keine Sitzung vorliegt bzw. sie
+ * abgelaufen ist. Aufrufer sollen dann auf das Dienstkonto zurückfallen
+ * oder um erneute Anmeldung bitten – aber NICHT stillschweigend scheitern.
+ */
+function mit_rest_aus_sitzung(array $cfg): ?WebUntisRest
+{
+    $cookie = function_exists('auth_wu_cookie') ? auth_wu_cookie() : null;
+    if ($cookie === null) return null;
+
+    $wcfg = $cfg['webuntis'];
+    try {
+        $rest = new WebUntisRest($wcfg['base_url'], $wcfg['school']);
+        $rest->mitSessionCookie($cookie);
+        $rest->setzeTimeout(15);
+        // Kein Token = Sitzung abgelaufen (WebUntis leitet dann auf die
+        // Anmeldeseite um, statt ein JWT auszugeben).
+        if (!$rest->tokenHolen()) return null;
+        $rest->tenantErmitteln();
+        return $rest;
+    } catch (Throwable $e) {
+        error_log('sprechtag: Sitzung der Lehrkraft nicht nutzbar: '
+            . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Versendet offene Mitteilungen. Öffnet EINE WebUntis-Session für alle –
+ * oder nutzt eine vorgegebene (dann ohne eigenen Login/Logout).
  *
  * Rückgabe: ['gesendet' => int, 'fehler' => int, 'grund' => string,
  *            'variante' => string|null, 'protokoll' => [...]]
  */
 function mit_versand_ausfuehren(array $cfg, PDO $pdo, array $ids,
-                                string $benutzer, string $passwort): array
+                                string $benutzer, string $passwort,
+                                ?WebUntisRest $restVorgegeben = null): array
 {
     if ($ids === []) {
         return ['gesendet' => 0, 'fehler' => 0, 'grund' => 'Nichts zu senden.',
@@ -487,16 +542,22 @@ function mit_versand_ausfuehren(array $cfg, PDO $pdo, array $ids,
     } catch (Throwable $e) { /* Tabelle ggf. noch leer */ }
 
     try {
-        $wu->authenticate($benutzer, $passwort);
-        $rest = new WebUntisRest($wcfg['base_url'], $wcfg['school']);
-        $rest->mitSessionCookie((string)$wu->sessionCookie());
-        $rest->setzeTimeout(15);
-        if (!$rest->tokenHolen()) {
-            return ['gesendet' => 0, 'fehler' => count($ids),
-                    'grund' => 'Kein REST-Zugang (JWT) – Versand nicht möglich.',
-                    'variante' => null, 'protokoll' => []];
+        if ($restVorgegeben !== null) {
+            // Bestehende Sitzung (z. B. der angemeldeten Lehrkraft) nutzen –
+            // kein eigener Login, also auch kein Logout am Ende.
+            $rest = $restVorgegeben;
+        } else {
+            $wu->authenticate($benutzer, $passwort);
+            $rest = new WebUntisRest($wcfg['base_url'], $wcfg['school']);
+            $rest->mitSessionCookie((string)$wu->sessionCookie());
+            $rest->setzeTimeout(15);
+            if (!$rest->tokenHolen()) {
+                return ['gesendet' => 0, 'fehler' => count($ids),
+                        'grund' => 'Kein REST-Zugang (JWT) – Versand nicht möglich.',
+                        'variante' => null, 'protokoll' => []];
+            }
+            $rest->tenantErmitteln();
         }
-        $rest->tenantErmitteln();
 
         $platzhalter = implode(',', array_fill(0, count($ids), '?'));
         $st = $pdo->prepare("SELECT * FROM mitteilungen
@@ -535,7 +596,10 @@ function mit_versand_ausfuehren(array $cfg, PDO $pdo, array $ids,
                 'grund' => 'WebUntis-Anmeldung fehlgeschlagen: ' . $e->getMessage(),
                 'variante' => null, 'protokoll' => []];
     } finally {
-        $wu->logout();
+        // Nur die SELBST aufgebaute Sitzung schliessen. Eine vorgegebene
+        // (die der angemeldeten Lehrkraft) gehoert dieser Funktion nicht und
+        // wird noch gebraucht.
+        if ($restVorgegeben === null) $wu->logout();
     }
 
     $grund = $gesendet > 0

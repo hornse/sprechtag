@@ -1,5 +1,34 @@
 # Changelog – sprechtag
 
+## v0.9.48 (Oktober 2026) – Mitteilungen unter dem eigenen Konto
+
+### Geändert
+- **Mitteilungen gehen jetzt unter dem Konto der angemeldeten Person hinaus**,
+  nicht mehr unter dem anonymen Dienstkonto. Eine Einladung kommt bei den
+  Eltern sichtbar von der Lehrkraft, die sie ausgelöst hat.
+  - Die WebUntis-Sitzung bleibt beim Login **bewusst offen**; ihr Cookie liegt
+    in der PHP-Sitzung. **Das Passwort wird weiterhin nie gespeichert.**
+  - Der Cookie steht absichtlich nicht in `auth_user()` und gelangt damit
+    nicht ans Frontend.
+- **Das Dienstkonto bleibt als Rückfall** – für abgelaufene Sitzungen und für
+  die Erinnerungen, bei denen zum Sendezeitpunkt niemand angemeldet ist.
+- Ist die Sitzung abgelaufen und kein Dienstkonto hinterlegt, bleibt die
+  Mitteilung **offen** stehen, mit dem Hinweis, sich neu anzumelden und
+  erneut zu senden. Der Text liegt in der Warteschlange und geht nicht
+  verloren.
+
+### Hintergrund (gemessen)
+- Die Annahme aus v0.9.4, Lehrkräfte dürften per API nicht senden, war
+  **falsch**. Sie beruhte auf dem JWT-Scope `mg:r`, der als „nur lesen"
+  gedeutet wurde. `lernzeiten` hat am 06.10.2026 belegt, dass die
+  WebUntis-Oberfläche denselben Scope trägt und dass eigener Code damit
+  sendet – mit einem reinen Lehrerkonto.
+- **Die Sitzung lebt 25–30 Minuten** (lernzeiten, 29.09.2026) und verlängert
+  sich nicht durch Nutzung. Darauf ist der Rückfall ausgelegt.
+
+### Tests
+- `tests/frontend_lehrersitzung_test.js`.
+
 ## v0.9.47 (Oktober 2026) – Erinnerungen: Erfolg wird belegt, nicht angenommen
 
 ### Behoben
