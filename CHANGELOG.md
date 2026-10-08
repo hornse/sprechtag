@@ -1,5 +1,75 @@
 # Changelog - sprechtag
 
+## v0.9.57 (Oktober 2026) – Dreiteilung der buchbaren Lehrkräfte (Zug 3, E10)
+
+### Buchungsseite für Eltern
+- **Phase 1 unverändert:** nur Eingeladene.
+- **Ab Phase 2:**
+  1. Eingeladene zuerst, mit „hat Sie eingeladen“.
+  2. Unterrichtende **und** Klassenleitung. Die Klassenleitung steht
+     vorn, ist mit „Klassenleitung“ und einem Rand links hervorgehoben
+     und ist buchbar, auch wenn sie das Kind nicht unterrichtet.
+     Sonderrollen bleiben als Kacheln dahinter sichtbar.
+  3. Weitere teilnehmende Lehrkräfte stehen in einem eingeklappten Block
+     „Weitere Lehrkräfte suchen“ mit eigenem Suchfeld. Treffer erscheinen
+     erst bei Eingabe, als dieselben Kacheln, und sind dort buchbar.
+- Jede Lehrkraft erscheint genau einmal, in der ersten Gruppe, in die sie
+  fällt.
+- Teilnehmend heißt: alle außer `teilnahme = 0`. Die Regel steht an einer
+  Stelle (`bu_teilnehmend_sql()` / `bu_teilnehmend()`), und eine Prüfung
+  hält beide Formen gegeneinander.
+
+### Klassenleitung
+- Quelle ist `timetable/filter?resourceType=CLASS` über die
+  WebUntis-Sitzung der Eltern. Die Zuordnung läuft über `klasseId` aus
+  `pageconfig` auf `class.id`, dann `classTeacher1/2.id` auf
+  `lehrer.webuntis_id` (neu: `backend/api/klassenleitung.php`).
+- Sie wird einmal je Anmeldung geholt und in der PHP-Sitzung gemerkt,
+  aber nur bei Erfolg.
+- Keine Klasse oder keine Leitung bedeutet: keine Hervorhebung, kein
+  Fehler.
+- Ist die WebUntis-Sitzung abgelaufen, gibt es ebenfalls keine
+  Hervorhebung. Der Grund geht ins Protokoll; die Klassenleitung bleibt
+  über Gruppe 3 buchbar.
+- Nur für Eltern. Für volljährige Schüler ist der Weg nicht gemessen.
+
+### Buchungsrecht (zusammen mit der Kachel geändert)
+- `bu_lehrer_erlaubt()` nimmt die Phase an. Ab Phase 2 ist jede aktive,
+  teilnehmende Lehrkraft erlaubt. Die Quelle ist dieselbe wie bei
+  Gruppe 3 (`bu_teilnehmende_lehrer()`), und die Phasenfrage steht an
+  einer Stelle (`slot_alle_teilnehmenden_buchbar()`).
+- Ausgeführt geprüft: Jede gezeigte Lehrkraft geht beim Buchungsrecht
+  durch.
+
+### Nebenbei geändert (gemeldet)
+- Eine Lehrkraft mit zwei Sonderrollen erschien bisher zweimal; jetzt
+  erscheint sie einmal (mit der ersten Rolle).
+
+### Abnahme im Browser (nicht offline messbar)
+- Kachel der Klassenleitung: Der Rand links ist sichtbar und vom
+  Zustand „gewählt“ unterscheidbar.
+- Block „Weitere Lehrkräfte suchen“: Er startet eingeklappt. Nach Wahl
+  einer Lehrkraft daraus bleibt er offen, und das Raster erscheint
+  darunter.
+
+### Dokumentiert
+- Befund pageconfig-Schülerliste, Abschnitt 11: Messung über die eigene
+  Sitzung (Doppelabgleich 36/36 und 34/34, Zeitraum gleichgültig). E10
+  mit Nachträgen.
+
+### Prüfungen
+- Neu: `tests/run_dreiteilung.php` (102), `tests/frontend_dreiteilung_test.js` (26).
+- Angepasst:
+  - `run_einladung_kachel.php` (47, unverändert): Das Schema trägt
+    `aktiv`, die Buchungshilfe gibt die Phase mit. Eine Phase-2-Erwartung
+    zu einer Lehrkraft ohne Bezug zum Kind ist nach E10 umgekehrt.
+  - `frontend_einladung_kachel_test.js` (11, unverändert): Der
+    Kachelnachbau hat den neuen Parameter `suche`.
+- Suiten 827 → 955 ✓-Zeilen, 49 Suiten grün; `tests-sprechtag.sh` 29.
+- Mutationen: 71 → 110 Ergebniszeilen (Z1–Z39 neu), alle angeschlagen
+  bzw. bei H4 wie verlangt grün. K6 und K8 sind an den umgebauten Code
+  angepasst, weil ihre Muster nicht mehr trafen.
+
 ## v0.9.56 (Oktober 2026) – Messung: Klassenleitung aus timetable/filter, zwei Zeiträume
 
 ### Messung (kein Feature)

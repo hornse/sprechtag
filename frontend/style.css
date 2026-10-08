@@ -304,6 +304,8 @@ body.anzeige-modus { background: var(--akzent); }
 .buchen-kachel:active { transform: scale(.99); }
 .buchen-kachel.gewaehlt { border-color: var(--akzent);
                           background: var(--blau-hell); }
+/* Klassenleitung hervorgehoben (E10, Zug 3) – unabhängig von „gewählt“ */
+.buchen-kachel.klassenleitung { border-left: 4px solid var(--akzent); }
 .bk-raum { font-size: 1.15rem; font-weight: 700; color: var(--akzent); }
 .bk-name { font-weight: 600; }
 .bk-faecher { font-size: .8rem; color: var(--grau); }

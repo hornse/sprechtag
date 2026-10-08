@@ -506,3 +506,30 @@ hängt nicht vom Zeitraum ab (Befund pageconfig-Schülerliste,
 Abschnitt 11). Stammdaten-Sync und `getKlassen` über das Dienstkonto
 entfallen dafür. Eine Klasse ohne Leitung und ein Kind ohne Klasse
 ergeben keine Hervorhebung und keinen Fehler.
+
+**Nachtrag 08.10.2026 — Dreiteilung wirksam seit v0.9.57.** Mit dem Bau
+hat der Betreiber vorab entschieden:
+- **Zeitpunkt der Klassenleitung:** beim ersten Laden der Buchungsseite
+  je Anmeldung, gemerkt in der PHP-Sitzung, und nur bei Erfolg. Nicht
+  beim Login und nicht in einer Tabelle. Ist die WebUntis-Sitzung
+  (25–30 Minuten) schon abgelaufen, gibt es keine Hervorhebung und keinen
+  Fehler; buchbar bleibt die Klassenleitung über Gruppe 3.
+- **Sonderrollen** bleiben sichtbare Kacheln in Gruppe 2, hinter den
+  Unterrichtenden und der Klassenleitung, wie im Bestand.
+- **Gruppe 3** zeigt Treffer erst bei Eingabe, damit keine Wand aus allen
+  Lehrkräften entsteht.
+
+Beim Bau festgelegt (Folgerungen, keine neuen Richtungen):
+- **Gruppe 3, das Buchungsrecht ab Phase 2 und die nicht unterrichtende
+  Klassenleitung verlangen `lehrer.aktiv = 1`.** Ausgeschiedene
+  Lehrkräfte erscheinen in der Verwaltung nicht und können dort also
+  nicht auf `teilnahme = 0` gesetzt werden. Ohne diese Bedingung stünden
+  sie dauerhaft in der Suche. Für Unterrichtende, Eingeladene und
+  Sonderrollen gilt sie nicht; dort bleibt der Bestand.
+- **Die nicht unterrichtende Klassenleitung und Gruppe 3 erscheinen nur
+  dort, wo sie buchbar sind**, also ab Phase 2
+  (`slot_alle_teilnehmenden_buchbar()`). In der Vorbereitung oder für
+  die Verwaltung in Phase 1 stünde sonst eine Kachel ohne Buchungsrecht
+  da.
+- **Hervorhebung nur für Eltern.** Gemessen ist nur die Eltern-Sicht;
+  für volljährige Schüler ist der Weg nicht belegt.

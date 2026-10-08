@@ -47,7 +47,7 @@ $pdo = new PDO('sqlite::memory:', null, null, [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
 $pdo->exec('CREATE TABLE lehrer (id INTEGER PRIMARY KEY, kuerzel TEXT NOT NULL,
-    name TEXT NOT NULL DEFAULT "")');
+    name TEXT NOT NULL DEFAULT "", aktiv INT NOT NULL DEFAULT 1)');
 $pdo->exec('CREATE TABLE raeume (id INTEGER PRIMARY KEY, kuerzel TEXT NOT NULL)');
 $pdo->exec('CREATE TABLE sonderrollen (id INTEGER PRIMARY KEY, bezeichnung TEXT NOT NULL,
     reihenfolge INT NOT NULL DEFAULT 100)');
@@ -99,7 +99,7 @@ function buchbar(PDO $pdo, string $phase, string $rolle, int $lid): bool
         'phase'          => $phase,
         'rolle'          => $rolle,
         'eingeladen'     => bu_eingeladen($pdo, 1, 500, $lid),
-        'darf_lehrkraft' => bu_lehrer_erlaubt($pdo, 1, 500, $lid, ''),
+        'darf_lehrkraft' => bu_lehrer_erlaubt($pdo, 1, 500, $lid, '', $phase),
         'slot_frei'      => true,
         'slot_im_raster' => true,
         'anzahl_termine' => 0,
@@ -154,12 +154,16 @@ $k2 = bu_buchbare_lehrer($pdo, 1, 500, 'phase2', 'eltern', '');
 pruefe('Kacheln: Eingeladene (1, 4)', $ids($k2['eingeladen']) === [1, 4]);
 pruefe('Kacheln: Unterrichtende ohne die schon Eingeladenen (2)', $ids($k2['unterrichtend']) === [2]);
 pruefe('Kacheln: Sonderrolle (3)', $ids($k2['sonderlehrer']) === [3]);
-$alle = array_merge($k2['eingeladen'], $k2['unterrichtend'], $k2['sonderlehrer']);
+$alle = array_merge($k2['eingeladen'], $k2['unterrichtend'], $k2['sonderlehrer'], $k2['weitere']);
 pruefe('jede Lehrkraft genau einmal', count($alle) === count(array_unique(array_column($alle, 'lehrer_id'))));
 pruefe('Antwort sagt, dass nicht nur Eingeladene gelten', ($k2['nur_eingeladene'] ?? null) === false);
 pruefe('Buchung: eingeladene, nicht unterrichtende Lehrkraft geht durch', buchbar($pdo, 'phase2', 'eltern', 1));
 pruefe('Buchung: Unterrichtende geht durch', buchbar($pdo, 'phase2', 'eltern', 2));
-pruefe('Buchung: Einladung für anderes Kind öffnet nichts', !buchbar($pdo, 'phase2', 'eltern', 6));
+// Seit v0.9.57 (Zug 3, E10) ist ab Phase 2 jede teilnehmende Lehrkraft
+// buchbar – auch 6. Geprüft bleibt, dass die fremde Einladung sie nicht
+// zur Eingeladenen macht.
+pruefe('Einladung für anderes Kind macht nicht zur Eingeladenen (6 steht bei den Weiteren)',
+    !in_array(6, $ids($k2['eingeladen']), true) && in_array(6, $ids($k2['weitere']), true));
 
 // ------------------------------------------------------------
 echo "Kachelinhalt der Eingeladenen\n";

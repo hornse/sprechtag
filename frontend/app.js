@@ -37,6 +37,7 @@ const S = {
   lehrerSort: null,    // Sortierung der Lehrer-Tabelle {feld, richtung}
   anzeigeEinst: null,  // Signage-Einstellungen (Sortierung)
   buchenSuche: '',     // Filtertext für die Buchungs-Kacheln
+  weitereSuche: '',    // Suchtext für weitere Lehrkräfte (Gruppe 3, E10)
   lehrerLaedt: false,  // Auto-Load-Guard für die Lehrkraft-Liste
   kalenderLink: null,  // persönlicher iCal-Abo-Link (Eltern)
   lehrerKalenderLink: null,  // persönlicher iCal-Abo-Link (Lehrkraft)
@@ -1127,6 +1128,7 @@ function ansichtBuchen(ziel) {
   kw.querySelector('select').addEventListener('change', (e) => {
     S.kind = parseInt(e.target.value, 10);
     S.lehrerListe = null; S.lehrerLaedt = false; S.buchenSuche = '';
+    S.weitereSuche = '';
     S.gewaehlteLehrkraft = null; S.raster = [];
     zeichne();
   });
@@ -1144,7 +1146,9 @@ function ansichtBuchen(ziel) {
   }
 
   const alle = buchenLehrerAlle(S.lehrerListe);
-  if (alle.length === 0) {
+  // Gruppe 3 (E10): weitere teilnehmende Lehrkräfte, ab Phase 2.
+  const weitere = S.lehrerListe.weitere || [];
+  if (alle.length === 0 && weitere.length === 0) {
     ziel.appendChild(el('p', 'hinweis', S.lehrerListe.nur_eingeladene
       ? 'In dieser Phase können Sie nur bei Lehrkräften buchen, die Sie '
         + 'eingeladen haben. Für dieses Kind liegt keine Einladung vor.'
@@ -1153,22 +1157,30 @@ function ansichtBuchen(ziel) {
     return;
   }
 
-  ziel.appendChild(el('h3', null, 'Lehrkraft wählen'));
+  if (alle.length > 0) {
+    ziel.appendChild(el('h3', null, 'Lehrkraft wählen'));
 
-  const gitter = el('div', 'buchen-gitter');
+    const gitter = el('div', 'buchen-gitter');
 
-  // Suchfeld: bei vielen Lehrkräften schneller als Scrollen. Filtert die
-  // Kacheln clientseitig nach Name, Kürzel, Fach oder Raum.
-  const suche = feld('Suchen (Name, Fach oder Raum)', 'buchen-suche', 'text',
-    S.buchenSuche || '');
-  suche.querySelector('input').addEventListener('input', (e) => {
-    S.buchenSuche = e.target.value;
+    // Suchfeld: bei vielen Lehrkräften schneller als Scrollen. Filtert die
+    // Kacheln clientseitig nach Name, Kürzel, Fach oder Raum.
+    const suche = feld('Suchen (Name, Fach oder Raum)', 'buchen-suche', 'text',
+      S.buchenSuche || '');
+    suche.querySelector('input').addEventListener('input', (e) => {
+      S.buchenSuche = e.target.value;
+      zeichneBuchenKacheln(gitter, alle);
+    });
+    ziel.appendChild(suche);
+
     zeichneBuchenKacheln(gitter, alle);
-  });
-  ziel.appendChild(suche);
+    ziel.appendChild(gitter);
+  } else {
+    ziel.appendChild(el('p', 'hinweis',
+      'Für dieses Kind wurden keine unterrichtenden Lehrkräfte ermittelt. '
+      + 'Über die Suche unten finden Sie alle teilnehmenden Lehrkräfte.'));
+  }
 
-  zeichneBuchenKacheln(gitter, alle);
-  ziel.appendChild(gitter);
+  if (weitere.length > 0) zeichneWeitereLehrkraefte(ziel, weitere);
 
   if (S.gewaehlteLehrkraft && S.raster.length) {
     zeichneRaster(ziel, S.gewaehlteLehrkraft);
@@ -1263,9 +1275,10 @@ function buchenLehrerAlle(liste) {
 }
 
 // Rendert die Lehrkraft-Kacheln (gefiltert nach dem Suchfeld) in den Container.
-function zeichneBuchenKacheln(gitter, alle) {
+// suche: eigener Suchtext (Gruppe 3); ohne ihn gilt das Haupt-Suchfeld.
+function zeichneBuchenKacheln(gitter, alle, suche) {
   gitter.textContent = '';
-  const q = (S.buchenSuche || '').trim().toLowerCase();
+  const q = (suche === undefined ? (S.buchenSuche || '') : suche).trim().toLowerCase();
   const treffer = !q ? alle : alle.filter((l) => {
     const heu = [l.name, l.kuerzel, l.faecher, l.raum_kuerzel]
       .filter(Boolean).join(' ').toLowerCase();
@@ -1278,11 +1291,14 @@ function zeichneBuchenKacheln(gitter, alle) {
   }
 
   for (const l of treffer) {
+    const istKl = Number(l.klassenleitung) === 1;
     const karte = el('div', 'buchen-kachel'
+      + (istKl ? ' klassenleitung' : '')
       + (S.gewaehlteLehrkraft === l.lehrer_id ? ' gewaehlt' : ''));
     if (l.raum_kuerzel) karte.appendChild(el('div', 'bk-raum', l.raum_kuerzel));
     karte.appendChild(el('div', 'bk-name', l.name || l.kuerzel));
     if (l.faecher) karte.appendChild(el('div', 'bk-faecher', l.faecher));
+    if (istKl) karte.appendChild(el('span', 'rolle-badge', 'Klassenleitung'));
     if (l.rolle) karte.appendChild(el('span', 'rolle-badge', l.rolle));
     // Warum steht sie hier? Gerade wenn sie das Kind nicht unterrichtet.
     if (Number(l.eingeladen) === 1) {
@@ -1300,6 +1316,36 @@ function zeichneBuchenKacheln(gitter, alle) {
     karte.addEventListener('click', () => ladeRaster(l.lehrer_id));
     gitter.appendChild(karte);
   }
+}
+
+// Gruppe 3 (E10): Treffer erst bei Eingabe – sonst stünde eine Wand aus
+// allen Lehrkräften da. Dieselben Kacheln, also derselbe Weg zum Buchen.
+function zeichneWeitereKacheln(gitter, weitere) {
+  const q = (S.weitereSuche || '').trim();
+  if (!q) {
+    gitter.textContent = '';
+    gitter.appendChild(el('p', 'hinweis', 'Bitte Name, Kürzel oder Raum eingeben.'));
+    return;
+  }
+  zeichneBuchenKacheln(gitter, weitere, q);
+}
+
+// Eingeklappter Block mit eigener Suche; block() merkt sich, ob er offen ist.
+function zeichneWeitereLehrkraefte(ziel, weitere) {
+  const b = block('buchen-weitere', 'Weitere Lehrkräfte suchen (' + weitere.length + ')');
+  b.appendChild(el('p', 'hinweis', 'Auch bei Lehrkräften, die Ihr Kind nicht '
+    + 'unterrichten, können Sie einen Termin buchen.'));
+  const gitter = el('div', 'buchen-gitter');
+  const suche = feld('Name, Kürzel oder Raum', 'buchen-weitere-suche', 'text',
+    S.weitereSuche || '');
+  suche.querySelector('input').addEventListener('input', (e) => {
+    S.weitereSuche = e.target.value;
+    zeichneWeitereKacheln(gitter, weitere);
+  });
+  b.appendChild(suche);
+  zeichneWeitereKacheln(gitter, weitere);
+  b.appendChild(gitter);
+  ziel.appendChild(b);
 }
 
 async function ladeLehrerListe() {

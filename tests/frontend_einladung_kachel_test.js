@@ -42,9 +42,10 @@ let buchenLehrerAlle = () => { throw new Error('Rumpf fehlt'); };
 let zeichneBuchenKacheln = buchenLehrerAlle;
 if (alleRumpf !== '') buchenLehrerAlle = new Function('liste', alleRumpf);
 if (kachelRumpf !== '') {
+  // Seit v0.9.57 mit drittem Parameter `suche` (Gruppe 3); hier ohne ihn.
   zeichneBuchenKacheln = (S, gitter, alle) => new Function(
-    'S', 'el', 'anzeigeZeit', 'ladeRaster', 'gitter', 'alle', kachelRumpf)(
-    S, el, () => '', () => {}, gitter, alle);
+    'S', 'el', 'anzeigeZeit', 'ladeRaster', 'gitter', 'alle', 'suche', kachelRumpf)(
+    S, el, () => '', () => {}, gitter, alle, undefined);
 }
 
 // ---- Daten: Form wie GET /api/buchbare-lehrer (Zahlen als Text, wie PDO/MariaDB)

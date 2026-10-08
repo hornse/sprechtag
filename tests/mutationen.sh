@@ -222,11 +222,11 @@ mut K4 $BU 's/(function bu_eingeladen\(.*?)return \(int\)\$st->fetchColumn\(\) >
 echo "== Einladungs-Kachel: Kacheln (Ursache 1) und Phase 1"
 mut K5 $BU 's/bu_einladende_lehrer\(\$pdo, \$sid, \[\$kind\]\)/bu_einladende_lehrer(\$pdo, \$sid, [])/' \
   $K "Kacheln: genau die Eingeladenen, die teilnehmen (1, 4)"
-mut K6 $BU "s/fn\(\\\$z\) => \\\$z\['teilnahme'\] === null \|\| \(int\)\\\$z\['teilnahme'\] === 1/fn(\\\$z) => true/" \
+mut K6 $BU "s/fn\(\\\$z\) => bu_teilnehmend\(\\\$z\['teilnahme'\]\)/fn(\\\$z) => true/" \
   $K "Kacheln: genau die Eingeladenen, die teilnehmen (1, 4)"
 mut K7 $BU 's/    if \(slot_nur_eingeladene\(\$phase, \$rolle\)\) \{\n        return \[/    if (false) {\n        return [/' \
   $K "Kacheln: keine Unterrichtenden daneben"
-mut K8 $BU 's/fn\(\$z\) => !in_array\(\(int\)\$z\[.lehrer_id.\], \$eingeladenIds, true\)/fn(\$z) => true/' \
+mut K8 $BU 's/fn\(\$z\) => !in_array\(\(int\)\$z\[.lehrer_id.\], \$bekannt, true\)/fn(\$z) => true/' \
   $K "jede Lehrkraft genau einmal"
 mut K9 backend/api/slots.php "s/\\\$phase === 'phase1' && \(\\\$rolle === 'eltern' \|\| \\\$rolle === 'schueler'\)/\\\$phase === 'phase1' \&\& \\\$rolle === 'eltern'/" \
   $K "Phase 1, volljährige Schüler: nur Eingeladene"
@@ -319,6 +319,92 @@ mut S23 $MS "s/'hat_klasse' => \\\$klasse > 0\];/'hat_klasse' => \\\$klasse > 0,
   $S "keine Kennung (Klasse, Lehrkraft, Kind) und kein Name in der Antwort"
 mut S24 $MS "s/\n    if \(\\\$ferien !== null\) \\\$fenster\['ferien'\] = \\\$ferien;//" \
   $S "mit Ferienzeitraum: Schulzeit und Ferien abgefragt"
+
+echo "== Dreiteilung (Zug 3, v0.9.57)"
+D=tests/run_dreiteilung.php
+FD=tests/frontend_dreiteilung_test.js
+SL=backend/api/slots.php
+KL=backend/api/klassenleitung.php
+APP=frontend/app.js
+CSS=frontend/style.css
+mut Z1 $SL "s/return \\\$phase === 'phase2';/return \\\$phase !== 'phase1';/" \
+  $D "„vorbereitung“: nicht"
+mut Z2 $BU 's/"\(\$alias\.teilnahme IS NULL OR \$alias\.teilnahme <> 0\)"/"(\$alias.teilnahme <> 0)"/' \
+  $D "teilnahme NULL: teilnehmend"
+mut Z3 $BU 's/return \$teilnahme === null \|\| \(int\)\$teilnahme !== 0;/return (int)\$teilnahme !== 0;/' \
+  $D "teilnahme NULL: teilnehmend"
+mut Z4 $BU 's/WHERE l\.aktiv = 1 AND "/WHERE "/' \
+  $D "alle Teilnehmenden (1–7), ohne teilnahme = 0 (8) und ohne Inaktive (9)"
+mut Z5 $BU 's/if \(slot_alle_teilnehmenden_buchbar\(\$phase\)\n        &&/if (false\n        \&\&/' \
+  $D "jede gezeigte Lehrkraft ist erlaubt (auch Klassenleitung 4 und Weitere 6, 7)"
+mut Z6 $BU 's/&& bu_teilnehmende_lehrer\(\$pdo, \$sprechtagId, \[\$lehrerId\]\) !== \[\]\) return true;/\&\& true) return true;/' \
+  $D "teilnahme = 0 bleibt abgewiesen (8)"
+mut Z7 $BU 's/if \(\$alleBuchbar\) \{\n        \$weitere =/if (true) {\n        \$weitere =/' \
+  $D "Vorbereitung: Weitere leer"
+mut Z8 $BU 's/(bu_teilnehmende_lehrer\(\$pdo, \$sid\),\n\s*)fn\(\$z\) => !in_array\(\(int\)\$z\[.lehrer_id.\], \$bekannt, true\)/$1fn(\$z) => true/' \
+  $D "jede Lehrkraft genau einmal"
+mut Z9 $BU 's/array_merge\(\$klVorn, \$rest\)/array_merge(\$rest, \$klVorn)/' \
+  $D "2. Klassenleitung zuerst, dann Unterrichtende (4, 5, 2)"
+mut Z10 $BU 's/if \(\$alleBuchbar\) \{\n        \$schon/if (true) {\n        \$schon/' \
+  $D "Vorbereitung: nicht unterrichtende Klassenleitung fehlt (sonst Kachel ohne Recht)"
+mut Z11 $BU 's/in_array\(\(int\)\$z\[.lehrer_id.\], \$kl, true\) \? 1 : 0/0/' \
+  $D "Klassenleitung gekennzeichnet (4 und 5)"
+mut Z12 $BU 's/\n        \$bekannt\[\] = \(int\)\$z\[.lehrer_id.\];//' \
+  $D "jede Lehrkraft genau einmal"
+mut Z13 $KL 's/\(int\)\(\$e\[.id.\] \?\? 0\) === \$kindId/(int)(\$e["id"] ?? 0) !== \$kindId/' \
+  $D "Kind mit Klasse"
+mut Z14 $KL "s/\['classTeacher1', 'classTeacher2'\]/['classTeacher1']/" \
+  $D "beide Leitungen"
+mut Z15 $KL 's/if \(\$id > 0 && !in_array/if (!in_array/' \
+  $D "leeres Objekt und Kennung 0: keine"
+mut Z16 $KL 's/catch \(Exception \$e\)/catch (Throwable \$e)/' \
+  $D "Programmfehler (Error) wird NICHT verschluckt (catch Exception, nicht Throwable)"
+mut Z17 $KL 's/if \(!is_array\(\$json\[.data.\]\[.elements.\] \?\? \$json\[.data.\] \?\? null\)\) \{/if (false) {/' \
+  $D "pageconfig ohne Liste ist ein Fehler, nicht „keine Klasse“"
+mut Z18 $KL 's/if \(!is_array\(\$tj\[.classes.\] \?\? \$tj\[.data.\]\[.classes.\] \?\? null\)\) \{/if (false) {/' \
+  $D "timetable/filter ohne classes[] ist ein Fehler, nicht „keine Leitung“"
+mut Z19 $KL "s/error_log\('sprechtag: Klassenleitung nicht ermittelt: ' \. \\\$e\['grund'\]\);/\\\$_SESSION['klassenleitung'][\\\$kindId] = [];/" \
+  $D "fehlgeschlagener Abruf wird nicht gemerkt"
+mut Z20 $KL 's/if \(isset\(\$_SESSION\[.klassenleitung.\]\[\$kindId\]\)/if (false \&\& isset(\$_SESSION["klassenleitung"][\$kindId])/' \
+  $D "zweiter Aufruf kommt aus der Sitzung, ohne WebUntis"
+mut Z21 $KL 's/fn\(\$i\) => \$i > 0/fn(\$i) => true/' \
+  $D "Kennung 0 trifft nichts, auch wenn webuntis_id 0 im Bestand stünde"
+mut Z22 $KL "s/' -27 days'/' -28 days'/" \
+  $D "Zeitraum wie gemessen: vier Wochen bis heute, JJJJ-MM-TT"
+mut Z23 $BU "s/if \(\\\$u\['rolle'\] === 'eltern' && slot_alle/if (true || \\\$u['rolle'] === 'eltern' \&\& slot_alle/" \
+  $D "… nur für Eltern und nur, wenn alle Teilnehmenden buchbar sind"
+mut Z24 $BU "s/\?\? ''\)\), \\\$klassenleitung\);/?? '')));/" \
+  $D "… und reicht sie an bu_buchbare_lehrer() weiter"
+mut Z25 $BU "s/\(string\)\(\\\$body\['jahrgang'\] \?\? ''\), \(string\)\\\$s\['phase'\]\),/(string)(\\\$body['jahrgang'] ?? '')),/" \
+  $D "Buchungsroute gibt die Phase an bu_lehrer_erlaubt()"
+mut Z26 $BU "s/' \. bu_teilnehmend_sql\('sl'\) \. '/1 = 1/" \
+  $D "unterrichtende Lehrkraft mit teilnahme = 0 erscheint nicht (Kind 503, Lehrkraft 8)"
+mut Z27 $APP "s/\+ \(istKl \? ' klassenleitung' : ''\)/+ ''/" \
+  $FD "… und die Hervorhebungsklasse"
+mut Z28 $APP "s/    if \(istKl\) karte\.appendChild\(el\('span', 'rolle-badge', 'Klassenleitung'\)\);\n//" \
+  $FD "Klassenleitung trägt „Klassenleitung“ genau einmal"
+mut Z29 $APP 's/const istKl = Number\(l\.klassenleitung\) === 1;/const istKl = !!l.klassenleitung;/' \
+  $FD "klassenleitung 0 als Zahl, als Text oder fehlend: keine Kennzeichnung"
+mut Z30 $APP 's/  if \(!q\) \{\n    gitter\.textContent/  if (false) {\n    gitter.textContent/' \
+  $FD "ohne Eingabe: keine Kachel"
+mut Z31 $APP "s/const q = \(S\.weitereSuche \|\| ''\)\.trim\(\);/const q = (S.weitereSuche || '');/" \
+  $FD "nur Leerzeichen gilt als keine Eingabe"
+mut Z32 $APP 's/zeichneBuchenKacheln\(gitter, weitere, q\);/zeichneBuchenKacheln(gitter, weitere);/' \
+  $FD "Haupt-Suchfeld wirkt nicht auf die Weiteren"
+mut Z33 $APP "s/\(suche === undefined \? \(S\.buchenSuche \|\| ''\) : suche\)/(S.buchenSuche || '')/" \
+  $FD "ausdrücklicher Suchtext gilt statt S.buchenSuche"
+mut Z34 $APP 's/  if \(weitere\.length > 0\) zeichneWeitereLehrkraefte\(ziel, weitere\);\n//' \
+  $FD "ansichtBuchen() zeichnet die Weiteren"
+mut Z35 $APP 's/if \(alle\.length === 0 && weitere\.length === 0\) \{/if (alle.length === 0) {/' \
+  $FD "leere Gruppen 1–2 brechen nicht ab, wenn es Weitere gibt"
+mut Z36 $APP "s/\n    S\.weitereSuche = '';\n    S\.gewaehlteLehrkraft = null;/\n    S.gewaehlteLehrkraft = null;/" \
+  $FD "Kindwechsel leert die Suche der Weiteren"
+mut Z37 $CSS 's/\.buchen-kachel\.klassenleitung \{ border-left: 4px solid var\(--akzent\); \}\n//' \
+  $FD "Hervorhebung der Klassenleitung hat eine Regel"
+mut Z38 $APP "s/block\('buchen-weitere',/block('buchen-weitere-x',/" \
+  $FD "ein Block (details), über block() – also eingeklappt, Zustand gemerkt"
+mut Z39 $APP 's/S\.weitereSuche = e\.target\.value;\n    zeichneWeitereKacheln\(gitter, weitere\);/S.weitereSuche = e.target.value;/' \
+  $FD "Eingabe zeichnet die Treffer im Block"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi

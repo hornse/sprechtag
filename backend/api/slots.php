@@ -181,6 +181,20 @@ function slot_nur_eingeladene(string $phase, string $rolle): bool
 }
 
 /**
+ * Ist in dieser Phase JEDE teilnehmende Lehrkraft buchbar – auch ohne
+ * Unterricht, Einladung oder Sonderrolle? Ab Phase 2 ja (E10, Zug 3).
+ *
+ * Eine Stelle für zwei Orte: die Kachelliste ('weitere' und die nicht
+ * unterrichtende Klassenleitung in bu_buchbare_lehrer()) und das
+ * Buchungsrecht (bu_lehrer_erlaubt()). Wer dort erscheint, muss hier
+ * durchgehen.
+ */
+function slot_alle_teilnehmenden_buchbar(string $phase): bool
+{
+    return $phase === 'phase2';
+}
+
+/**
  * Prüft, ob eine Buchung erlaubt ist. Reine Regelprüfung – der
  * Aufrufer hat die Daten bereits geladen.
  *
