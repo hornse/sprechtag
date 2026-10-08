@@ -334,6 +334,11 @@ entstehen leere Namen und eine still übersprungene Prüfung.
 **Eingetragen:** 08.10.2026 · **betrifft:** E1, letzter Spiegelpunkt
 („noch nicht abschließend behandelt“) · keine Codeänderung
 
+> **Teilweise überholt (Nachtrag 08.10.2026, unten):** Die Ursachenangabe
+> im folgenden Absatz — `tokenHolen()`, `mit_rest_aus_sitzung()` — ist aus
+> dem Code geschlossen, nicht gemessen. Der Absatz bleibt als damaliger
+> Stand stehen.
+
 **Gemessen 08.10.2026:** Nach etwa 30 Minuten Wartezeit greift beim
 Einladungsversand der Rückfall auf das Dienstkonto. Die
 WebUntis-Sitzung der Lehrkraft war abgelaufen; `tokenHolen()` lieferte
@@ -359,3 +364,22 @@ Programmierfehler in diesem Weg sähe deshalb genau so aus wie eine
 abgelaufene Sitzung — der Versand fiele still auf das Dienstkonto
 zurück (FALLSTRICKE Abschnitt 3). Unterscheidbar ist es nur im
 Server-Log (`sprechtag: Sitzung der Lehrkraft nicht nutzbar: …`).
+
+**Nachtrag 08.10.2026 — gemessen und geschlossen getrennt:**
+
+| | |
+|---|---|
+| **Gemessen** | Nach etwa 30 Minuten Wartezeit lief der Einladungsversand über das Dienstkonto. |
+| **Aus dem Code geschlossen, nicht belegt** | dass die Sitzung abgelaufen war, `tokenHolen()` kein Token lieferte und `mit_rest_aus_sitzung()` deshalb `null` zurückgab. |
+
+Die Ursache ist **nicht unterscheidbar**, ohne ins Server-Log zu sehen:
+Wegen des `catch (Throwable …)` (oben) führt auch ein Fehler im
+Sitzungsweg zu `null` und damit zum selben Rückfall. Der Abgleich mit
+lernzeiten (29.09.2026) ist deshalb **verträglich, keine Bestätigung**.
+
+Die Aussage „der Ablauffall ist für den Weg mit Dienstkonto belegt“
+bleibt richtig: Belegt ist der **Rückfall**, nicht seine Ursache.
+
+Warum diese Trennung hier steht: Dieselbe Vermischung — ein Schluss aus
+Code oder Scope, behandelt wie eine Messung — hat beim Scope `mg:r`
+monatelang in die Irre geführt (E1).
