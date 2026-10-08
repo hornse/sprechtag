@@ -326,3 +326,36 @@ entstehen leere Namen und eine still übersprungene Prüfung.
 **Nicht gebraucht** wird der Empfängerfilter (`CUSTOM/filter` mit
 `CLASS`+`ROLE`): Er liefert `user.id`s in einem anderen Kreis.
 `pageconfig` liefert dieselbe Information im richtigen.
+
+---
+
+## E9 — Der Ablauffall der Lehrkraft-Sitzung ist gemessen (ergänzt E1)
+
+**Eingetragen:** 08.10.2026 · **betrifft:** E1, letzter Spiegelpunkt
+(„noch nicht abschließend behandelt“) · keine Codeänderung
+
+**Gemessen 08.10.2026:** Nach etwa 30 Minuten Wartezeit greift beim
+Einladungsversand der Rückfall auf das Dienstkonto. Die
+WebUntis-Sitzung der Lehrkraft war abgelaufen; `tokenHolen()` lieferte
+kein Token, `mit_rest_aus_sitzung()` gab `null` zurück, und
+`mit_einreihen_und_senden()` hat auf das Dienstkonto zurückgegriffen
+(`backend/api/mitteilungen.php`, „2. Wahl“).
+
+Das deckt sich mit der Messung aus lernzeiten vom 29.09.2026: Die
+Sitzung lebt 25–30 Minuten und verlängert sich nicht durch Nutzung.
+
+**Entschieden:** E1 bleibt, wie gebaut. Der Ablauffall ist für den Weg
+**mit** hinterlegtem Dienstkonto belegt.
+
+**Nicht geprüft:** der Fall **ohne** hinterlegtes Dienstkonto. Dann soll
+die Mitteilung als `offen` stehenbleiben, mit dem Hinweis „bitte neu
+anmelden und erneut senden“. Das ist im Code vorgesehen
+(`mit_einreihen_und_senden()`, Rückgabe `status => 'offen'`), aber
+ungemessen.
+
+**Daneben gefunden, nicht behoben:** `mit_rest_aus_sitzung()` fängt mit
+`catch (Throwable …)` und gibt dann ebenfalls `null` zurück. Ein
+Programmierfehler in diesem Weg sähe deshalb genau so aus wie eine
+abgelaufene Sitzung — der Versand fiele still auf das Dienstkonto
+zurück (FALLSTRICKE Abschnitt 3). Unterscheidbar ist es nur im
+Server-Log (`sprechtag: Sitzung der Lehrkraft nicht nutzbar: …`).
