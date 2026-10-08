@@ -292,6 +292,20 @@ mut S11 $IX 's/\$u = auth_require\(\);\n    \$grund = null;/\$u = auth_user() ??
 mut S12 $MI "s/\{ \\\$grund = 'kein_token'; return null; \}/{ \\\$grund = 'kein_token'; }/" \
   tests/frontend_lehrersitzung_test.js "abgelaufene Sitzung gibt null"
 
+echo "== Messung Klassenleitung (Zug 3)"
+mut S13 $MS 's/fn\(\$i\) => isset\(\$ids\[\$i\]\)/fn(\$i) => false/' \
+  $S "Kind 1: Kennung passt zu lehrer.webuntis_id, Text zu kuerzel"
+mut S14 $MS "s/'gefuellt'       => messung_format\(\\\$v\) !== 'leer',/'gefuellt' => true,/" \
+  $S "Kind 2 ohne Klasse: Feld fehlt, nicht gefüllt"
+mut S15 $MS "s/return 'Objekt\{' \. implode\(',', \\\$k\) \. '\}';/return json_encode(\\\$v);/" \
+  $S "weder Kennung noch Name der Klassenleitung in der Antwort"
+mut S16 $IX 's/\$probe, \$lehrer\)\]\);/\$probe)]);/' \
+  $S "Route reicht den Grund aus mit_rest_aus_sitzung() durch"
+mut S17 $MS "s/\\\$nachId\[\(int\)\(\\\$k\['id'\] \?\? 0\)\] \?\? null/\\\$nachId[0] ?? null/" \
+  $S "Kind 1: Klassenleitung gefüllt, Format Objekt{id,name}"
+mut S18 $MS "s/\(\\\$u\['rolle'\] \?\? ''\) === 'eltern' \? \(array\)\(\\\$u\['kinder'\] \?\? \[\]\) : null/null/" \
+  $S "Bericht enthält die Klassenleitung je Kind"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1

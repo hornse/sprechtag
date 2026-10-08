@@ -460,3 +460,29 @@ ihrer Folgen nicht (E7, Akzentfarbe).
 ebenso, dass Eingeladene ab Phase 2 sichtbar und buchbar bleiben. Die
 Dreiteilung ab Phase 2 (Klassenleitung hervorgehoben, weitere hinter
 einer Suche) ist **noch nicht gebaut**.
+
+**Nachtrag 08.10.2026 — Entscheidungen für Zug 3 (Betreiber), noch nicht
+gebaut:**
+
+- **Weitere Lehrkräfte sind in Phase 2 buchbar**, alle teilnehmenden.
+  Eine Suche, die Lehrkräfte zeigt, bei denen man nicht buchen kann,
+  führt ins Leere — dasselbe Muster wie bei der Einladungs-Kachel. Und
+  Eltern sollen auch Vertretungslehrkräfte erreichen können. Die Sperre,
+  die zählt, ist die **Teilnahme**: bei jemandem zu buchen, der am
+  Sprechtag nicht da ist, wäre der eigentliche Fehler. Kachel bzw. Suche
+  und `bu_lehrer_erlaubt()` werden zusammen geändert.
+- **Die Klassenleitung steht immer in Gruppe 2**, hervorgehoben, und ist
+  buchbar — auch wenn sie das Kind nicht unterrichtet (Teilzeit,
+  Oberstufe). Sie ist für Eltern oft die wichtigste Ansprechperson und
+  gehört nicht hinter die eingeklappte Suche. Gruppe 2 heißt damit:
+  Unterrichtende **und** Klassenleitung.
+- **„Teilnehmend“ wie im Bestand:** alle außer `teilnahme = 0`; keine
+  Zeile in `sprechtag_lehrer` gilt als teilnehmend. Eine zweite Regel
+  für dieselbe Frage wäre der Fehler der Einladungs-Kachel noch einmal.
+- **Woher die Klassenleitung kommt, wird erst gemessen** (v0.9.55,
+  `GET /api/messung/sitzung`, Teil `klassenleitung`): Trägt die
+  Eltern-Sicht von `pageconfig` `classteacher`/`classteacher2` gefüllt,
+  in welchem Format, und passt der Wert zu `lehrer.webuntis_id`? Gebaut
+  wird danach. Trägt sie nicht, wird zwischen Stammdaten-Sync und
+  `getKlassen` über das Dienstkonto entschieden — und ob die personIds
+  zu `lehrer.webuntis_id` passen, wird dann ebenfalls erst gemessen.

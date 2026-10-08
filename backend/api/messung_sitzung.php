@@ -4,6 +4,10 @@
 //
 //   GET /api/messung/sitzung   (jede angemeldete Person, nur Zahlen)
 //
+// Seit v0.9.55 zusätzlich (Zug 3): Trägt pageconfig die Klassenleitung
+// (classteacher/classteacher2) – gefüllt, in welchem Format, und passt
+// sie zu lehrer.webuntis_id oder lehrer.kuerzel? Nur Zahlen und Formate.
+//
 // Zweck: Frage 2 aus docs/BEFUND-2026-10-07-pageconfig-schuelerliste.md –
 // trägt der beim Login festgehaltene WebUntis-Cookie (über
 // mit_rest_aus_sitzung(), denselben Weg wie der Mitteilungsversand)
@@ -98,6 +102,128 @@ function messung_deute_kein_token(?array $probe): string
         . ') – abgelaufen ODER ein anderer Fehler. KEIN Befund.';
 }
 
+/**
+ * Formatangabe eines Werts – ohne den Wert selbst. Objekte nennen nur
+ * ihre Schlüssel, Listen ihre Länge und das Format des ersten Elements.
+ */
+function messung_format($v): string
+{
+    if ($v === null || $v === '' || $v === []) return 'leer';
+    if (is_int($v)) return 'Zahl';
+    if (is_float($v)) return 'Kommazahl';
+    if (is_bool($v)) return 'Wahrheitswert';
+    if (is_string($v)) return ctype_digit($v) ? 'Ziffernfolge (Text)' : 'Text';
+    if (is_array($v)) {
+        if (array_is_list($v)) {
+            return 'Liste[' . count($v) . '] von ' . messung_format($v[0]);
+        }
+        $k = array_keys($v);
+        sort($k);
+        return 'Objekt{' . implode(',', $k) . '}';
+    }
+    return gettype($v);
+}
+
+/**
+ * Kandidaten aus einem classteacher-Wert: Kennungen (Zahl, Ziffernfolge,
+ * Objekt mit id) und Texte (Text, Objekt mit name/shortName). Listen
+ * werden aufgefaltet.
+ */
+function messung_kandidaten($v): array
+{
+    $ids = []; $texte = [];
+    $lauf = function ($x) use (&$lauf, &$ids, &$texte): void {
+        if (is_int($x) && $x > 0) { $ids[] = $x; return; }
+        if (is_string($x) && $x !== '') {
+            if (ctype_digit($x)) $ids[] = (int)$x; else $texte[] = $x;
+            return;
+        }
+        if (!is_array($x)) return;
+        if (array_is_list($x)) { foreach ($x as $e) $lauf($e); return; }
+        if (isset($x['id'])) $lauf($x['id']);
+        foreach (['name', 'shortName', 'kuerzel'] as $f) {
+            if (isset($x[$f]) && is_string($x[$f]) && $x[$f] !== '' && !ctype_digit($x[$f])) {
+                $texte[] = $x[$f];
+            }
+        }
+    };
+    $lauf($v);
+    return ['ids' => $ids, 'texte' => $texte];
+}
+
+/**
+ * Klassenleitung in pageconfig: Sind classteacher/classteacher2 gefüllt,
+ * in welchem Format, und wie viele Werte passen zu lehrer.webuntis_id
+ * bzw. lehrer.kuerzel? Nur Zahlen und Formatangaben.
+ *
+ * $lehrer: ['webuntis_ids' => int[], 'kuerzel' => string[]]
+ * $kinder: Kinder der Sitzung (Eltern) – dann je „Kind n“, zugeordnet
+ *          über die Kennung (derselbe Kreis, Befund Abschnitt 6);
+ *          sonst NULL – dann über die ganze Liste summiert.
+ */
+function messung_klassenleitung(array $liste, array $lehrer, ?array $kinder): array
+{
+    $ids    = array_fill_keys(array_map('intval', $lehrer['webuntis_ids'] ?? []), true);
+    $kuerz  = array_fill_keys(array_map('strval', $lehrer['kuerzel'] ?? []), true);
+    $werte  = function (array $e) use ($ids, $kuerz): array {
+        $r = [];
+        foreach (['classteacher', 'classteacher2'] as $f) {
+            $v = $e[$f] ?? null;
+            $k = messung_kandidaten($v);
+            $r[$f] = [
+                'vorhanden'      => array_key_exists($f, $e),
+                'gefuellt'       => messung_format($v) !== 'leer',
+                'format'         => messung_format($v),
+                'kennungen'      => count($k['ids']),
+                'passt_webuntis_id' => count(array_filter($k['ids'], fn($i) => isset($ids[$i]))),
+                'texte'          => count($k['texte']),
+                'passt_kuerzel'  => count(array_filter($k['texte'], fn($t) => isset($kuerz[$t]))),
+            ];
+        }
+        return $r;
+    };
+
+    $bericht = ['lehrer_im_bestand' => count($ids)];
+    if (count($ids) === 0) {
+        $bericht['deutung'] = 'Keine Lehrkräfte mit webuntis_id im Bestand – Abgleich '
+            . 'nicht möglich. KEIN Befund.';
+    }
+
+    if ($kinder !== null) {
+        $nachId = [];
+        foreach ($liste as $e) {
+            if (is_array($e) && (int)($e['id'] ?? 0) > 0) $nachId[(int)$e['id']] = $e;
+        }
+        $bericht['kinder'] = [];
+        foreach (array_values($kinder) as $i => $k) {
+            $e = $nachId[(int)($k['id'] ?? 0)] ?? null;
+            $bericht['kinder'][] = $e === null
+                ? ['kind' => 'Kind ' . ($i + 1), 'in_pageconfig' => false]
+                : ['kind' => 'Kind ' . ($i + 1), 'in_pageconfig' => true,
+                   'hat_klasse' => (int)($e['klasseId'] ?? 0) > 0] + $werte($e);
+        }
+        return $bericht;
+    }
+
+    // Lehrkraft-Sicht: über die ganze Liste summiert, Formate gezählt.
+    $summe = [];
+    foreach (['classteacher', 'classteacher2'] as $f) {
+        $summe[$f] = ['gefuellt' => 0, 'formate' => [], 'kennungen' => 0,
+                      'passt_webuntis_id' => 0, 'texte' => 0, 'passt_kuerzel' => 0];
+    }
+    foreach ($liste as $e) {
+        if (!is_array($e)) continue;
+        foreach ($werte($e) as $f => $w) {
+            if ($w['gefuellt']) $summe[$f]['gefuellt']++;
+            $summe[$f]['formate'][$w['format']] = ($summe[$f]['formate'][$w['format']] ?? 0) + 1;
+            foreach (['kennungen', 'passt_webuntis_id', 'texte', 'passt_kuerzel'] as $z) {
+                $summe[$f][$z] += $w[$z];
+            }
+        }
+    }
+    return $bericht + ['summe' => $summe];
+}
+
 /** Ein Abruf, der nie wirft: Fehler werden mit Klasse und Meldung berichtet. */
 function messung_abruf(object $rest, string $pfad, array $query): array
 {
@@ -117,7 +243,8 @@ function messung_abruf(object $rest, string $pfad, array $query): array
  * Prüfungen.
  */
 function messung_sitzung_bericht(array $u, ?object $rest, ?string $grund,
-                                 ?string $heute = null, ?array $probe = null): array
+                                 ?string $heute = null, ?array $probe = null,
+                                 array $lehrer = []): array
 {
     $bericht = [
         'messung' => 'Frage 2 (BEFUND-2026-10-07-pageconfig-schuelerliste) – '
@@ -161,6 +288,15 @@ function messung_sitzung_bericht(array $u, ?object $rest, ?string $grund,
             : ($z['eintraege'] === 0 ? 'Liste leer – null Einträge sind kein Befund.'
             : 'Zugriff über die Login-Sitzung gelingt.'))),
     ];
+
+    // ---- 1b. Klassenleitung in pageconfig (Zug 3, v0.9.55) ---------------
+    $liste = $pc['json']['data']['elements'] ?? $pc['json']['data'] ?? null;
+    if (is_array($liste) && $liste !== []) {
+        $bericht['klassenleitung'] = messung_klassenleitung($liste, $lehrer,
+            ($u['rolle'] ?? '') === 'eltern' ? (array)($u['kinder'] ?? []) : null);
+    } else {
+        $bericht['klassenleitung'] = 'nicht gemessen (keine pageconfig-Liste)';
+    }
 
     // ---- 2. Stundenplan der eigenen Kinder (nur Eltern) ------------------
     if (($u['rolle'] ?? '') !== 'eltern') {

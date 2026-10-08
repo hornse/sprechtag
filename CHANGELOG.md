@@ -1,5 +1,27 @@
 # Changelog - sprechtag
 
+## v0.9.55 (Oktober 2026) – Messung: trägt pageconfig die Klassenleitung?
+
+### Messung (kein Feature)
+- `GET /api/messung/sitzung` misst zusätzlich `classteacher` und
+  `classteacher2` in `pageconfig`: gefüllt oder nicht, das Format (ohne
+  den Wert) und wie viele Werte zu `lehrer.webuntis_id` bzw.
+  `lehrer.kuerzel` passen. In der Eltern-Sicht je eigenem Kind („Kind 1“
+  …), in der Lehrkraft-Sicht summiert. Vorstufe zu Zug 3 (E10): Gebaut
+  wird die Hervorhebung der Klassenleitung erst nach dem Befund.
+
+### Dokumentiert
+- E10, Nachtrag: weitere Lehrkräfte in Phase 2 buchbar (nur
+  Teilnehmende), Klassenleitung immer in Gruppe 2 und buchbar,
+  „teilnehmend“ wie im Bestand. Entschieden, nicht gebaut.
+
+### Prüfungen
+- `tests/run_messung_sitzung.php` 35 → 55: Formatangaben, Abgleich,
+  Zuordnung je Kind über die Kennung, keine Kennung und kein Name der
+  Klassenleitung in der Antwort.
+- Suiten 790 → 810 ✓-Zeilen, 47 Suiten grün; `tests-sprechtag.sh` 29.
+  Mutationen 59 → 65 (S13–S18), alle angeschlagen.
+
 ## v0.9.54 (Oktober 2026) – Messung: trägt die Login-Sitzung pageconfig und Stundenplan?
 
 ### Neu (Messung, kein Feature)
