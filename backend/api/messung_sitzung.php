@@ -4,6 +4,10 @@
 //
 //   GET /api/messung/sitzung   (jede angemeldete Person, nur Zahlen)
 //
+// Seit v0.9.56 zusätzlich: timetable/filter?resourceType=CLASS (Klassen-
+// leitung als Objekt mit id und shortName), Doppelabgleich gegen lehrer,
+// Schulzeit gegen einen ANGEGEBENEN Ferienzeitraum (?ferien_von/_bis).
+//
 // Seit v0.9.55 zusätzlich (Zug 3): Trägt pageconfig die Klassenleitung
 // (classteacher/classteacher2) – gefüllt, in welchem Format, und passt
 // sie zu lehrer.webuntis_id oder lehrer.kuerzel? Nur Zahlen und Formate.
@@ -224,6 +228,84 @@ function messung_klassenleitung(array $liste, array $lehrer, ?array $kinder): ar
     return $bericht + ['summe' => $summe];
 }
 
+/**
+ * timetable/filter?resourceType=CLASS – Klassenleitung je Klasse (v0.9.56).
+ *
+ * Liest classes[] (oben oder unter data). Je classTeacher1/2: vorhanden,
+ * gefüllt, Format, und der Doppelabgleich: id → lehrer.webuntis_id,
+ * shortName → lehrer.kuerzel, und ob beide auf DIESELBE Lehrkraft zeigen.
+ *
+ * Rückgabe: ['bericht' => nur Zahlen/Formate,
+ *            'sig'     => [Klassen-ID => [id1, id2]]  – NUR intern, für den
+ *                         Zeitraumvergleich; geht nie in die Antwort]
+ * $lehrer['paare']: webuntis_id => kuerzel
+ */
+function messung_klassenfilter_auswerten($json, array $lehrer): array
+{
+    $pfad = null;
+    $klassen = null;
+    if (is_array($json['classes'] ?? null)) { $klassen = $json['classes']; $pfad = 'classes'; }
+    elseif (is_array($json['data']['classes'] ?? null)) { $klassen = $json['data']['classes']; $pfad = 'data.classes'; }
+    if ($klassen === null) {
+        return ['bericht' => ['liste_gefunden' => false, 'klassen' => 0], 'sig' => [], 'je_klasse' => []];
+    }
+    $paare = $lehrer['paare'] ?? [];
+    $kuerz = array_fill_keys(array_map('strval', array_values($paare)), true);
+    $leer  = fn() => ['vorhanden' => 0, 'gefuellt' => 0, 'formate' => [],
+                      'id_passt' => 0, 'kuerzel_passt' => 0, 'beide_dieselbe' => 0];
+    $summe = ['classTeacher1' => $leer(), 'classTeacher2' => $leer()];
+    $sig = [];
+    $jeKlasse = [];
+    foreach ($klassen as $k) {
+        if (!is_array($k)) continue;
+        $kid = (int)($k['class']['id'] ?? 0);
+        $eintrag = [];
+        foreach (['classTeacher1', 'classTeacher2'] as $f) {
+            $v = $k[$f] ?? null;
+            $fmt = messung_format($v);
+            $id  = is_array($v) ? (int)($v['id'] ?? 0) : 0;
+            $kz  = is_array($v) ? (string)($v['shortName'] ?? '') : '';
+            $w = [
+                'vorhanden'      => array_key_exists($f, $k),
+                'gefuellt'       => $fmt !== 'leer',
+                'format'         => $fmt,
+                'id_passt'       => $id > 0 && isset($paare[$id]),
+                'kuerzel_passt'  => $kz !== '' && isset($kuerz[$kz]),
+                'beide_dieselbe' => $id > 0 && $kz !== '' && (string)($paare[$id] ?? '') === $kz,
+            ];
+            $eintrag[$f] = $w;
+            if ($w['vorhanden']) $summe[$f]['vorhanden']++;
+            if ($w['gefuellt']) $summe[$f]['gefuellt']++;
+            $summe[$f]['formate'][$fmt] = ($summe[$f]['formate'][$fmt] ?? 0) + 1;
+            foreach (['id_passt', 'kuerzel_passt', 'beide_dieselbe'] as $z) {
+                if ($w[$z]) $summe[$f][$z]++;
+            }
+            $sig[$kid][] = $id;
+        }
+        if ($kid > 0) $jeKlasse[$kid] = $eintrag;
+    }
+    return ['bericht' => ['liste_gefunden' => true, 'pfad' => $pfad,
+                          'klassen' => count($jeKlasse)] + $summe,
+            'sig' => $sig, 'je_klasse' => $jeKlasse];
+}
+
+/** Vergleicht die Klassenleitung zweier Zeiträume – nur Zahlen. */
+function messung_zeitraum_vergleich(array $sigA, array $sigB): array
+{
+    $gleich = 0; $anders = 0;
+    foreach ($sigA as $kid => $paar) {
+        if (!array_key_exists($kid, $sigB)) continue;
+        if ($sigB[$kid] === $paar) $gleich++; else $anders++;
+    }
+    return [
+        'in_beiden'         => $gleich + $anders,
+        'gleiche_leitung'   => $gleich,
+        'andere_leitung'    => $anders,
+        'nur_schulzeit'     => count(array_diff_key($sigA, $sigB)),
+        'nur_ferien'        => count(array_diff_key($sigB, $sigA)),
+    ];
+}
+
 /** Ein Abruf, der nie wirft: Fehler werden mit Klasse und Meldung berichtet. */
 function messung_abruf(object $rest, string $pfad, array $query): array
 {
@@ -244,7 +326,7 @@ function messung_abruf(object $rest, string $pfad, array $query): array
  */
 function messung_sitzung_bericht(array $u, ?object $rest, ?string $grund,
                                  ?string $heute = null, ?array $probe = null,
-                                 array $lehrer = []): array
+                                 array $lehrer = [], ?array $ferien = null): array
 {
     $bericht = [
         'messung' => 'Frage 2 (BEFUND-2026-10-07-pageconfig-schuelerliste) – '
@@ -296,6 +378,69 @@ function messung_sitzung_bericht(array $u, ?object $rest, ?string $grund,
             ($u['rolle'] ?? '') === 'eltern' ? (array)($u['kinder'] ?? []) : null);
     } else {
         $bericht['klassenleitung'] = 'nicht gemessen (keine pageconfig-Liste)';
+    }
+
+    // ---- 1c. timetable/filter: Klassenleitung, zwei Zeiträume (v0.9.56) --
+    // Schulzeit: dieselben vier Wochen wie der Stundenplan unten (dort ist
+    // Unterricht belegt). Ferien: nur, wenn ausdrücklich angegeben – ein
+    // geratener Zeitraum entwertete den Vergleich.
+    $bisS = $heute ?? date('Y-m-d');
+    $vonS = date('Y-m-d', strtotime($bisS . ' -27 days'));
+    $fenster = ['schulzeit' => ['von' => $vonS, 'bis' => $bisS]];
+    if ($ferien !== null) $fenster['ferien'] = $ferien;
+    $auswertung = [];
+    $bericht['klassenfilter'] = [];
+    foreach ($fenster as $name => $f) {
+        $r = messung_abruf($rest, '/WebUntis/api/rest/view/v1/timetable/filter', [
+            'resourceType' => 'CLASS', 'timetableType' => 'STANDARD',
+            'start' => $f['von'], 'end' => $f['bis'],
+        ]);
+        $a = messung_klassenfilter_auswerten($r['json'], $lehrer);
+        $auswertung[$name] = $a;
+        $bericht['klassenfilter'][$name] = ['zeitraum' => $f, 'status' => $r['status'],
+            'fehler' => $r['fehler']] + $a['bericht'] + [
+            'deutung' => $r['fehler'] !== null ? 'Abruf mit Ausnahme – kein Befund.'
+                : ($r['status'] !== 200 ? 'Status ' . $r['status'] . ' – kein Zugriff oder falsche Parameter.'
+                : (!$a['bericht']['liste_gefunden'] ? 'Status 200, aber kein classes[] – Antwortform prüfen. KEIN Befund.'
+                : ($a['bericht']['klassen'] === 0 ? 'classes[] leer – kein Befund.'
+                : 'Klassenliste gelesen.'))),
+        ];
+    }
+    if (!isset($fenster['ferien'])) {
+        $bericht['klassenfilter']['ferien'] = 'nicht gemessen – Ferienzeitraum als '
+            . '?ferien_von=JJJJ-MM-TT&ferien_bis=JJJJ-MM-TT angeben';
+        $bericht['klassenfilter']['vergleich'] = 'nicht gemessen (kein Ferienzeitraum)';
+    } elseif ($auswertung['schulzeit']['sig'] === [] || $auswertung['ferien']['sig'] === []) {
+        $bericht['klassenfilter']['vergleich'] = 'mindestens ein Zeitraum ohne Klassen – '
+            . 'Vergleich nicht möglich. KEIN Befund.';
+    } else {
+        $bericht['klassenfilter']['vergleich'] = messung_zeitraum_vergleich(
+            $auswertung['schulzeit']['sig'], $auswertung['ferien']['sig']);
+    }
+
+    // Eltern: je eigenem Kind über klasseId aus pageconfig (gleicher Kreis
+    // wie class.id – an einem Fall vom Betreiber quergeprüft, hier gezählt).
+    if (($u['rolle'] ?? '') === 'eltern') {
+        $nachId = [];
+        foreach ((is_array($liste) ? $liste : []) as $e) {
+            if (is_array($e) && (int)($e['id'] ?? 0) > 0) $nachId[(int)$e['id']] = $e;
+        }
+        $bericht['klassenfilter']['kinder'] = [];
+        foreach (array_values((array)($u['kinder'] ?? [])) as $i => $k) {
+            $klasse = (int)($nachId[(int)($k['id'] ?? 0)]['klasseId'] ?? 0);
+            $z = ['kind' => 'Kind ' . ($i + 1), 'hat_klasse' => $klasse > 0];
+            foreach ($auswertung as $name => $a) {
+                $z[$name] = $klasse > 0 && isset($a['je_klasse'][$klasse])
+                    ? ['klasse_gefunden' => true] + $a['je_klasse'][$klasse]
+                    : ['klasse_gefunden' => false];
+            }
+            if (isset($auswertung['ferien'])) {
+                $sa = $auswertung['schulzeit']['sig'][$klasse] ?? null;
+                $sb = $auswertung['ferien']['sig'][$klasse] ?? null;
+                $z['gleiche_leitung_in_beiden'] = $sa !== null && $sb !== null ? $sa === $sb : null;
+            }
+            $bericht['klassenfilter']['kinder'][] = $z;
+        }
     }
 
     // ---- 2. Stundenplan der eigenen Kinder (nur Eltern) ------------------

@@ -299,12 +299,26 @@ mut S14 $MS "s/'gefuellt'       => messung_format\(\\\$v\) !== 'leer',/'gefuellt
   $S "Kind 2 ohne Klasse: Feld fehlt, nicht gefüllt"
 mut S15 $MS "s/return 'Objekt\{' \. implode\(',', \\\$k\) \. '\}';/return json_encode(\\\$v);/" \
   $S "weder Kennung noch Name der Klassenleitung in der Antwort"
-mut S16 $IX 's/\$probe, \$lehrer\)\]\);/\$probe)]);/' \
+mut S16 $IX 's/\$probe, \$lehrer, \$ferien\)\]\);/\$probe, [], \$ferien)]);/' \
   $S "Route reicht den Grund aus mit_rest_aus_sitzung() durch"
 mut S17 $MS "s/\\\$nachId\[\(int\)\(\\\$k\['id'\] \?\? 0\)\] \?\? null/\\\$nachId[0] ?? null/" \
   $S "Kind 1: Klassenleitung gefüllt, Format Objekt{id,name}"
 mut S18 $MS "s/\(\\\$u\['rolle'\] \?\? ''\) === 'eltern' \? \(array\)\(\\\$u\['kinder'\] \?\? \[\]\) : null/null/" \
   $S "Bericht enthält die Klassenleitung je Kind"
+
+echo "== Messung timetable/filter (Zug 3)"
+mut S19 $MS "s/\(string\)\(\\\$paare\[\\\$id\] \?\? ''\) === \\\$kz,/true,/" \
+  $S "classTeacher1: beide auf dieselbe Lehrkraft nur 1 (Kennung 8 ist Cd, nicht Xx)"
+mut S20 $MS "s/'kuerzel_passt'  => \\\$kz !== '' && isset\(\\\$kuerz\[\\\$kz\]\),/'kuerzel_passt' => false,/" \
+  $S "classTeacher1: id passt 2, Kürzel passt 1"
+mut S21 $IX 's/(\$ferien = preg_match\([^;]*?\$fv\)) && (preg_match)/$1 || $2/s' \
+  $S "Route nimmt den Ferienzeitraum nur mit zwei gültigen Daten"
+mut S22 $MS 's/if \(\$sigB\[\$kid\] === \$paar\) \$gleich\+\+;/if (true) \$gleich++;/' \
+  $S "Zeitraumvergleich: 2 in beiden, 1 gleich, 1 anders, 1 nur Ferien"
+mut S23 $MS "s/'hat_klasse' => \\\$klasse > 0\];/'hat_klasse' => \\\$klasse > 0, 'k' => \\\$klasse];/" \
+  $S "keine Kennung (Klasse, Lehrkraft, Kind) und kein Name in der Antwort"
+mut S24 $MS "s/\n    if \(\\\$ferien !== null\) \\\$fenster\['ferien'\] = \\\$ferien;//" \
+  $S "mit Ferienzeitraum: Schulzeit und Ferien abgefragt"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi

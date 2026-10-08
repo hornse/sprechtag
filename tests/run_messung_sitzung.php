@@ -111,6 +111,7 @@ final class ErsatzRest
     {
         $this->aufrufe[] = [$pfad, $query];
         $a = $this->antworten[$pfad] ?? ['status' => 404, 'json' => null];
+        if ($a instanceof Closure) $a = $a($query);
         if ($a instanceof Throwable) throw $a;
         return $a;
     }
@@ -232,6 +233,75 @@ $tk = json_encode($bk, JSON_UNESCAPED_UNICODE);
 pruefe('weder Kennung noch Name der Klassenleitung in der Antwort',
     !str_contains($tk, '7777') && !str_contains($tk, 'Geheimlehrer') && !str_contains($tk, '90001'));
 
+echo "timetable/filter (v0.9.56): Doppelabgleich je Klassenleitung\n";
+$paare = ['paare' => [7 => 'Ab', 8 => 'Cd'], 'webuntis_ids' => [7, 8], 'kuerzel' => ['Ab', 'Cd']];
+$kf = ['classes' => [
+    ['class' => ['id' => 10], 'classTeacher1' => ['id' => 7, 'shortName' => 'Ab', 'longName' => 'x', 'displayName' => 'x'],
+     'classTeacher2' => null],
+    ['class' => ['id' => 11], 'classTeacher1' => ['id' => 8, 'shortName' => 'Xx']],
+    ['class' => ['id' => 12]],
+]];
+$au = messung_klassenfilter_auswerten($kf, $paare)['bericht'];
+pruefe('drei Klassen gelesen, Pfad classes', ($au['klassen'] ?? null) === 3 && ($au['pfad'] ?? null) === 'classes');
+pruefe('classTeacher1: vorhanden 2, gefüllt 2', ($au['classTeacher1']['vorhanden'] ?? null) === 2
+    && ($au['classTeacher1']['gefuellt'] ?? null) === 2);
+pruefe('classTeacher1: id passt 2, Kürzel passt 1', ($au['classTeacher1']['id_passt'] ?? null) === 2
+    && ($au['classTeacher1']['kuerzel_passt'] ?? null) === 1);
+pruefe('classTeacher1: beide auf dieselbe Lehrkraft nur 1 (Kennung 8 ist Cd, nicht Xx)',
+    ($au['classTeacher1']['beide_dieselbe'] ?? null) === 1);
+pruefe('classTeacher2: vorhanden 1, gefüllt 0', ($au['classTeacher2']['vorhanden'] ?? null) === 1
+    && ($au['classTeacher2']['gefuellt'] ?? null) === 0);
+pruefe('Form data.classes erkannt',
+    (messung_klassenfilter_auswerten(['data' => $kf], $paare)['bericht']['pfad'] ?? null) === 'data.classes');
+pruefe('ohne classes[]: liste_gefunden false',
+    messung_klassenfilter_auswerten(['x' => 1], $paare)['bericht']['liste_gefunden'] === false);
+$vg = messung_zeitraum_vergleich([10 => [7, 0], 11 => [8, 0]], [10 => [7, 0], 11 => [9, 0], 13 => [1, 0]]);
+pruefe('Zeitraumvergleich: 2 in beiden, 1 gleich, 1 anders, 1 nur Ferien',
+    $vg === ['in_beiden' => 2, 'gleiche_leitung' => 1, 'andere_leitung' => 1,
+             'nur_schulzeit' => 0, 'nur_ferien' => 1]);
+
+echo "timetable/filter im Bericht – Zeiträume und Kinder\n";
+$FI = '/WebUntis/api/rest/view/v1/timetable/filter';
+$filterAntwort = function (array $q) {
+    $ferien = ($q['start'] ?? '') === '2026-10-19';
+    return ['status' => 200, 'json' => ['classes' => [
+        ['class' => ['id' => 4242],
+         'classTeacher1' => ['id' => 7777, 'shortName' => 'Gh', 'longName' => 'Geheimlehrer'],
+         'classTeacher2' => $ferien ? null : ['id' => 8, 'shortName' => 'Cd']],
+    ]]];
+};
+$rest6 = new ErsatzRest([
+    $PC => ['status' => 200, 'json' => ['data' => ['elements' => [['id' => 90001, 'klasseId' => 4242], ['id' => 90002]]]]],
+    $FI => $filterAntwort, $TT => ['status' => 200, 'json' => $plan]]);
+$el2 = ['rolle' => 'eltern', 'kinder' => [['id' => 90001], ['id' => 90002]]];
+$lb  = ['paare' => [7777 => 'Gh', 8 => 'Cd'], 'webuntis_ids' => [7777, 8], 'kuerzel' => ['Gh', 'Cd']];
+$ohneF = messung_sitzung_bericht($el2, $rest6, null, '2026-10-08', null, $lb, null);
+pruefe('ohne Ferienzeitraum: Ferien und Vergleich „nicht gemessen“',
+    is_string($ohneF['klassenfilter']['ferien'] ?? null) && str_starts_with($ohneF['klassenfilter']['ferien'], 'nicht gemessen')
+    && is_string($ohneF['klassenfilter']['vergleich'] ?? null));
+pruefe('ohne Ferienzeitraum: genau ein Abruf',
+    count(array_filter($rest6->aufrufe, fn($a) => $a[0] === $FI)) === 1);
+$rest6->aufrufe = [];
+$mitF = messung_sitzung_bericht($el2, $rest6, null, '2026-10-08', null, $lb,
+    ['von' => '2026-10-19', 'bis' => '2026-10-23']);
+$starts = array_values(array_map(fn($a) => $a[1]['start'], array_filter($rest6->aufrufe, fn($a) => $a[0] === $FI)));
+pruefe('mit Ferienzeitraum: Schulzeit und Ferien abgefragt', $starts === ['2026-09-11', '2026-10-19']);
+pruefe('Vergleich: 1 in beiden, Leitung anders (classTeacher2 fehlt in den Ferien)',
+    ($mitF['klassenfilter']['vergleich']['in_beiden'] ?? null) === 1
+    && ($mitF['klassenfilter']['vergleich']['andere_leitung'] ?? null) === 1);
+$kk1 = $mitF['klassenfilter']['kinder'][0] ?? [];
+pruefe('Kind 1: Klasse gefunden, classTeacher1 doppelt belegt',
+    ($kk1['schulzeit']['klasse_gefunden'] ?? null) === true
+    && ($kk1['schulzeit']['classTeacher1']['beide_dieselbe'] ?? null) === true);
+pruefe('Kind 1: gleiche Leitung in beiden Zeiträumen = nein', ($kk1['gleiche_leitung_in_beiden'] ?? null) === false);
+pruefe('Kind 2 ohne Klasse: hat_klasse nein, nichts gefunden',
+    ($mitF['klassenfilter']['kinder'][1]['hat_klasse'] ?? null) === false
+    && ($mitF['klassenfilter']['kinder'][1]['schulzeit']['klasse_gefunden'] ?? null) === false);
+$tf = json_encode($mitF, JSON_UNESCAPED_UNICODE);
+pruefe('keine Kennung (Klasse, Lehrkraft, Kind) und kein Name in der Antwort',
+    !str_contains($tf, '4242') && !str_contains($tf, '7777') && !str_contains($tf, '90001')
+    && !str_contains($tf, 'Geheimlehrer') && !str_contains($tf, '"Gh"'));
+
 echo "Aufrufstelle in index.php (ohne Kommentare)\n";
 $code = '';
 foreach (token_get_all((string)file_get_contents(__DIR__ . '/../backend/api/index.php')) as $t) {
@@ -244,10 +314,12 @@ $route = $a === false ? '' : substr($code, $a,
     (int)strpos($code, ']);', (int)strpos($code, 'json_ok(', $a)) - $a + 3);
 pruefe('Route reicht den Grund aus mit_rest_aus_sitzung() durch',
     $route !== '' && preg_match('/mit_rest_aus_sitzung\(\$cfg,\s*\$grund\)/', $route) === 1
-    && preg_match('/messung_sitzung_bericht\(\$u,\s*\$rest,\s*\$grund,\s*null,\s*\$probe,\s*\$lehrer\)/', $route) === 1);
+    && preg_match('/messung_sitzung_bericht\(\$u,\s*\$rest,\s*\$grund,\s*null,\s*\$probe,\s*\$lehrer,\s*\$ferien\)/', $route) === 1);
 pruefe('Route fährt die Nachprobe genau bei kein_token',
     $route !== '' && preg_match("/\\\$probe = \\\$grund === 'kein_token'\s*\?\s*messung_token_probe\(/", $route) === 1);
 pruefe('Route verlangt eine Anmeldung', $route !== '' && str_contains($route, 'auth_require()'));
+pruefe('Route nimmt den Ferienzeitraum nur mit zwei gültigen Daten',
+    $route !== '' && preg_match('/\$ferien = preg_match\([^;]*\$fv\)\s*&&\s*preg_match\([^;]*\$fb\)/s', $route) === 1);
 pruefe('Route gleicht gegen lehrer.webuntis_id und kuerzel ab',
     $route !== '' && str_contains($route, 'SELECT webuntis_id, kuerzel FROM lehrer'));
 

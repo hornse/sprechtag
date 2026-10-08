@@ -486,3 +486,12 @@ gebaut:**
   wird danach. Trägt sie nicht, wird zwischen Stammdaten-Sync und
   `getKlassen` über das Dienstkonto entschieden — und ob die personIds
   zu `lehrer.webuntis_id` passen, wird dann ebenfalls erst gemessen.
+
+**Nachtrag 08.10.2026 (v0.9.56):** `pageconfig` trägt die Klassenleitung
+nicht — `classteacher`/`classteacher2` sind leer (gemessen, Befund
+pageconfig-Schülerliste, Abschnitt 11). Damit gilt die Bedingung des
+vorigen Nachtrags; statt Stammdaten-Sync oder `getKlassen` über das
+Dienstkonto ist aber ein dritter Weg gefunden:
+`timetable/filter?resourceType=CLASS` liefert `classTeacher1/2` mit
+Kennung und Kürzel in der Eltern-Sitzung. Gebaut wird erst, wenn über
+unsere Sitzung gemessen ist, ob er trägt und ob er vom Zeitraum abhängt.

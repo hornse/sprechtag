@@ -1,5 +1,32 @@
 # Changelog - sprechtag
 
+## v0.9.56 (Oktober 2026) – Messung: Klassenleitung aus timetable/filter, zwei Zeiträume
+
+### Messung (kein Feature)
+- `GET /api/messung/sitzung` ruft zusätzlich
+  `timetable/filter?resourceType=CLASS&timetableType=STANDARD` ab und
+  wertet `classes[]` aus: je `classTeacher1/2` vorhanden, gefüllt, Format
+  (ohne Wert) und der Doppelabgleich — `id` gegen `lehrer.webuntis_id`,
+  `shortName` gegen `lehrer.kuerzel`, und ob beide auf **dieselbe**
+  Lehrkraft zeigen. Eltern je eigenem Kind (über `klasseId` aus
+  `pageconfig`), Lehrkraft summiert.
+- Zwei Zeiträume: Schulzeit (die vier Wochen, in denen Unterricht belegt
+  ist) und ein **ausdrücklich angegebener** Ferienzeitraum
+  (`?ferien_von=JJJJ-MM-TT&ferien_bis=JJJJ-MM-TT`). Ohne Angabe meldet
+  die Route „nicht gemessen“ statt einen Zeitraum zu raten. Verglichen
+  wird, ob die Klassenleitung in beiden gleich ist — nur als Zahl.
+
+### Dokumentiert
+- Befund pageconfig-Schülerliste, Abschnitt 11: `classteacher` in
+  `pageconfig` leer (0 von 1314, 0 von 2); der neue Endpunkt.
+  E10, Nachtrag.
+
+### Prüfungen
+- `tests/run_messung_sitzung.php` 55 → 72.
+- Suiten 810 → 827 ✓-Zeilen, 47 Suiten grün; `tests-sprechtag.sh` 29.
+  Mutationen 65 → 71 (S19–S24), alle angeschlagen; S16 an den
+  erweiterten Aufruf angepasst (Muster traf nicht mehr).
+
 ## v0.9.55 (Oktober 2026) – Messung: trägt pageconfig die Klassenleitung?
 
 ### Messung (kein Feature)

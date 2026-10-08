@@ -368,3 +368,48 @@ festgehalten**, nicht zur Laufzeit geholt. Eingetragen als Nachtrag zu
 E8 in `docs/ENTSCHEIDUNGEN.md`.
 
 Weiterhin offen: Erinnerungen (Abschnitt 9), Frage 3 (Abschnitt 7).
+
+---
+
+## 11 — Nachtrag 08.10.2026: Klassenleitung — pageconfig trägt sie nicht
+
+**Gemessen** (v0.9.55, `GET /api/messung/sitzung`, Teil `klassenleitung`,
+gemeldet vom Betreiber): `classteacher` und `classteacher2` in
+`pageconfig?type=5` sind **leer** — 0 von 1314 in der Lehrkraft-Sicht,
+0 von 2 in der Eltern-Sicht, Format jeweils „leer“. Die Felder stehen in
+der Antwort, tragen aber keine Werte.
+
+**Frage „Woher kommt die Klassenleitung?“ für `pageconfig` beantwortet:
+gar nicht.** Dass ein Feld in der Feldliste steht (Abschnitt 1), hieß
+nicht, dass es gefüllt ist. Darauf zu bauen hätte eine Buchungsseite
+ergeben, die still ohne Klassenleitung bleibt — die Messung vorab
+(E10, Nachtrag) hat genau das verhindert.
+
+### Stattdessen gefunden (Betreiber, mit einem Elternkonto im Browser)
+
+`GET /WebUntis/api/rest/view/v1/timetable/filter?resourceType=CLASS&timetableType=STANDARD&start=…&end=…`
+liefert unter `classes[]` je Klasse:
+
+- `class`: `{id, shortName, longName, displayName}`
+- `classTeacher1` / `classTeacher2`: `{id, shortName, longName, displayName}`
+
+Die Klassenleitung also als Objekt, mit Kennung **und** Kürzel.
+
+**Quergeprüft (Betreiber):** Eine Klassen-ID und die Kennung ihrer
+`classTeacher1` stimmen mit dem `CUSTOM/filter`-Mitschnitt und der
+`getKlassen`-Sondierung vom 07.10.2026 überein — ein Kreis. (Die
+Kennungen selbst stehen bewusst nicht hier.)
+
+**Was das lösen würde — noch nicht gemessen über unsere Sitzung:**
+- Kein Dienstkonto, keine neue Tabelle: Die Buchungsseite könnte es aus
+  der Eltern-Sitzung holen. Stammdaten-Sync und `getKlassen` über das
+  Dienstkonto entfielen.
+- Über `shortName` gibt es einen zweiten Weg zu `lehrer.kuerzel`. Passen
+  Kennung **und** Kürzel zur selben Lehrkraft, ist die Zuordnung doppelt
+  belegt.
+- Die Eltern-Sicht enthält nur die Klassen der eigenen Kinder — für die
+  Buchungsseite richtig, als allgemeine Klassenliste untauglich.
+
+**Offen — gemessen ab v0.9.56:** Trägt der Login-Cookie den Abruf? Sind
+`classTeacher1/2` gefüllt, passen `id` und `shortName`, und **hängt die
+Antwort vom Zeitraum ab** (Schulzeit gegen Ferien)?

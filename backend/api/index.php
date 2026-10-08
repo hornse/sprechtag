@@ -51,7 +51,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.55', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.56', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -1010,12 +1010,18 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'messung' && ($seg[1] ?? '') === '
     $rest = mit_rest_aus_sitzung($cfg, $grund);
     $probe = $grund === 'kein_token'
         ? messung_token_probe($cfg, (string)auth_wu_cookie()) : null;
-    $lehrer = ['webuntis_ids' => [], 'kuerzel' => []];
+    $lehrer = ['webuntis_ids' => [], 'kuerzel' => [], 'paare' => []];
     foreach (db($cfg)->query('SELECT webuntis_id, kuerzel FROM lehrer')->fetchAll() as $z) {
         $lehrer['webuntis_ids'][] = (int)$z['webuntis_id'];
         $lehrer['kuerzel'][]      = (string)$z['kuerzel'];
+        $lehrer['paare'][(int)$z['webuntis_id']] = (string)$z['kuerzel'];
     }
-    json_ok(['bericht' => messung_sitzung_bericht($u, $rest, $grund, null, $probe, $lehrer)]);
+    // Ferienzeitraum nur, wenn ausdrücklich angegeben (beide Daten gültig).
+    $fv = (string)($_GET['ferien_von'] ?? '');
+    $fb = (string)($_GET['ferien_bis'] ?? '');
+    $ferien = preg_match('/^\d{4}-\d{2}-\d{2}$/', $fv) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fb)
+        ? ['von' => $fv, 'bis' => $fb] : null;
+    json_ok(['bericht' => messung_sitzung_bericht($u, $rest, $grund, null, $probe, $lehrer, $ferien)]);
 }
 
 // ============================================================
