@@ -490,11 +490,21 @@ function mit_einreihen_und_senden(
  * Rückgabe: der Client, oder NULL wenn keine Sitzung vorliegt bzw. sie
  * abgelaufen ist. Aufrufer sollen dann auf das Dienstkonto zurückfallen
  * oder um erneute Anmeldung bitten – aber NICHT stillschweigend scheitern.
+ *
+ * $grund (optional, seit v0.9.54) sagt, WARUM NULL kam:
+ *   'kein_cookie' – keine WebUntis-Sitzung in der PHP-Sitzung
+ *   'kein_token'  – tokenHolen() ohne Token (abgelaufen, vermutlich)
+ *   'fehler: <Klasse>: <Meldung>' – Ausnahme im catch unten
+ * Das Verhalten ändert sich dadurch nicht: Auch ein Programmierfehler
+ * ergibt weiterhin NULL (E9, „Daneben gefunden“ – Behebung offen). Der
+ * Grund macht den Unterschied nur für den sichtbar, der ihn abfragt
+ * (messung_sitzung.php).
  */
-function mit_rest_aus_sitzung(array $cfg): ?WebUntisRest
+function mit_rest_aus_sitzung(array $cfg, ?string &$grund = null): ?WebUntisRest
 {
+    $grund = null;
     $cookie = function_exists('auth_wu_cookie') ? auth_wu_cookie() : null;
-    if ($cookie === null) return null;
+    if ($cookie === null) { $grund = 'kein_cookie'; return null; }
 
     $wcfg = $cfg['webuntis'];
     try {
@@ -503,12 +513,13 @@ function mit_rest_aus_sitzung(array $cfg): ?WebUntisRest
         $rest->setzeTimeout(15);
         // Kein Token = Sitzung abgelaufen (WebUntis leitet dann auf die
         // Anmeldeseite um, statt ein JWT auszugeben).
-        if (!$rest->tokenHolen()) return null;
+        if (!$rest->tokenHolen()) { $grund = 'kein_token'; return null; }
         $rest->tenantErmitteln();
         return $rest;
     } catch (Throwable $e) {
         error_log('sprechtag: Sitzung der Lehrkraft nicht nutzbar: '
             . $e->getMessage());
+        $grund = 'fehler: ' . get_class($e) . ': ' . $e->getMessage();
         return null;
     }
 }

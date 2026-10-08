@@ -32,7 +32,10 @@ pruefe('Zugriffsfunktion vorhanden', aut.includes('function auth_wu_cookie'));
 
 // ---- Versand nutzt die Sitzung ----
 pruefe('Client aus der Sitzung baubar', mit.includes('function mit_rest_aus_sitzung'));
-pruefe('abgelaufene Sitzung gibt null', mit.includes('if (!$rest->tokenHolen()) return null;'));
+// Seit v0.9.54 nennt der Zweig zusätzlich den Grund ({ $grund = …; return null; });
+// geprüft wird weiterhin: kein Token → null. Ausgeführt in run_messung_sitzung.php.
+pruefe('abgelaufene Sitzung gibt null',
+  /if \(!\$rest->tokenHolen\(\)\) (return null;|\{[^}]*return null; \})/.test(mit));
 pruefe('Versand kann vorgegebene Sitzung nutzen',
   mit.includes('?WebUntisRest $restVorgegeben = null'));
 pruefe('fremde Sitzung wird nicht ausgeloggt',

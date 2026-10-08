@@ -257,6 +257,41 @@ mut KF6 frontend/app.js 's/const alle = buchenLehrerAlle\(S\.lehrerListe\);/cons
 mut KF7 frontend/app.js 's/\} else if \(!S\.lehrerListe\.nur_eingeladene\n\s*&& /} else if (/' \
   $KF "„keine Lehrkräfte hinterlegt“ nicht in Phase 1"
 
+S=tests/run_messung_sitzung.php
+MI=backend/api/mitteilungen.php
+MS=backend/api/messung_sitzung.php
+IX=backend/api/index.php
+
+echo "== Messung Sitzung (Frage 2): Grund aus mit_rest_aus_sitzung()"
+mut S1 $MI 's/\n\s*\$grund = .fehler: . \. get_class\(\$e\) \. .: . \. \$e->getMessage\(\);//' \
+  $S "Ausnahme: null, Grund nennt Klasse und Meldung"
+mut S2 $MI 's/\{ \$grund = .kein_token.; return null; \}/return null;/' \
+  $S "mit_rest_aus_sitzung(): unerreichbar ergibt ebenfalls kein_token"
+mut S3 $MI 's/\{ \$grund = .kein_cookie.; return null; \}/return null;/' \
+  $S "ohne Cookie: null und Grund kein_cookie"
+
+echo "== Messung Sitzung: Deutung und Nachprobe"
+mut S4 $MS "s/\\\$status === 0 \? 'netz'/\\\$status === 0 ? 'anmeldeseite'/" \
+  $S "Nachprobe: unerreichbar ist art netz, Status 0"
+mut S5 $MS "s/\\\$fehler = \\\$grund !== null && str_starts_with\(\\\$grund, 'fehler: '\);/\\\$fehler = false;/" \
+  $S "Ausnahme wird als Fehler gedeutet, nicht als Ablauf"
+mut S6 $MS "s/: \(!\\\$z\['liste_gefunden'\] \?/: (false ?/" \
+  $S "Status 200 ohne Liste: „KEIN Befund“"
+mut S7 $MS "s/'kind'        => 'Kind ' \. \(\\\$i \+ 1\),/'kind' => 'Kind ' . (\\\$i + 1), 'id' => \\\$kid,/" \
+  $S "Antwort ohne Kennungen der Kinder"
+mut S8 $MS "s/if \(\(\\\$u\['rolle'\] \?\? ''\) !== 'eltern'\) \{/if (false) {/" \
+  $S "Lehrkraft: Stundenplan entfällt, kein Abruf"
+
+echo "== Messung Sitzung: Route"
+mut S9 $IX 's/mit_rest_aus_sitzung\(\$cfg, \$grund\);/mit_rest_aus_sitzung(\$cfg);/' \
+  $S "Route reicht den Grund aus mit_rest_aus_sitzung() durch"
+mut S10 $IX "s/\\\$probe = \\\$grund === 'kein_token'/\\\$probe = \\\$grund === 'nie'/" \
+  $S "Route fährt die Nachprobe genau bei kein_token"
+mut S11 $IX 's/\$u = auth_require\(\);\n    \$grund = null;/\$u = auth_user() ?? [];\n    \$grund = null;/' \
+  $S "Route verlangt eine Anmeldung"
+mut S12 $MI "s/\{ \\\$grund = 'kein_token'; return null; \}/{ \\\$grund = 'kein_token'; }/" \
+  tests/frontend_lehrersitzung_test.js "abgelaufene Sitzung gibt null"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1

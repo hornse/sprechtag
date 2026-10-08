@@ -23,6 +23,7 @@
 //   GET/POST /api/buchungen, DELETE /api/buchungen/{id}
 //   GET/POST/DELETE /api/einladungen      (Phase 1, Lehrkraft)
 //   POST /api/sondierung                  (Werkzeug, abschaltbar)
+//   GET  /api/messung/sitzung             (MESSUNG, angemeldet; siehe Datei)
 // ============================================================
 
 declare(strict_types=1);
@@ -32,6 +33,7 @@ require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/slots.php';
 require_once __DIR__ . '/webuntis_adapter.php';
 require_once __DIR__ . '/sondierung.php';
+require_once __DIR__ . '/messung_sitzung.php';
 require_once __DIR__ . '/mitteilungen.php';
 require_once __DIR__ . '/dienstkonto.php';
 require_once __DIR__ . '/schueler.php';
@@ -49,7 +51,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.53', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.54', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -998,6 +1000,17 @@ if ($methode === 'POST' && ($seg[0] ?? '') === 'sondierung') {
         sleep(2);
         json_err('Sondierung fehlgeschlagen: ' . $e->getMessage(), 502);
     }
+}
+
+// MESSUNG (v0.9.54), kein Feature – siehe messung_sitzung.php. Misst die
+// eigene Sitzung der aufrufenden Person; Antwort nur Zahlen.
+if ($methode === 'GET' && ($seg[0] ?? '') === 'messung' && ($seg[1] ?? '') === 'sitzung') {
+    $u = auth_require();
+    $grund = null;
+    $rest = mit_rest_aus_sitzung($cfg, $grund);
+    $probe = $grund === 'kein_token'
+        ? messung_token_probe($cfg, (string)auth_wu_cookie()) : null;
+    json_ok(['bericht' => messung_sitzung_bericht($u, $rest, $grund, null, $probe)]);
 }
 
 // ============================================================

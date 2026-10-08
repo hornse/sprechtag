@@ -1,5 +1,34 @@
 # Changelog - sprechtag
 
+## v0.9.54 (Oktober 2026) – Messung: trägt die Login-Sitzung pageconfig und Stundenplan?
+
+### Neu (Messung, kein Feature)
+- **`GET /api/messung/sitzung`** für jede angemeldete Person, nur Zahlen:
+  `pageconfig?type=5` (Status, Einträge, mit Klasse) und bei Eltern der
+  Stundenplan der eigenen Kinder (Status, Zahl der Lehrkraft-Kürzel).
+  Gemessen über `mit_rest_aus_sitzung()`, also den Weg des Betriebs, nicht
+  über eine eigene Sitzung wie die Sondierung. Frage 2 im Befund
+  `docs/BEFUND-2026-10-07-pageconfig-schuelerliste.md`. Ob die Route
+  bleibt, wird nach dem Befund entschieden.
+
+### Geändert
+- `mit_rest_aus_sitzung()` nennt auf Wunsch den Grund für `null`
+  (`kein_cookie`, `kein_token`, `fehler: <Klasse>: <Meldung>`). Verhalten
+  unverändert; die Behebung des `catch (Throwable)` (E9) bleibt offen.
+- Gefunden: Ist WebUntis nicht erreichbar, meldet `tokenHolen()` dasselbe
+  wie eine abgelaufene Sitzung. Die Messung trennt das mit einer
+  Nachprobe (E9, Nachtrag).
+
+### Prüfungen
+- Neu `tests/run_messung_sitzung.php` (35): Gründe an der echten Funktion,
+  Netzfall gegen einen geschlossenen Port, Deutungen, keine Namen und
+  Kennungen in der Antwort, Aufrufstelle.
+- `frontend_lehrersitzung_test.js`: „abgelaufene Sitzung gibt null“ suchte
+  den alten Wortlaut und wurde durch diese Änderung rot; angepasst auf
+  dieselbe Aussage in neuer Form, Mutation S12 belegt, dass sie greift.
+- Suiten 755 → 790 ✓-Zeilen (+35), 46 → 47, alle grün;
+  `tests-sprechtag.sh` 29. Mutationen 47 → 59 (S1–S12), alle angeschlagen.
+
 ## v0.9.53 (Oktober 2026) – Eingeladene Lehrkraft erscheint und ist buchbar
 
 ### Behoben

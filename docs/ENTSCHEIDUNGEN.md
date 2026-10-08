@@ -400,6 +400,16 @@ Warum diese Trennung hier steht: Dieselbe Vermischung — ein Schluss aus
 Code oder Scope, behandelt wie eine Messung — hat beim Scope `mg:r`
 monatelang in die Irre geführt (E1).
 
+**Nachtrag 08.10.2026 (v0.9.54) — eine dritte Ursache für denselben
+Rückfall:** Ist WebUntis nicht erreichbar, liefert `rohGet()` Status 0,
+`tokenHolen()` `false` — und `mit_rest_aus_sitzung()` meldet das genau wie
+eine abgelaufene Sitzung (aus dem Code; in `tests/run_messung_sitzung.php`
+gegen einen geschlossenen Port ausgeführt). Der gemessene Rückfall kann
+also drei Ursachen haben: Ablauf, Netz, Ausnahme. Seit v0.9.54 nennt
+`mit_rest_aus_sitzung()` auf Wunsch den Grund (`kein_cookie`,
+`kein_token`, `fehler: …`); das Verhalten ist unverändert, die Behebung
+des `catch` bleibt offen.
+
 ---
 
 ## E10 — Gliederung der buchbaren Lehrkräfte für Eltern

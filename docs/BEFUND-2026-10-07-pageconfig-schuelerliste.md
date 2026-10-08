@@ -222,3 +222,29 @@ ohne Fehlermeldung.**
 `schueler.webuntis_id` halten — derselbe Weg wie bei Frage 1.
 Alternativ ein Testkonto mit `personType 5`. Keine Kennungen in den
 Bericht.
+
+---
+
+## 8 — Nachtrag 08.10.2026: Messweg für Frage 2 (v0.9.54)
+
+`GET /api/messung/sitzung` misst aus der **laufenden** Sitzung der
+aufrufenden Person, über `mit_rest_aus_sitzung()` — denselben Weg wie der
+Mitteilungsversand. Die Antwort enthält nur Zahlen:
+
+1. `pageconfig?type=5`: Status, Einträge, Einträge mit `klasseId`;
+2. bei Eltern je eigenem Kind („Kind 1“, „Kind 2“): Status des
+   Stundenplan-Abrufs und Zahl der Lehrkraft-Kürzel — ausgewertet mit
+   `rest_lehrkraefte_aus_entries()`, derselben Funktion wie der Betrieb
+   (sie liest die Elemente nach `type`, nicht nach Positionsnummer).
+
+Ist die Sitzung nicht nutzbar, sagt die Antwort warum: kein Cookie,
+kein Token — mit Nachprobe, ob WebUntis eine Anmeldeseite lieferte
+(abgelaufen) oder nicht erreichbar war —, oder eine Ausnahme mit Klasse
+und Meldung.
+
+Die Route ist eine **Messung, kein Feature** (Kopf von
+`backend/api/messung_sitzung.php`). Nach dem Befund wird entschieden, ob
+sie verschwindet oder Grundlage von Zug 4 wird.
+
+**Frage 2 ist damit noch nicht beantwortet** — die Antwort sind die
+Zahlen aus je einem Aufruf als Lehrkraft und als Elternteil.
