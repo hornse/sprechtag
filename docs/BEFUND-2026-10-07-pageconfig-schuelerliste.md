@@ -248,3 +248,70 @@ sie verschwindet oder Grundlage von Zug 4 wird.
 
 **Frage 2 ist damit noch nicht beantwortet** — die Antwort sind die
 Zahlen aus je einem Aufruf als Lehrkraft und als Elternteil.
+
+---
+
+## 9 — Nachtrag 08.10.2026: Frage 2 beantwortet
+
+**Gemessen** am 08.10.2026 über `GET /api/messung/sitzung` (v0.9.54), je
+direkt nach dem Login. Zahlen wie gemeldet; keine Kennungen.
+
+| | Lehrkraft-Sitzung | Eltern-Sitzung |
+|---|---|---|
+| Sitzung | nutzbar, kein Grund | nutzbar, kein Grund |
+| `pageconfig?type=5` | Status 200, **1314** Einträge, **1235** mit Klasse — identisch zur Sondierung | Status 200, **2** Einträge, 1 mit Klasse |
+| Stundenplan (11.09.–08.10.2026) | entfällt | Kind 1: Status 200, 73 Einträge, 10 Lehrkräfte · Kind 2: Status 200, 0 Einträge, 0 Lehrkräfte — **KEIN Befund** |
+
+**Antwort auf Frage 2: Ja.** Der beim Login festgehaltene Cookie trägt
+beide Abrufe. `pageconfig` liefert in der Lehrkraft-Sitzung die volle
+Liste; in der Eltern-Sitzung filtert WebUntis auf die eigenen Kinder —
+eine Rechteprüfung, kein Fehler. Der Stundenplan eines eigenen Kindes ist
+über die Eltern-Sitzung abrufbar; die Lehrkraft-Ermittlung kann damit
+ohne Dienstkonto laufen.
+
+**Grenzen dieser Antwort:**
+- Belegt an **einem** Kind mit Ergebnis. Kind 2 lieferte 0 Einträge; das
+  ordnet der Betreiber ein. Bis dahin bleibt es „KEIN Befund“. Hat das
+  Kind einen Stundenplan, ist das ein eigener Fund.
+- Die Lebensdauer der Sitzung (25–30 Minuten) ist an Lehrkräften
+  gemessen (lernzeiten, 29.09.2026), nicht an Eltern. Nach Ablauf bleibt
+  das Dienstkonto Rückfall.
+
+### Einordnung des Betreibers — und wo sie nicht trägt
+
+Die Einordnung lautete: `pageconfig` taugt als Quelle der Schülerliste
+nur in einer Lehrkraft-Sitzung, und genau dort werden fremde Kindnamen
+gebraucht — die sieben JOIN-Stellen (Abschnitt 3) dienen Lehrkraft- und
+Verwaltungsansichten; im Eltern-Kontext stehen die eigenen Kinder in der
+Sitzung (`auth_user()`); stellvertretende Buchung und
+`mit_eltern_ids_ermitteln()` sind Lehrkraft-Kontext. **Eine Passung,
+keine Einschränkung.**
+
+**Nachgesehen im Code (Stand 2cca4c8), je Stelle:**
+
+| Stelle | Route | Wer ruft | Namen gehen an | trägt die Einordnung? |
+|---|---|---|---|---|
+| `buchungen.php:336` | `GET /api/raster` | Eltern **und** Lehrkräfte | nur Lehrkraft/Verwaltung (`$istLehrkraft`) | ja — die Abfrage läuft auch für Eltern, die Namen gehen nicht hinaus |
+| `buchungen.php:413` | `GET /api/buchungen?sicht=lehrkraft` | Lehrkraft/Verwaltung | Lehrkraft | ja |
+| `buchungen.php:842` | `GET /api/einladungen` (Lehrkraftzweig) | Lehrkraft/Verwaltung | Lehrkraft | ja |
+| `index.php:398` | `GET /api/lehrer-tischvorlage/…` | angemeldet | Lehrkraft | ja |
+| `index.php:1037` | `GET /api/mitteilungen` | Lehrkraft/Verwaltung | Lehrkraft | ja |
+| `kalender.php:147` | `kal_buchungen_laden()` ← `GET /api/kalender/{token}.ics` | **Kalender-App der Eltern, ohne Sitzung** | in die `.ics` („Kind: …“) | **nein** |
+| `kalender.php:191` | `kal_lehrer_buchungen()` ← `GET /api/kalender/{token}.ics` (und `lehrer-kalender` mit Sitzung) | **Kalender-App der Lehrkraft, ohne Sitzung** | in die `.ics` (Titel mit Name und Klasse) | **nein** |
+
+Die beiden Kalender-Abos werden über ein Token abgerufen, nicht über
+eine Anmeldung (`index.php:117` ff., kein `auth_…`). Dort gibt es weder
+eine Lehrkraft-Sitzung für `pageconfig` noch eine Eltern-Sitzung mit
+`auth_user()`. **Für diese zwei Stellen muss der Name gespeichert
+vorliegen** — etwa beim Buchen oder Einladen festgehalten, wie Abschnitt
+1 es schon nennt („gespeichert wird nur, was eine konkrete Einladung oder
+Buchung braucht“). Sonst stünde nach Zug 4 im Kalender „Termin“ statt des
+Kindes, ohne Fehlermeldung — dieselbe stille Lücke wie in Abschnitt 3.
+
+### Offene Punkte
+
+- **Erinnerungen (Dienstkonto-Kontext):** Ob dort irgendwo ein Kindname
+  gebraucht wird. Nach dem gebauten Stand ist die Erinnerung allgemein
+  und nennt keine Namen — **geprüft ist das nicht.**
+- **Kind 2:** siehe oben.
+- Frage 3 (Abschnitt 7) bleibt offen.
