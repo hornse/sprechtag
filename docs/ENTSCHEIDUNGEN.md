@@ -327,6 +327,22 @@ entstehen leere Namen und eine still übersprungene Prüfung.
 `CLASS`+`ROLE`): Er liefert `user.id`s in einem anderen Kreis.
 `pageconfig` liefert dieselbe Information im richtigen.
 
+**Nachtrag 08.10.2026 — kein Schild-Import als Notfallweg:**
+
+Die Schülerliste kommt aus WebUntis, `pageconfig?type=5`. **Fällt dieser
+Weg weg**, wird der Schild-Import aus der Historie wiederhergestellt
+(eingeführt in v0.7.0, Commit `d6c1266`; Austrittsdatum v0.7.2,
+`40d49ba`) — dann aber **mit Prüfung** und mit einer Übersetzung in den
+Kreis der Kind-Kennung.
+
+Er bleibt **nicht** als schlafende Option im Code. Eine Option, die
+niemand nutzt, wird nicht geprüft: Der Import steht seit dem 24.07.2026
+im Code und ist nie gelaufen — alle 3801 Datensätze haben eine leere
+Klasse, und das blieb rund zwei Monate unbemerkt, weil nichts darauf
+zugriff. Als Notfallweg wäre er derselbe Zustand: vorhanden, ungeprüft,
+im Ernstfall vermutlich kaputt. Dazu verknüpft er über die Schild-ID,
+nicht über die Kind-Kennung des Normalwegs — ein anderer Nummernkreis.
+
 ---
 
 ## E9 — Der Ablauffall der Lehrkraft-Sitzung ist gemessen (ergänzt E1)
@@ -383,3 +399,40 @@ bleibt richtig: Belegt ist der **Rückfall**, nicht seine Ursache.
 Warum diese Trennung hier steht: Dieselbe Vermischung — ein Schluss aus
 Code oder Scope, behandelt wie eine Messung — hat beim Scope `mg:r`
 monatelang in die Irre geführt (E1).
+
+---
+
+## E10 — Gliederung der buchbaren Lehrkräfte für Eltern
+
+**Eingetragen:** 08.10.2026 · **wirksam seit:** noch nicht — Teil des
+Umbaus der Einladungsauswahl. Anlass:
+`docs/BEFUND-2026-10-08-einladungs-kachel.md`.
+
+**Entschieden** (Betreiber):
+
+- **Phase 1:** In den Kacheln stehen **nur die Eingeladenen** — nicht
+  zusätzlich zu den Unterrichtenden und Sonderrollen.
+- **Ab Phase 2:** Dreiteilung —
+  1. Eingeladene,
+  2. Unterrichtende, die Klassenleitung darin hervorgehoben,
+  3. weitere Lehrkräfte hinter einer **Suche** statt als Kacheln.
+
+**Warum:** Heute speist sich die Liste nur aus Stundenplan und
+Sonderrollen; eine Lehrkraft, die eingeladen hat, das Kind aber nicht
+unterrichtet, fehlt — in Phase 1 genau die, bei der gebucht werden
+soll. Phase 1 ist die Phase der Einladung, also zeigt sie die
+Einladenden und nichts sonst.
+
+**Warum es hier steht und nicht nur im Befund:** Eine Entscheidung, die
+nur an einem Ort steht, an dem niemand sie sucht, erreicht die Orte
+ihrer Folgen nicht (E7, Akzentfarbe).
+
+**Daraus folgt für den Umbau:**
+- Kachel und Buchungsrecht werden **zusammen** geändert.
+  `GET /api/buchbare-lehrer` und `bu_lehrer_erlaubt()` fragen heute
+  dieselben zwei Quellen an zwei Stellen ab; Eingeladene fehlen in
+  beiden. Wird nur die Kachel ergänzt, lehnt die Buchung ab
+  (`darf_lehrkraft`, vor der Phase-1-Prüfung in
+  `slot_buchung_erlaubt()`).
+- Die Klassenleitung kommt aus `getKlassen` bzw. `pageconfig`
+  (`classteacher`, `classteacher2`), siehe E8.
