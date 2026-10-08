@@ -413,3 +413,51 @@ Kennungen selbst stehen bewusst nicht hier.)
 **Offen — gemessen ab v0.9.56:** Trägt der Login-Cookie den Abruf? Sind
 `classTeacher1/2` gefüllt, passen `id` und `shortName`, und **hängt die
 Antwort vom Zeitraum ab** (Schulzeit gegen Ferien)?
+
+### Gemessen über unsere Sitzung (v0.9.56, gemeldet vom Betreiber am 08.10.2026)
+
+`GET /api/messung/sitzung`, Teil `klassenfilter`, einmal als Lehrkraft
+und einmal als Elternteil, jeweils mit Ferienzeitraum. Die Zahlen hat
+der Betreiber gemeldet. Ich habe sie nicht selbst abgelesen.
+
+**Doppelabgleich geht restlos auf (Lehrkraft-Sicht):**
+
+| | gefüllt | `id_passt` | `kuerzel_passt` | `beide_dieselbe` |
+|---|---|---|---|---|
+| `classTeacher1` | 36 | 36 | 36 | 36 |
+| `classTeacher2` | 34 | 34 | 34 | 34 |
+
+Bei keiner Klasse zeigen Kennung und Kürzel auf verschiedene Lehrkräfte.
+**Damit ist die Frage „passen die Kennungen zu `lehrer.webuntis_id`“
+beantwortet, und zwar doppelt belegt.**
+
+**Der Zeitraum spielt keine Rolle:** 40 Klassen stehen in beiden
+Zeiträumen. Bei allen 40 ist die Leitung gleich, bei keiner anders, und
+keine Klasse kommt nur in einem Zeitraum vor. Das gilt auch über die
+Herbstferien (19.–29.10., vom Betreiber angegeben). Die Buchungsseite
+muss deshalb keinen Unterrichtszeitraum wählen.
+
+**Die Eltern-Sicht trägt es, ohne Dienstkonto:**
+- Kind 1: `klasse_gefunden` true, beide Leitungen gefüllt,
+  `beide_dieselbe` true, `gleiche_leitung_in_beiden` true.
+- Kind 2: keine Klasse. `klasse_gefunden` false,
+  `gleiche_leitung_in_beiden` null. Kein Absturz, kein falsches
+  Ergebnis.
+
+**Klassen ohne Leitung:** 4 von 40 haben kein `classTeacher1`, 6 haben
+kein `classTeacher2`. Das passt zu den gefüllten Zahlen oben
+(40 − 4 = 36, 40 − 6 = 34).
+
+**Was ändert dieser Beleg an dem, was wir prüfen?** Zwei Ausprägungen
+müssen in die Testdaten der Buchungsseite:
+- eine Klasse ohne Leitung bzw. mit nur einer Leitung. Erwartet: keine
+  Hervorhebung, kein Fehler.
+- ein Kind ohne Klasse.
+
+Beide sind belegt und gehören als Fälle in die Prüfungen, nicht als
+Annahme in den Code.
+
+**Folge:** Zug 3 ist baubar. Die Quelle für die Klassenleitung ist
+`timetable/filter?resourceType=CLASS` über die Eltern-Sitzung, die
+Zuordnung läuft über `klasseId` (pageconfig) auf `class.id` (E10,
+Nachtrag).

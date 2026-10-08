@@ -495,3 +495,14 @@ Dienstkonto ist aber ein dritter Weg gefunden:
 `timetable/filter?resourceType=CLASS` liefert `classTeacher1/2` mit
 Kennung und Kürzel in der Eltern-Sitzung. Gebaut wird erst, wenn über
 unsere Sitzung gemessen ist, ob er trägt und ob er vom Zeitraum abhängt.
+
+**Nachtrag 08.10.2026 — Quelle der Klassenleitung entschieden:**
+`timetable/filter?resourceType=CLASS` über die Eltern-Sitzung. Die
+Zuordnung läuft über `klasseId` aus `pageconfig` auf `class.id`, und der
+Treffer auf die Lehrkraft geht über `classTeacher1/2.id` auf
+`lehrer.webuntis_id`. Grundlage ist die Messung v0.9.56: Kennung und
+Kürzel passen 36/36 bzw. 34/34 zur selben Lehrkraft, und das Ergebnis
+hängt nicht vom Zeitraum ab (Befund pageconfig-Schülerliste,
+Abschnitt 11). Stammdaten-Sync und `getKlassen` über das Dienstkonto
+entfallen dafür. Eine Klasse ohne Leitung und ein Kind ohne Klasse
+ergeben keine Hervorhebung und keinen Fehler.
