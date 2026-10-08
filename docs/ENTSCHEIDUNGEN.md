@@ -343,6 +343,15 @@ zugriff. Als Notfallweg wäre er derselbe Zustand: vorhanden, ungeprüft,
 im Ernstfall vermutlich kaputt. Dazu verknüpft er über die Schild-ID,
 nicht über die Kind-Kennung des Normalwegs — ein anderer Nummernkreis.
 
+**Nachtrag 08.10.2026 — der Kindname wird beim Buchen festgehalten:**
+Für Zug 4 ist festgelegt: Der Name des Kindes wird **beim Buchen
+gespeichert**, nicht zur Laufzeit aus WebUntis geholt. Grund: Die
+Kalender-Abos (`GET /api/kalender/{token}.ics`) werden von einer
+Kalender-App ohne Anmeldung abgerufen; dort steht weder `pageconfig`
+noch `auth_user()` zur Verfügung. Ein Laufzeit-Abruf ließe „Kind: …“
+still zu „Termin“ werden. Beleg:
+`docs/BEFUND-2026-10-07-pageconfig-schuelerliste.md`, Abschnitte 9–10.
+
 ---
 
 ## E9 — Der Ablauffall der Lehrkraft-Sitzung ist gemessen (ergänzt E1)

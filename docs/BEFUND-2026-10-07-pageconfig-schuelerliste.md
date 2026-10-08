@@ -315,3 +315,56 @@ Kindes, ohne Fehlermeldung — dieselbe stille Lücke wie in Abschnitt 3.
   und nennt keine Namen — **geprüft ist das nicht.**
 - **Kind 2:** siehe oben.
 - Frage 3 (Abschnitt 7) bleibt offen.
+
+---
+
+## 10 — Nachtrag 08.10.2026: Kind 2 erklärt, Frage 2 geschlossen, Einordnung berichtigt
+
+### Kind 2
+
+Der Vermerk aus Abschnitt 9 bleibt: **KEIN Befund.** Erklärung
+(Auskunft des Betreibers, nicht gemessen): Das Konto ist keiner Klasse
+zugeordnet, also existiert kein Stundenplan. Die Zahlen passen dazu —
+keine Klasse, 0 Einträge, 0 Lehrkräfte; im Eltern-`pageconfig` 1 mit
+Klasse bei 2 Kindern. Das stützt die Einordnung der 79 Einträge ohne
+`klasseId` aus Abschnitt 1: Konten ohne Klassenzuordnung gibt es, und
+sie verhalten sich so.
+
+**Frage 2 ist geschlossen.**
+
+### Die ursprüngliche Einordnung war falsch
+
+Gemeldet wurde am 08.10.2026 im Wortlaut:
+
+> EINORDNUNG — die Eltern-Einschränkung ist keine:
+> pageconfig taugt als Quelle für die Schülerliste nur in einer
+> Lehrkraft-Sitzung. Das passt genau zum Bedarf:
+> - Die sieben JOIN-Stellen auf schueler (buchungen.php,
+>   kalender.php, index.php) dienen Lehrkraft- und
+>   Verwaltungsansichten: Raster, Terminliste, Export, Kalender. Dort
+>   ist eine Lehrkraft angemeldet, dort liefert pageconfig die volle
+>   Liste.
+> - Im Eltern-Kontext wird kein fremder Kindname gebraucht. Die
+>   eigenen Kinder stehen mit Namen in der Sitzung (auth_user(),
+>   sichtbar unter /api/auth/me).
+> - Stellvertretende Buchung und mit_eltern_ids_ermitteln() sind
+>   ebenfalls Lehrkraft-Kontext.
+> Der Befund deckt also keine Einschränkung auf, sondern eine Passung.
+
+**Das war an der entscheidenden Stelle falsch.** Die beiden Stellen in
+`kalender.php` gehören zu den Kalender-Abos. Die Abo-Route hat **keine
+Sitzung**: Eine Kalender-App ruft sie mit einem Token ab, ohne Anmeldung.
+Dort ist keine Lehrkraft angemeldet, und es gibt auch kein
+`auth_user()` — weder `pageconfig` noch die Namen aus der Sitzung stehen
+zur Verfügung. Die Tabelle in Abschnitt 9 ist die berichtigte Fassung;
+dieser Abschnitt hält fest, wovon sie abweicht, damit sie später nicht
+für die ursprüngliche Überlegung gehalten wird.
+
+**Was die falsche Einordnung angelegt hätte:** einen Umbau, nach dem im
+Kalender „Termin“ statt „Kind: …“ stünde — ohne Fehlermeldung.
+
+**Daraus festgelegt für Zug 4:** Der Kindname wird **beim Buchen
+festgehalten**, nicht zur Laufzeit geholt. Eingetragen als Nachtrag zu
+E8 in `docs/ENTSCHEIDUNGEN.md`.
+
+Weiterhin offen: Erinnerungen (Abschnitt 9), Frage 3 (Abschnitt 7).
