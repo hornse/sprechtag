@@ -96,6 +96,9 @@ und die Einladungsprüfung eine neue Quelle (die 1235 mit Klasse).
 
 ## 4 — Offene Punkte
 
+> **Frage 1 beantwortet (gemeldet 08.10.2026): ein Kreis.** Siehe
+> Abschnitt 6. Der Text darunter bleibt als damaliger Stand stehen.
+
 **Frage 1 — Welchen Nummernkreis trägt `user.students[].id` im
 Eltern-Login?** Das ist die Kennung, die in `buchungen.schueler_id`
 landet (`sql/02_sprechtag.sql:124`). Gemessen ist nur `pageconfig` gegen
@@ -147,3 +150,43 @@ Einladungsauswahl ansetzen.
   Lehrkraft-Sitzung.
 - E8 — nach Frage 1.
 - Meldung zu Abschnitt 5 an `koordination` — noch nicht geschrieben.
+
+---
+
+## 6 — Nachtrag: Frage 1 beantwortet
+
+Gemeldet am 08.10.2026 vom Betreiber; das Datum der Messung selbst ist
+nicht festgehalten.
+
+**Prüfweg:** An einem Elternkonto mit zwei Kindern in sprechtag
+angemeldet, `GET /api/auth/me` gelesen und die Kind-Kennungen aus
+`user.students[].id` gegen `schueler.webuntis_id` gehalten. Keine
+Kennungen in diesem Text.
+
+**Ergebnis:** Beide Kind-Kennungen stehen als `webuntis_id` in der
+`schueler`-Tabelle — also im `getStudents`-Kreis. Dieselbe Kennung
+verwendet der Stundenplan-Abruf des Elternkontos (`resources=`). Die
+Vermutung aus Abschnitt 4 ist damit **belegt**, nicht mehr nur
+geschlossen.
+
+**Die Kreise, soweit gemessen:**
+
+| Kreis | Wo er vorkommt |
+|---|---|
+| Kind-Kennung | `getStudents`, `pageconfig`, `user.students[].id`, Stundenplan `resources=`, `buchungen.schueler_id` |
+| Eltern-`user.id` | `recipientUserIds` beim Versand |
+| `person_id` | Eltern-Login; bei lernzeiten `recipientPersonIds` |
+
+**Nur ein Kreiswechsel ist nötig**, und zwar dort, wo er heute schon
+passiert: `mit_eltern_ids_ermitteln()`, von der Kind-Kennung zu den
+Eltern-`user.id`s (Abschnitt 5).
+
+**Wie `buchungen.schueler_id` dazugehört** (aus dem Code, nicht
+gemessen): Im Eltern-Weg muss die Kennung in den Kindern der Sitzung
+stehen (`auth_kind_erlaubt()`, `backend/api/buchungen.php:557`), kommt
+also aus `user.students[].id`. **Nicht geprüft** ist der Weg
+volljähriger Schüler: Dort wird die eigene `personId` als Kind-Kennung
+eingesetzt (`backend/api/webuntis_adapter.php:101`). Ob die `personId`
+eines Schülerkontos im `getStudents`-Kreis liegt, ist nicht gemessen.
+
+Daraufhin angelegt: E8 in `docs/ENTSCHEIDUNGEN.md`.

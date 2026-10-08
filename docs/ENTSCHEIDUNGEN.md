@@ -289,3 +289,40 @@ Migration). Eine hinterlegte Schulfarbe ist dann nicht spurlos weg.
 - Die Marke-Suite prüft, dass weder Formular noch Hilfe noch Backend
   noch Seed die Farben zurückbringen, und dass die Migration beide
   Schlüssel entfernt.
+
+---
+
+## E8 — Schild-Import entfällt, Schülerliste kommt aus WebUntis
+
+**Eingetragen:** 08.10.2026 · **wirksam seit:** noch nicht — der Umbau
+ist ein eigener Zug. Beleg: `docs/BEFUND-2026-10-07-pageconfig-schuelerliste.md`.
+
+**Entschieden:** Der Schild-CSV-Import wird nicht mehr gebraucht.
+Klasse und aktive Auswahl kommen aus `pageconfig?type=5`.
+
+**Belegt** (07.10.2026, Produktivsystem; Kreisprüfung am Elternkonto
+gemeldet 08.10.2026):
+- `pageconfig` liefert 1314 aktive Schüler, davon 1235 mit `klasseId`;
+  `getStudents` liefert 3802 (alle je angelegten). Der
+  Ehemaligen-Filter, für den bisher das Austrittsdatum aus Schild nötig
+  war, ist eingebaut.
+- Alle 1314 Kennungen kommen auch in `getStudents` vor: ein Kreis.
+- Derselbe Kreis trägt `user.students[].id` im Eltern-Login und die
+  Stundenplan-Kennung — an einem Elternkonto mit zwei Kindern geprüft.
+  `buchungen.schueler_id` übernimmt diese Kennung im Eltern-Weg
+  (`auth_kind_erlaubt()`, aus dem Code). **Nicht geprüft:** der Weg
+  volljähriger Schüler, der die eigene `personId` als Kind-Kennung
+  einsetzt.
+- Die 79 ohne `klasseId` sind Beurlaubte, Externe, alte Backup-Konten
+  und Testkonten (Auskunft, nicht gemessen). Sie gehören nicht in die
+  Einladungsauswahl; das Fehlen der Klasse ist Merkmal, nicht Lücke.
+
+**Folgt daraus:** Die lokale `schueler`-Tabelle verliert ihren Grund,
+ist aber **nicht** ersatzlos entbehrlich — sieben Stellen zeigen daraus
+Kindnamen an, die Einladungsprüfung und `mit_eltern_ids_ermitteln()`
+greifen darauf zu. Der Umbau muss dafür Ersatz schaffen, sonst
+entstehen leere Namen und eine still übersprungene Prüfung.
+
+**Nicht gebraucht** wird der Empfängerfilter (`CUSTOM/filter` mit
+`CLASS`+`ROLE`): Er liefert `user.id`s in einem anderen Kreis.
+`pageconfig` liefert dieselbe Information im richtigen.
