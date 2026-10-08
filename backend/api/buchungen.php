@@ -36,13 +36,64 @@ function bu_lehrer_fenster(PDO $pdo, int $sprechtagId, int $lehrerId): array
 }
 
 /**
+ * Hat diese Lehrkraft dieses Kind für diesen Sprechtag eingeladen?
+ * Die einzige Stelle für diese Frage – Buchungsrecht und Buchungsroute
+ * fragen hier.
+ */
+function bu_eingeladen(PDO $pdo, int $sprechtagId, int $schuelerId, int $lehrerId): bool
+{
+    $st = $pdo->prepare('SELECT COUNT(*) FROM einladungen
+                         WHERE sprechtag_id = ? AND lehrer_id = ? AND schueler_id = ?');
+    $st->execute([$sprechtagId, $lehrerId, $schuelerId]);
+    return (int)$st->fetchColumn() > 0;
+}
+
+/**
+ * Lehrkräfte, die eines dieser Kinder für diesen Sprechtag eingeladen
+ * haben – eine Abfrage für die Kacheln (bu_buchbare_lehrer) und den
+ * Elternzweig von GET /api/einladungen. Liefert die Spalten einer
+ * Kachel, dazu Einladungsdaten und `teilnahme` (ungefiltert).
+ */
+function bu_einladende_lehrer(PDO $pdo, int $sprechtagId, array $kinder): array
+{
+    $kinder = array_values(array_map('intval', $kinder));
+    if ($kinder === []) return [];
+    $platzhalter = implode(',', array_fill(0, count($kinder), '?'));
+    $st = $pdo->prepare(
+        "SELECT e.id, e.schueler_id, e.hinweis, e.erledigt,
+                l.id AS lehrer_id, l.kuerzel, l.name,
+                COALESCE(c.faecher, '') AS faecher,
+                COALESCE(c.stunden, 0) AS stunden,
+                COALESCE(c.klausuren, 0) AS klausuren,
+                sl.anwesend_von, sl.anwesend_bis, sl.teilnahme,
+                r.kuerzel AS raum_kuerzel, NULL AS rolle, 1 AS eingeladen
+         FROM einladungen e
+         JOIN lehrer l ON l.id = e.lehrer_id
+         LEFT JOIN kind_lehrer_cache c
+                ON c.sprechtag_id = e.sprechtag_id AND c.schueler_id = e.schueler_id
+               AND c.lehrer_id = e.lehrer_id
+         LEFT JOIN sprechtag_lehrer sl
+                ON sl.sprechtag_id = e.sprechtag_id AND sl.lehrer_id = l.id
+         LEFT JOIN raeume r ON r.id = sl.raum_id
+         WHERE e.sprechtag_id = ? AND e.schueler_id IN ($platzhalter)
+         ORDER BY l.kuerzel");
+    $st->execute(array_merge([$sprechtagId], $kinder));
+    return $st->fetchAll();
+}
+
+/**
  * Darf für dieses Kind bei dieser Lehrkraft gebucht werden?
- * Erlaubt, wenn die Lehrkraft das Kind unterrichtet (Cache) ODER
- * als Sonderlehrkraft für den Jahrgang freigegeben ist.
+ * Erlaubt, wenn die Lehrkraft das Kind unterrichtet (Cache), als
+ * Sonderlehrkraft für den Jahrgang freigegeben ist ODER das Kind
+ * eingeladen hat. Ohne die Einladung scheiterte eine eingeladene, nicht
+ * unterrichtende Lehrkraft hier, bevor die Phase-1-Prüfung 'eingeladen'
+ * las (Befund 08.10.2026, Einladungs-Kachel).
  */
 function bu_lehrer_erlaubt(PDO $pdo, int $sprechtagId, int $schuelerId,
                            int $lehrerId, string $jahrgang = ''): bool
 {
+    if (bu_eingeladen($pdo, $sprechtagId, $schuelerId, $lehrerId)) return true;
+
     $st = $pdo->prepare('SELECT COUNT(*) FROM kind_lehrer_cache
                          WHERE sprechtag_id = ? AND schueler_id = ? AND lehrer_id = ?');
     $st->execute([$sprechtagId, $schuelerId, $lehrerId]);
@@ -55,6 +106,78 @@ function bu_lehrer_erlaubt(PDO $pdo, int $sprechtagId, int $schuelerId,
         if (slot_sonderlehrer_passt((string)$zeile['jahrgaenge'], $jahrgang)) return true;
     }
     return false;
+}
+
+/**
+ * Die Kacheln für Eltern: wer für dieses Kind buchbar erscheint.
+ *
+ *   eingeladen    – Lehrkräfte, die das Kind eingeladen haben und teilnehmen
+ *   unterrichtend – laut Stundenplan, ohne die schon Eingeladenen
+ *   sonderlehrer  – Sonderrollen, ohne die schon Genannten
+ *   nur_eingeladene – true in Phase 1 für Eltern/Schüler: dann stehen
+ *                     NUR die Eingeladenen da, nicht zusätzlich (E10)
+ *
+ * Dieselben Quellen fragt bu_lehrer_erlaubt() fürs Buchungsrecht – wer
+ * hier erscheint, muss dort erlaubt sein.
+ */
+function bu_buchbare_lehrer(PDO $pdo, int $sid, int $kind, string $phase,
+                            string $rolle, string $jahrgang): array
+{
+    $eingeladen = array_values(array_filter(bu_einladende_lehrer($pdo, $sid, [$kind]),
+        fn($z) => $z['teilnahme'] === null || (int)$z['teilnahme'] === 1));
+    $eingeladenIds = array_map('intval', array_column($eingeladen, 'lehrer_id'));
+
+    if (slot_nur_eingeladene($phase, $rolle)) {
+        return ['eingeladen' => $eingeladen, 'unterrichtend' => [],
+                'sonderlehrer' => [], 'nur_eingeladene' => true];
+    }
+
+    // Unterrichtende Lehrkräfte (nach Stundenzahl sortiert = Hauptfächer zuerst)
+    $st = $pdo->prepare(
+        'SELECT l.id AS lehrer_id, l.kuerzel, l.name, c.faecher, c.stunden,
+                c.klausuren,
+                sl.anwesend_von, sl.anwesend_bis, r.kuerzel AS raum_kuerzel,
+                NULL AS rolle
+         FROM kind_lehrer_cache c
+         JOIN lehrer l ON l.id = c.lehrer_id
+         LEFT JOIN sprechtag_lehrer sl
+                ON sl.sprechtag_id = c.sprechtag_id AND sl.lehrer_id = l.id
+         LEFT JOIN raeume r ON r.id = sl.raum_id
+         WHERE c.sprechtag_id = ? AND c.schueler_id = ?
+           AND (sl.teilnahme IS NULL OR sl.teilnahme = 1)
+         ORDER BY c.stunden DESC, l.kuerzel');
+    $st->execute([$sid, $kind]);
+    // Wer schon als Eingeladene steht, erscheint nicht ein zweites Mal.
+    $lehrer = array_values(array_filter($st->fetchAll(),
+        fn($z) => !in_array((int)$z['lehrer_id'], $eingeladenIds, true)));
+
+    // Sonderlehrkräfte (Jahrgangsfilter greift erst, wenn der Jahrgang bekannt ist)
+    $st = $pdo->prepare(
+        'SELECT l.id AS lehrer_id, l.kuerzel, l.name, "" AS faecher, 0 AS stunden,
+                0 AS klausuren,
+                sl2.anwesend_von, sl2.anwesend_bis, r.kuerzel AS raum_kuerzel,
+                sr.bezeichnung AS rolle, s.jahrgaenge
+         FROM sprechtag_sonderlehrer s
+         JOIN lehrer l ON l.id = s.lehrer_id
+         JOIN sonderrollen sr ON sr.id = s.rolle_id
+         LEFT JOIN sprechtag_lehrer sl2
+                ON sl2.sprechtag_id = s.sprechtag_id AND sl2.lehrer_id = l.id
+         LEFT JOIN raeume r ON r.id = sl2.raum_id
+         WHERE s.sprechtag_id = ? AND (sl2.teilnahme IS NULL OR sl2.teilnahme = 1)
+         ORDER BY sr.reihenfolge, l.kuerzel');
+    $st->execute([$sid]);
+    $sonder = [];
+    $bekannt = array_merge(array_map('intval', array_column($lehrer, 'lehrer_id')), $eingeladenIds);
+    foreach ($st->fetchAll() as $z) {
+        if (!slot_sonderlehrer_passt((string)$z['jahrgaenge'], $jahrgang)) continue;
+        if (in_array((int)$z['lehrer_id'], $bekannt, true)) continue;   // schon als Fach- oder eingeladene Lehrkraft
+        unset($z['jahrgaenge']);
+        $sonder[] = $z;
+    }
+
+
+    return ['eingeladen' => $eingeladen, 'unterrichtend' => $lehrer,
+            'sonderlehrer' => $sonder, 'nur_eingeladene' => false];
 }
 
 // ============================================================
@@ -72,9 +195,10 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'buchbare-lehrer') {
     if ($u['rolle'] !== 'admin' && !auth_kind_erlaubt($u, $kind)) {
         json_err('Für dieses Kind besteht keine Berechtigung', 403);
     }
-    bu_sprechtag($pdo, $sid);
+    $sprechtag = bu_sprechtag($pdo, $sid);
 
     // Cache leer? Dann einmalig mit dem Dienstkonto ermitteln.
+    // Nicht, wenn ohnehin nur Eingeladene erscheinen (Phase 1, E10).
     // Das passiert genau einmal je Kind und Sprechtag und dauert
     // ein bis zwei Sekunden; danach kommt alles aus der Datenbank.
     $st = $pdo->prepare('SELECT COUNT(*) FROM kind_lehrer_cache
@@ -82,7 +206,8 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'buchbare-lehrer') {
     $st->execute([$sid, $kind]);
     $ermittelt = null;
     $fehlendeStammdaten = [];
-    if ((int)$st->fetchColumn() === 0) {
+    if ((int)$st->fetchColumn() === 0
+        && !slot_nur_eingeladene((string)$sprechtag['phase'], (string)$u['rolle'])) {
         $zugang = dk_lesen($cfg, $pdo);
         if ($zugang !== null) {
             $stS = $pdo->prepare('SELECT datum, referenz_von, referenz_bis,
@@ -118,51 +243,10 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'buchbare-lehrer') {
         }
     }
 
-    // Unterrichtende Lehrkräfte (nach Stundenzahl sortiert = Hauptfächer zuerst)
-    $st = $pdo->prepare(
-        'SELECT l.id AS lehrer_id, l.kuerzel, l.name, c.faecher, c.stunden,
-                c.klausuren,
-                sl.anwesend_von, sl.anwesend_bis, r.kuerzel AS raum_kuerzel,
-                NULL AS rolle
-         FROM kind_lehrer_cache c
-         JOIN lehrer l ON l.id = c.lehrer_id
-         LEFT JOIN sprechtag_lehrer sl
-                ON sl.sprechtag_id = c.sprechtag_id AND sl.lehrer_id = l.id
-         LEFT JOIN raeume r ON r.id = sl.raum_id
-         WHERE c.sprechtag_id = ? AND c.schueler_id = ?
-           AND (sl.teilnahme IS NULL OR sl.teilnahme = 1)
-         ORDER BY c.stunden DESC, l.kuerzel');
-    $st->execute([$sid, $kind]);
-    $lehrer = $st->fetchAll();
-
-    // Sonderlehrkräfte (Jahrgangsfilter greift erst, wenn der Jahrgang bekannt ist)
-    $jahrgang = trim((string)($_GET['jahrgang'] ?? ''));
-    $st = $pdo->prepare(
-        'SELECT l.id AS lehrer_id, l.kuerzel, l.name, "" AS faecher, 0 AS stunden,
-                0 AS klausuren,
-                sl2.anwesend_von, sl2.anwesend_bis, r.kuerzel AS raum_kuerzel,
-                sr.bezeichnung AS rolle, s.jahrgaenge
-         FROM sprechtag_sonderlehrer s
-         JOIN lehrer l ON l.id = s.lehrer_id
-         JOIN sonderrollen sr ON sr.id = s.rolle_id
-         LEFT JOIN sprechtag_lehrer sl2
-                ON sl2.sprechtag_id = s.sprechtag_id AND sl2.lehrer_id = l.id
-         LEFT JOIN raeume r ON r.id = sl2.raum_id
-         WHERE s.sprechtag_id = ? AND (sl2.teilnahme IS NULL OR sl2.teilnahme = 1)
-         ORDER BY sr.reihenfolge, l.kuerzel');
-    $st->execute([$sid]);
-    $sonder = [];
-    $bekannt = array_column($lehrer, 'lehrer_id');
-    foreach ($st->fetchAll() as $z) {
-        if (!slot_sonderlehrer_passt((string)$z['jahrgaenge'], $jahrgang)) continue;
-        if (in_array($z['lehrer_id'], $bekannt)) continue;   // schon als Fachlehrkraft
-        unset($z['jahrgaenge']);
-        $sonder[] = $z;
-    }
-
-    json_ok(['unterrichtend' => $lehrer, 'sonderlehrer' => $sonder,
-             'automatisch_ermittelt' => $ermittelt,
-             'ohne_stammsatz' => $fehlendeStammdaten]);
+    $liste = bu_buchbare_lehrer($pdo, $sid, $kind, (string)$sprechtag['phase'],
+        (string)$u['rolle'], trim((string)($_GET['jahrgang'] ?? '')));
+    json_ok($liste + ['automatisch_ermittelt' => $ermittelt,
+                      'ohne_stammsatz' => $fehlendeStammdaten]);
 }
 
 // ============================================================
@@ -595,10 +679,7 @@ if (($seg[0] ?? '') === 'buchungen') {
         $st->execute([$sid, $elternUserId]);
         $anzahl = (int)$st->fetchColumn();
 
-        $st = $pdo->prepare('SELECT COUNT(*) FROM einladungen
-                             WHERE sprechtag_id = ? AND lehrer_id = ? AND schueler_id = ?');
-        $st->execute([$sid, $lid, $kind]);
-        $eingeladen = (int)$st->fetchColumn() > 0;
+        $eingeladen = bu_eingeladen($pdo, $sid, $kind, $lid);
 
         $pruefung = slot_buchung_erlaubt([
             'phase'          => (string)$s['phase'],
@@ -767,15 +848,7 @@ if (($seg[0] ?? '') === 'einladungen') {
 
         // Eltern: nur Einladungen für die eigenen Kinder
         $kinder = array_column($u['kinder'], 'id');
-        if ($kinder === []) json_ok(['einladungen' => []]);
-        $platzhalter = implode(',', array_fill(0, count($kinder), '?'));
-        $st = $pdo->prepare(
-            "SELECT e.id, e.schueler_id, e.hinweis, e.erledigt,
-                    l.id AS lehrer_id, l.kuerzel, l.name
-             FROM einladungen e JOIN lehrer l ON l.id = e.lehrer_id
-             WHERE e.sprechtag_id = ? AND e.schueler_id IN ($platzhalter)");
-        $st->execute(array_merge([$sid], $kinder));
-        json_ok(['einladungen' => $st->fetchAll()]);
+        json_ok(['einladungen' => bu_einladende_lehrer($pdo, $sid, $kinder)]);
     }
 
     if ($methode === 'POST') {

@@ -1143,12 +1143,13 @@ function ansichtBuchen(ziel) {
     return;
   }
 
-  const alle = (S.lehrerListe.unterrichtend || [])
-    .concat(S.lehrerListe.sonderlehrer || []);
+  const alle = buchenLehrerAlle(S.lehrerListe);
   if (alle.length === 0) {
-    ziel.appendChild(el('p', 'hinweis',
-      'Für dieses Kind konnten keine Lehrkräfte ermittelt werden. '
-      + kontaktSatz('Bitte wenden Sie sich an')));
+    ziel.appendChild(el('p', 'hinweis', S.lehrerListe.nur_eingeladene
+      ? 'In dieser Phase können Sie nur bei Lehrkräften buchen, die Sie '
+        + 'eingeladen haben. Für dieses Kind liegt keine Einladung vor.'
+      : 'Für dieses Kind konnten keine Lehrkräfte ermittelt werden. '
+        + kontaktSatz('Bitte wenden Sie sich an')));
     return;
   }
 
@@ -1252,6 +1253,15 @@ function zeichneTermineKompakt(ziel) {
   ziel.appendChild(b);
 }
 
+// Alle buchbaren Lehrkräfte in Anzeigereihenfolge: Eingeladene zuerst.
+// In Phase 1 liefert der Server nur sie (nur_eingeladene, E10); die
+// anderen Listen sind dann leer. Fehlende Listen gelten als leer.
+function buchenLehrerAlle(liste) {
+  return (liste.eingeladen || [])
+    .concat(liste.unterrichtend || [])
+    .concat(liste.sonderlehrer || []);
+}
+
 // Rendert die Lehrkraft-Kacheln (gefiltert nach dem Suchfeld) in den Container.
 function zeichneBuchenKacheln(gitter, alle) {
   gitter.textContent = '';
@@ -1274,6 +1284,10 @@ function zeichneBuchenKacheln(gitter, alle) {
     karte.appendChild(el('div', 'bk-name', l.name || l.kuerzel));
     if (l.faecher) karte.appendChild(el('div', 'bk-faecher', l.faecher));
     if (l.rolle) karte.appendChild(el('span', 'rolle-badge', l.rolle));
+    // Warum steht sie hier? Gerade wenn sie das Kind nicht unterrichtet.
+    if (Number(l.eingeladen) === 1) {
+      karte.appendChild(el('div', 'hinweis-klein', 'hat Sie eingeladen'));
+    }
     if (parseInt(l.stunden, 10) === 0 && parseInt(l.klausuren, 10) > 0) {
       karte.appendChild(el('div', 'hinweis-klein', 'nur Klausurtermin'));
     }
@@ -1300,7 +1314,8 @@ async function ladeLehrerListe() {
       meldung('Hinweis: Für diese Lehrkräfte aus dem Stundenplan fehlt ein '
         + 'Stammsatz und sie sind deshalb nicht buchbar: ' + fehlend.join(', ')
         + '. Bitte in der Administration die Stammdaten synchronisieren.', 'fehler');
-    } else if ((S.lehrerListe.unterrichtend || []).length === 0) {
+    } else if (!S.lehrerListe.nur_eingeladene
+               && (S.lehrerListe.unterrichtend || []).length === 0) {
       meldung('Für dieses Kind sind noch keine Lehrkräfte hinterlegt. '
         + 'Die Zuordnung wird von der Schule vorbereitet.', 'info');
     } else { meldung(null); }

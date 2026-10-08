@@ -118,3 +118,19 @@ Irrtum ausgesehen.
 Der Abschnitt „Nicht in diesem Zug“ oben ist in einem Punkt überholt:
 Die Gliederung aus Abschnitt 5 steht seit dem 08.10.2026 als E10 in
 `docs/ENTSCHEIDUNGEN.md`.
+
+---
+
+## 7 — Nachtrag 08.10.2026: behoben in v0.9.53
+
+Beide Ursachen sind zusammen behoben: Die Kacheln kennen Einladungen
+(`bu_buchbare_lehrer()`), und das Buchungsrecht kennt sie ebenfalls
+(`bu_lehrer_erlaubt()` fragt `bu_eingeladen()`). Der Elternzweig aus
+Abschnitt 4 ist nicht mehr eine zweite Abfrage: Kacheln und Elternzweig
+nutzen `bu_einladende_lehrer()`. Er wird vom Frontend weiterhin nicht
+aufgerufen.
+
+Geprüft in `tests/run_einladung_kachel.php` (Kachel **und** Buchung je
+Fall) und `tests/frontend_einladung_kachel_test.js`; Mutationen K1–K13,
+KF1–KF7. **Im Betrieb noch nicht gegengeprüft** — das geschieht mit dem
+Elternkonto nach dem Deploy.

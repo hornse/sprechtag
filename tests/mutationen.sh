@@ -20,7 +20,8 @@
 # Prüfung belegt). Exit 0 nur, wenn alle angeschlagen haben.
 #
 # Entstanden mit v0.9.51: Die Serie fand fünf Prüfungen, die nur
-# zufällig grün waren (docs/ENTSCHEIDUNGEN.md, E3–E5). Wird nicht von
+# zufällig grün waren (docs/ENTSCHEIDUNGEN.md, E3–E5). Seit v0.9.53
+# auch PHP-Suiten (Endung .php) und backend/. Wird nicht von
 # deploy.sh aufgerufen – sie verändert vorübergehend den Code.
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -59,6 +60,14 @@ ruecknahme() {    # NAME DATEI
   fi
 }
 
+# Suite ausführen: PHP-Suiten mit php, alle anderen mit node.
+suite_lauf() {
+  case "$1" in
+    *.php) php "$R/$1" ;;
+    *)     node "$R/$1" ;;
+  esac
+}
+
 # mut NAME DATEI PERL-AUSDRUCK SUITE ERWARTETE-ZEILE
 mut() {
   local name=$1 datei="$R/$2" ausdruck=$3 suite=$4 erwartet=$5
@@ -66,14 +75,14 @@ mut() {
     echo "$name: MUTATION NICHT ANGEKOMMEN – Suchmuster prüfen"; FEHLT=$((FEHLT + 1))
   else
     local aus e treffer
-    aus=$(node "$R/$suite" 2>&1); e=$?
+    aus=$(suite_lauf "$suite" 2>&1); e=$?
     treffer=$(printf '%s\n' "$aus" | grep -cF "✗ $erwartet" || true)
     if [ "$e" -ne 0 ] && [ "$treffer" -ge 1 ]; then
       echo "$name: angeschlagen („$erwartet“)"
     else
       echo "$name: NICHT ANGESCHLAGEN (exit=$e, „$erwartet“ rot: $treffer)"; FEHLT=$((FEHLT + 1))
     fi
-    printf '%s\n' "$aus" | grep -F "(Voraussetzung" | sed 's/^/      /'
+    printf '%s\n' "$aus" | grep -F "Voraussetzung" | sed 's/^/      /'
   fi
   ruecknahme "$name" "$datei"
 }
@@ -195,6 +204,58 @@ mut_sh H2 frontend/app.js "s/(function zeichneMarkeBlock\(ziel\) \{)/\$1\n  cons
 mut_sh H3 frontend/app.js "s/(function zeichneMarkeBlock\(ziel\) \{)/\$1\n  const ton = 'hsl(210, 60%, 30%)';/" \
   "rgb/hsl im JavaScript"
 mut_sh_gruen H4 frontend/app.js "s/(function zeichneMarkeBlock\(ziel\) \{)/\$1\n  \/\/ früher Voreinstellung #1d4e89 – entfernt, E7/"
+
+K=tests/run_einladung_kachel.php
+KF=tests/frontend_einladung_kachel_test.js
+BU=backend/api/buchungen.php
+
+echo "== Einladungs-Kachel: Buchungsrecht (Ursache 2)"
+mut K1 $BU 's/\n    if \(bu_eingeladen\(\$pdo, \$sprechtagId, \$schuelerId, \$lehrerId\)\) return true;\n//' \
+  $K "Buchung: eingeladene, nicht unterrichtende Lehrkraft geht durch"
+mut K2 $BU 's/if \(bu_eingeladen\(\$pdo, \$sprechtagId, \$schuelerId, \$lehrerId\)\) return true;/if (false \&\& bu_eingeladen(\$pdo, \$sprechtagId, \$schuelerId, \$lehrerId)) return true;/' \
+  $K "Buchung: eingeladene, nicht unterrichtende Lehrkraft geht durch"
+mut K3 $BU 's/(    )(if \(bu_eingeladen\(\$pdo, \$sprechtagId, \$schuelerId, \$lehrerId\)\) return true;)/$1\/\/ $2/' \
+  $K "eingeladene, nicht unterrichtende Lehrkraft ist erlaubt"
+mut K4 $BU 's/(function bu_eingeladen\(.*?)return \(int\)\$st->fetchColumn\(\) > 0;/$1return (int)\$st->fetchColumn() >= 0;/s' \
+  $K "Einladung für ein anderes Kind erlaubt nichts"
+
+echo "== Einladungs-Kachel: Kacheln (Ursache 1) und Phase 1"
+mut K5 $BU 's/bu_einladende_lehrer\(\$pdo, \$sid, \[\$kind\]\)/bu_einladende_lehrer(\$pdo, \$sid, [])/' \
+  $K "Kacheln: genau die Eingeladenen, die teilnehmen (1, 4)"
+mut K6 $BU "s/fn\(\\\$z\) => \\\$z\['teilnahme'\] === null \|\| \(int\)\\\$z\['teilnahme'\] === 1/fn(\\\$z) => true/" \
+  $K "Kacheln: genau die Eingeladenen, die teilnehmen (1, 4)"
+mut K7 $BU 's/    if \(slot_nur_eingeladene\(\$phase, \$rolle\)\) \{\n        return \[/    if (false) {\n        return [/' \
+  $K "Kacheln: keine Unterrichtenden daneben"
+mut K8 $BU 's/fn\(\$z\) => !in_array\(\(int\)\$z\[.lehrer_id.\], \$eingeladenIds, true\)/fn(\$z) => true/' \
+  $K "jede Lehrkraft genau einmal"
+mut K9 backend/api/slots.php "s/\\\$phase === 'phase1' && \(\\\$rolle === 'eltern' \|\| \\\$rolle === 'schueler'\)/\\\$phase === 'phase1' \&\& \\\$rolle === 'eltern'/" \
+  $K "Phase 1, volljährige Schüler: nur Eingeladene"
+mut K10 backend/api/slots.php 's/if \(slot_nur_eingeladene\(\$phase, \$rolle\) && !/if (false \&\& slot_nur_eingeladene(\$phase, \$rolle) \&\& !/' \
+  $K "Buchung: Unterrichtende ohne Einladung wird abgewiesen"
+
+echo "== Einladungs-Kachel: Aufrufstellen"
+mut K11 $BU 's/\$eingeladen = bu_eingeladen\(\$pdo, \$sid, \$kind, \$lid\);/\$eingeladen = false;/' \
+  $K "Buchungsroute: eingeladen kommt aus bu_eingeladen()"
+mut K12 $BU 's/\$liste = bu_buchbare_lehrer\(/\$liste = bu_buchbare_lehrer_alt(/' \
+  $K "Kachel-Route ruft bu_buchbare_lehrer()"
+mut K13 $BU "s/json_ok\(\['einladungen' => bu_einladende_lehrer\(\\\$pdo, \\\$sid, \\\$kinder\)\]\);/json_ok(['einladungen' => []]);/" \
+  $K "Elternzweig von GET /api/einladungen nutzt dieselbe Abfrage"
+
+echo "== Einladungs-Kachel: Frontend"
+mut KF1 frontend/app.js 's/if \(Number\(l\.eingeladen\) === 1\) \{/if (false) {/' \
+  $KF "Kachel der Eingeladenen trägt „hat Sie eingeladen“ genau einmal"
+mut KF2 frontend/app.js 's/if \(Number\(l\.eingeladen\) === 1\) \{/if (true) {/' \
+  $KF "Kacheln der anderen tragen es nicht"
+mut KF3 frontend/app.js 's/if \(Number\(l\.eingeladen\) === 1\) \{/if (l.eingeladen === 1) {/' \
+  $KF "Kachel der Eingeladenen trägt „hat Sie eingeladen“ genau einmal"
+mut KF4 frontend/app.js 's/return \(liste\.eingeladen \|\| \[\]\)\n    \.concat\(liste\.unterrichtend \|\| \[\]\)/return (liste.unterrichtend || [])\n    .concat(liste.eingeladen || [])/' \
+  $KF "Reihenfolge: eingeladen, unterrichtend, Sonderrolle"
+mut KF5 frontend/app.js 's/return \(liste\.eingeladen \|\| \[\]\)/return ([])/' \
+  $KF "Phase 1: genau die Eingeladene erscheint"
+mut KF6 frontend/app.js 's/const alle = buchenLehrerAlle\(S\.lehrerListe\);/const alle = (S.lehrerListe.unterrichtend || []).concat(S.lehrerListe.sonderlehrer || []);/' \
+  $KF "ansichtBuchen() bildet die Liste über buchenLehrerAlle()"
+mut KF7 frontend/app.js 's/\} else if \(!S\.lehrerListe\.nur_eingeladene\n\s*&& /} else if (/' \
+  $KF "„keine Lehrkräfte hinterlegt“ nicht in Phase 1"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi

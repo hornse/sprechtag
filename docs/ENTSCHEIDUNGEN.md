@@ -436,3 +436,8 @@ ihrer Folgen nicht (E7, Akzentfarbe).
   `slot_buchung_erlaubt()`).
 - Die Klassenleitung kommt aus `getKlassen` bzw. `pageconfig`
   (`classteacher`, `classteacher2`), siehe E8.
+
+**Nachtrag 08.10.2026:** Der Phase-1-Teil ist **wirksam seit v0.9.53**,
+ebenso, dass Eingeladene ab Phase 2 sichtbar und buchbar bleiben. Die
+Dreiteilung ab Phase 2 (Klassenleitung hervorgehoben, weitere hinter
+einer Suche) ist **noch nicht gebaut**.

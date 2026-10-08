@@ -1,5 +1,45 @@
 # Changelog - sprechtag
 
+## v0.9.53 (Oktober 2026) – Eingeladene Lehrkraft erscheint und ist buchbar
+
+### Behoben
+- **Eltern sahen die Lehrkraft nicht, die sie eingeladen hatte, und konnten
+  dort nicht buchen** – wenn die Lehrkraft das Kind nicht unterrichtet und
+  keine Sonderrolle trägt. Zwei Ursachen, beide behoben
+  (`docs/BEFUND-2026-10-08-einladungs-kachel.md`):
+  1. Die Kacheln (`GET /api/buchbare-lehrer`) kannten keine Einladungen.
+  2. Das Buchungsrecht (`bu_lehrer_erlaubt()`) kannte sie ebenfalls nicht;
+     die Buchung wäre an `darf_lehrkraft` gescheitert, bevor die
+     Phase-1-Prüfung die Einladung las. Nur die Kachel zu ergänzen hätte
+     zu einer Ablehnung beim Buchen geführt.
+
+### Geändert
+- **Phase 1: in den Kacheln stehen nur die Eingeladenen** (E10), nicht
+  zusätzlich Unterrichtende und Sonderrollen. Ab Phase 2 bleiben die
+  Eingeladenen zuerst sichtbar und buchbar, jede Lehrkraft genau einmal.
+  Die Dreiteilung aus E10 ist **nicht** Teil dieser Fassung.
+- Eine Einladungs-Kachel trägt „hat Sie eingeladen“. Findet sich in
+  Phase 1 keine Einladung, sagt die Seite das, statt „keine Lehrkräfte
+  hinterlegt“ zu melden.
+- Eine Stelle je Frage: `slot_nur_eingeladene()` (Phasenregel, von
+  Buchungsprüfung und Kacheln gefragt), `bu_eingeladen()` (Einladung ja/nein),
+  `bu_einladende_lehrer()` (eine Abfrage für die Kacheln und den bisher
+  nie aufgerufenen Elternzweig von `GET /api/einladungen`).
+- In Phase 1 ermittelt die Kachel-Route die Unterrichtenden nicht mehr
+  über das Dienstkonto – sie erscheinen dort ohnehin nicht.
+
+### Prüfungen
+- Neu `tests/run_einladung_kachel.php` (47, echte Funktionen gegen SQLite):
+  jeder Fall prüft Kachel **und** Buchung; Phase 1: Nicht-Eingeladene
+  weder sichtbar noch buchbar; Aufrufstellen in der Route.
+- Neu `tests/frontend_einladung_kachel_test.js` (11, ausgeführt).
+  Gegen den alten Stand von `app.js` alle 11 rot.
+- Suiten 697 → 755 ✓-Zeilen (+47, +11), 44 → 46 Suiten, alle grün.
+  `tests-sprechtag.sh` 29 unverändert.
+- `tests/mutationen.sh` fährt jetzt auch PHP-Suiten: 27 → 47 Mutationen,
+  alle angeschlagen (K1–K13, KF1–KF7; Buchungsrecht entfernt **und**
+  entwertet **und** auskommentiert).
+
 ## v0.9.52 (Oktober 2026) – Logo dekorativ, Farbfelder entfernt – benötigt Migration `sql/20_farbfelder_entfernen.sql`
 
 ### Geändert

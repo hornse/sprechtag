@@ -167,6 +167,20 @@ function slot_pausen_anwenden(array $raster, array $belegt,
 }
 
 /**
+ * Gelten für diese Rolle in dieser Phase NUR eingeladene Lehrkräfte?
+ *
+ * Eine Stelle für die Frage, die zwei Orte stellen: die Buchungsprüfung
+ * unten und die Kachelliste (bu_buchbare_lehrer() in buchungen.php).
+ * Zwei Bedingungen für dieselbe Frage wären zwei Wahrheiten.
+ * Phase 1 gilt für Eltern und volljährige Schüler; Verwaltung und
+ * Lehrkräfte (stellvertretend) sind nicht beschränkt. (E10)
+ */
+function slot_nur_eingeladene(string $phase, string $rolle): bool
+{
+    return $phase === 'phase1' && ($rolle === 'eltern' || $rolle === 'schueler');
+}
+
+/**
  * Prüft, ob eine Buchung erlaubt ist. Reine Regelprüfung – der
  * Aufrufer hat die Daten bereits geladen.
  *
@@ -174,8 +188,9 @@ function slot_pausen_anwenden(array $raster, array $belegt,
  *   phase              – aktuelle Phase des Sprechtags
  *   rolle              – 'eltern'|'lehrkraft'|'schueler'|'admin'
  *   eingeladen         – bool: existiert eine Einladung (Phase 1)
- *   darf_lehrkraft     – bool: unterrichtet die Lehrkraft das Kind
- *                        ODER ist als Sonderlehrkraft freigegeben
+ *   darf_lehrkraft     – bool: unterrichtet die Lehrkraft das Kind,
+ *                        ist als Sonderlehrkraft freigegeben ODER hat
+ *                        das Kind eingeladen (bu_lehrer_erlaubt)
  *   slot_frei          – bool
  *   slot_im_raster     – bool: Slot existiert im Lehrkraft-Raster
  *   anzahl_termine     – bisherige Termine dieses Elternteils
@@ -204,13 +219,9 @@ function slot_buchung_erlaubt(array $kontext): array
     }
 
     // Phase 1: nur eingeladene Eltern; Lehrkräfte buchen stellvertretend
-    if ($phase === 'phase1' && $rolle !== 'admin') {
-        if ($rolle === 'eltern' || $rolle === 'schueler') {
-            if (!($kontext['eingeladen'] ?? false)) {
-                return $nein('In der aktuellen Phase können nur eingeladene '
-                    . 'Erziehungsberechtigte einen Termin buchen.');
-            }
-        }
+    if (slot_nur_eingeladene($phase, $rolle) && !($kontext['eingeladen'] ?? false)) {
+        return $nein('In der aktuellen Phase können nur eingeladene '
+            . 'Erziehungsberechtigte einen Termin buchen.');
     }
 
     $max = (int)($kontext['max_termine'] ?? 0);
