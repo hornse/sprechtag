@@ -123,6 +123,9 @@ Sitzungscookie erreichbar?** Die Sondierung baut eine eigene Sitzung
 auf. Derselbe Mechanismus wie seit v0.9.48 für die Mitteilungen, also
 wahrscheinlich unproblematisch — ungeprüft. Gehört vor den Umbau.
 
+> **Frage 3 (nachgetragen 08.10.2026):** Liegt die `personId` eines
+> Schülerkontos im `getStudents`-Kreis? Siehe Abschnitt 7.
+
 ## 5 — `mit_eltern_ids_ermitteln()` entscheidet über den Namen
 
 `backend/api/mitteilungen.php`, ab Zeile 297. Die Funktion holt den
@@ -190,3 +193,32 @@ eingesetzt (`backend/api/webuntis_adapter.php:101`). Ob die `personId`
 eines Schülerkontos im `getStudents`-Kreis liegt, ist nicht gemessen.
 
 Daraufhin angelegt: E8 in `docs/ENTSCHEIDUNGEN.md`.
+
+---
+
+## 7 — Nachtrag: Frage 3 (offen)
+
+Nachgetragen am 08.10.2026. Zum Datum in Abschnitt 6: Die Messungen
+liefen am 07.10.2026 und wurden am 08.10.2026 gemeldet.
+
+**Frage 3 — Liegt die `personId` eines Schülerkontos im
+`getStudents`-Kreis?**
+
+Volljährige Schüler melden sich selbst an; dabei wird ihre eigene
+`personId` als Kind-Kennung eingesetzt
+(`backend/api/webuntis_adapter.php:101`). Ob diese Kennung im selben
+Kreis liegt wie `user.students[].id` bei Eltern, ist **ungemessen**.
+
+**Warum es zählt:** Bei einem Elternkonto sind `person_id` und
+`user_id` nachweislich verschieden (an einem Konto gesehen). Liegt die
+Schüler-`personId` in einem anderen Kreis, trüge eine Buchung
+volljähriger Schüler eine Kennung aus einem anderen Kreis als die der
+Eltern — die JOINs auf `schueler` lieferten keinen Namen, der
+Stundenplan-Abruf ginge ins Leere oder auf jemand anderen. **Still,
+ohne Fehlermeldung.**
+
+**Prüfweg:** Mit einem volljährigen Schülerkonto in sprechtag anmelden,
+`GET /api/auth/me` aufrufen und die Kind-Kennung gegen
+`schueler.webuntis_id` halten — derselbe Weg wie bei Frage 1.
+Alternativ ein Testkonto mit `personType 5`. Keine Kennungen in den
+Bericht.
