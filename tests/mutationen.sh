@@ -733,6 +733,21 @@ mut MP10 $MS 's/    \} finally \{\n        if \(isset\(\$s\[\x27abmelden\x27\]\)
 mut MP11 $MS 's/if \(!in_array\(\$welche, \[\x27eigene\x27, \x27dienstkonto\x27\], true\)\) \{/if (false) {/' \
   $MP "unbekannte Sitzungsangabe: kein Versand"
 
+# v0.9.71 – Messung Liste auflösen/senden über die eigene Sitzung (Testliste)
+ML=tests/run_messung_liste.php
+mut ML1 $MS 's/if \(count\(\$ids\) > MESSUNG_LISTE_HOECHSTENS\) \{/if (false) {/' \
+  $ML "mehr als 5 Empfänger: KEIN Versand"
+mut ML2 $MS 's/if \(\$typ !== \x27QUICK\x27\) return/if (false) return/' \
+  $ML "nur QUICK, nur mit Listen-Kennung, nur bekannte Schritte"
+mut ML3 $MS 's/if \(\$schritt === \x27senden\x27 && \(\$eingabe\[\x27bestaetigt\x27\] \?\? null\) !== true\) \{/if (false) {/' \
+  $ML "ohne Bestätigung: kein Versand"
+mut ML4 $MS 's/(    \$antwort = \$s\[\x27rest\x27\]->postMultipart\(\x27\/WebUntis\/api\/rest\/view\/v2\/messages\/users\x27, messung_liste_koerper\(\$ids\)\);)/    \$s[\x27rest\x27]->postMultipart(\x27\/WebUntis\/api\/rest\/view\/v2\/messages\/users\x27, messung_liste_koerper(\$ids));\n$1/' \
+  $ML "bestätigt: genau EIN Versand"
+mut ML5 $MS 's/(\x27seiten\x27 => \(int\)\$res\[\x27seiten\x27\])\];/$1, \x27ids\x27 => \$ids];/' \
+  $ML "keine Personenangaben: weder Kennungen noch Namen der Empfänger"
+mut ML6 $IDX 's/(\x27liste\x27\) \{\n    \$u = )auth_require_lehrkraft\(\);/$1auth_require();/' \
+  $ML "Eltern können die Messung nicht auslösen"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1

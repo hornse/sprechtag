@@ -73,3 +73,30 @@ vorgesehene Weg, obwohl jemand angemeldet ist (6, 7, 10, 11).
   beabsichtigt, ist offen.
 - Volljährige Schüler und Verwaltung: Stundenplan per eigener Sitzung (Stelle
   8) – nicht gemessen.
+
+## Nachtrag 09.10.2026: Messung vorbereitet – ersetzt eine Lehrkraft-Sitzung das Dienstkonto überall? (v0.9.71)
+
+**Auskunft des Betreibers (aus der Oberfläche, nicht gemessen):** Ein
+**Lehrerkonto** hat dieselben Gruppen- und Rollenauswahlen wie das
+Admin-Konto, dazu die vorgefertigten Gruppen Schüler (Einzel- und
+Mehrfachauswahl), Eltern, Kollegen und Individuell. Damit verschiebt sich die
+Frage von „trägt die Verwaltungs-Sitzung die Erinnerungen?“ zu „ersetzt eine
+Lehrkraft-Sitzung das Dienstkonto überall?“.
+
+**Messweg:** `POST /api/messung/liste` über die Sitzung der angemeldeten Person
+(Lehrkraft oder Verwaltung – der Bericht nennt die Rolle), mit denselben
+Aufrufen wie die Erinnerungen:
+1. `schritt: "aufloesen"` – Liste über `CUSTOM/filter` auflösen (nur lesen);
+2. `schritt: "senden"` – an die aufgelösten Empfänger über `/v2/messages/users`
+   mit `recipientUserIds`; Erfolg heißt `numberOfRecipients` ≥ 1.
+
+Sicherungen: nur `QUICK`-Listen, senden nur mit 1 bis 5 Empfängern (eine
+falsche Listen-Kennung trifft so nie „alle Eltern“), nur mit
+`"bestaetigt": true`, genau ein Versand, fester Testbetreff, keine Kennungen
+und Namen im Bericht. Zu messen je mit Lehrkraft- und Verwaltungs-Sitzung an
+der Testliste (QUICK, zwei Personen).
+
+**Fachliche Frage, nicht technisch – offen:** Die Erinnerungen löst heute die
+**Verwaltung** aus. Trägt nur die Lehrkraft-Sitzung, müsste entweder eine
+Lehrkraft auslösen, oder das Admin-Konto reichte dafür nicht. Das ist zu
+entscheiden, nicht zu lösen.

@@ -51,7 +51,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.70', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.71', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -1048,6 +1048,21 @@ if ($methode === 'POST' && ($seg[0] ?? '') === 'sondierung') {
         sleep(2);
         json_err('Sondierung fehlgeschlagen: ' . $e->getMessage(), 502);
     }
+}
+
+// MESSUNG (v0.9.71), kein Feature – siehe messung_sitzung.php. Ersetzt die
+// Sitzung der angemeldeten Lehrkraft bzw. Verwaltung das Dienstkonto bei den
+// Erinnerungen? Liste auflösen (nur lesen) bzw. an sie senden – nur QUICK, nur
+// bis 5 Empfänger, senden nur mit "bestaetigt": true, genau ein Versand.
+//   POST /api/messung/liste  {schritt: aufloesen|senden, liste_typ: QUICK, liste_id, bestaetigt}
+if ($methode === 'POST' && ($seg[0] ?? '') === 'messung' && ($seg[1] ?? '') === 'liste') {
+    $u = auth_require_lehrkraft();
+    json_ok(['bericht' => messung_liste_ausfuehren($body, (string)$u['rolle'],
+        function () use ($cfg): array {
+            $grund = null;
+            $rest = mit_rest_aus_sitzung($cfg, $grund);
+            return ['rest' => $rest, 'grund' => $grund];
+        })]);
 }
 
 // MESSUNG (v0.9.69), kein Feature – siehe messung_sitzung.php. Erreicht

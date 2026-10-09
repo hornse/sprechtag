@@ -4,6 +4,12 @@
 //
 //   GET /api/messung/sitzung   (jede angemeldete Person, nur Zahlen)
 //
+// Seit v0.9.71 zusätzlich, als EIGENE Route (POST /api/messung/liste):
+// Ersetzt die Sitzung einer Lehrkraft bzw. der Verwaltung das Dienstkonto bei
+// den Erinnerungen – Liste auflösen (CUSTOM/filter) und an sie senden
+// (/v2/messages/users, recipientUserIds)? Nur QUICK-Listen mit höchstens 5
+// Empfängern, senden nur bestätigt, genau ein Versand.
+//
 // Seit v0.9.69 zusätzlich, als EIGENE Route (POST /api/messung/parents):
 // Erreicht recipientOption „PARENTS“ mit der Kennung des Kindes die Eltern
 // auch auf unserem Pfad? VERSCHICKT GENAU EINE Testnachricht – nur bestätigt,
@@ -638,6 +644,66 @@ function messung_parents_ausfuehren(array $eingabe, string $rolle, callable $sit
         'namensweg' => ['konten' => count((array)($nw['ids'] ?? [])), 'quelle' => $nw['quelle'] ?? null],
         'kennung_in_schuelerliste' => $liste,
     ];
+}
+
+// ---- Messung: Liste auflösen und an sie senden (v0.9.71) ------------------
+
+/** Höchstens so viele Empfänger – die Messung geht nur an eine Testliste. */
+const MESSUNG_LISTE_HOECHSTENS = 5;
+
+/** Körper wie erinnerung_versenden(), mit festem Testbetreff. */
+function messung_liste_koerper(array $ids): array
+{
+    return [
+        'subject'             => 'sprechtag – Testnachricht (Messung), bitte ignorieren',
+        'content'             => 'Dies ist eine Testnachricht des Sprechtag-Systems. '
+            . 'Sie prüft einen Versandweg und kann gelöscht werden.',
+        'requestConfirmation' => false,
+        'recipientUserIds'    => array_values($ids),
+        'oneDriveAttachments' => [],
+        'forbidReply'         => false,
+    ];
+}
+
+/**
+ * Führt die Messung aus. $eingabe: ['schritt' => 'aufloesen'|'senden',
+ * 'liste_typ' => 'QUICK', 'liste_id' => int, 'bestaetigt' => true (senden)].
+ * $sitzung liefert ['rest' => ?Client, 'grund' => ?string] (die Sitzung der
+ * angemeldeten Person – Lehrkraft oder Verwaltung, $rolle). Senden nur, wenn
+ * die Liste 1 bis MESSUNG_LISTE_HOECHSTENS Empfänger hat; genau ein Versand.
+ * Die Antwort nennt Zahlen und Status, keine Kennungen und keine Namen.
+ */
+function messung_liste_ausfuehren(array $eingabe, string $rolle, callable $sitzung): array
+{
+    $schritt = (string)($eingabe['schritt'] ?? '');
+    $typ = (string)($eingabe['liste_typ'] ?? '');
+    $id = (int)($eingabe['liste_id'] ?? 0);
+    $basis = ['gesendet' => false, 'rolle' => $rolle, 'schritt' => $schritt];
+    if (!in_array($schritt, ['aufloesen', 'senden'], true)) {
+        return $basis + ['grund' => 'schritt muss "aufloesen" oder "senden" sein.'];
+    }
+    if ($typ !== 'QUICK') return $basis + ['grund' => 'Nur QUICK-Listen (Testliste).'];
+    if ($id <= 0) return $basis + ['grund' => 'liste_id fehlt.'];
+    if ($schritt === 'senden' && ($eingabe['bestaetigt'] ?? null) !== true) {
+        return $basis + ['grund' => 'Nicht bestätigt – senden verschickt eine echte Nachricht und braucht "bestaetigt": true.'];
+    }
+    $s = $sitzung();
+    if (($s['rest'] ?? null) === null) {
+        return $basis + ['grund' => 'Keine nutzbare WebUntis-Sitzung (' . (string)($s['grund'] ?? '')
+            . ') – neu anmelden und erneut messen.'];
+    }
+    $res = $s['rest']->listeAufloesen('QUICK', $id, 3);
+    $ids = erinnerung_ids_aus_users((array)$res['users']);
+    $basis['aufloesung'] = ['status' => (int)$res['status'], 'anzahl' => count($ids),
+                            'vollstaendig' => (bool)$res['vollstaendig'], 'seiten' => (int)$res['seiten']];
+    if ($schritt === 'aufloesen') return $basis;
+    if ($ids === []) return $basis + ['grund' => 'Keine Empfänger – nichts gesendet.'];
+    if (count($ids) > MESSUNG_LISTE_HOECHSTENS) {
+        return $basis + ['grund' => 'Die Liste hat ' . count($ids) . ' Empfänger – die Messung sendet an '
+            . 'höchstens ' . MESSUNG_LISTE_HOECHSTENS . ' (nur an eine Testliste). Nichts gesendet.'];
+    }
+    $antwort = $s['rest']->postMultipart('/WebUntis/api/rest/view/v2/messages/users', messung_liste_koerper($ids));
+    return ['gesendet' => true] + $basis + ['antwort' => messung_parents_deuten($antwort)];
 }
 
 /** Ein Abruf, der nie wirft: Fehler werden mit Klasse und Meldung berichtet. */

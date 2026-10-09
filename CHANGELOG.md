@@ -1,5 +1,27 @@
 # Changelog - sprechtag
 
+## v0.9.71 (Oktober 2026) – Messung: Liste auflösen und senden über die eigene Sitzung
+
+Frage: Ersetzt eine Lehrkraft- bzw. Verwaltungs-Sitzung das Dienstkonto bei
+den Erinnerungen (und damit überall)? Auskunft des Betreibers: Ein Lehrerkonto
+hat mindestens dieselben Empfängerarten wie das Admin-Konto, dazu weitere.
+
+- Neue Route `POST /api/messung/liste` `{schritt: "aufloesen"|"senden",
+  liste_typ: "QUICK", liste_id, bestaetigt}` – nur Lehrkraft/Verwaltung, über
+  die eigene Sitzung; dieselben Aufrufe wie die Erinnerungen (`CUSTOM/filter`,
+  `/v2/messages/users` mit `recipientUserIds`).
+- Sicherungen: nur QUICK, senden nur bei 1–5 Empfängern, nur bestätigt, genau
+  ein Versand, fester Testbetreff; Bericht nennt Rolle, Status und Zahlen, keine
+  Kennungen oder Namen.
+- Bestandsaufnahme Dienstkonto: Nachtrag mit Messweg und der fachlichen Frage,
+  wer die Erinnerungen künftig auslöst, falls nur die Lehrkraft-Sitzung trägt.
+
+### Prüfungen
+- 1139 → 1154 Prüfzeilen in 59 Suiten, alle grün; `tests-sprechtag.sh` 29.
+  Neu: `run_messung_liste.php` (15; die echte `listeAufloesen()` läuft über
+  einen Ersatz für `post()`).
+- Mutationen 240 → 246, alle angeschlagen, H4 grün, Rücknahme belegt.
+
 ## v0.9.70 (Oktober 2026) – Messung PARENTS auch über die Sitzung des Dienstkontos
 
 > **Teilweise überholt (09.10.2026, Befund Abschnitt 18):** „Bestätigungen und
