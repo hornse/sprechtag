@@ -379,8 +379,10 @@ mut Z25 $BU "s/\(string\)\(\\\$body\['jahrgang'\] \?\? ''\), \(string\)\\\$s\['p
   $D "Buchungsroute gibt die Phase an bu_lehrer_erlaubt()"
 mut Z26 $BU "s/' \. bu_teilnehmend_sql\('sl'\) \. '/1 = 1/" \
   $D "unterrichtende Lehrkraft mit teilnahme = 0 erscheint nicht (Kind 503, Lehrkraft 8)"
-mut Z27 $APP "s/\+ \(istKl \? ' klassenleitung' : ''\)/+ ''/" \
-  $FD "… und die Hervorhebungsklasse"
+# Z27, Z33, Z37 seit v0.9.58 umgewidmet (Zug 3b): Rand und oberes Suchfeld
+# sind entfallen; die Mutation baut jetzt die alte Fassung wieder ein.
+mut Z27 $APP "s/const karte = el\('div', 'buchen-kachel'\n/const karte = el('div', 'buchen-kachel' + (istKl ? ' klassenleitung' : '')\n/" \
+  $FD "… und keine Randklasse (das Abzeichen genügt)"
 mut Z28 $APP "s/    if \(istKl\) karte\.appendChild\(el\('span', 'rolle-badge', 'Klassenleitung'\)\);\n//" \
   $FD "Klassenleitung trägt „Klassenleitung“ genau einmal"
 mut Z29 $APP 's/const istKl = Number\(l\.klassenleitung\) === 1;/const istKl = !!l.klassenleitung;/' \
@@ -390,21 +392,75 @@ mut Z30 $APP 's/  if \(!q\) \{\n    gitter\.textContent/  if (false) {\n    gitt
 mut Z31 $APP "s/const q = \(S\.weitereSuche \|\| ''\)\.trim\(\);/const q = (S.weitereSuche || '');/" \
   $FD "nur Leerzeichen gilt als keine Eingabe"
 mut Z32 $APP 's/zeichneBuchenKacheln\(gitter, weitere, q\);/zeichneBuchenKacheln(gitter, weitere);/' \
-  $FD "Haupt-Suchfeld wirkt nicht auf die Weiteren"
-mut Z33 $APP "s/\(suche === undefined \? \(S\.buchenSuche \|\| ''\) : suche\)/(S.buchenSuche || '')/" \
-  $FD "ausdrücklicher Suchtext gilt statt S.buchenSuche"
+  $FD "nur der Suchtext der Weiteren wirkt auf die Weiteren"
+mut Z33 $APP "s/const q = \(suche \|\| ''\)\.trim/const q = (suche || S.buchenSuche || '').trim/" \
+  $FD "ohne Suchtext: alle Kacheln – ein Rest von S.buchenSuche filtert nicht"
 mut Z34 $APP 's/  if \(weitere\.length > 0\) zeichneWeitereLehrkraefte\(ziel, weitere\);\n//' \
   $FD "ansichtBuchen() zeichnet die Weiteren"
 mut Z35 $APP 's/if \(alle\.length === 0 && weitere\.length === 0\) \{/if (alle.length === 0) {/' \
   $FD "leere Gruppen 1–2 brechen nicht ab, wenn es Weitere gibt"
 mut Z36 $APP "s/\n    S\.weitereSuche = '';\n    S\.gewaehlteLehrkraft = null;/\n    S.gewaehlteLehrkraft = null;/" \
   $FD "Kindwechsel leert die Suche der Weiteren"
-mut Z37 $CSS 's/\.buchen-kachel\.klassenleitung \{ border-left: 4px solid var\(--akzent\); \}\n//' \
-  $FD "Hervorhebung der Klassenleitung hat eine Regel"
+mut Z37 $CSS 's/(\.bk-raum \{)/.buchen-kachel.klassenleitung { border-left: 4px solid var(--akzent); }\n$1/' \
+  $FD "kein Rand an der Klassenleitung – keine Regel für .klassenleitung"
 mut Z38 $APP "s/block\('buchen-weitere',/block('buchen-weitere-x',/" \
   $FD "ein Block (details), über block() – also eingeklappt, Zustand gemerkt"
 mut Z39 $APP 's/S\.weitereSuche = e\.target\.value;\n    zeichneWeitereKacheln\(gitter, weitere\);/S.weitereSuche = e.target.value;/' \
   $FD "Eingabe zeichnet die Treffer im Block"
+
+
+echo "== Zug 3b: oberes Suchfeld entfallen (v0.9.58)"
+KA=tests/frontend_buchen_kacheln_test.js
+mut Z40 $APP "s/(    const gitter = el\('div', 'buchen-gitter'\);\n    zeichneBuchenKacheln\(gitter, alle\);)/    ziel.appendChild(feld('Suchen', 'buchen-suche', 'text', ''));\n\$1/" \
+  $FD "Phase 2: genau ein Suchfeld, und es ist das der Weiteren"
+mut Z41 $APP 's/    zeichneBuchenKacheln\(gitter, alle\);\n    ziel\.appendChild\(gitter\);/    zeichneBuchenKacheln(gitter, alle, S.buchenSuche);\n    ziel.appendChild(gitter);/' \
+  $FD "Phase 2: alle Kacheln der Gruppen 1–2 stehen ungefiltert da"
+mut Z42 $APP "s/S\.lehrerListe = null; S\.lehrerLaedt = false;\n/S.lehrerListe = null; S.lehrerLaedt = false; S.buchenSuche = '';\n/" \
+  $KA "kein oberes Suchfeld mehr"
+
+echo "== Zug 3b: mobile Ansicht (v0.9.58)"
+MO=tests/frontend_mobil_test.js
+HT=frontend/index.html
+mut MO1 $CSS 's/z-index: 32; cursor: pointer;/z-index: 20; cursor: pointer;/' \
+  $MO "Schleier liegt über der Kopfleiste – auch dort schließt ein Tippen"
+mut MO2 $CSS 's/left: 0; z-index: 35;/left: 0; z-index: 31;/' \
+  $MO "Menü liegt über dem Schleier"
+mut MO3 $CSS 's/\n    width: min\(18rem, 85vw\);\n/\n    width: 240px;\n/' \
+  $MO "Menübreite begrenzt, damit daneben Platz zum Tippen bleibt"
+mut MO4 $CSS 's/  \.shell\.leiste-zu \.seitenleiste \{ width: min\(18rem, 85vw\); \}\n//' \
+  $MO "… auch nach Einklappen am Rechner"
+mut MO5 $CSS 's/z-index: 32; cursor: pointer;/z-index: 32;/' \
+  $MO "Schleier trägt cursor: pointer"
+mut MO6 $CSS 's/\n    height: 100dvh;//' \
+  $MO "Menühöhe folgt der sichtbaren Höhe"
+mut MO7 $APP "s/\\\$\('#menue-overlay'\)\?\.addEventListener\('click', \(\) => menueSchliessen\(\)\);\n//" \
+  $MO "Tippen auf den Schleier ruft menueSchliessen()"
+mut MO8 $APP 's/  r\.appendChild\(tab\);\n  return r;/  return tab;/' \
+  $MO "tabelleRahmen() legt die Tabelle als einziges Kind in div.tabelle-rahmen"
+mut MO9 $APP 's/box\.appendChild\(tabelleRahmen\(tab\)\);/box.appendChild(tab);/' \
+  $MO "jede Tabelle bekommt ihren Rahmen"
+mut MO10 $APP 's/    return tabelleRahmen\(tab\);/    tabelleRahmen(tab);\n    return tab;/' \
+  $MO "keine Tabelle wird ohne Rahmen eingehängt"
+mut MO11 $CSS 's/\.tabelle-rahmen \{ overflow-x: auto;/.tabelle-rahmen { overflow-x: visible;/' \
+  $MO "Rahmen rollt waagrecht"
+mut MO12 $CSS 's/\n       min-width: 0; \}/ }/' \
+  $MO "Inhalt wächst nicht mit der breitesten Tabelle mit"
+mut MO13 $HT 's/, viewport-fit=cover//' \
+  $MO "viewport-fit=cover"
+mut MO14 $CSS 's/\n         padding-bottom: calc\(3rem \+ env\(safe-area-inset-bottom, 0px\)\);//' \
+  $MO "Inhalt hat unten Abstand für Safaris Leiste"
+mut MO15 $CSS 's/\n {9}padding-left: max\(1rem, env\(safe-area-inset-left, 0px\)\);//' \
+  $MO "… und links/rechts für die Kamera-Aussparung im Querformat"
+mut MO16 $CSS 's/\n    padding-bottom: env\(safe-area-inset-bottom, 0px\);//' \
+  $MO "Menü unten (Abmelden) nicht unter der Leiste"
+mut MO17 $CSS 's/\n {18}padding-left: max\(1rem, env\(safe-area-inset-left, 0px\)\);//' \
+  $MO "Kopfleiste links im Querformat nicht unter der Aussparung"
+mut MO18 $CSS 's/\n         bottom: calc\(1\.25rem \+ env\(safe-area-inset-bottom, 0px\)\);//' \
+  $MO "Kurzmeldung unten über der Leiste"
+mut MO19 $CSS 's/\n         padding-bottom: 3rem;//' \
+  $MO "jede env()-Deklaration hat davor einen Rückfall ohne env()"
+mut MO20 $CSS 's/\@media \(max-width: 760px\) \{\n  \/\* Querformat/\@media (max-width: 761px) {\n  \/* Querformat/' \
+  $MO "Voraussetzung: Medienabfrage für schmale Bildschirme gefunden"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi

@@ -1,5 +1,107 @@
 # Changelog - sprechtag
 
+## v0.9.58 (Oktober 2026) – Zug 3b: Nachbesserung Buchungsseite, mobile Ansicht (erster Durchgang)
+
+### Teil A – Buchungsseite (Entscheidung Betreiber, E10-Nachtrag)
+- **Das obere Suchfeld entfällt.** Es filterte nur die ohnehin sichtbaren
+  Kacheln und stand über der Suche, die alle Teilnehmenden findet. Es
+  bleibt das Suchfeld im Block „Weitere Lehrkräfte suchen“.
+- **Der Rand links an der Klassenleitung entfällt.** Er sah aus wie
+  „gewählt“. Das Abzeichen „Klassenleitung“ ist die einzige
+  Kennzeichnung.
+
+### Teil B – mobile Ansicht (E11)
+Gebaut nach den Screenshots des Betreibers (iPhone, Safari, etwa 390 px).
+**Nichts davon ist auf dem Gerät gesehen.**
+1. **Seitenmenü:** Der Schleier liegt jetzt auch über der Kopfleiste. Bisher
+   traf ein Tippen auf die Kopfleiste neben dem Menü die Kopfleiste und
+   schloss nichts (gemessen in Chrome, siehe unten). Die Breite ist auf
+   `min(18rem, 85vw)` begrenzt, auch wenn am Rechner eingeklappt wurde.
+   Die Höhe ist `100dvh` statt `100vh`. Der Schleier trägt
+   `cursor: pointer` – **Vermutung:** Safari auf iOS schickt ein Tippen an
+   ein Element ohne Zeiger unter Umständen nicht als click ab. Ob das die
+   Ursache des Befunds war, ist nicht belegt.
+2. **Tabellen:** Jede Tabelle steht in einem Rahmen, der waagrecht rollt
+   (`tabelleRahmen()`, eine Stelle für alle sieben). `main` hat
+   `min-width: 0`. Bisher gab es keinen Rollrahmen; die Mitteilungstabelle
+   schob die Seite auf 714 px.
+3. **Safaris Leiste unten:** `viewport-fit=cover` im Viewport – ohne das
+   ist `env(safe-area-inset-*)` immer 0. Der Inhalt hat unten
+   `3rem + env(safe-area-inset-bottom)` Abstand, das Menü und die
+   Kurzmeldung ebenso; im Querformat halten Inhalt und Kopfleiste Abstand
+   zur Kamera-Aussparung. Vor jeder `env()`-Deklaration steht ein Wert
+   ohne `env()` für Browser, die es nicht kennen. **Ob 3rem plus Aussparung
+   gegen die schwebende Leiste reichen, zeigt nur das Gerät.**
+
+### Hilfsmessung: Chrome, 390 px, erfundene Daten
+Neu: `tests/mobil-messung/` (läuft nicht in `deploy.sh` mit – braucht
+Chrome). `./tests/mobil-messung/messen.sh [Stand]` zeigt die echte
+Oberfläche mit erfundenen Daten in einem 390 px breiten Rahmen und misst,
+was über den rechten Rand ragt. **Das ist Chrome, nicht Safari, und misst
+Breiten, nicht Bedienbarkeit.**
+
+| Ansicht | v0.9.57 Seitenbreite | v0.9.58 |
+|---|---|---|
+| Mitteilungen (Lehrkraft und Verwaltung) | 714 | 390 |
+| Login-Protokoll | 699 | 390 |
+| Meine Termine | 605 | 390 |
+| Einladungen | 485 | 390 |
+| übrige 13 Ansichten | 390 | 390 |
+
+- Die Lehrkraft-Tabelle unter „Aktiver Sprechtag“ (706 px) lief nicht
+  über, war aber **abgeschnitten**: Der aufklappbare Block hat
+  `overflow: hidden`, die rechten Spalten waren unerreichbar. Jetzt rollt
+  sie in ihrem Rahmen.
+- Menü offen, Tippen rechts daneben oben: v0.9.57 trifft die Kopfleiste,
+  v0.9.58 den Schleier. In der Mitte trafen beide den Schleier und
+  schlossen – in Chrome.
+- Das Werkzeug hatte im ersten Lauf selbst einen Fehler: Ein doppelter
+  Schrägstrich im Pfad ließ CSS und `app.js` als 404 enden, und es meldete
+  für eine leere Seite „nichts ragt über“. Seitdem prüft es je Ansicht,
+  ob App und Stilvorlage geladen sind, und zählt sonst als Fehler
+  (Gegenprobe: alter Fehler wieder eingebaut → angeschlagen).
+
+### Abnahme auf dem iPhone (nicht offline messbar)
+- Menü öffnen, rechts daneben tippen – oben auf der Kopfleiste und in der
+  Mitte: Es schließt.
+- Menü offen: „Abmelden“ unten ist sichtbar und nicht unter Safaris Leiste.
+- Mitteilungen, Meine Termine, Einladungen, Login-Protokoll: Die Seite
+  selbst lässt sich nicht seitlich verschieben; die Tabelle rollt mit dem
+  Finger waagrecht.
+- Lehrer-Raster: Der letzte Termin (zuletzt 15:20 halb verdeckt) lässt sich
+  ganz über Safaris Leiste schieben.
+- Querformat: Kopfleiste und Inhalt stoßen nicht an die Kamera-Aussparung.
+- Buchungsseite: genau ein Suchfeld (im eingeklappten Block); die
+  Klassenleitung nur mit Abzeichen, ohne Rand.
+
+### Nebenbei gefunden (gemeldet, nicht behoben)
+- **„Meine Termine: noch keine gebucht“ nach Anmeldung oder Neuladen,
+  obwohl Termine bestehen.** `S.meineBuchungen` startet als `[]`, geladen
+  wird nur bei `null`; weder Anmeldung noch Neuladen setzen `null`. In der
+  Hilfsmessung gesehen (Buchungsseite nach dem Laden), aus dem Code für
+  den Weg über die Anmeldung. Erst ein Ansichtswechsel oder eine Buchung
+  lädt.
+- **Halbtags-Häkchen in der Lehrkraft-Tabelle lädt immer leer.**
+  `GET /api/sprechtage/{id}/lehrer` liefert `halbtags` nicht,
+  `app.js` liest es aber. Aus dem Code, nicht im Betrieb gesehen.
+
+### Prüfungen
+- Neu: `tests/frontend_mobil_test.js` (20). CSS wird regelweise gelesen,
+  Kommentare vorher entfernt.
+- Erweitert: `frontend_dreiteilung_test.js` 26 → 29. Neu ist `ansichtBuchen()`
+  ausgeführt: Gezählt wird genau ein Suchfeld, und die Kacheln der
+  Gruppen 1–2 stehen ungefiltert da.
+- Angepasst: `frontend_buchen_kacheln_test.js` (8, unverändert) – „Suchfeld
+  filtert clientseitig“ ist jetzt „kein oberes Suchfeld mehr“.
+- Suiten 955 → 978 ✓-Zeilen, 50 Suiten grün; `tests-sprechtag.sh` 29.
+- Mutationen: 110 → 133 Ergebniszeilen (Z40–Z42, MO1–MO20 neu). Z27, Z33
+  und Z37 sind umgewidmet: Sie bauen jetzt die alte Fassung wieder ein
+  (Randklasse, Rückfall auf `S.buchenSuche`, Randregel). Z42 schlug im
+  ersten Lauf nicht an – es fügte nur ein unbenutztes Zustandsfeld ein,
+  das die Prüfung nicht behauptet; es baut jetzt die alte Zeile beim
+  Kindwechsel wieder ein. Zweiter Lauf: alle angeschlagen, H4 wie
+  verlangt grün, Rücknahme gegen Prüfsummen belegt.
+
 ## v0.9.57 (Oktober 2026) – Dreiteilung der buchbaren Lehrkräfte (Zug 3, E10)
 
 ### Buchungsseite für Eltern

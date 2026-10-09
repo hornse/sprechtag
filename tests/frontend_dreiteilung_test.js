@@ -3,6 +3,8 @@
 // Prüft v0.9.57 (Zug 3, E10): Klassenleitung erkennbar, weitere
 // teilnehmende Lehrkräfte hinter einer eingeklappten Suche, Treffer erst
 // bei Eingabe, dort als dieselben Kacheln (Klick → Raster → buchbar).
+// Seit v0.9.58 (Zug 3b): kein oberes Suchfeld mehr, kein Rand an der
+// Klassenleitung – das Abzeichen ist die einzige Kennzeichnung.
 //
 // Ausgeführt, nicht gesucht: zeichneBuchenKacheln(), zeichneWeitereKacheln()
 // und zeichneWeitereLehrkraefte() laufen mit einem knappen Ersatz für el(),
@@ -28,6 +30,7 @@ const kachelRumpf  = rumpf('function zeichneBuchenKacheln(');
 const weitereRumpf = rumpf('function zeichneWeitereKacheln(');
 const blockRumpf   = rumpf('function zeichneWeitereLehrkraefte(');
 const ansichtRumpf = rumpf('function ansichtBuchen(');
+const alleRumpf    = rumpf('function buchenLehrerAlle(');
 
 // ---- Ersatz ----------------------------------------------------
 function el(tag, klasse, text) {
@@ -50,7 +53,9 @@ const texte = (k) => [k.text].concat(...k.kinder.map(texte));
 const alleKnoten = (k) => [k].concat(...k.kinder.map(alleKnoten));
 const kacheln = (k) => alleKnoten(k).filter((x) => x.klasse.split(' ').includes('buchen-kachel'));
 
-const S = { buchenSuche: '', weitereSuche: '', gewaehlteLehrkraft: null };
+// buchenSuche gibt es seit v0.9.58 nicht mehr; die Prüfungen setzen es
+// trotzdem, um zu belegen, dass ein Rest davon nichts mehr filtert.
+const S = { weitereSuche: '', gewaehlteLehrkraft: null };
 const geladen = [];
 const ladeRaster = (id) => geladen.push(id);
 const fehlt = () => { throw new Error('Rumpf fehlt'); };
@@ -90,7 +95,7 @@ const k = kacheln(g);
 const zaehle = (karte, t) => texte(karte).filter((x) => x === t).length;
 pruefe('drei Kacheln', k.length === 3);
 pruefe('Klassenleitung trägt „Klassenleitung“ genau einmal', k.length === 3 && zaehle(k[1], 'Klassenleitung') === 1);
-pruefe('… und die Hervorhebungsklasse', k.length === 3 && k[1].klasse.split(' ').includes('klassenleitung'));
+pruefe('… und keine Randklasse (das Abzeichen genügt)', k.length === 3 && k[1].klasse === 'buchen-kachel');
 pruefe('Unterrichtende ohne Klassenleitung: weder Text noch Klasse',
   k.length === 3 && zaehle(k[2], 'Klassenleitung') === 0 && !k[2].klasse.split(' ').includes('klassenleitung'));
 pruefe('eingeladene Klassenleitung trägt beides',
@@ -101,15 +106,15 @@ pruefe('klassenleitung 0 als Zahl, als Text oder fehlend: keine Kennzeichnung', 
   return kacheln(g2).length === 3 && kacheln(g2).every((x) => zaehle(x, 'Klassenleitung') === 0
     && !x.klasse.split(' ').includes('klassenleitung'));
 }));
-pruefe('ausdrücklicher Suchtext gilt statt S.buchenSuche', sicher(() => {
+pruefe('Suchtext filtert', sicher(() => {
   S.buchenSuche = 'zwei'; const g3 = el('div');
-  zeichneBuchenKacheln(g3, [kl, un, we], 'sechs'); S.buchenSuche = '';
+  zeichneBuchenKacheln(g3, [kl, un, we], 'sechs'); delete S.buchenSuche;
   return kacheln(g3).length === 1 && texte(kacheln(g3)[0]).includes('Sechs');
 }));
-pruefe('ohne ausdrücklichen Suchtext gilt S.buchenSuche wie bisher', sicher(() => {
+pruefe('ohne Suchtext: alle Kacheln – ein Rest von S.buchenSuche filtert nicht', sicher(() => {
   S.buchenSuche = 'zwei'; const g4 = el('div');
-  zeichneBuchenKacheln(g4, [kl, un, we]); S.buchenSuche = '';
-  return kacheln(g4).length === 1 && texte(kacheln(g4)[0]).includes('Zwei');
+  zeichneBuchenKacheln(g4, [kl, un, we]); delete S.buchenSuche;
+  return kacheln(g4).length === 3;
 }));
 
 // ------------------------------------------------------------
@@ -128,9 +133,9 @@ pruefe('Suche nach Raum findet genau die Lehrkraft', kacheln(gw).length === 1 &&
 S.weitereSuche = 'W';
 versuch(() => zeichneWeitereKacheln(gw, [we, wn]));
 pruefe('Suche nach Kürzelteil findet beide', kacheln(gw).length === 2);
-pruefe('Haupt-Suchfeld wirkt nicht auf die Weiteren', sicher(() => {
+pruefe('nur der Suchtext der Weiteren wirkt auf die Weiteren', sicher(() => {
   S.buchenSuche = 'xyz'; S.weitereSuche = 'sechs'; const g5 = el('div');
-  zeichneWeitereKacheln(g5, [we, wn]); S.buchenSuche = '';
+  zeichneWeitereKacheln(g5, [we, wn]); delete S.buchenSuche;
   return kacheln(g5).length === 1;
 }));
 pruefe('Klick auf eine Treffer-Kachel lädt deren Raster (buchbar wie jede Kachel)', sicher(() => {
@@ -168,8 +173,44 @@ pruefe('leere Gruppen 1–2 brechen nicht ab, wenn es Weitere gibt',
   /if \(alle\.length === 0 && weitere\.length === 0\)/.test(ansichtRumpf));
 pruefe('Kindwechsel leert die Suche der Weiteren', /S\.weitereSuche = ''/.test(ansichtRumpf));
 
+// ------------------------------------------------------------
+// ansichtBuchen ausgeführt: Wie viele Suchfelder stehen da? Gezählt, nicht
+// gesucht – ein zweites Feld neben dem richtigen fiele sonst nicht auf.
+console.log('ansichtBuchen – ausgeführt: genau ein Suchfeld (Entscheidung Betreiber, Zug 3b)');
+let ansichtBuchen = fehlt;
+if (ansichtRumpf !== '' && alleRumpf !== '') {
+  const buchenLehrerAlle = new Function('liste', alleRumpf);
+  const auswahl = () => { const d = el('label'); d.querySelector = () => ({ addEventListener() {} }); return d; };
+  const leer = () => {};
+  ansichtBuchen = (ziel) => new Function('S', 'el', 'feld', 'auswahl', 'zeigeHinweisText',
+    'sprechtagWaehler', 'kontaktSatz', 'zeichneTermineKompakt', 'ladeLehrerListe',
+    'buchenLehrerAlle', 'zeichneBuchenKacheln', 'zeichneWeitereLehrkraefte',
+    'zeichneRaster', 'zeichne', 'ziel', ansichtRumpf)(
+    S, el, feld, auswahl, leer, () => true, () => '', leer, leer,
+    buchenLehrerAlle, zeichneBuchenKacheln, zeichneWeitereLehrkraefte, leer, leer, ziel);
+}
+const eingaben = (k) => alleKnoten(k).filter((x) => x.tag === 'input');
+const ausserhalbBlock = (k) => [k].concat(...k.kinder.filter((x) => x.tag !== 'details').map(ausserhalbBlock));
+Object.assign(S, { aktiverSprechtag: { id: 1, phase: 'phase2' }, user: { kinder: [{ id: 1, name: 'K' }] },
+  kind: 1, raster: [], buchenSuche: 'zzz' });
+S.lehrerListe = { eingeladen: [klEi], unterrichtend: [kl, un], sonderlehrer: [], weitere: [we, wn] };
+const zb = el('div');
+versuch(() => ansichtBuchen(zb));
+pruefe('Phase 2: genau ein Suchfeld, und es ist das der Weiteren',
+  eingaben(zb).length === 1 && eingaben(zb)[0].id === 'buchen-weitere-suche');
+pruefe('Phase 2: alle Kacheln der Gruppen 1–2 stehen ungefiltert da',
+  ausserhalbBlock(zb).filter((x) => x.klasse.split(' ').includes('buchen-kachel')).length === 3);
+S.lehrerListe = { eingeladen: [klEi], unterrichtend: [], sonderlehrer: [], weitere: [], nur_eingeladene: true };
+const zp = el('div');
+versuch(() => ansichtBuchen(zp));
+pruefe('ohne Weitere (Phase 1): kein Suchfeld, die Kachel steht da',
+  eingaben(zp).length === 0 && kacheln(zp).length === 1);
+delete S.buchenSuche; S.lehrerListe = null;
+
 console.log('Stil');
-pruefe('Hervorhebung der Klassenleitung hat eine Regel', /\.buchen-kachel\.klassenleitung\s*\{[^}]*border-left/.test(css));
+// Kommentare zuerst entfernen: Die Prüfung darf nicht auf die Beschreibung anschlagen.
+const cssCode = css.replace(/\/\*[\s\S]*?\*\//g, '');
+pruefe('kein Rand an der Klassenleitung – keine Regel für .klassenleitung', !/\.klassenleitung\b/.test(cssCode));
 
 console.log(fehler === 0 ? '\nALLE TESTS GRÜN' : '\n' + fehler + ' FEHLER');
 process.exit(fehler === 0 ? 0 : 1);

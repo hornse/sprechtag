@@ -533,3 +533,47 @@ Beim Bau festgelegt (Folgerungen, keine neuen Richtungen):
   da.
 - **Hervorhebung nur für Eltern.** Gemessen ist nur die Eltern-Sicht;
   für volljährige Schüler ist der Weg nicht belegt.
+
+**Nachtrag 09.10.2026 — Zug 3b, v0.9.58 (Entscheidung Betreiber):**
+- **Das obere Suchfeld der Buchungsseite entfällt.** Es filterte nur die
+  ohnehin sichtbaren Kacheln, höchstens ein Dutzend, und stand direkt
+  über dem Block, der alle Teilnehmenden findet. Wer oben tippt und
+  nichts findet, hält das für vollständig und sieht den unteren Block
+  nicht mehr an. Zwei Suchfelder für verschiedene Mengen sind schlechter
+  als eines. Es bleibt das Suchfeld der Gruppe 3; eine ausgeführte
+  Prüfung zählt die Suchfelder der Seite.
+- **Der Rand links an der Klassenleitung entfällt.** Er sah aus wie die
+  Markierung „gewählt“ und verdoppelte, was das Abzeichen
+  „Klassenleitung“ schon trägt. Das Abzeichen ist jetzt die einzige
+  Kennzeichnung; die Kachel trägt keine eigene Klasse dafür. Damit ist
+  der Abnahmepunkt aus v0.9.57 („Rand sichtbar und von ‚gewählt‘
+  unterscheidbar“) beantwortet, mit Nein.
+
+## E11 — Mobile Ansicht: in Durchgängen, das Gerät des Betreibers misst
+
+**Stand 09.10.2026, v0.9.58.**
+
+Eltern buchen nach Einschätzung des Betreibers am Rechner und am Telefon.
+Die mobile Ansicht wird deshalb **vor** der Schülerliste (bisher Zug 4)
+überarbeitet: Die Schülerliste berührt Einladungsauswahl, Namensanzeige
+und Datenmodell; würde die mobile Darstellung danach überarbeitet,
+müsste man alles zweimal anfassen.
+
+**Messinstrument sind die Screenshots des Betreibers** (iPhone, Safari,
+etwa 390 px). Weder die Entwicklung noch der Betreiber sehen die mobile
+Ansicht anders. Gebaut wird in Schritten, die einzeln prüfbar sind; was
+nur vermutet werden kann, wird als Vermutung gemeldet, nicht als
+behoben.
+
+**Hilfsmessung, kein Ersatz:** Für v0.9.58 lief die echte Oberfläche mit
+erfundenen Daten in Chrome (ohne Kopf, 390 px breit in einem Rahmen) und
+maß, ob etwas über den rechten Rand ragt. Das ist Chrome, nicht Safari,
+und es misst Breiten, nicht Bedienbarkeit. Das Werkzeug liegt in
+`tests/mobil-messung/` (läuft nicht in `deploy.sh` mit, es braucht
+Chrome); die Ergebnisse stehen im CHANGELOG zu v0.9.58.
+
+**Tabellen rollen in einem Rahmen, sie werden nicht umgebaut.** Jede
+Tabelle geht durch `tabelleRahmen()`; eine Prüfung zählt Tabellen gegen
+Rahmen. Ob einzelne Tabellen auf dem Telefon besser als Karten
+erscheinen (etwa „Meine Termine“ für Eltern), entscheidet ein späterer
+Durchgang anhand der Screenshots.

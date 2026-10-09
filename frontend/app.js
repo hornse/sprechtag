@@ -36,7 +36,6 @@ const S = {
   adminOffen: false,   // Admin-Gruppe in der Seitenleiste aufgeklappt?
   lehrerSort: null,    // Sortierung der Lehrer-Tabelle {feld, richtung}
   anzeigeEinst: null,  // Signage-Einstellungen (Sortierung)
-  buchenSuche: '',     // Filtertext für die Buchungs-Kacheln
   weitereSuche: '',    // Suchtext für weitere Lehrkräfte (Gruppe 3, E10)
   lehrerLaedt: false,  // Auto-Load-Guard für die Lehrkraft-Liste
   kalenderLink: null,  // persönlicher iCal-Abo-Link (Eltern)
@@ -188,6 +187,18 @@ function block(kennung, titel) {
  * ein grauer Beschreibungstext darunter. Ersetzt block() überall dort,
  * wo alles sofort sichtbar sein soll (Admin-Unterseiten).
  */
+/**
+ * Rahmen um eine Tabelle, der waagrecht rollt (Zug 3b). Eine <table> selbst
+ * kann nicht rollen; ohne Rahmen schob die breiteste Tabelle auf dem
+ * Telefon die ganze Seite über den Rand. Jede Tabelle geht hier durch –
+ * die Prüfung zählt Tabellen gegen Rahmen.
+ */
+function tabelleRahmen(tab) {
+  const r = el('div', 'tabelle-rahmen');
+  r.appendChild(tab);
+  return r;
+}
+
 function sektion(titel, beschreibung) {
   const s = el('section', 'sektion');
   s.appendChild(el('h3', 'sektion-titel', titel));
@@ -1127,7 +1138,7 @@ function ansichtBuchen(ziel) {
     kinder.map((k) => ({ wert: k.id, text: k.name || ('Schüler-ID ' + k.id) })), S.kind);
   kw.querySelector('select').addEventListener('change', (e) => {
     S.kind = parseInt(e.target.value, 10);
-    S.lehrerListe = null; S.lehrerLaedt = false; S.buchenSuche = '';
+    S.lehrerListe = null; S.lehrerLaedt = false;
     S.weitereSuche = '';
     S.gewaehlteLehrkraft = null; S.raster = [];
     zeichne();
@@ -1160,18 +1171,11 @@ function ansichtBuchen(ziel) {
   if (alle.length > 0) {
     ziel.appendChild(el('h3', null, 'Lehrkraft wählen'));
 
+    // Kein Suchfeld über diesen Kacheln (Zug 3b, Entscheidung Betreiber):
+    // Es filterte nur die ohnehin sichtbaren und stand direkt über der
+    // Suche, die alle Teilnehmenden findet. Wer oben nichts fand, hielt
+    // das für vollständig.
     const gitter = el('div', 'buchen-gitter');
-
-    // Suchfeld: bei vielen Lehrkräften schneller als Scrollen. Filtert die
-    // Kacheln clientseitig nach Name, Kürzel, Fach oder Raum.
-    const suche = feld('Suchen (Name, Fach oder Raum)', 'buchen-suche', 'text',
-      S.buchenSuche || '');
-    suche.querySelector('input').addEventListener('input', (e) => {
-      S.buchenSuche = e.target.value;
-      zeichneBuchenKacheln(gitter, alle);
-    });
-    ziel.appendChild(suche);
-
     zeichneBuchenKacheln(gitter, alle);
     ziel.appendChild(gitter);
   } else {
@@ -1274,11 +1278,11 @@ function buchenLehrerAlle(liste) {
     .concat(liste.sonderlehrer || []);
 }
 
-// Rendert die Lehrkraft-Kacheln (gefiltert nach dem Suchfeld) in den Container.
-// suche: eigener Suchtext (Gruppe 3); ohne ihn gilt das Haupt-Suchfeld.
+// Rendert die Lehrkraft-Kacheln in den Container.
+// suche: Suchtext (nur Gruppe 3); ohne ihn erscheinen alle.
 function zeichneBuchenKacheln(gitter, alle, suche) {
   gitter.textContent = '';
-  const q = (suche === undefined ? (S.buchenSuche || '') : suche).trim().toLowerCase();
+  const q = (suche || '').trim().toLowerCase();
   const treffer = !q ? alle : alle.filter((l) => {
     const heu = [l.name, l.kuerzel, l.faecher, l.raum_kuerzel]
       .filter(Boolean).join(' ').toLowerCase();
@@ -1292,8 +1296,9 @@ function zeichneBuchenKacheln(gitter, alle, suche) {
 
   for (const l of treffer) {
     const istKl = Number(l.klassenleitung) === 1;
+    // Klassenleitung nur über das Abzeichen, ohne Rand: Ein Rand sah aus
+    // wie „gewählt“ (Zug 3b).
     const karte = el('div', 'buchen-kachel'
-      + (istKl ? ' klassenleitung' : '')
       + (S.gewaehlteLehrkraft === l.lehrer_id ? ' gewaehlt' : ''));
     if (l.raum_kuerzel) karte.appendChild(el('div', 'bk-raum', l.raum_kuerzel));
     karte.appendChild(el('div', 'bk-name', l.name || l.kuerzel));
@@ -1487,7 +1492,7 @@ function ansichtMeineTermine(ziel) {
     tr.appendChild(td);
     tab.appendChild(tr);
   }
-  ziel.appendChild(tab);
+  ziel.appendChild(tabelleRahmen(tab));
   ziel.appendChild(knopf('Aktualisieren', 'klein', () => ladeMeineBuchungen()));
 
   // ---- Kalender abonnieren -------------------------------------------
@@ -2170,7 +2175,7 @@ function ansichtEinladungen(ziel) {
     tr.appendChild(td);
     tab.appendChild(tr);
   }
-  ziel.appendChild(tab);
+  ziel.appendChild(tabelleRahmen(tab));
 }
 
 async function ladeSchueler() {
@@ -3039,7 +3044,7 @@ async function oeffneLehrerVerwaltung(s) {
     for (const l of reihen) {
       tab.appendChild(baueZeile(l));
     }
-    return tab;
+    return tabelleRahmen(tab);
   }
 
   // Baut eine einzelne Tabellenzeile (schließt über s, konflikte, raumFarbe).
@@ -3263,7 +3268,7 @@ async function oeffneSonderlehrer(s) {
       tr.appendChild(td);
       tab.appendChild(tr);
     }
-    neu.appendChild(tab);
+    neu.appendChild(tabelleRahmen(tab));
   }
 
   // Jetzt erst austauschen: alten Inhalt durch den fertigen neuen ersetzen.
@@ -3404,7 +3409,7 @@ function ansichtAdminLoginLog(ziel) {
     tr.appendChild(el('td', null, e.grund || ''));
     tab.appendChild(tr);
   }
-  box.appendChild(tab);
+  box.appendChild(tabelleRahmen(tab));
 }
 
 // ============================================================
@@ -3433,7 +3438,7 @@ function ansichtAdminTexte(ziel) {
     tr.appendChild(el('td', null, was));
     vtab.appendChild(tr);
   }
-  vars.appendChild(vtab);
+  vars.appendChild(tabelleRahmen(vtab));
   vars.appendChild(el('p', 'hinweis-klein',
     'Formatierung: ## Überschrift, ### Unterüberschrift, **fett**, *kursiv*, '
     + '- Aufzählung, 1. nummeriert, [Link-Text](https://…).'));
@@ -3878,7 +3883,7 @@ function ansichtMitteilungen(ziel) {
     tr.appendChild(tdA);
     tab.appendChild(tr);
   }
-  ziel.appendChild(tab);
+  ziel.appendChild(tabelleRahmen(tab));
   ziel.appendChild(knopf('Aktualisieren', 'klein', async () => {
     await ladeMitteilungen();
     const o = (S.mitteilungen || []).filter((m) => m.status === 'offen').length;

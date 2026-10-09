@@ -20,8 +20,10 @@ const css = fs.readFileSync(path.join(__dirname, '..', 'frontend', 'style.css'),
 pruefe('Kachel-Renderer vorhanden', js.includes('function zeichneBuchenKacheln'));
 pruefe('Kacheln zeigen Raum + Name + Zeit',
   js.includes('bk-raum') && js.includes('bk-name') && js.includes('bk-zeit'));
-pruefe('Suchfeld filtert clientseitig',
-  js.includes('buchen-suche') && js.includes('S.buchenSuche'));
+// Seit v0.9.58 entfallen (Entscheidung Betreiber, Zug 3b): Das Feld filterte
+// nur die ohnehin sichtbaren Kacheln und stand über der richtigen Suche.
+pruefe('kein oberes Suchfeld mehr',
+  !js.includes("'buchen-suche'") && !js.includes('S.buchenSuche'));
 pruefe('Filter über Name, Kürzel, Fach, Raum',
   js.includes('l.faecher') && js.includes('l.raum_kuerzel') && js.includes('heu.includes'));
 pruefe('Klick auf Kachel startet Buchung (ladeRaster)',
