@@ -992,3 +992,41 @@ oder stehen bleibt. Ein Feld, das niemand mehr liest, ist derselbe stille
 Zustand.
 
 **Zeitpunkt:** nach dem laufenden Strang (Abnahme der abgelaufenen Sitzung).
+
+---
+
+## E19 — Abgesagte Termine verschwinden nicht spurlos (zusammen mit E18 zu bauen)
+
+**Eingetragen:** 09.10.2026 · **noch nicht gebaut** · **betrifft:** E18
+
+**Lage:** Ein Krankheitsausfall löscht alle Buchungen der Lehrkraft. Danach
+sieht sie nicht mehr, wer bei ihr gebucht hatte, und kann keine Gespräche
+nachholen und niemanden ansprechen.
+
+**Entschieden (Betreiber):** Bei einem Ausfall werden Buchungen nicht mehr
+gelöscht, sondern als abgesagt festgehalten. Die Lehrkraft sieht sie in
+ihrer Übersicht. Aufbewahrung 2 bis 4 Wochen, damit sie neue Termine
+organisieren kann. Der Slot muss **sofort** wieder frei sein.
+
+**Warum zusammen mit E18:** Beide Fehler entstehen daraus, dass eine
+Löschung Spuren hinterlässt, die niemand nachzieht. Beide löst der Ausfall
+gleichzeitig aus. Gedanke des Betreibers, keine Vorgabe: Die Ableitung des
+Einladungsstatus könnte dann „gebucht / abgesagt / offen“ unterscheiden.
+
+**Vorbefund (am Code gelesen, 09.10.2026):**
+- `buchungen` trägt `UNIQUE KEY uniq_slot (sprechtag_id, lehrer_id,
+  slot_beginn)`. Eine als abgesagt **markierte Zeile in `buchungen`**
+  blockierte den Slot. Das widerspricht der Bedingung „sofort frei“, es sei
+  denn, der Schlüssel wird umgebaut.
+- `buchungen` wird an **22 Stellen** gelesen, in `buchungen.php`,
+  `index.php`, `kalender.php` und `mitteilungen.php`. Eine Markierung in
+  derselben Tabelle verlangte an jeder Stelle einen Filter „nur aktive“. Das
+  ist dieselbe Art Fehler wie E18: die Stelle, die jemand vergisst.
+- Das Archivieren eines Sprechtags löscht `buchungen`, `einladungen`, den
+  Cache und `mitteilungen` ausdrücklich, Zeile für Zeile. Jede neue Ablage
+  muss dort dazu, sonst bleiben Personendaten über das Archivieren hinaus
+  liegen.
+
+**Offen, vor dem Bau zu klären:** Markierung in `buchungen` oder eigene
+Ablage; nur Ausfall oder auch die einzelne Absage; sehen die Eltern den
+abgesagten Termin; wer räumt auf (Archivieren oder eigene Frist).
