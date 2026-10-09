@@ -124,6 +124,68 @@
       abstand: i === 0 ? null : Math.round(x.getBoundingClientRect().top - g[i - 1].getBoundingClientRect().bottom) })) };
   }
 
+  // Fugen zwischen Abschnitten (v0.9.62): In jedem Abschnittsbehälter
+  // (#ansicht, .sektion, offener .block) der senkrechte Abstand zwischen
+  // je zwei sichtbaren Nachbarn – gemessen an der SICHTBAREN Kante (Text,
+  // Rahmen, Hintergrund, Bedienelement), nicht am Kasten: Ein Rand innerhalb
+  // eines Rollrahmens zählt sonst als Abstand, den niemand sieht.
+  function tinte(e) {
+    let oben = Infinity, unten = -Infinity;
+    const sicht = (x) => {
+      const cs = getComputedStyle(x), r = x.getBoundingClientRect();
+      if (cs.display === 'none' || cs.visibility === 'hidden' || r.width === 0 || r.height === 0) return;
+      const rand = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth) > 0;
+      const grund = cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && cs.backgroundColor !== 'transparent';
+      const text = [...x.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+      const element = /^(INPUT|SELECT|TEXTAREA|BUTTON|IMG|SVG)$/i.test(x.tagName);
+      if (rand || grund || text || element) { oben = Math.min(oben, r.top); unten = Math.max(unten, r.bottom); }
+    };
+    // In einem geschlossenen <details> zählt nur die Zusammenfassung – der
+    // Inhalt ist nicht zu sehen, liefert in WebKit aber trotzdem Kästen.
+    const verborgen = (x) => { const d = x.closest('details'); return !!d && d !== x && !d.open && !x.closest('summary'); };
+    sicht(e);
+    e.querySelectorAll('*').forEach((x) => { if (!verborgen(x)) sicht(x); });
+    return oben === Infinity ? null : { oben, unten };
+  }
+  function fugen() {
+    const behaelter = [document.querySelector('#ansicht'),
+      ...document.querySelectorAll('#ansicht .sektion, #ansicht details.block[open]')].filter(Boolean);
+    const paare = [];
+    for (const b of behaelter) {
+      const kinder = [...b.children].filter((k) => k.tagName !== 'SUMMARY')
+        .map((k) => ({ k, t: tinte(k) })).filter((x) => x.t);
+      for (let i = 1; i < kinder.length; i++) {
+        paare.push({ in: name(b).slice(0, 30), oben: name(kinder[i - 1].k).slice(0, 40), unten: name(kinder[i].k).slice(0, 40),
+          fuge: Math.round(kinder[i].t.oben - kinder[i - 1].t.unten) });
+      }
+    }
+    return paare;
+  }
+
+  // Zeilen der Lehrkraft-Tabelle (v0.9.62): Höhe der Zeilen mit offenem
+  // Zeitfenster gegen den Median aller Zeilen, und wie weit die Häkchen
+  // („dabei“, „½“) senkrecht von der Mitte des Namens abweichen.
+  function zeilen() {
+    const t = document.querySelector('table.tabelle-breit');
+    if (!t) return null;
+    const rows = [...t.querySelectorAll('tr')].filter((r) => r.querySelector('td'));
+    const h = rows.map((r) => r.getBoundingClientRect().height).sort((a, b) => a - b);
+    const median = h[Math.floor(h.length / 2)];
+    const offen = rows.filter((r) => [...r.querySelectorAll('.zeitfenster-felder')].some((f) => getComputedStyle(f).display !== 'none'));
+    let versatz = 0;
+    for (const r of offen) {
+      const name = r.querySelector('td'); const nr = name.getBoundingClientRect();
+      const nMitte = nr.top + parseFloat(getComputedStyle(name).paddingTop) + parseFloat(getComputedStyle(name).lineHeight || 0) / 2;
+      for (const cb of r.querySelectorAll('input[type=checkbox]')) {
+        const c = cb.getBoundingClientRect();
+        versatz = Math.max(versatz, Math.abs((c.top + c.height / 2) - nMitte));
+      }
+    }
+    return { zeilen: rows.length, median: Math.round(median), offen: offen.length,
+      hoechsteOffen: Math.round(Math.max(0, ...offen.map((r) => r.getBoundingClientRect().height))),
+      haekchenVersatz: Math.round(versatz) };
+  }
+
   function messen(stufe) {
     const vw = document.documentElement.clientWidth;
     // Voraussetzung: App und Stilvorlage sind geladen. Ohne sie misst das
@@ -138,7 +200,7 @@
     return { stufe, app, css, skriptfehler: skriptfehler.slice(0, 3), viewport: vw, innerWidth,
       seitenbreite, seitenhoehe: document.documentElement.scrollHeight,
       verursacher: seitenbreite > vw ? verursacher() : [],
-      knapp: knapp(), uebersicht: uebersicht(), abschnitte: abschnitte(),
+      knapp: knapp(), uebersicht: uebersicht(), abschnitte: abschnitte(), fugen: fugen(), zeilen: zeilen(),
       tabellen: [...document.querySelectorAll('table')].map((t) => t.className + ':' + Math.round(t.getBoundingClientRect().width)
         + '/' + Math.round(t.parentElement.getBoundingClientRect().width)) };
   }

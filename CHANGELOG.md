@@ -1,5 +1,69 @@
 # Changelog - sprechtag
 
+## v0.9.62 (Oktober 2026) – Zeile der Lehrkraft-Tabelle behält ihre Ausrichtung; Abstände gemessen
+
+Bestätigt am Gerät (v0.9.61): Ein Elternkonto bekommt für
+`/api/sprechtage/<id>/lehrer` „Diese Aktion ist nur für die
+Sprechtags-Administration möglich“ – der Datenfund ist im Betrieb belegt.
+Die Verwaltung bekommt die Liste weiter, das ½-Häkchen ist gesetzt (C2),
+„Meine Termine: 1 Termin“ stimmt (C1). Die Sonderrollen sind abgesetzt;
+der Abstand reicht, keine Überschrift (Entscheidung Betreiber).
+
+### Teil B – Zeile mit offenem Zeitfenster
+Ursache (aus dem Code, Wirkung gemessen): Die Zeitfelder trugen
+`.zeit-feld` (5.5rem), aber `input[type=text] { display: block; width:
+100% }` ist spezifischer und gewann – jedes Feld wurde ein Block über die
+ganze Zelle, beide standen untereinander. Behebung: `input.zeit-feld`
+(gleiche Spezifität, später in der Datei), knapp und inline; die
+Zeitfelder stehen neben dem Uhr-Knopf; die Zelle bricht nicht um.
+
+| WebKit, Lehrkraft-Tabelle | v0.9.61 | v0.9.62 |
+|---|---|---|
+| 1280 px: Zeile mit offenem Zeitfenster / Median | 150 / 45 px | 47 / 45 px |
+| 1280 px: Häkchen unter der Mitte des Namens | 59 px | 8 px |
+| 844 px: Zeile mit offenem Zeitfenster / Median | – | 47 / 47 px |
+
+Die 8 px hat jede Zeile: Der Name steht oben, die Häkchen mittig – die
+bisherige Gestaltung, unverändert. Die Funktion des Zeitfensters ist
+unverändert (offene Nutzungsfrage des Betreibers, nicht vorweggenommen).
+
+### Teil A – Abstände zwischen Abschnitten: gemessen, noch nicht umgebaut
+Es gibt **keine** durchgängige Regel. Jeder Baustein bringt seinen Abstand
+selbst mit: `.karte` unten 1.5rem, `.sektion` unten 1.1rem, `.block` unten
+.75rem (oben nichts), `.buchen-gitter` oben .8rem, `.tabelle` oben/unten
+.8rem, `.aktionen` oben .8rem, ein frei stehender Knopf nichts.
+
+Das Messwerkzeug misst jetzt in jedem Abschnittsbehälter (`#ansicht`,
+`.sektion`, offener `.block`) die Fuge zwischen Nachbarn an der
+**sichtbaren** Kante (Text, Rahmen, Hintergrund, Bedienelement) – ein Rand
+in einem Rollrahmen zählt sonst als Abstand, den niemand sieht. Ergebnis
+(390 px und 1280 px gleich, ohne Überschrift→Inhalt):
+
+| Fuge | Paar | Ansichten |
+|---|---|---|
+| 0 | Kachelgruppe → Block „Weitere Lehrkräfte suchen“ | Buchen |
+| 0 | Knopf → Block (z. B. „Aktualisieren“ → „Kalender abonnieren“) | Meine Termine, Lehrkraft, Einladungen |
+| 8 | Kompaktliste → Knopf | Buchen (Meine Termine aufgeklappt) |
+| 10 | Eingabezeile → Knopf („Suchen“ u. a.) | Einladungen, Lehrkraft, Mitteilungen, Sprechtage |
+| 10 | Eingabezeile → Sektion | Lehrkraft |
+| 12 | Block → Block (FAQ, Klassenlisten) | Hilfe, Einladungen, Sprechtage |
+| 13 | Tabelle / Raster → Knopf („Aktualisieren“) | Meine Termine, Mitteilungen, Lehrkraft |
+| 13 | Warnkasten → Folgendes | Erinnerungen, Login-Protokoll, Texte |
+| 18 | Sektion → Sektion (Verwaltung) | acht Ansichten |
+| 32 | Kachelgruppe → Sonderrollen (Bezug, am Gerät bewährt) | Buchen |
+
+Daraus folgen Richtungsfragen (Bericht), deshalb ist Teil A nicht gebaut.
+
+### Prüfungen
+- 1012 → 1020 Prüfzeilen in 53 Suiten, alle grün; `tests-sprechtag.sh`
+  29. Neu: `frontend_lehrer_zeilen_test.js` (8).
+- Mutationen 166 → 171 Ergebniszeilen, alle angeschlagen, H4 grün,
+  Rücknahme gegen Prüfsummen belegt.
+- Messwerkzeug: Fugen an der sichtbaren Kante (geschlossene `details`
+  zählen nur mit der Zusammenfassung – WebKit liefert für den verborgenen
+  Inhalt Kästen, der erste Lauf ergab dadurch Fugen von −347 px), Zeilen
+  der Lehrkraft-Tabelle (Höhe, Häkchen-Versatz).
+
 ## v0.9.61 (Oktober 2026) – Zwei Datenfunde behoben; Sonderrollen abgesetzt (Vierteilung)
 
 Bestätigt am Gerät (v0.9.60): Karten in den vier Ansichten, nur

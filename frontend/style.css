@@ -357,7 +357,10 @@ th.sortierbar:hover { color: var(--akzent); }
 .zeitfenster-schalter.an { background: var(--akzent); color: var(--flaeche);
     border-color: var(--akzent); }
 .zeitfenster-label { font-size: .8rem; color: var(--grau); margin-left: .35rem; }
-.zeitfenster-felder { margin-top: .35rem; }
+/* Neben dem Uhr-Knopf statt darunter: Die Zeile behält ihre Höhe, wenn
+   das Zeitfenster offen ist (v0.9.62). */
+.zeitfenster-felder { display: inline-flex; align-items: center; gap: .3rem;
+                      margin-left: .35rem; vertical-align: middle; }
 .zeitfenster-felder.versteckt { display: none; }
 
 /* Konfliktfarben – jede Tönung steht für einen mehrfach belegten Raum */
@@ -644,7 +647,16 @@ select { display: block; width: 100%; margin-top: .25rem; padding: .5rem .6rem;
          font: inherit; font-weight: 400; border: 1px solid var(--rand); border-radius: 6px;
          overflow: hidden; }
 select.konflikt { border-width: 2px; }
-.zeit-feld { width: 5.5rem; }
+/* input.zeit-feld statt .zeit-feld: Die allgemeine Regel input[type=text]
+   (display: block, width: 100 %) ist spezifischer als eine Klasse allein und
+   gewann – jedes Zeitfeld wurde ein Block über die ganze Zelle, beide
+   standen untereinander, die Zeile wurde 150 statt 45 px hoch (v0.9.62,
+   gemessen). Gleiche Spezifität, später in der Datei: diese gewinnt. */
+input.zeit-feld { display: inline-block; width: 4.5rem; margin-top: 0;
+                  padding: .25rem .4rem; }
+/* Uhr-Knopf und Zeitfelder in einer Zeile: Die Spalte wird so breit wie
+   nötig, statt die Felder unter den Knopf umbrechen zu lassen (v0.9.62). */
+.anwesenheit-zelle { white-space: nowrap; }
 
 /* Lehrkraft-Auswahl */
 .rolle-badge {

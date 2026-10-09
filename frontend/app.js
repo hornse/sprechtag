@@ -2914,7 +2914,9 @@ function sprechtagKarte(s) {
 //  - sonst Standard „ganzer Tag"; ein Häkchen „nur zeitweise" blendet erst
 //    dann die von/bis-Felder ein (verschlankt die Übersicht).
 function anwesenheitZelle(s, l) {
-  const td = el('td');
+  // Eigene Klasse: Die Zelle bricht nicht um – Uhr-Knopf und Zeitfelder
+  // bleiben in einer Zeile, die Zeile behält ihre Höhe (v0.9.62).
+  const td = el('td', 'anwesenheit-zelle');
   const halbtags = parseInt(l.halbtags, 10) === 1;
 
   if (halbtags) {

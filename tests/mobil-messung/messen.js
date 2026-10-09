@@ -75,7 +75,9 @@ const L = [
         + (x.uebersicht ? ', Übersicht „' + x.uebersicht.titel + '“ (Ersatz-API: ' + x.uebersicht.mock + ')' : '')
         + (x.abschnitte ? ', Abschnitte ' + x.abschnitte.gitter.map((a) => a.art + ' ' + a.kacheln
           + (a.abstand === null ? '' : ' (Abstand ' + a.abstand + ' px)')).join(' / ')
-          + ', Reihenabstand ' + x.abschnitte.reihe + ' px' : '')).join(' | '));
+          + ', Reihenabstand ' + x.abschnitte.reihe + ' px' : '')
+        + (x.zeilen ? ', Zeilen ' + x.zeilen.zeilen + ' (Median ' + x.zeilen.median + ' px; mit Zeitfenster '
+          + x.zeilen.offen + ', höchste ' + x.zeilen.hoechsteOffen + ' px, Häkchen-Versatz ' + x.zeilen.haekchenVersatz + ' px)' : '')).join(' | '));
     } catch (err) {
       zeile(id, 'KEIN ERGEBNIS (' + String(err.message).split('\n')[0] + ')'); fehlt++;
     } finally { await p.close(); }

@@ -555,6 +555,19 @@ mut V5 $APP 's/(      zeichneBuchenKacheln\(gitter, a\.lehrer\);\n      ziel\.ap
 mut V6 $APP 's/return buchenLehrerAbschnitte\(liste\)\.flatMap\(\(a\) => a\.lehrer\);/return buchenLehrerAbschnitte(liste)[0].lehrer;/' \
   $KF "Reihenfolge: eingeladen, unterrichtend, Sonderrolle"
 
+# v0.9.62 – Teil B: Zeile der Lehrkraft-Tabelle behält ihre Ausrichtung
+LZ=tests/frontend_lehrer_zeilen_test.js
+mut LZ1 $CSS 's/\ninput\.zeit-feld \{ display: inline-block;/\n.zeit-feld { display: inline-block;/' \
+  $LZ "Zeitfeld-Regel ist so spezifisch wie die allgemeine (input.zeit-feld) und steht DANACH"
+mut LZ2 $CSS 's/input\.zeit-feld \{ display: inline-block;/input.zeit-feld { display: block;/' \
+  $LZ "… Zeitfeld bleibt in der Zeile und knapp"
+mut LZ3 $CSS 's/\.zeitfenster-felder \{ display: inline-flex;/.zeitfenster-felder {/' \
+  $LZ "Zeitfelder stehen neben dem Uhr-Knopf"
+mut LZ4 $APP 's/const td = el\(\x27td\x27, \x27anwesenheit-zelle\x27\);/const td = el(\x27td\x27);/' \
+  $LZ "Anwesenheitszelle trägt ihre Klasse"
+mut LZ5 $CSS 's/\.anwesenheit-zelle \{ white-space: nowrap; \}/.anwesenheit-zelle { }/' \
+  $LZ "… und bricht nicht um"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1
