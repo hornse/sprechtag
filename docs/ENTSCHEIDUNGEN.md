@@ -906,6 +906,10 @@ Nachprobe liest deshalb den Status desselben Abrufs, wie
 | 12 | Statusanzeige | entfernt |
 | 13 | Messung über das Dienstkonto | entfernt; `sitzung: dienstkonto` wird abgelehnt |
 
+> **Teilweise überholt (Nachtrag zu E17, unten):** Absagen gehen seit v0.9.73
+> über PARENTS an alle Erziehungsberechtigten. Der Absatz bleibt als damaliger
+> Stand stehen.
+
 **PARENTS – Zuschnitt nach E16:** E16 nennt „alles, was heute über
 `mit_eltern_ids_ermitteln()` läuft“: Einladung und die Bestätigung der
 stellvertretenden Buchung. Absage und Bestätigung nach Elternbuchung liefen
@@ -944,3 +948,18 @@ Buchungen, und im Hinweis nach der Anmeldung steht sie bei der Verwaltung.
 einspielen. Die neuen Spalten sind für v0.9.71 unschädlich, v0.9.72 braucht
 sie. Danach `dienstkonto_schluessel` aus `backend/config.php` auf dem Server
 entfernen; die Datei ist nicht versioniert.
+
+**Nachtrag zu E17, 09.10.2026 – Absagen an alle Erziehungsberechtigten
+(Betreiber, v0.9.73):** Absagen gehen über PARENTS an **alle**
+Erziehungsberechtigten des Kindes, nicht nur an das buchende Konto. Das gilt
+für Stelle 3 (Absage) und Stelle 5 (Krankheitsausfall, je Termin eine
+Mitteilung).
+**Warum:** Oft wird nur ein Elternkonto aktiv genutzt; eine Absage an das
+buchende Konto erreicht dann womöglich niemanden, der noch hinschaut. Teilen
+sich die Eltern die Termine, sollen beide es erfahren.
+**Bleibt:** Die Bestätigung nach einer Elternbuchung geht an das buchende
+Konto. Nur eine Person hat gebucht, und sie hat es gerade selbst getan.
+**Gebaut:** Eine Stelle entscheidet, `mit_absage_art()`. Mit Kind-Kennung
+geht die Absage über PARENTS. Ohne Kind-Kennung geht sie an das gebuchte
+Konto, damit es nie eine Absage ohne Empfänger gibt; nach dem Schema hat jede
+Buchung eine Kennung.

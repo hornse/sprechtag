@@ -156,6 +156,25 @@ $grenze = mit_senden_eltern(new VersandRest([P_MSG => ['status' => 200, 'json' =
 pruefe('Grenze: 1 Empfänger ist erreicht', $grenze['ok'] === true);
 
 // ------------------------------------------------------------
+echo "Absagen an alle Erziehungsberechtigten (v0.9.73)\n";
+pruefe('mit_absage_art: mit Kind-Kennung an die Eltern (PARENTS), Grenze 1',
+    function_exists('mit_absage_art') && mit_absage_art(90001) === 'eltern' && mit_absage_art(1) === 'eltern');
+pruefe('mit_absage_art: ohne Kind-Kennung (0) an das gebuchte Konto – nie ohne Empfänger',
+    function_exists('mit_absage_art') && mit_absage_art(0) === 'konto');
+if (function_exists('mit_absage_art')) {
+    $pdo = neue_db();
+    $ia = mit_einreihen($pdo, 1, 5984, 'absage', 'Terminabsage', 'Absagetext', 90001, 7, mit_absage_art(90001));
+    $r = new VersandRest([P_MSG => $ok4, P_USERS => $ok]);
+    mit_senden_oder_vormerken($pdo, [$ia], ['rest' => $r, 'art' => null, 'grund' => null]);
+    pruefe('eine Absage geht als EIN Aufruf über PARENTS mit der Kind-Kennung, nicht an das Konto',
+        count($r->aufrufe) === 1 && $r->aufrufe[0][0] === P_MSG
+        && ($r->aufrufe[0][1]['recipientPersonIds'] ?? null) === [90001]
+        && ($r->aufrufe[0][1]['content'] ?? null) === 'Absagetext');
+} else {
+    pruefe('eine Absage geht als EIN Aufruf über PARENTS mit der Kind-Kennung, nicht an das Konto', false);
+}
+
+// ------------------------------------------------------------
 echo "json_sitzung_fehlt: 409, nie 401\n";
 try { json_sitzung_fehlt($weg('abgelaufen', 'kein_token')); $a = null; } catch (Antwort $a) {}
 pruefe('409 mit Meldung und Ursache', $a !== null && $a->status === 409 && $a->daten['sitzung'] === 'abgelaufen'
@@ -255,8 +274,20 @@ pruefe('Voraussetzung: Ausschnitt Einladung gefunden', $ei !== '');
 pruefe('Einladung: über PARENTS, ohne Elternkonten zu suchen', (bool)preg_match(
     "/mit_einreihen_und_senden\(\\\$pdo, \\\$sid, 0, 'einladung',[^;]*wu_sitzung\(\\\$cfg\), 'eltern'\)/s", $ei)
     && !str_contains($ei, 'mit_eltern_ids_ermitteln'));
-pruefe('Absage: über die Sitzung der absagenden Person, mit der Lehrkraft der Buchung', (bool)preg_match(
-    "/'absage', \\\$t\['betreff'\], \\\$t\['text'\],\s*\(int\)\\\$b\['schueler_id'\], \(int\)\\\$b\['lehrer_id'\], wu_sitzung\(\\\$cfg\)\)/", $code));
+// v0.9.73 (Betreiber): Absagen gehen über PARENTS an ALLE Erziehungsberechtigten
+// – Stelle 3 (Absage) und Stelle 5 (Ausfall). Eine Entscheidung, eine Stelle:
+// mit_absage_art(); die Bestätigung nach einer Elternbuchung bleibt am Konto.
+pruefe('Absage: über die Sitzung der absagenden Person, mit der Lehrkraft der Buchung, an alle (mit_absage_art)',
+    (bool)preg_match("/'absage', \\\$t\['betreff'\], \\\$t\['text'\],\s*\(int\)\\\$b\['schueler_id'\], \(int\)\\\$b\['lehrer_id'\], wu_sitzung\(\\\$cfg\),\s*mit_absage_art\(\(int\)\\\$b\['schueler_id'\]\)\)/", $code));
+$ixCode = '';
+foreach (token_get_all((string)file_get_contents(__DIR__ . '/../backend/api/index.php')) as $t) {
+    if (is_array($t) && in_array($t[0], [T_COMMENT, T_DOC_COMMENT], true)) continue;
+    $ixCode .= is_array($t) ? $t[1] : $t;
+}
+pruefe('Ausfall: jede Absage an alle Erziehungsberechtigten (mit_absage_art)', (bool)preg_match(
+    "/mit_einreihen\(\\\$pdo, \\\$sid, \(int\)\\\$b\['eltern_user_id'\], 'absage',[^;]*\(int\)\\\$b\['schueler_id'\], \\\$lid,\s*mit_absage_art\(\(int\)\\\$b\['schueler_id'\]\)\)/s", $ixCode));
+pruefe('Bestätigung nach Elternbuchung bleibt am buchenden Konto (kein PARENTS)', (bool)preg_match(
+    "/mit_einreihen_und_senden\(\\\$pdo, \\\$sid, \(int\)\\\$elternUserId,\s*'bestaetigung',[^;]*wu_sitzung\(\\\$cfg\)\);/s", $code));
 
 // ------------------------------------------------------------
 echo "Migration sql/21\n";

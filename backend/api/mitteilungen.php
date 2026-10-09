@@ -499,6 +499,19 @@ function mit_senden_oder_vormerken(PDO $pdo, array $ids, array $sitzung): array
             'sitzung' => null, 'grund' => $e['grund']];
 }
 
+/**
+ * An wen eine Absage geht (v0.9.73, Betreiber): an ALLE Erziehungsberechtigten
+ * des Kindes über PARENTS – oft wird nur ein Elternkonto aktiv genutzt, und
+ * teilen sich die Eltern die Termine, sollen beide es erfahren. Ohne
+ * Kind-Kennung bleibt nur das gebuchte Konto: nie eine Absage ohne Empfänger.
+ * Gilt für Absage (Stelle 3) und Ausfall (Stelle 5). Die Bestätigung nach
+ * einer Elternbuchung bleibt beim buchenden Konto.
+ */
+function mit_absage_art(int $schuelerId): string
+{
+    return $schuelerId > 0 ? 'eltern' : 'konto';
+}
+
 /** Einreihen und gleich versuchen – für die Stellen mit genau einer Mitteilung. */
 function mit_einreihen_und_senden(PDO $pdo, int $sprechtagId, int $empfaengerUserId,
                                   string $anlass, string $betreff, string $text,

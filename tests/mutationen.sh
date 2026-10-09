@@ -833,6 +833,20 @@ mut FS9 $APP 's/aktion: \(\) => sendeVorgemerkte\(ids, text\)/aktion: () => send
 mut FS10 $APP 's/S\.sitzungsKasten && S\.sitzungsKasten\.ansicht === S\.ansicht/S.sitzungsKasten/' \
   $FS "der Kasten steht nur in der Ansicht"
 
+echo "== v0.9.73: Absagen an alle Erziehungsberechtigten (PARENTS)"
+mut SV18 $MI 's/return \$schuelerId > 0 \? \x27eltern\x27 : \x27konto\x27;/return \x27konto\x27;/' \
+  $SV "mit_absage_art: mit Kind-Kennung an die Eltern"
+mut SV19 $MI 's/return \$schuelerId > 0 \? /return \$schuelerId > 1 ? /' \
+  $SV "mit_absage_art: mit Kind-Kennung an die Eltern"
+mut SV20 $MI 's/return \$schuelerId > 0 \? /return \$schuelerId >= 0 ? /' \
+  $SV "mit_absage_art: ohne Kind-Kennung (0)"
+mut SV21 $BUP 's/wu_sitzung\(\$cfg\),\n                    mit_absage_art\(\(int\)\$b\[\x27schueler_id\x27\]\)\);/wu_sitzung(\$cfg));/' \
+  $SV "Absage: über die Sitzung der absagenden Person, mit der Lehrkraft der Buchung, an alle"
+mut SV22 $IDX 's/\$lid,\n                        mit_absage_art\(\(int\)\$b\[\x27schueler_id\x27\]\)\);/\$lid);/' \
+  $SV "Ausfall: jede Absage an alle Erziehungsberechtigten"
+mut SV23 $BUP 's/(\$kind, null,\n                wu_sitzung\(\$cfg\))\);/$1, \x27eltern\x27);/' \
+  $SV "Bestätigung nach Elternbuchung bleibt am buchenden Konto"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1

@@ -50,7 +50,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.72', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.73', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -939,7 +939,8 @@ if (($seg[0] ?? '') === 'sprechtage') {
             $pdo->prepare('DELETE FROM buchungen WHERE sprechtag_id = ? AND lehrer_id = ?')
                 ->execute([$sid, $lid]);
 
-            // Betroffene Eltern benachrichtigen (Absage). Erst alle Absagen
+            // Betroffene Eltern benachrichtigen (Absage) – je Termin an ALLE
+            // Erziehungsberechtigten des Kindes (PARENTS, v0.9.73). Erst alle Absagen
             // einreihen, dann EIN Versand über die Sitzung der Verwaltung
             // (E17). Ist sie abgelaufen, bleiben die Absagen stehen und die
             // Antwort sagt es – die Freigabe gilt trotzdem.
@@ -949,7 +950,8 @@ if (($seg[0] ?? '') === 'sprechtage') {
                     $t = mit_text_absage((string)$s['name'], (string)$s['datum'],
                         (string)$b['slot_beginn'], $lehrkraft, $grund);
                     $ids[] = mit_einreihen($pdo, $sid, (int)$b['eltern_user_id'], 'absage',
-                        $t['betreff'], $t['text'], (int)$b['schueler_id'], $lid);
+                        $t['betreff'], $t['text'], (int)$b['schueler_id'], $lid,
+                        mit_absage_art((int)$b['schueler_id']));
                 } catch (PDOException $e) {
                     error_log('sprechtag: Ausfall-Absage nicht vorgemerkt: '
                         . $e->getMessage());
@@ -963,7 +965,7 @@ if (($seg[0] ?? '') === 'sprechtage') {
                 'benachrichtigt'=> $mitteilung['gesendet'],
                 'mitteilung'    => $mitteilung,
                 'hinweis' => count($buchungen) . ' Termin(e) freigegeben, '
-                    . $mitteilung['gesendet'] . ' Elternteil(e) benachrichtigt'
+                    . $mitteilung['gesendet'] . ' Absage(n) an die Erziehungsberechtigten verschickt'
                     . ($mitteilung['offen'] > 0 ? ', ' . $mitteilung['offen'] . ' Absage(n) noch nicht verschickt' : '')
                     . '.']);
         }

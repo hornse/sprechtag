@@ -1,5 +1,30 @@
 # Changelog - sprechtag
 
+## v0.9.73 (Oktober 2026) – Absagen an alle Erziehungsberechtigten
+
+Entscheidung des Betreibers (Nachtrag zu E17): Absagen gehen über
+`recipientOption PARENTS` an **alle** Erziehungsberechtigten des Kindes.
+Oft wird nur ein Elternkonto aktiv genutzt, und teilen sich die Eltern die
+Termine, sollen beide es erfahren.
+
+- Absage einer Lehrkraft bzw. der Verwaltung (`DELETE /api/buchungen/{id}`)
+  und Krankheitsausfall: je Termin eine Mitteilung über PARENTS. Die
+  Entscheidung fällt an einer Stelle, `mit_absage_art()`; ohne Kind-Kennung
+  geht die Absage an das gebuchte Konto.
+- Die Bestätigung nach einer Elternbuchung bleibt beim buchenden Konto.
+- Ausfall-Meldung: „N Absage(n) an die Erziehungsberechtigten verschickt“
+  statt „N Elternteil(e) benachrichtigt“; gezählt werden Mitteilungen.
+- Keine Migration (`empfaenger_art` gibt es seit v0.9.72).
+
+### Prüfungen
+- 1221 → 1226 Prüfzeilen in 60 Suiten, alle grün; `tests-sprechtag.sh` 29.
+  `run_sitzung_versand.php` 40 → 45: die Entscheidung ausgeführt (mit und
+  ohne Kind-Kennung, Grenze 1), eine Absage geht als ein Aufruf über PARENTS,
+  Absage und Ausfall rufen `mit_absage_art()`, die Bestätigung nach
+  Elternbuchung bleibt am Konto. Zuerst rot (5), dann grün.
+- Mutationen 279 → 285 Ergebniszeilen (SV18–SV23 neu), alle angeschlagen, H4
+  grün, Rücknahme belegt.
+
 ## v0.9.72 (Oktober 2026) – Dienstkonto abgeschafft; die abgelaufene Sitzung wird gesagt – benötigt Migration `sql/21_dienstkonto_entfernen.sql`
 
 Grundlage gemessen am 09.10.2026: Admin und Lehrkraft lösen die Testliste über

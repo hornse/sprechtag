@@ -913,13 +913,15 @@ if (($seg[0] ?? '') === 'buchungen') {
                 $t = mit_text_absage((string)$sp['name'], (string)$sp['datum'],
                     (string)$b['slot_beginn'], $lehrkraft,
                     substr((string)($_GET['nachricht'] ?? ''), 0, 500));
-                // Über die Sitzung der Person, die absagt (E17). Ist sie
+                // An ALLE Erziehungsberechtigten des Kindes (PARENTS, v0.9.73),
+                // über die Sitzung der Person, die absagt (E17). Ist sie
                 // abgelaufen, bleibt die Absage stehen – die Antwort sagt
                 // es, und nach der Neuanmeldung geht sie mit einem Klick raus.
                 $mitteilung = mit_einreihen_und_senden($pdo,
                     (int)$b['sprechtag_id'], (int)$b['eltern_user_id'],
                     'absage', $t['betreff'], $t['text'],
-                    (int)$b['schueler_id'], (int)$b['lehrer_id'], wu_sitzung($cfg));
+                    (int)$b['schueler_id'], (int)$b['lehrer_id'], wu_sitzung($cfg),
+                    mit_absage_art((int)$b['schueler_id']));
             } catch (PDOException $e) {
                 error_log('sprechtag: Absage nicht vorgemerkt: ' . $e->getMessage());
             }
