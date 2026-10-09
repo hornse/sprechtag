@@ -106,6 +106,38 @@ const ladeRumpf = rumpf('async function ladeLehrerListe(');
   catch (e) { gk = ''; }
   pruefe('gekürzte Einträge werden mit beiden Fassungen gemeldet',
     gk.includes('„SuS über 18 mit Attest“') && gk.includes('„SuS über 18 mit Atte“'));
+  // ----------------------------------------------------------
+  // v0.9.66: Der GELADENE Zustand, nicht nur der Aufruf. Im Betrieb
+  // antwortete die Route mit 500; die Ansicht blieb bei „Wird geladen …“
+  // und rief erneut ab. Ausgeführt über zwei Zeichnungen wie im Betrieb:
+  // erste Zeichnung startet den Abruf, nach seinem Ende wird neu gezeichnet.
+  console.log('3. Geladener Zustand der Ansicht');
+  async function ladeLauf(antwort) {
+    const S4 = { sgDaten: null, sgLaedt: false, sgFehler: null };
+    let abrufe = 0, z = el('div');
+    const sektion = (t) => { const x = el('section', 'sektion'); x.appendChild(el('h3', 'sektion-titel', t)); return x; };
+    const zeichnen = () => {
+      z = el('div');
+      try {
+        new Function('S', 'el', 'sektion', 'knopf', 'api', 'toast', 'zeichne', 'ziel', sgRumpf)(
+          S4, el, sektion, (t) => el('button', null, t),
+          () => { abrufe++; return antwort(); }, () => {}, () => {}, z);
+      } catch (e) { z.appendChild(el('p', 'AUSNAHME', e.message)); }
+    };
+    zeichnen();                                      // startet den Abruf
+    await new Promise((f) => setTimeout(f, 0));      // Abruf endet
+    zeichnen(); zeichnen();                          // spätere Zeichnungen
+    return { abrufe, text: texte(z), knoepfe: alle(z).filter((x) => x.tag === 'button').map((x) => x.text) };
+  }
+  const fehl = await ladeLauf(() => Promise.reject(new Error('Fehler 500')));
+  pruefe('Abruf scheitert: Fehler steht da, nicht „Wird geladen …“',
+    sgRumpf !== '' && /nicht geladen/.test(fehl.text) && fehl.text.includes('Fehler 500') && !/Wird geladen/.test(fehl.text));
+  pruefe('… kein erneuter Abruf von selbst (über drei Zeichnungen genau einer), Knopf „Erneut laden“',
+    fehl.abrufe === 1 && fehl.knoepfe.includes('Erneut laden'));
+  const gut = await ladeLauf(() => Promise.resolve({ gruppen: ['SuS über 18'], eigene_gruppe: null, laenge: 20 }));
+  pruefe('Abruf gelingt: geladener Zustand mit Eingabefeld, ein Abruf',
+    gut.abrufe === 1 && !/Wird geladen/.test(gut.text) && gut.text.includes('SuS über 18'));
+
   const datenRumpf = rumpf('function ansichtAdminDaten(');
   pruefe('Aufrufstelle: „Dienstkonto & Schülerliste“ zeichnet den Abschnitt',
     /zeichneSchuelerGruppen\(ziel\);/.test(datenRumpf));

@@ -141,12 +141,6 @@ function bu_gesperrt_antwort(string $sperre): never
              'automatisch_ermittelt' => null, 'ohne_stammsatz' => []]);
 }
 
-/** Zugelassene Gruppen für volljährige Schüler (Einstellung der Verwaltung, E15). */
-function bu_zugelassene_gruppen(PDO $pdo): array
-{
-    return gruppen_liste(marke_wert($pdo, 'schueler_buchen_gruppen', ''));
-}
-
 /**
  * Darf für dieses Kind bei dieser Lehrkraft gebucht werden?
  * Erlaubt, wenn die Lehrkraft das Kind unterrichtet (Cache), als

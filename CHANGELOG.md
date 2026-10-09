@@ -1,5 +1,44 @@
 # Changelog - sprechtag
 
+## v0.9.66 (Oktober 2026) – Behebung: Verwaltungsroute der Schülergruppen stürzte ab
+
+### Fehler im Betrieb (v0.9.65)
+`GET /api/schueler-gruppen` antwortete mit 500 (PHP-Fehlerseite, gemessen vom
+Betreiber im Netzwerk-Tab). Server-Log: „Call to undefined function
+bu_zugelassene_gruppen() in index.php:236“. Die Route steht in `index.php`
+weit oben, die Funktion stand in `buchungen.php` – das `index.php` erst am Ende
+lädt. Folge: Die Liste der zugelassenen Gruppen ließ sich nicht füllen, und
+weil sie leer war, konnte keine Schülerin und kein Schüler selbst buchen.
+
+Die Ansicht blieb bei „Wird geladen …“ und rief bei jedem Neuzeichnen erneut ab
+(im Netzwerk-Tab zwei Aufrufe).
+
+**Warum die Prüfung es nicht sah:** `run_schueler_gruppe.php` lud
+`buchungen.php` vorab und führte den Routenzweig danach aus – die
+Prüfumgebung kannte mehr als der Betrieb.
+
+### Behebung
+- `bu_zugelassene_gruppen()` steht jetzt in `slots.php`, das `index.php`
+  ganz oben lädt.
+- Die Ansicht zeigt einen Ladefehler („Die Liste konnte nicht geladen werden:
+  …“) mit „Erneut laden“ und ruft nicht mehr von selbst erneut ab.
+
+### Neue Prüfungen
+- `tests/run_ladereihenfolge.php` (5): **statisch für alle Routen** – jeder
+  Funktionsaufruf in `index.php` ist an seiner Stelle schon definiert (in PHP,
+  in `index.php` oder in einer vorher geladenen Datei, mit deren eigenen
+  Ladeanweisungen; alles aus den Dateien ermittelt). Vor der Behebung fand sie
+  über 377 Aufrufe genau diese eine Stelle. Dazu **ausgeführt**: die Route in
+  einem eigenen PHP-Prozess, der genau die Dateien lädt, die `index.php` vor ihr
+  lädt – vor der Behebung derselbe Fatal wie im Betrieb.
+- `frontend_schueler_gruppe_test.js` +3: der **geladene Zustand** der Ansicht
+  über drei Zeichnungen – bei Fehler steht der Fehler da, genau ein Abruf; bei
+  Erfolg das Eingabefeld.
+- 1083 → 1091 Prüfzeilen in 57 Suiten, alle grün; `tests-sprechtag.sh` 29.
+- Mutationen 207 → 212, alle angeschlagen, H4 grün, Rücknahme belegt. LR3
+  baut denselben Fehler in eine andere Route (Login-Protokoll) – die statische
+  Prüfung fängt ihn auch dort.
+
 ## v0.9.65 (Oktober 2026) – Wer als Schülerin oder Schüler selbst buchen darf (E15)
 
 Grundlage: die Messung von `profile/general` (Befund Abschnitt 13).

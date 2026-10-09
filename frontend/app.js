@@ -43,6 +43,7 @@ const S = {
   lehrerLaedt: false,  // Auto-Load-Guard für die Lehrkraft-Liste
   sgDaten: null,       // Verwaltung: zugelassene Gruppen volljähriger Schüler (E15)
   sgLaedt: false,      // Guard
+  sgFehler: null,      // Ladefehler – dann KEIN erneuter Abruf von selbst
   kalenderLink: null,  // persönlicher iCal-Abo-Link (Eltern)
   lehrerKalenderLink: null,  // persönlicher iCal-Abo-Link (Lehrkraft)
   loginLogConf: undefined,   // Einstellungen des Login-Protokolls (undefined = ungeladen)
@@ -703,7 +704,7 @@ function ansichtZuruecksetzen() {
   S.loginLogLaedt = false; S.loginLogListeLaedt = false;
   S.texte = null; S.texteLaedt = {};
   S.erinnerungConf = undefined; S.erinnerungLaedt = false; S.erinnerungVorschau = null;
-  S.sgDaten = null; S.sgLaedt = false;
+  S.sgDaten = null; S.sgLaedt = false; S.sgFehler = null;
 }
 
 // Gültige Ansichts-Schlüssel (für die URL-Hash-Wiederherstellung).
@@ -2615,12 +2616,21 @@ function zeichneSchuelerGruppen(ziel) {
     + 'Anmelden können sich alle, die WebUntis zulässt. Eltern und Lehrkräfte '
     + 'betrifft diese Liste nicht.');
   ziel.appendChild(b);
+  // Scheitert das Laden, steht der Fehler da – kein erneuter Abruf bei jedem
+  // Neuzeichnen (v0.9.66: im Betrieb blieb es bei „Wird geladen …“, während
+  // die Route mit 500 antwortete und die Ansicht erneut abrief).
+  if (S.sgFehler) {
+    b.appendChild(el('p', 'hinweis-wichtig',
+      'Die Liste konnte nicht geladen werden: ' + S.sgFehler));
+    b.appendChild(knopf('Erneut laden', 'klein', () => { S.sgFehler = null; zeichne(); }));
+    return;
+  }
   if (S.sgDaten === null) {
     b.appendChild(el('p', 'hinweis', 'Wird geladen …'));
     if (!S.sgLaedt) {
       S.sgLaedt = true;
       api('/api/schueler-gruppen').then((d) => { S.sgDaten = d; S.sgLaedt = false; zeichne(); })
-        .catch((f) => { S.sgLaedt = false; toast(String(f.message), 'fehler'); });
+        .catch((f) => { S.sgLaedt = false; S.sgFehler = String(f.message) || 'unbekannter Fehler'; zeichne(); });
     }
     return;
   }

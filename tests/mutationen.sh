@@ -654,6 +654,19 @@ mut FSG4 $APP 's/  if \(\(d\.gruppen \|\| \[\]\)\.length === 0\) \{/  if (false)
 mut FSG5 $APP 's/\n  zeichneSchuelerGruppen\(ziel\);\n/\n/' \
   $FSG "Aufrufstelle: „Dienstkonto & Schülerliste“"
 
+# v0.9.66 – Ladereihenfolge in index.php; geladener Zustand der Ansicht
+LR=tests/run_ladereihenfolge.php
+mut LR1 $IDX 's/\x27gruppen\x27       => bu_zugelassene_gruppen\(\$pdo\),/\x27gruppen\x27       => bu_lehrer_fenster(\$pdo, 0, 0),/' \
+  $LR "jeder Funktionsaufruf in index.php ist an seiner Stelle schon definiert"
+mut LR2 $IDX 's/\x27gruppen\x27       => bu_zugelassene_gruppen\(\$pdo\),/\x27gruppen\x27       => bu_lehrer_fenster(\$pdo, 0, 0),/' \
+  $LR "GET /api/schueler-gruppen in Betriebsladereihenfolge"
+mut LR3 $IDX 's/(if \(\(\$seg\[0\] \?\? \x27\x27\) === \x27login-log\x27\) \{\n    auth_require_admin\(\);\n)/$1    bu_sprechtag(db(\$cfg), 0);\n/' \
+  $LR "jeder Funktionsaufruf in index.php ist an seiner Stelle schon definiert"
+mut FSG6 $APP 's/S\.sgFehler = String\(f\.message\) \|\| \x27unbekannter Fehler\x27; zeichne\(\);/toast(String(f.message), \x27fehler\x27);/' \
+  $FSG "Abruf scheitert: Fehler steht da"
+mut FSG7 $APP 's/  if \(S\.sgFehler\) \{/  if (false) {/' \
+  $FSG "… kein erneuter Abruf von selbst"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1

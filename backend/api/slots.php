@@ -218,6 +218,18 @@ function bu_buchen_gesperrt(array $u, array $zugelassen): ?string
     return in_array(gruppe_normalisieren($g), $zugelassen, true) ? null : 'gruppe_nicht_zugelassen';
 }
 
+/**
+ * Zugelassene Gruppen für volljährige Schüler (Einstellung der Verwaltung,
+ * E15). Steht HIER und nicht in buchungen.php: index.php lädt buchungen.php
+ * erst am Ende, die Verwaltungsroute /api/schueler-gruppen steht davor – in
+ * v0.9.65 brach sie im Betrieb mit „Call to undefined function“ ab.
+ * slots.php lädt index.php ganz oben (tests/run_ladereihenfolge.php).
+ */
+function bu_zugelassene_gruppen(PDO $pdo): array
+{
+    return gruppen_liste(marke_wert($pdo, 'schueler_buchen_gruppen', ''));
+}
+
 /** Erklärung zur Sperre – Anmeldung bleibt möglich, nur Buchen nicht (E15). */
 function bu_sperre_text(string $grund): string
 {
