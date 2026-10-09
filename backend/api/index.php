@@ -51,7 +51,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.64', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.65', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -219,6 +219,37 @@ if (($seg[0] ?? '') === 'auth') {
 
         json_ok(['angemeldet' => true] + auth_user());
     }
+}
+
+// ============================================================
+// VOLLJÄHRIGE SCHÜLER: zugelassene Benutzergruppen (E15, v0.9.65)
+//   GET  /api/schueler-gruppen  → {gruppen, eigene_gruppe, laenge}
+//   POST /api/schueler-gruppen  {gruppen: Text, eine je Zeile}
+// Gespeichert wird, was verglichen wird: gekürzt auf 20 Zeichen wie in
+// WebUntis. Die Antwort nennt, was dabei gekürzt wurde, und die Gruppe des
+// eigenen Kontos – zum Abschreiben statt Raten.
+// ============================================================
+if (($seg[0] ?? '') === 'schueler-gruppen') {
+    $u = auth_require_admin();
+    $pdo = db($cfg);
+    $auskunft = fn(): array => [
+        'gruppen'       => bu_zugelassene_gruppen($pdo),
+        'eigene_gruppe' => $u['wu_gruppe'] ?? null,
+        'laenge'        => 20,
+    ];
+    if ($methode === 'GET') json_ok($auskunft());
+    if ($methode === 'POST') {
+        $roh = (string)($body['gruppen'] ?? '');
+        $gekuerzt = [];
+        foreach (preg_split('/\R/u', $roh) ?: [] as $zeile) {
+            $voll = trim($zeile);
+            $kurz = gruppe_normalisieren($zeile);
+            if ($voll !== '' && $kurz !== $voll) $gekuerzt[] = ['eingegeben' => $voll, 'verglichen' => $kurz];
+        }
+        marke_schreiben($pdo, 'schueler_buchen_gruppen', implode("\n", gruppen_liste($roh)));
+        json_ok($auskunft() + ['gekuerzt' => $gekuerzt]);
+    }
+    json_err('Methode nicht unterstützt.', 405);
 }
 
 // ============================================================

@@ -29,6 +29,10 @@ function auth_user(): ?array
             ? (int)$_SESSION['user_id'] : null,
         'person_id' => isset($_SESSION['person_id']) ? (int)$_SESSION['person_id'] : null,
         'kinder'    => (array)($_SESSION['kinder'] ?? []),
+        // Benutzergruppe aus WebUntis (E15) – die eigene, für die Person
+        // selbst sichtbar; null, wenn sie nicht ermittelt werden konnte.
+        'wu_gruppe' => isset($_SESSION['wu_gruppe']) && $_SESSION['wu_gruppe'] !== ''
+            ? (string)$_SESSION['wu_gruppe'] : null,
     ];
 }
 
@@ -42,6 +46,7 @@ function auth_login_speichern(array $daten): void
     $_SESSION['user_id']   = $daten['user_id'];
     $_SESSION['person_id'] = $daten['person_id'];
     $_SESSION['kinder']    = $daten['kinder'];
+    $_SESSION['wu_gruppe'] = $daten['wu_gruppe'] ?? null;
     // WebUntis-Sitzungscookie: ermöglicht Mitteilungen unter dem Namen der
     // handelnden Person, ohne ihr Passwort zu speichern. Steht BEWUSST NICHT
     // in auth_user(), damit er nicht versehentlich ans Frontend gelangt.

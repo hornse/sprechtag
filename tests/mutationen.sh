@@ -618,6 +618,42 @@ mut PF6 $MS 's/\x27Status 200, aber kein data\.profile – Antwortform prüfen \
 mut PF7 $MS 's/\x27gefuellt\x27  => \$ug !== null && \$ug !== \x27\x27 && \$ug !== \[\],/\x27gefuellt\x27  => \$ug !== null,/' \
   $S "leere userGroup: vorhanden, aber nicht gefüllt"
 
+# v0.9.65 – wer als Schüler:in selbst buchen darf (E15)
+SG=tests/run_schueler_gruppe.php
+FSG=tests/frontend_schueler_gruppe_test.js
+SLP=backend/api/slots.php
+BUP=backend/api/buchungen.php
+mut SG1 $SLP 's/\n    if \(\(\$u\[\x27rolle\x27\] \?\? \x27\x27\) !== \x27schueler\x27\) return null;//' \
+  $SG "Eltern mit eigener Gruppe"
+mut SG2 $SLP 's/\x27\/\^\.\{0,20\}\/us\x27/\x27\/^.*\/us\x27/' \
+  $SG "„SuS über 18 mit Attest“ → „SuS über 18 mit Atte“"
+mut SG3 $SLP 's/\x27\/\^\.\{0,20\}\/us\x27/\x27\/^.{0,19}\/us\x27/' \
+  $SG "Grenze: genau 20 Zeichen bleiben"
+mut SG4 $SLP 's/if \(\$g === \x27\x27\) return \x27gruppe_unbekannt\x27;/if (\$g === \x27\x27) return null;/' \
+  $SG "Schüler:in ohne ermittelte Gruppe: gesperrt"
+mut SG5 $SLP 's/(\n    return in_array\(gruppe_normalisieren\(\$g\), \$zugelassen, true\))/\n    if (\$zugelassen === []) return null;$1/' \
+  $SG "leere Liste: Schüler:innen gesperrt"
+mut SG6 $BUP 's/if \(\$sperre !== null\) bu_gesperrt_antwort\(\$sperre\);/if (false) bu_gesperrt_antwort(\$sperre);/' \
+  $SG "Kacheln, nicht zugelassen"
+mut SG7 $BUP 's/if \(\$sperre !== null\) json_err\(bu_sperre_text\(\$sperre\), 403\);/if (false) json_err(bu_sperre_text(\$sperre), 403);/' \
+  $SG "Buchen, nicht zugelassen: 403"
+mut SG8 $IDX 's/implode\("\\n", gruppen_liste\(\$roh\)\)/\$roh/' \
+  $SG "POST: gespeichert wird, was verglichen wird"
+mut SG9 backend/api/webuntis_adapter.php 's/\n            \$ergebnis\[\x27wu_gruppe\x27\] = wu_profil_gruppe\(\$rest\);//' \
+  $SG "wu_login() liest die Gruppe"
+mut SG10 backend/api/auth.php 's/\n        \x27wu_gruppe\x27 => isset\(\$_SESSION\[\x27wu_gruppe\x27\]\)[^\n]*\n[^\n]*\n/\n/' \
+  $SG "Sitzung trägt die Gruppe"
+mut FSG1 $APP 's/  if \(S\.lehrerListe\.buchen_gesperrt\) \{/  if (false) {/' \
+  $FSG "Ansicht bei Sperre"
+mut FSG2 $APP 's/\} else if \(S\.lehrerListe\.buchen_gesperrt\) \{\n      meldung\(null\);/} else if (false) {\n      meldung(null);/' \
+  $FSG "Laden bei Sperre"
+mut FSG3 $APP 's/\? \x27Ihr eigenes Konto trägt in WebUntis die Gruppe „\x27 \+ d\.eigene_gruppe \+ \x27“ – \x27/? \x27Ihr eigenes Konto trägt eine Gruppe – \x27/' \
+  $FSG "nennt die Gruppe des eigenen Kontos"
+mut FSG4 $APP 's/  if \(\(d\.gruppen \|\| \[\]\)\.length === 0\) \{/  if (false) {/' \
+  $FSG "leere Liste: Warnung"
+mut FSG5 $APP 's/\n  zeichneSchuelerGruppen\(ziel\);\n/\n/' \
+  $FSG "Aufrufstelle: „Dienstkonto & Schülerliste“"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1

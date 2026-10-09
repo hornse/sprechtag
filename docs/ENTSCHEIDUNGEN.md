@@ -700,3 +700,46 @@ stünden statt 32 bis zu 46 px da (gemessen).
   der Zeile.
 - **„Anmelden“ mit 32 px bleibt:** Ein Knopf, der eine Handlung auslöst,
   steht abgesetzt – wie „Aktualisieren“.
+
+## E15 — Wer als Schülerin oder Schüler selbst buchen darf
+
+**Stand 09.10.2026, v0.9.65. Entscheidungen des Betreibers.**
+
+**Anlass.** Ein Fünftklässler, der parallel zu seinen Eltern Termine belegt,
+ist fachlich fragwürdig und kann Slots blockieren, ohne dass es jemand
+merkt. WebUntis gibt die Volljährigkeit im `personType` nicht her (Schüler
+sind 5, gleich welchen Alters); die Schule pflegt sie in Benutzergruppen.
+
+**Anmelden und Buchen sind getrennt:**
+- **Wer sich anmelden kann, entscheidet allein der Aktiv-Status in
+  WebUntis.** sprechtag prüft das nicht noch einmal.
+- **Wer als Schüler:in buchen darf, entscheidet die Benutzergruppe.**
+  Wer nicht in einer zugelassenen Gruppe ist, wird angemeldet, sieht aber
+  statt der Kacheln die Erklärung „Termine buchen die
+  Erziehungsberechtigten“ – keine Fehlermeldung beim Anmelden, denn wer sie
+  bekommt, weiß nicht, warum.
+
+**Rolle vor Gruppe.** Die Gruppe wird nur bei der Rolle `schueler`
+(personType 5) geprüft. Eltern tragen ebenfalls eine Gruppe („01_Eltern
+Attest“); eine Prüfung allein über Gruppennamen träfe sie versehentlich.
+
+**Zugelassene Gruppen sind eine Einstellung der Verwaltung**, nicht fest
+im Code („Dienstkonto & Schülerliste“ → „Volljährige Schülerinnen und
+Schüler“). Heute sind es zwei Gruppen; ob eine dritte dazukommt, weiß
+niemand. **Ist die Liste leer, kann keine Schülerin und kein Schüler selbst
+buchen** (die Sperre schließt); die Seite sagt das.
+
+**20 Zeichen.** WebUntis kürzt Gruppennamen auf 20 Zeichen, in
+`profile/general` und im Empfängerfilter gleich. Verglichen wird deshalb
+auf beiden Seiten nach dem Kürzen – wer „SuS über 18 mit Attest“ einträgt,
+trifft „SuS über 18 mit Atte“. Gespeichert wird, was verglichen wird; die
+Seite meldet, was gekürzt wurde, und nennt die Gruppe des eigenen Kontos.
+
+**Quelle der Gruppe:** `/WebUntis/api/profile/general`
+(`data.profile.userGroup`), gelesen bei der Anmeldung über die eigene
+Sitzung, gehalten in der Sitzung, nicht in der Datenbank. Scheitert das
+Lesen, gelingt die Anmeldung trotzdem; das Buchen bleibt für Schüler:innen
+mit eigener Erklärung gesperrt („bitte erneut anmelden“).
+
+**Kachel und Buchungsrecht** fragen dieselbe Funktion
+(`bu_buchen_gesperrt()`), jeweils vor allem anderen.

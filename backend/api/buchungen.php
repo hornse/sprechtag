@@ -130,6 +130,24 @@ function bu_teilnehmende_lehrer(PDO $pdo, int $sid, ?array $nur = null): array
 }
 
 /**
+ * Kachel-Antwort bei gesperrtem Buchen (E15): dieselbe Form wie sonst,
+ * aber ohne Lehrkräfte, mit Grund und Erklärung. Beendet den Aufruf.
+ */
+function bu_gesperrt_antwort(string $sperre): never
+{
+    json_ok(['eingeladen' => [], 'unterrichtend' => [], 'sonderlehrer' => [], 'weitere' => [],
+             'nur_eingeladene' => false, 'buchen_gesperrt' => $sperre,
+             'hinweis' => bu_sperre_text($sperre),
+             'automatisch_ermittelt' => null, 'ohne_stammsatz' => []]);
+}
+
+/** Zugelassene Gruppen für volljährige Schüler (Einstellung der Verwaltung, E15). */
+function bu_zugelassene_gruppen(PDO $pdo): array
+{
+    return gruppen_liste(marke_wert($pdo, 'schueler_buchen_gruppen', ''));
+}
+
+/**
  * Darf für dieses Kind bei dieser Lehrkraft gebucht werden?
  * Erlaubt, wenn die Lehrkraft das Kind unterrichtet (Cache), als
  * Sonderlehrkraft für den Jahrgang freigegeben ist ODER das Kind
@@ -288,6 +306,10 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'buchbare-lehrer') {
     if ($u['rolle'] !== 'admin' && !auth_kind_erlaubt($u, $kind)) {
         json_err('Für dieses Kind besteht keine Berechtigung', 403);
     }
+    // Volljährige Schüler nur in zugelassener Gruppe (E15) – dieselbe
+    // Entscheidung wie beim Buchen: keine Kachel ohne Buchungsrecht.
+    $sperre = bu_buchen_gesperrt($u, bu_zugelassene_gruppen($pdo));
+    if ($sperre !== null) bu_gesperrt_antwort($sperre);
     $sprechtag = bu_sprechtag($pdo, $sid);
 
     // Cache leer? Dann einmalig mit dem Dienstkonto ermitteln.
@@ -747,6 +769,10 @@ if (($seg[0] ?? '') === 'buchungen') {
             if (!auth_kind_erlaubt($u, $kind)) {
                 json_err('Für dieses Kind besteht keine Berechtigung', 403);
             }
+            // Volljährige Schüler nur in zugelassener Gruppe (E15) – dieselbe
+            // Entscheidung wie bei den Kacheln.
+            $sperre = bu_buchen_gesperrt($u, bu_zugelassene_gruppen($pdo));
+            if ($sperre !== null) json_err(bu_sperre_text($sperre), 403);
             if ($elternUserId === null) json_err('Konto unvollständig – bitte neu anmelden', 401);
         }
 

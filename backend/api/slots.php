@@ -175,6 +175,62 @@ function slot_pausen_anwenden(array $raster, array $belegt,
  * Phase 1 gilt für Eltern und volljährige Schüler; Verwaltung und
  * Lehrkräfte (stellvertretend) sind nicht beschränkt. (E10)
  */
+// ---- Wer als Schüler:in selbst buchen darf (v0.9.65, E15) -----------------
+// Die Gruppe kommt bei der Anmeldung aus /WebUntis/api/profile/general
+// (data.profile.userGroup, Text, eine Person – ein Wert, keine Kennung).
+// WebUntis kürzt Gruppennamen auf 20 Zeichen (gemessen 09.10.2026: „SuS über
+// 18 mit Atte“, in profile/general und im Empfängerfilter gleich). Verglichen
+// wird deshalb auf beiden Seiten nach dem Kürzen – wer den vollen Namen
+// einträgt, trifft trotzdem.
+
+/** Gruppenname so, wie WebUntis ihn liefert: getrimmt, höchstens 20 Zeichen. */
+function gruppe_normalisieren(string $name): string
+{
+    // preg mit /u statt mb_substr: zählt Zeichen, nicht Bytes, und braucht
+    // keine mbstring-Erweiterung (FALLSTRICKE 3).
+    return preg_match('/^.{0,20}/us', trim($name), $m) === 1 ? rtrim($m[0]) : '';
+}
+
+/** Zugelassene Gruppen aus dem gespeicherten Text: je Zeile eine, gekürzt, ohne Doppelte. */
+function gruppen_liste(string $roh): array
+{
+    $aus = [];
+    foreach (preg_split('/\R/u', $roh) ?: [] as $zeile) {
+        $g = gruppe_normalisieren($zeile);
+        if ($g !== '' && !in_array($g, $aus, true)) $aus[] = $g;
+    }
+    return $aus;
+}
+
+/**
+ * Darf diese Person selbst buchen? null = ja, sonst der Grund.
+ * ROLLE VOR GRUPPE: Geprüft wird die Gruppe nur bei der Rolle schueler
+ * (personType 5). Eltern tragen ebenfalls eine Gruppe („01_Eltern Attest“) –
+ * eine Prüfung allein über Gruppennamen träfe sie versehentlich.
+ * Ohne ermittelte Gruppe und bei leerer Liste: gesperrt (schließt).
+ * $zugelassen: Ergebnis von gruppen_liste().
+ */
+function bu_buchen_gesperrt(array $u, array $zugelassen): ?string
+{
+    if (($u['rolle'] ?? '') !== 'schueler') return null;
+    $g = (string)($u['wu_gruppe'] ?? '');
+    if ($g === '') return 'gruppe_unbekannt';
+    return in_array(gruppe_normalisieren($g), $zugelassen, true) ? null : 'gruppe_nicht_zugelassen';
+}
+
+/** Erklärung zur Sperre – Anmeldung bleibt möglich, nur Buchen nicht (E15). */
+function bu_sperre_text(string $grund): string
+{
+    if ($grund === 'gruppe_unbekannt') {
+        return 'Termine buchen die Erziehungsberechtigten. Ob Sie als volljährige '
+            . 'Schülerin oder volljähriger Schüler selbst buchen können, ließ sich bei '
+            . 'der Anmeldung nicht feststellen. Bitte melden Sie sich ab und erneut an.';
+    }
+    return 'Termine buchen die Erziehungsberechtigten. Selbst buchen können '
+        . 'volljährige Schülerinnen und Schüler, wenn die Schule das für sie '
+        . 'freigeschaltet hat.';
+}
+
 function slot_nur_eingeladene(string $phase, string $rolle): bool
 {
     return $phase === 'phase1' && ($rolle === 'eltern' || $rolle === 'schueler');

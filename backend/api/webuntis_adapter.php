@@ -21,6 +21,26 @@ require_once __DIR__ . '/../auth/WebUntisRest.php';
 require_once __DIR__ . '/../auth/extractors.php';
 
 /**
+ * Benutzergruppe der angemeldeten Person aus /WebUntis/api/profile/general
+ * (data.profile.userGroup, Text; gemessen 09.10.2026 für alle drei Rollen).
+ * Scheitert der Abruf, kommt null – die Anmeldung gelingt trotzdem; nur das
+ * Buchen volljähriger Schüler bleibt dann mit Erklärung gesperrt (E15).
+ * catch (Exception), nicht Throwable: Ein Programmierfehler soll auffallen,
+ * nicht als „Gruppe unbekannt“ erscheinen (FALLSTRICKE 3).
+ */
+function wu_profil_gruppe(object $rest): ?string
+{
+    try {
+        $r = $rest->get('/WebUntis/api/profile/general');
+    } catch (Exception $e) {
+        error_log('sprechtag: Benutzergruppe nicht lesbar: ' . $e->getMessage());
+        return null;
+    }
+    $g = $r['json']['data']['profile']['userGroup'] ?? null;
+    return is_string($g) && trim($g) !== '' ? trim($g) : null;
+}
+
+/**
  * Meldet ein Konto an und ermittelt Rolle und Kontext.
  *
  * Rückgabe:
@@ -32,6 +52,7 @@ require_once __DIR__ . '/../auth/extractors.php';
  *   kuerzel      – nur bei Lehrkräften
  *   lehrer_id    – lokale DB-ID der Lehrkraft (falls vorhanden)
  *   kinder       – [['id'=>int,'name'=>string], …] (nur Eltern)
+ *   wu_gruppe    – Benutzergruppe aus profile/general (Text) oder null (E15)
  *
  * Wirft RuntimeException bei Anmeldefehlern.
  */
@@ -58,6 +79,7 @@ function wu_login(array $cfg, PDO $pdo, string $benutzer, string $passwort): arr
         'kuerzel'    => null,
         'lehrer_id'  => null,
         'kinder'     => [],
+        'wu_gruppe'  => null,
     ];
 
     try {
@@ -75,6 +97,7 @@ function wu_login(array $cfg, PDO $pdo, string $benutzer, string $passwort): arr
                 $ergebnis['name']    =
                     (string)($app['json']['user']['person']['displayName'] ?? '');
             }
+            $ergebnis['wu_gruppe'] = wu_profil_gruppe($rest);
         }
 
         // ---- Rollenbestimmung --------------------------------------------

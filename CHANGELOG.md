@@ -1,5 +1,54 @@
 # Changelog - sprechtag
 
+## v0.9.65 (Oktober 2026) – Wer als Schülerin oder Schüler selbst buchen darf (E15)
+
+Grundlage: die Messung von `profile/general` (Befund Abschnitt 13).
+
+### Was gebaut ist
+- **Gruppe bei der Anmeldung:** aus `/WebUntis/api/profile/general`
+  (`data.profile.userGroup`) über die eigene Sitzung, gehalten in der
+  Sitzung. Scheitert das Lesen, gelingt die Anmeldung trotzdem.
+- **Rolle vor Gruppe:** geprüft nur bei der Rolle `schueler`. Eltern
+  (eigene Gruppe „01_Eltern Attest“), Lehrkräfte und Verwaltung nie.
+- **Nicht zugelassen:** anmelden ja, buchen nein. Statt der Kacheln steht
+  „Termine buchen die Erziehungsberechtigten …“; eine Buchung wird mit
+  derselben Erklärung abgewiesen (403). Ohne ermittelte Gruppe: eigene
+  Erklärung („erneut anmelden“).
+- **Einstellung der Verwaltung:** „Dienstkonto & Schülerliste“ →
+  „Volljährige Schülerinnen und Schüler“, eine Gruppe je Zeile
+  (`GET/POST /api/schueler-gruppen`). Die Seite nennt die Gruppe des
+  eigenen Kontos, sagt, dass WebUntis auf 20 Zeichen kürzt, zeigt, wie
+  verglichen wird, meldet gekürzte Einträge und warnt bei leerer Liste.
+- **20 Zeichen:** Verglichen wird auf beiden Seiten nach dem Kürzen;
+  gespeichert wird, was verglichen wird.
+- **Kachel und Buchungsrecht** fragen dieselbe Funktion
+  (`bu_buchen_gesperrt()`), jeweils vor allem anderen.
+
+### Wichtig für den Betrieb
+**Nach der Auslieferung ist die Liste leer – damit kann zunächst keine
+Schülerin und kein Schüler selbst buchen.** Die Verwaltung trägt die beiden
+Gruppen ein („SuS über 18“, „SuS über 18 mit Attest“ – der volle Name
+genügt). Wer vor der Auslieferung angemeldet war, hat noch keine Gruppe in
+der Sitzung und muss sich als Schüler:in neu anmelden.
+
+### Nebenbefund
+`tests/run_dreiteilung.php` und `tests/run_einladung_kachel.php` lesen die
+Kachel-Route nur bis zum **ersten** `json_ok(`. Eine frühe Antwort in der
+Route (hier die Sperre) schnitt ihr Lesefenster ab, und vier bzw. eine
+Prüfung wurden rot – nicht weil die Route falsch war. Gelöst im Code, nicht
+in den Prüfungen: Die Antwort bei Sperre steht in einer eigenen Funktion
+(`bu_gesperrt_antwort()`). Die Lesegrenze selbst bleibt bestehen.
+
+### Prüfungen
+- 1044 → 1083 Prüfzeilen in 56 Suiten, alle grün; `tests-sprechtag.sh` 29.
+  Neu: `run_schueler_gruppe.php` (28; die beiden Routen-Zweige und die
+  Verwaltungsroute werden ausgeführt, mit echter `auth.php`),
+  `frontend_schueler_gruppe_test.js` (11). Die Prüfung übersetzt GENAU die
+  MariaDB-Klausel aus `marke_schreiben()` nach SQLite; ändert sie sich,
+  scheitert die Prüfung laut.
+- Mutationen 192 → 207 Ergebniszeilen, alle angeschlagen, H4 grün,
+  Rücknahme gegen Prüfsummen (neun Dateien) belegt.
+
 ## v0.9.64 (Oktober 2026) – Abstandsregel nachjustiert; Messung profile/general; Dokumente gesichtet
 
 ### Teil A – Abstandsregel (E14-Nachtrag, Entscheidung Betreiber)

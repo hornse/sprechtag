@@ -41,6 +41,8 @@ const S = {
   anzeigeEinst: null,  // Signage-Einstellungen (Sortierung)
   weitereSuche: '',    // Suchtext für weitere Lehrkräfte (Gruppe 3, E10)
   lehrerLaedt: false,  // Auto-Load-Guard für die Lehrkraft-Liste
+  sgDaten: null,       // Verwaltung: zugelassene Gruppen volljähriger Schüler (E15)
+  sgLaedt: false,      // Guard
   kalenderLink: null,  // persönlicher iCal-Abo-Link (Eltern)
   lehrerKalenderLink: null,  // persönlicher iCal-Abo-Link (Lehrkraft)
   loginLogConf: undefined,   // Einstellungen des Login-Protokolls (undefined = ungeladen)
@@ -701,6 +703,7 @@ function ansichtZuruecksetzen() {
   S.loginLogLaedt = false; S.loginLogListeLaedt = false;
   S.texte = null; S.texteLaedt = {};
   S.erinnerungConf = undefined; S.erinnerungLaedt = false; S.erinnerungVorschau = null;
+  S.sgDaten = null; S.sgLaedt = false;
 }
 
 // Gültige Ansichts-Schlüssel (für die URL-Hash-Wiederherstellung).
@@ -1195,6 +1198,14 @@ function ansichtBuchen(ziel) {
     return;
   }
 
+  // Volljährige Schüler außerhalb der zugelassenen Gruppen (E15): keine
+  // Kacheln, sondern die Erklärung des Servers. Angemeldet sind sie trotzdem.
+  if (S.lehrerListe.buchen_gesperrt) {
+    ziel.appendChild(el('p', 'hinweis-wichtig',
+      S.lehrerListe.hinweis || 'Termine buchen die Erziehungsberechtigten.'));
+    return;
+  }
+
   const alle = buchenLehrerAlle(S.lehrerListe);
   // Gruppe 3 (E10): weitere teilnehmende Lehrkräfte, ab Phase 2.
   const weitere = S.lehrerListe.weitere || [];
@@ -1421,6 +1432,8 @@ async function ladeLehrerListe() {
       meldung('Hinweis: Für diese Lehrkräfte aus dem Stundenplan fehlt ein '
         + 'Stammsatz und sie sind deshalb nicht buchbar: ' + fehlend.join(', ')
         + '. Bitte in der Administration die Stammdaten synchronisieren.', 'fehler');
+    } else if (S.lehrerListe.buchen_gesperrt) {
+      meldung(null);   // die Erklärung steht in der Seite (E15)
     } else if (!S.lehrerListe.nur_eingeladene
                && (S.lehrerListe.unterrichtend || []).length === 0) {
       meldung('Für dieses Kind sind noch keine Lehrkräfte hinterlegt. '
@@ -2586,6 +2599,72 @@ function ansichtAdminDaten(ziel) {
   }));
   sl.appendChild(slAktionen);
   ziel.appendChild(sl);
+
+  zeichneSchuelerGruppen(ziel);
+}
+
+// ---- Volljährige Schüler: zugelassene Benutzergruppen (E15) -------------
+// Wer als Schülerin oder Schüler selbst buchen darf, entscheidet die
+// WebUntis-Benutzergruppe. WebUntis kürzt Gruppennamen auf 20 Zeichen; die
+// Seite sagt das, zeigt, wie verglichen wird, und nennt die Gruppe des
+// eigenen Kontos – zum Abschreiben statt Raten.
+function zeichneSchuelerGruppen(ziel) {
+  const b = sektion('Volljährige Schülerinnen und Schüler',
+    'Schülerinnen und Schüler können selbst buchen, wenn ihre WebUntis-'
+    + 'Benutzergruppe hier steht – sonst buchen die Erziehungsberechtigten. '
+    + 'Anmelden können sich alle, die WebUntis zulässt. Eltern und Lehrkräfte '
+    + 'betrifft diese Liste nicht.');
+  ziel.appendChild(b);
+  if (S.sgDaten === null) {
+    b.appendChild(el('p', 'hinweis', 'Wird geladen …'));
+    if (!S.sgLaedt) {
+      S.sgLaedt = true;
+      api('/api/schueler-gruppen').then((d) => { S.sgDaten = d; S.sgLaedt = false; zeichne(); })
+        .catch((f) => { S.sgLaedt = false; toast(String(f.message), 'fehler'); });
+    }
+    return;
+  }
+  const d = S.sgDaten;
+  b.appendChild(el('p', 'hinweis', d.eigene_gruppe
+    ? 'Ihr eigenes Konto trägt in WebUntis die Gruppe „' + d.eigene_gruppe + '“ – '
+      + 'so, wie WebUntis sie liefert.'
+    : 'Für Ihr eigenes Konto wurde keine Gruppe ermittelt (erneut anmelden).'));
+  b.appendChild(el('p', 'hinweis', 'WebUntis kürzt Gruppennamen auf ' + d.laenge
+    + ' Zeichen. Verglichen wird deshalb nur bis zum ' + d.laenge + '. Zeichen – '
+    + 'wer den vollen Namen einträgt, trifft trotzdem.'));
+  const ta = el('textarea');
+  ta.id = 'sg-text';
+  ta.rows = 4;
+  ta.value = (d.gruppen || []).join('\n');
+  const lab = el('label', null, 'Zugelassene Gruppen (eine je Zeile)');
+  lab.appendChild(ta);
+  b.appendChild(lab);
+  if ((d.gruppen || []).length === 0) {
+    b.appendChild(el('p', 'hinweis-wichtig',
+      'Keine Gruppe eingetragen – derzeit kann keine Schülerin und kein Schüler selbst buchen.'));
+  } else {
+    const p = el('p', 'hinweis', 'So wird verglichen: ');
+    d.gruppen.forEach((g, i) => {
+      if (i > 0) p.appendChild(el('span', null, ', '));
+      p.appendChild(el('code', null, g));
+    });
+    b.appendChild(p);
+  }
+  b.appendChild(knopf('Speichern', null, async () => {
+    try {
+      const r = await api('/api/schueler-gruppen', { method: 'POST', body: { gruppen: ta.value } });
+      S.sgDaten = r;
+      toast((r.gekuerzt || []).length ? gruppenGekuerztText(r.gekuerzt) : 'Gespeichert.',
+        (r.gekuerzt || []).length ? 'info' : 'ok');
+      zeichne();
+    } catch (f) { toast(String(f.message), 'fehler'); }
+  }));
+}
+
+// Meldet, welche Einträge auf 20 Zeichen gekürzt wurden – mit beiden Fassungen.
+function gruppenGekuerztText(liste) {
+  return 'Gespeichert. Gekürzt wie in WebUntis: '
+    + liste.map((g) => '„' + g.eingegeben + '“ → „' + g.verglichen + '“').join(', ') + '.';
 }
 
 // Ermittelt den „aktiven" Sprechtag: in Phase 1/2, mit dem nächstliegenden

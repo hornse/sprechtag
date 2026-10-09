@@ -533,3 +533,32 @@ nicht angenommen.
   hat keine Klasse.
 - **Gegenprobe Frage 3 gegen die Datenbank** – nachgereicht vom Betreiber.
 
+---
+
+## 13 — Nachtrag 09.10.2026: Benutzergruppe über profile/general (gemessen)
+
+Gemessen vom Betreiber am 09.10.2026 über `GET /api/messung/sitzung`
+(v0.9.64), je Rolle, über den Sitzungscookie von sprechtag. Gruppennamen
+sind von der Schule vergeben; keine Personenangaben.
+
+| Rolle | Status | `userGroup` (Text) | `userRoleId` |
+|---|---|---|---|
+| Lehrkraft | 200 | „Lehrkräfte“ | 2 |
+| Eltern | 200 | „01_Eltern Attest“ | 12 |
+| Schülerin | 200 | „SuS über 18“ bzw. „SuS über 18 mit Atte“ | 5 |
+
+- **Eine Person, ein Gruppenwert**, keine Liste – belegt durch Umsetzen
+  desselben Kontos in die zweite Gruppe.
+- **Keine Kennung**, nur der Text. Der Empfängerfilter kennt referenceId
+  25 bzw. 45; `profile/general` liefert sie nicht.
+- **Der Name ist auf 20 Zeichen gekürzt** („SuS über 18 mit Atte“ statt
+  „…Attest“) – in beiden Quellen gleich: eine Feldbegrenzung in WebUntis,
+  keine Eigenheit einer Ansicht.
+- `userRoleId` 12 für Eltern war bisher unbekannt.
+
+**Was ändert dieser Beleg an dem, was wir prüfen?** Drei Fälle gehören in
+die Prüfdaten und stehen dort (`tests/run_schueler_gruppe.php`): Eltern
+mit eigener Gruppe (dürfen nicht gesperrt werden), die gekürzte zweite
+Gruppe (muss treffen, auch wenn der volle Name eingetragen ist), die
+Grenze bei genau 20 Zeichen. Umgesetzt in v0.9.65 (E15).
+

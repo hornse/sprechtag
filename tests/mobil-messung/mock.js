@@ -512,6 +512,11 @@
         if (methode === 'GET' && !seg[1]) return ok({ mitteilungen: mitteilungen() });
         if (seg[1] === 'senden') return ok({ ok: true, gesendet: 0, grund: 'Erfundener Versandlauf.', variante: null, protokoll: [] });
         return ok({ ok: true });
+      case 'schueler-gruppen':
+        // Form wie GET /api/schueler-gruppen (v0.9.65); Gruppennamen aus der
+        // Messung vom 09.10.2026, von der Schule vergeben.
+        if (!istAdmin) return fehlt(403, 'nur Verwaltung');
+        return ok({ gruppen: ['SuS über 18', 'SuS über 18 mit Atte'], eigene_gruppe: 'Lehrkräfte', laenge: 20 });
       case 'dienstkonto':
         if (!istLk) return fehlt(403, 'Nur für Lehrkräfte');
         if (methode === 'GET') {
