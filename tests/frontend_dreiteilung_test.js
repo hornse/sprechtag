@@ -5,6 +5,8 @@
 // bei Eingabe, dort als dieselben Kacheln (Klick → Raster → buchbar).
 // Seit v0.9.58 (Zug 3b): kein oberes Suchfeld mehr, kein Rand an der
 // Klassenleitung – das Abzeichen ist die einzige Kennzeichnung.
+// Seit v0.9.60 (E10-Nachtrag, Vierteilung): Die Sonderrollen stehen in
+// einem eigenen Abschnitt nach den Unterrichtenden, abgesetzt.
 //
 // Ausgeführt, nicht gesucht: zeichneBuchenKacheln(), zeichneWeitereKacheln()
 // und zeichneWeitereLehrkraefte() laufen mit einem knappen Ersatz für el(),
@@ -31,6 +33,7 @@ const weitereRumpf = rumpf('function zeichneWeitereKacheln(');
 const blockRumpf   = rumpf('function zeichneWeitereLehrkraefte(');
 const ansichtRumpf = rumpf('function ansichtBuchen(');
 const alleRumpf    = rumpf('function buchenLehrerAlle(');
+const abschnRumpf  = rumpf('function buchenLehrerAbschnitte(');
 
 // ---- Ersatz ----------------------------------------------------
 function el(tag, klasse, text) {
@@ -178,16 +181,19 @@ pruefe('Kindwechsel leert die Suche der Weiteren', /S\.weitereSuche = ''/.test(a
 // gesucht – ein zweites Feld neben dem richtigen fiele sonst nicht auf.
 console.log('ansichtBuchen – ausgeführt: genau ein Suchfeld (Entscheidung Betreiber, Zug 3b)');
 let ansichtBuchen = fehlt;
+let buchenLehrerAbschnitte = fehlt;
+if (abschnRumpf !== '') buchenLehrerAbschnitte = new Function('liste', abschnRumpf);
 if (ansichtRumpf !== '' && alleRumpf !== '') {
-  const buchenLehrerAlle = new Function('liste', alleRumpf);
+  const buchenLehrerAlle = (liste) => new Function('buchenLehrerAbschnitte', 'liste', alleRumpf)(
+    buchenLehrerAbschnitte, liste);
   const auswahl = () => { const d = el('label'); d.querySelector = () => ({ addEventListener() {} }); return d; };
   const leer = () => {};
   ansichtBuchen = (ziel) => new Function('S', 'el', 'feld', 'auswahl', 'zeigeHinweisText',
     'sprechtagWaehler', 'kontaktSatz', 'zeichneTermineKompakt', 'ladeLehrerListe',
-    'buchenLehrerAlle', 'zeichneBuchenKacheln', 'zeichneWeitereLehrkraefte',
+    'buchenLehrerAlle', 'buchenLehrerAbschnitte', 'zeichneBuchenKacheln', 'zeichneWeitereLehrkraefte',
     'zeichneRaster', 'zeichne', 'ziel', ansichtRumpf)(
     S, el, feld, auswahl, leer, () => true, () => '', leer, leer,
-    buchenLehrerAlle, zeichneBuchenKacheln, zeichneWeitereLehrkraefte, leer, leer, ziel);
+    buchenLehrerAlle, buchenLehrerAbschnitte, zeichneBuchenKacheln, zeichneWeitereLehrkraefte, leer, leer, ziel);
 }
 const eingaben = (k) => alleKnoten(k).filter((x) => x.tag === 'input');
 const ausserhalbBlock = (k) => [k].concat(...k.kinder.filter((x) => x.tag !== 'details').map(ausserhalbBlock));
@@ -205,7 +211,44 @@ const zp = el('div');
 versuch(() => ansichtBuchen(zp));
 pruefe('ohne Weitere (Phase 1): kein Suchfeld, die Kachel steht da',
   eingaben(zp).length === 0 && kacheln(zp).length === 1);
-delete S.buchenSuche; S.lehrerListe = null;
+delete S.buchenSuche;
+
+// ------------------------------------------------------------
+// v0.9.60, Vierteilung (E10-Nachtrag, Entscheidung Betreiber): Eingeladene /
+// Klassenleitung + Unterrichtende / Sonderrollen / Weitere hinter der Suche.
+// Die Sonderrollen beantworten eine andere Frage („An wen wende ich mich
+// sonst?“) und stehen abgesetzt – an derselben Stelle wie bisher.
+console.log('Vierteilung – Sonderrollen abgesetzt');
+const so = zeile(9, 'So', 'Neun', { rolle: 'Beratungslehrkraft' });
+const ab = sicher(() => buchenLehrerAbschnitte({ eingeladen: [klEi], unterrichtend: [kl, un], sonderlehrer: [so] }));
+pruefe('buchenLehrerAbschnitte(): zwei Abschnitte – Eingeladene + Unterrichtende, dann Sonderrollen',
+  Array.isArray(ab) && ab.length === 2
+  && ab[0].lehrer.map((l) => l.kuerzel).join(',') === 'Ei,Kl,Un'
+  && ab[1].art === 'sonderrollen' && ab[1].lehrer.map((l) => l.kuerzel).join(',') === 'So');
+const abOhne = sicher(() => buchenLehrerAbschnitte({ eingeladen: [], unterrichtend: [un], sonderlehrer: [] }));
+pruefe('… leere Abschnitte entfallen (kein leeres Gitter)',
+  Array.isArray(abOhne) && abOhne.length === 1 && abOhne[0].art === 'unterricht');
+const gitterVon = (z) => ausserhalbBlock(z).filter((x) => x.klasse.split(' ').includes('buchen-gitter'));
+S.lehrerListe = { eingeladen: [klEi], unterrichtend: [kl, un], sonderlehrer: [so], weitere: [we] };
+const zv = el('div');
+versuch(() => ansichtBuchen(zv));
+const gv = gitterVon(zv);
+pruefe('ansichtBuchen(): Sonderrollen in eigenem Gitter NACH den Unterrichtenden, als solches gekennzeichnet',
+  gv.length === 2 && kacheln(gv[0]).length === 3 && kacheln(gv[1]).length === 1
+  && gv[1].klasse.split(' ').includes('buchen-sonderrollen')
+  && !gv[0].klasse.split(' ').includes('buchen-sonderrollen')
+  && texte(kacheln(gv[1])[0]).includes('Beratungslehrkraft'));
+// Genau eine Darstellung: jede Lehrkraft einmal, nicht zusätzlich im
+// gemeinsamen Gitter.
+const alleKacheln = ausserhalbBlock(zv).filter((x) => x.klasse.split(' ').includes('buchen-kachel'));
+pruefe('… jede Lehrkraft genau einmal (4 Kacheln außerhalb der Suche)',
+  alleKacheln.length === 4 && new Set(alleKacheln.map((k) => texte(k).join('|'))).size === 4);
+S.lehrerListe = { eingeladen: [], unterrichtend: [kl, un], sonderlehrer: [], weitere: [] };
+const zo = el('div');
+versuch(() => ansichtBuchen(zo));
+pruefe('ohne Sonderrollen: ein Gitter, keins für Sonderrollen',
+  gitterVon(zo).length === 1 && !gitterVon(zo)[0].klasse.includes('buchen-sonderrollen'));
+S.lehrerListe = null;
 
 console.log('Stil');
 // Kommentare zuerst entfernen: Die Prüfung darf nicht auf die Beschreibung anschlagen.

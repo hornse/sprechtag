@@ -300,6 +300,9 @@ body.anzeige-modus { background: var(--akzent); }
 /* Interaktive Buchungs-Kacheln (Einstieg für Eltern) */
 .buchen-gitter { display: grid; gap: .8rem; margin-top: .8rem;
                  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); }
+/* Sonderrollen: eigener Abschnitt nach den Unterrichtenden – ein Gitter für
+   sich beginnt eine neue Zeile; der Abstand setzt es ab (v0.9.60, E10). */
+.buchen-sonderrollen { margin-top: 2rem; }
 .buchen-kachel { border: 1px solid var(--rand); border-radius: 10px;
                  padding: .9rem 1rem; cursor: pointer; background: var(--flaeche);
                  display: flex; flex-direction: column; gap: .2rem;

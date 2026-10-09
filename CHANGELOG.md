@@ -1,5 +1,56 @@
 # Changelog - sprechtag
 
+## v0.9.61 (Oktober 2026) – Zwei Datenfunde behoben; Sonderrollen abgesetzt (Vierteilung)
+
+Bestätigt am Gerät (v0.9.60): Karten in den vier Ansichten, nur
+senkrechtes Rollen, „Verwerfen“/„Absagen“ erreichbar, nach dem Abmelden
+beginnt die Seite auf der Anmeldung. Noch offen: „Meine Termine: N
+Termine“ in der Eltern-Ansicht und das Halbtags-Häkchen. Querformat
+bleibt wie gebaut (Entscheidung Betreiber, keine zweite Schwelle).
+
+### Teil A – zwei Funde aus v0.9.60
+1. **`GET /api/sprechtage/{id}/lehrer` nur noch für die Verwaltung.**
+   Bisher genügte jede Anmeldung: Auch Eltern konnten Teilnahme,
+   Anwesenheit, Raum und Bemerkung aller Lehrkräfte abrufen – in der
+   Bemerkung steht womöglich, warum jemand nicht teilnimmt. Abgerufen
+   wird die Liste nur aus der Verwaltung (Lehrkräfte & Räume); die
+   Rolle ist jetzt `auth_require_admin()`. Geprüft wird der GET-Zweig
+   aus `index.php`, ausgeführt mit drei Rollen. **Im Betrieb nur
+   ohne Anmeldung geprüft (401, vorher wie nachher);** ob ein
+   Elternkonto 403 bekommt, zeigt erst ein Aufruf mit einem solchen.
+2. **`GET /api/anzeige` liefert kein `halbtags` mehr.** Die öffentliche
+   Anzeige las das Feld nicht. **Im Betrieb gemessen** (ohne Anmeldung,
+   nur Schlüssel und Zählwerte): unter v0.9.60 trugen alle 101
+   Lehrkräfte der Antwort den Schlüssel, 3 mit Wert 1; Messung nach der
+   Auslieferung siehe Bericht. `raum_name` liefert die Anzeige ebenfalls,
+   ohne es zu lesen – keine Personenangabe, nicht entfernt.
+
+### Teil B – Sonderrollen abgesetzt (E10-Nachtrag: Vierteilung)
+Eingeladene / Klassenleitung + Unterrichtende / Sonderrollen / Weitere
+hinter der Suche. Die Sonderrollen stehen an derselben Stelle wie bisher,
+aber in einem eigenen Gitter: neue Zeile, 2rem Abstand davor, keine
+Überschrift (schlichte Fassung, Entscheidung am Screenshot). Eine
+Stelle für die Gliederung: `buchenLehrerAbschnitte()`.
+
+Gemessen (WebKit, erfundene Daten): v0.9.60 ein Gitter mit 12 Kacheln;
+v0.9.61 9 Kacheln, dann 3 Sonderrollen mit 32 px Abstand (Reihenabstand
+im Gitter 13 px). Bei 1280 px beginnen die Sonderrollen eine neue Reihe.
+Ob der Abstand allein am Gerät als Abschnitt gelesen wird, ist offen.
+
+### Prüfungen
+- 1000 → 1012 Prüfzeilen in 52 Suiten, alle grün; `tests-sprechtag.sh`
+  29. `frontend_dreiteilung_test.js` +5 (Vierteilung, ausgeführt),
+  `run_sprechtag_lehrer.php` +7 (Rolle, Anzeige-Abfrage).
+  `frontend_einladung_kachel_test.js` bekommt `buchenLehrerAbschnitte()`
+  in seine Ersatzumgebung gereicht; Prüfungen unverändert.
+- Mutationen 156 → 166 Ergebniszeilen, alle angeschlagen, H4 grün,
+  Rücknahme gegen Prüfsummen belegt. Im ersten Lauf kamen KF4, KF5 und
+  Z41 nicht an – ihre Muster zielten auf den alten Rumpf von
+  `buchenLehrerAlle()` bzw. das eine gemeinsame Gitter; umgestellt auf
+  dieselbe Absicht an der neuen Stelle (ebenso Z40).
+- `tests/mutationen.sh`: Der Name `SL` war doppelt vergeben (slots.php
+  und, seit v0.9.60, die neue Suite); die Suite heißt jetzt `LS`.
+
 ## v0.9.60 (Oktober 2026) – Mobile Ansicht, dritter Durchgang: Karten statt Rollen; zwei Altfunde
 
 Bestätigt am Gerät (v0.9.59): Die Seite lässt sich im Hochformat nicht mehr

@@ -111,6 +111,19 @@
     return { titel: s.textContent.trim(), mock: r && r.json.buchungen ? r.json.buchungen.length : null };
   }
 
+  // Abschnitte der Buchungskacheln (v0.9.61, Vierteilung): Gitter außerhalb
+  // eines Blocks, je Gitter Kachelzahl und senkrechter Abstand zum vorigen –
+  // dazu der Abstand zweier Reihen IM Gitter zum Vergleich.
+  function abschnitte() {
+    const g = [...document.querySelectorAll('#ansicht .buchen-gitter')].filter((x) => !x.closest('details'));
+    if (g.length === 0) return null;
+    const reihe = parseFloat(getComputedStyle(g[0]).rowGap) || 0;
+    return { reihe: Math.round(reihe), gitter: g.map((x, i) => ({
+      art: x.classList.contains('buchen-sonderrollen') ? 'sonderrollen' : 'unterricht',
+      kacheln: x.querySelectorAll('.buchen-kachel').length,
+      abstand: i === 0 ? null : Math.round(x.getBoundingClientRect().top - g[i - 1].getBoundingClientRect().bottom) })) };
+  }
+
   function messen(stufe) {
     const vw = document.documentElement.clientWidth;
     // Voraussetzung: App und Stilvorlage sind geladen. Ohne sie misst das
@@ -125,7 +138,7 @@
     return { stufe, app, css, skriptfehler: skriptfehler.slice(0, 3), viewport: vw, innerWidth,
       seitenbreite, seitenhoehe: document.documentElement.scrollHeight,
       verursacher: seitenbreite > vw ? verursacher() : [],
-      knapp: knapp(), uebersicht: uebersicht(),
+      knapp: knapp(), uebersicht: uebersicht(), abschnitte: abschnitte(),
       tabellen: [...document.querySelectorAll('table')].map((t) => t.className + ':' + Math.round(t.getBoundingClientRect().width)
         + '/' + Math.round(t.parentElement.getBoundingClientRect().width)) };
   }

@@ -72,7 +72,10 @@ const L = [
         + (x.tabellen.length ? ', Tabellen ' + x.tabellen.join(' ') : '')
         + (Object.keys(x.knapp).length ? ', knapp ' + Object.entries(x.knapp)
           .map(([k, v]) => k + ' ' + v.n + '× ' + (v.ueber > 0 ? 'ÜBER ' + v.ueber : v.ueber)).join('; ') : '')
-        + (x.uebersicht ? ', Übersicht „' + x.uebersicht.titel + '“ (Ersatz-API: ' + x.uebersicht.mock + ')' : '')).join(' | '));
+        + (x.uebersicht ? ', Übersicht „' + x.uebersicht.titel + '“ (Ersatz-API: ' + x.uebersicht.mock + ')' : '')
+        + (x.abschnitte ? ', Abschnitte ' + x.abschnitte.gitter.map((a) => a.art + ' ' + a.kacheln
+          + (a.abstand === null ? '' : ' (Abstand ' + a.abstand + ' px)')).join(' / ')
+          + ', Reihenabstand ' + x.abschnitte.reihe + ' px' : '')).join(' | '));
     } catch (err) {
       zeile(id, 'KEIN ERGEBNIS (' + String(err.message).split('\n')[0] + ')'); fehlt++;
     } finally { await p.close(); }

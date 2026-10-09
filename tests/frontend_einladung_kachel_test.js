@@ -23,6 +23,9 @@ const js = fs.readFileSync(path.join(__dirname, '..', 'frontend', 'app.js'), 'ut
 const rumpf = (kopf) => require('./rumpf.js').rumpf(js, kopf);
 
 const alleRumpf    = rumpf('function buchenLehrerAlle(');
+// Seit v0.9.60 leitet buchenLehrerAlle() die Reihenfolge aus
+// buchenLehrerAbschnitte() ab (eine Quelle); beide laufen hier echt.
+const abschnRumpf  = rumpf('function buchenLehrerAbschnitte(');
 const kachelRumpf  = rumpf('function zeichneBuchenKacheln(');
 const ansichtRumpf = rumpf('function ansichtBuchen(');
 const ladeRumpf    = rumpf('async function ladeLehrerListe(');
@@ -40,7 +43,11 @@ const texte = (knoten) => [knoten.text].concat(...knoten.kinder.map(texte));
 
 let buchenLehrerAlle = () => { throw new Error('Rumpf fehlt'); };
 let zeichneBuchenKacheln = buchenLehrerAlle;
-if (alleRumpf !== '') buchenLehrerAlle = new Function('liste', alleRumpf);
+if (alleRumpf !== '' && abschnRumpf !== '') {
+  const buchenLehrerAbschnitte = new Function('liste', abschnRumpf);
+  buchenLehrerAlle = (liste) => new Function('buchenLehrerAbschnitte', 'liste', alleRumpf)(
+    buchenLehrerAbschnitte, liste);
+}
 if (kachelRumpf !== '') {
   // Seit v0.9.57 mit drittem Parameter `suche` (Gruppe 3); hier ohne ihn.
   zeichneBuchenKacheln = (S, gitter, alle) => new Function(

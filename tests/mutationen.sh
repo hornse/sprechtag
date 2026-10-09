@@ -248,9 +248,11 @@ mut KF2 frontend/app.js 's/if \(Number\(l\.eingeladen\) === 1\) \{/if (true) {/'
   $KF "Kacheln der anderen tragen es nicht"
 mut KF3 frontend/app.js 's/if \(Number\(l\.eingeladen\) === 1\) \{/if (l.eingeladen === 1) {/' \
   $KF "Kachel der Eingeladenen trägt „hat Sie eingeladen“ genau einmal"
-mut KF4 frontend/app.js 's/return \(liste\.eingeladen \|\| \[\]\)\n    \.concat\(liste\.unterrichtend \|\| \[\]\)/return (liste.unterrichtend || [])\n    .concat(liste.eingeladen || [])/' \
+# KF4, KF5, Z41 seit v0.9.61 auf buchenLehrerAbschnitte() bzw. die Schleife
+# über die Abschnitte – die Reihenfolge steht jetzt dort (gleiche Absicht).
+mut KF4 frontend/app.js 's/lehrer: \(liste\.eingeladen \|\| \[\]\)\.concat\(liste\.unterrichtend \|\| \[\]\)/lehrer: (liste.unterrichtend || []).concat(liste.eingeladen || [])/' \
   $KF "Reihenfolge: eingeladen, unterrichtend, Sonderrolle"
-mut KF5 frontend/app.js 's/return \(liste\.eingeladen \|\| \[\]\)/return ([])/' \
+mut KF5 frontend/app.js 's/lehrer: \(liste\.eingeladen \|\| \[\]\)\.concat/lehrer: ([]).concat/' \
   $KF "Phase 1: genau die Eingeladene erscheint"
 mut KF6 frontend/app.js 's/const alle = buchenLehrerAlle\(S\.lehrerListe\);/const alle = (S.lehrerListe.unterrichtend || []).concat(S.lehrerListe.sonderlehrer || []);/' \
   $KF "ansichtBuchen() bildet die Liste über buchenLehrerAlle()"
@@ -411,9 +413,11 @@ mut Z39 $APP 's/S\.weitereSuche = e\.target\.value;\n    zeichneWeitereKacheln\(
 
 echo "== Zug 3b: oberes Suchfeld entfallen (v0.9.58)"
 KA=tests/frontend_buchen_kacheln_test.js
-mut Z40 $APP "s/(    const gitter = el\('div', 'buchen-gitter'\);\n    zeichneBuchenKacheln\(gitter, alle\);)/    ziel.appendChild(feld('Suchen', 'buchen-suche', 'text', ''));\n\$1/" \
+# Z40 seit v0.9.61 vor der Schleife über die Abschnitte (vorher vor dem
+# einen gemeinsamen Gitter, das es nicht mehr gibt).
+mut Z40 $APP "s/(    for \(const a of buchenLehrerAbschnitte\(S\.lehrerListe\)\) \{)/    ziel.appendChild(feld('Suchen', 'buchen-suche', 'text', ''));\n\$1/" \
   $FD "Phase 2: genau ein Suchfeld, und es ist das der Weiteren"
-mut Z41 $APP 's/    zeichneBuchenKacheln\(gitter, alle\);\n    ziel\.appendChild\(gitter\);/    zeichneBuchenKacheln(gitter, alle, S.buchenSuche);\n    ziel.appendChild(gitter);/' \
+mut Z41 $APP 's/      zeichneBuchenKacheln\(gitter, a\.lehrer\);/      zeichneBuchenKacheln(gitter, a.lehrer, S.buchenSuche);/' \
   $FD "Phase 2: alle Kacheln der Gruppen 1–2 stehen ungefiltert da"
 mut Z42 $APP "s/S\.lehrerListe = null; S\.lehrerLaedt = false;\n/S.lehrerListe = null; S.lehrerLaedt = false; S.buchenSuche = '';\n/" \
   $KA "kein oberes Suchfeld mehr"
@@ -492,12 +496,12 @@ mut MT6 $APP 's/  location\.replace\(location\.pathname\);/  location.replace(lo
 # Verankert an sl.id AS zuweisung_id: „l.name, l.halbtags,“ steht auch in
 # der Abfrage von /api/anzeige – ohne Anker traf die Ersetzung DORT (erster
 # Lauf: SL1/SL2 nicht angeschlagen, weil die Route unverändert war).
-SL=tests/run_sprechtag_lehrer.php
+LS=tests/run_sprechtag_lehrer.php
 IDX=backend/api/index.php
 mut SL1 $IDX 's/l\.name, l\.halbtags,(\n\s+sl\.id AS zuweisung_id)/l.name,$1/' \
-  $SL "jede Zeile führt halbtags"
+  $LS "jede Zeile führt halbtags"
 mut SL2 $IDX 's/l\.name, l\.halbtags,(\n\s+sl\.id AS zuweisung_id)/l.name, 0 AS halbtags,$1/' \
-  $SL "Halbtagskraft 1, andere 0"
+  $LS "Halbtagskraft 1, andere 0"
 
 # v0.9.60 – gemessene Überläufe (Teil B)
 mut MO24 $CSS 's/;\n            flex-wrap: wrap; \}/; }/' \
@@ -526,6 +530,30 @@ mut MO35 $APP 's/box\.appendChild\(kartenTabelle\(tab\)\);/box.appendChild(tab);
   $MO "keine Tabelle wird ohne Rahmen eingehängt"
 mut MO34 $CSS 's/\z/\n.tabelle.karten tr { display: block; }\n/' \
   $MO "Kartenregeln nur in der Medienabfrage der Telefonansicht"
+
+# v0.9.61 – Teil A: Rolle an der Lehrkraft-Liste, kein halbtags in der Anzeige
+mut R1 $IDX 's/(Verwaltung \(Lehrkräfte & Räume\)\.\n        if \(\$methode === \x27GET\x27\) \{\n            )auth_require_admin\(\);/$1auth_require();/' \
+  $LS "Eltern: abgewiesen (403), keine Lehrkraftdaten"
+mut R2 $IDX 's/(Verwaltung \(Lehrkräfte & Räume\)\.\n        if \(\$methode === \x27GET\x27\) \{\n            )auth_require_admin\(\);/$1if (false) auth_require_admin();/' \
+  $LS "Lehrkraft: abgewiesen (403)"
+mut R3 $IDX 's/\x27SELECT l\.kuerzel, l\.name,\n                sl\.anwesend_von/\x27SELECT l.kuerzel, l.name, l.halbtags,\n                sl.anwesend_von/' \
+  $LS "Anzeige (öffentlich) liefert kein halbtags"
+mut R4 $IDX 's/(\x27SELECT l\.kuerzel, l\.name,\n                )sl\.anwesend_von, sl\.anwesend_bis,/$1/' \
+  $LS "… aber alles, was die Anzeige liest"
+
+# v0.9.61 – Teil B: Vierteilung, Sonderrollen abgesetzt
+mut V1 $APP 's/lehrer: \(liste\.eingeladen \|\| \[\]\)\.concat\(liste\.unterrichtend \|\| \[\]\) \}/lehrer: (liste.eingeladen || []).concat(liste.unterrichtend || []).concat(liste.sonderlehrer || []) }/' \
+  $FD "buchenLehrerAbschnitte(): zwei Abschnitte"
+mut V2 $APP 's/  \]\.filter\(\(a\) => a\.lehrer\.length > 0\);/  ];/' \
+  $FD "… leere Abschnitte entfallen"
+mut V3 $APP 's/\n        \+ \(a\.art === \x27sonderrollen\x27 \? \x27 buchen-sonderrollen\x27 : \x27\x27\)\);/);/' \
+  $FD "ansichtBuchen(): Sonderrollen in eigenem Gitter NACH den Unterrichtenden"
+mut V4 $APP 's/    for \(const a of buchenLehrerAbschnitte\(S\.lehrerListe\)\) \{\n.*?\n    \}\n/    const gitter = el(\x27div\x27, \x27buchen-gitter\x27);\n    zeichneBuchenKacheln(gitter, alle);\n    ziel.appendChild(gitter);\n/s' \
+  $FD "ansichtBuchen(): Sonderrollen in eigenem Gitter NACH den Unterrichtenden"
+mut V5 $APP 's/(      zeichneBuchenKacheln\(gitter, a\.lehrer\);\n      ziel\.appendChild\(gitter\);\n    \}\n)/$1    const g2 = el(\x27div\x27, \x27buchen-gitter\x27);\n    zeichneBuchenKacheln(g2, alle);\n    ziel.appendChild(g2);\n/' \
+  $FD "… jede Lehrkraft genau einmal"
+mut V6 $APP 's/return buchenLehrerAbschnitte\(liste\)\.flatMap\(\(a\) => a\.lehrer\);/return buchenLehrerAbschnitte(liste)[0].lehrer;/' \
+  $KF "Reihenfolge: eingeladen, unterrichtend, Sonderrolle"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi

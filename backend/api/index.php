@@ -51,14 +51,16 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.60', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.61', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
 // Bewusst OHNE Login und OHNE persönliche oder Buchungsdaten: nur die
 // neutrale Raumzuordnung des aktiven Sprechtags (Kürzel, Name, Raum,
 // Anwesenheitszeit). Diese Information hängt am Sprechtag ohnehin öffentlich
-// aus. Keine Eltern, keine Slots, kein frei/belegt.
+// aus. Keine Eltern, keine Slots, kein frei/belegt. Kein halbtags (bis
+// v0.9.60 mitgeliefert): Die Anzeige liest es nicht, und es sagt etwas
+// über das Arbeitsverhältnis.
 if ($methode === 'GET' && ($seg[0] ?? '') === 'anzeige') {
     $pdo = db($cfg);
     $s = $pdo->query(
@@ -82,7 +84,7 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'anzeige') {
         ? 'l.kuerzel'
         : 'r.kuerzel IS NULL, r.kuerzel, l.kuerzel';
     $st = $pdo->prepare(
-        'SELECT l.kuerzel, l.name, l.halbtags,
+        'SELECT l.kuerzel, l.name,
                 sl.anwesend_von, sl.anwesend_bis,
                 r.kuerzel AS raum_kuerzel, r.name AS raum_name
          FROM sprechtag_lehrer sl
@@ -741,10 +743,14 @@ if (($seg[0] ?? '') === 'sprechtage') {
     // ---- Teilnehmende Lehrkräfte ----
     if ($sid > 0 && ($seg[2] ?? '') === 'lehrer') {
         // l.halbtags: Die Lehrkraft-Tabelle der Verwaltung liest es (Häkchen
-        // „½“); ohne das Feld stand es immer leer (v0.9.60). Kein neuer
-        // Empfängerkreis – GET /api/stammdaten liefert es denselben Angemeldeten.
+        // „½“); ohne das Feld stand es immer leer (v0.9.60).
+        // Nur die Verwaltung (v0.9.61): Die Liste trägt Teilnahme,
+        // Anwesenheit und Bemerkung ALLER Lehrkräfte – in der Bemerkung steht
+        // womöglich, warum jemand nicht teilnimmt. Vorher genügte jede
+        // Anmeldung, auch die von Eltern. Abgerufen wird sie nur aus der
+        // Verwaltung (Lehrkräfte & Räume).
         if ($methode === 'GET') {
-            auth_require();
+            auth_require_admin();
             $st = $pdo->prepare(
                 'SELECT l.id AS lehrer_id, l.kuerzel, l.name, l.halbtags,
                         sl.id AS zuweisung_id, sl.anwesend_von, sl.anwesend_bis,

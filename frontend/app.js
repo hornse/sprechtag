@@ -1214,9 +1214,14 @@ function ansichtBuchen(ziel) {
     // Es filterte nur die ohnehin sichtbaren und stand direkt über der
     // Suche, die alle Teilnehmenden findet. Wer oben nichts fand, hielt
     // das für vollständig.
-    const gitter = el('div', 'buchen-gitter');
-    zeichneBuchenKacheln(gitter, alle);
-    ziel.appendChild(gitter);
+    // Je Abschnitt ein Gitter; die Sonderrollen beginnen eine neue Zeile
+    // mit Abstand davor (Überschrift ja/nein: am Screenshot, v0.9.60).
+    for (const a of buchenLehrerAbschnitte(S.lehrerListe)) {
+      const gitter = el('div', 'buchen-gitter'
+        + (a.art === 'sonderrollen' ? ' buchen-sonderrollen' : ''));
+      zeichneBuchenKacheln(gitter, a.lehrer);
+      ziel.appendChild(gitter);
+    }
   } else {
     ziel.appendChild(el('p', 'hinweis',
       'Für dieses Kind wurden keine unterrichtenden Lehrkräfte ermittelt. '
@@ -1308,13 +1313,24 @@ function zeichneTermineKompakt(ziel) {
   ziel.appendChild(b);
 }
 
-// Alle buchbaren Lehrkräfte in Anzeigereihenfolge: Eingeladene zuerst.
-// In Phase 1 liefert der Server nur sie (nur_eingeladene, E10); die
-// anderen Listen sind dann leer. Fehlende Listen gelten als leer.
+// Abschnitte der buchbaren Lehrkräfte in Anzeigereihenfolge (E10,
+// Vierteilung seit v0.9.60): 1. Eingeladene, Klassenleitung und
+// Unterrichtende – „Wer unterrichtet mein Kind?“; 2. Sonderrollen – „An wen
+// wende ich mich bei einem Anliegen, das kein Fach betrifft?“, abgesetzt,
+// an derselben Stelle wie zuvor. Die Weiteren (4.) stehen hinter der Suche.
+// In Phase 1 liefert der Server nur Eingeladene (nur_eingeladene, E10).
+// Fehlende Listen gelten als leer, leere Abschnitte entfallen.
+function buchenLehrerAbschnitte(liste) {
+  return [
+    { art: 'unterricht', lehrer: (liste.eingeladen || []).concat(liste.unterrichtend || []) },
+    { art: 'sonderrollen', lehrer: liste.sonderlehrer || [] },
+  ].filter((a) => a.lehrer.length > 0);
+}
+
+// Alle buchbaren Lehrkräfte in Anzeigereihenfolge – aus den Abschnitten,
+// damit die Reihenfolge an einer Stelle steht.
 function buchenLehrerAlle(liste) {
-  return (liste.eingeladen || [])
-    .concat(liste.unterrichtend || [])
-    .concat(liste.sonderlehrer || []);
+  return buchenLehrerAbschnitte(liste).flatMap((a) => a.lehrer);
 }
 
 // Rendert die Lehrkraft-Kacheln in den Container.

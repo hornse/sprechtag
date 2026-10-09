@@ -410,7 +410,7 @@
   // ---------- Anzeige (Signage, öffentlich) ---------------------------------
   function anzeige() {
     const lehrer = sprechtagLehrer().filter((l) => l.teilnahme === '1').map((l) => ({
-      kuerzel: l.kuerzel, name: l.name, halbtags: '0',
+      kuerzel: l.kuerzel, name: l.name,   // halbtags seit v0.9.61 nicht mehr (öffentlich)
       anwesend_von: l.anwesend_von, anwesend_bis: l.anwesend_bis,
       raum_kuerzel: l.raum_kuerzel,
       raum_name: (RAEUME.find((r) => r.id === l.raum_id) || {}).name || null,

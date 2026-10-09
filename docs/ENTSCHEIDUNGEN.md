@@ -549,6 +549,25 @@ Beim Bau festgelegt (Folgerungen, keine neuen Richtungen):
   der Abnahmepunkt aus v0.9.57 („Rand sichtbar und von ‚gewählt‘
   unterscheidbar“) beantwortet, mit Nein.
 
+**Nachtrag 09.10.2026 — v0.9.61, aus der Dreiteilung wird eine
+Vierteilung (Entscheidung Betreiber):**
+Eingeladene / Klassenleitung + Unterrichtende / **Sonderrollen** /
+Weitere hinter der Suche. Befund am Bild: Die Beratungslehrkraft stand
+mitten zwischen den Fachlehrkräften; dass sie eine andere Art
+Ansprechpartnerin ist, zeigte nur das Abzeichen. Fachlich sind es zwei
+Fragen – „Wer unterrichtet mein Kind?“ und „An wen wende ich mich bei
+einem Anliegen, das kein Fach betrifft?“ –, und die zweite ging in der
+Kachelwand unter.
+- Die Sonderrollen stehen **an derselben Stelle wie bisher**, nach den
+  Unterrichtenden, in einem eigenen Gitter: Es beginnt eine neue Zeile,
+  ein Abstand setzt es ab. Die Reihenfolge bleibt eine Rangfolge nach
+  Nähe zum Kind; die Sonderrollen zwischen Klassenleitung und
+  Fachlehrkräfte zu schieben, bräche sie.
+- Gebaut ist die schlichte Fassung, ohne Überschrift. Ob es eine braucht,
+  wird am Screenshot entschieden.
+- Die Gliederung steht an einer Stelle (`buchenLehrerAbschnitte()`); die
+  flache Reihenfolge (`buchenLehrerAlle()`) wird daraus abgeleitet.
+
 ## E11 — Mobile Ansicht: in Durchgängen, das Gerät des Betreibers misst
 
 **Stand 09.10.2026, v0.9.58.**
