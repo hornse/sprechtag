@@ -1027,6 +1027,28 @@ Einladungsstatus könnte dann „gebucht / abgesagt / offen“ unterscheiden.
   muss dort dazu, sonst bleiben Personendaten über das Archivieren hinaus
   liegen.
 
+> **Teilweise beantwortet (Nachtrag 09.10.2026, unten):** Das Aufräumen
+> übernimmt das Archivieren, eine eigene Frist gibt es nicht.
+
 **Offen, vor dem Bau zu klären:** Markierung in `buchungen` oder eigene
 Ablage; nur Ausfall oder auch die einzelne Absage; sehen die Eltern den
 abgesagten Termin; wer räumt auf (Archivieren oder eigene Frist).
+
+**Nachtrag 09.10.2026 — Aufräumen über das Archivieren (Betreiber):**
+Abgesagte Termine werden beim Archivieren des Sprechtags gelöscht, eine
+eigene Frist gibt es nicht. Begründung des Betreibers: Ein zweiter
+Löschmechanismus wäre Aufwand für wenig Gewinn, und an der bestehenden
+Lage ändert sich nichts, denn auch Buchungen stehen heute bis zum
+Archivieren. Damit gilt die Aufbewahrung von „2 bis 4 Wochen“ oben nicht
+als Frist. Sie ist die Zeit, die die Lehrkraft mindestens braucht. Wie
+lange die Termine tatsächlich stehen, hängt davon ab, wann die Schule
+archiviert, und eine automatische Frist gibt es dafür nicht.
+
+Was das Archivieren löscht, steht seit v0.9.74 in
+`tests/run_archivieren.php`, am ausgeführten Code geprüft. Jede Tabelle
+mit `sprechtag_id` muss dort geleert werden oder ausdrücklich als Struktur
+gelten. Die Ablage für abgesagte Termine macht die Suite deshalb rot, bis
+sie mitgelöscht wird; Mutation AR5 belegt das mit einer nachgestellten
+Ablage. Der Datenschutz-Absatz der Hilfe (`datenschutzAbsaetze()`) nennt
+„die Termine“ allgemein und trägt den Bau ohne Änderung. Beim Bau ist nur
+zu entscheiden, ob dort „auch abgesagte“ ausdrücklich dazugeschrieben wird.

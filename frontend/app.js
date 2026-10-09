@@ -1224,12 +1224,7 @@ function ansichtHilfe(ziel) {
     + 'buchbar.'));
 
   hb.appendChild(el('h4', null, 'Datenschutz'));
-  hb.appendChild(el('p', null,
-    'Es werden so wenige personenbezogene Daten wie möglich gespeichert. '
-    + 'Namen von Erziehungsberechtigten werden nur zur Laufzeit aus der '
-    + 'aktuellen Sitzung verwendet. Beim Archivieren eines Sprechtags werden '
-    + 'alle persönlichen Daten (Buchungen, Einladungen, Mitteilungen) '
-    + 'gelöscht; die wiederverwendbare Struktur bleibt erhalten.'));
+  for (const a of datenschutzAbsaetze()) hb.appendChild(el('p', null, a));
   ziel.appendChild(hb);
 
   // ---- FAQ ----
@@ -1278,6 +1273,40 @@ function ansichtHilfe(ziel) {
 
   ziel.appendChild(el('p', 'hinweis-klein',
     'Diese Anleitung wird von der Schule gepflegt und kann sich ändern.'));
+}
+
+// Fester Datenschutz-Absatz der Hilfeseite (v0.9.74, H9). Bis v0.9.73
+// stand dort, beim Archivieren würden „alle“ persönlichen Daten gelöscht –
+// Login-Protokoll, Schülerliste und Kalender-Abo bleiben aber. Was das
+// Archivieren löscht, hält tests/run_archivieren.php am Code fest; eine
+// neue Tabelle (etwa die Ablage abgesagter Termine, E19) macht sie rot.
+function datenschutzAbsaetze() {
+  return [
+    'Es werden so wenige personenbezogene Daten wie möglich gespeichert. '
+      + 'Namen von Erziehungsberechtigten werden nur zur Laufzeit aus der '
+      + 'aktuellen Sitzung verwendet.',
+    'Was zu einem Sprechtag gehört – die Termine samt Hinweisen an die '
+      + 'Lehrkraft, die Einladungen, die Benachrichtigungen und die für das '
+      + 'Kind ermittelten Lehrkräfte – bleibt gespeichert, bis die Schule den '
+      + 'Sprechtag archiviert, und wird dann gelöscht. Dafür gibt es keine '
+      + 'automatische Frist. Erhalten bleibt nur die Struktur für den '
+      + 'nächsten Sprechtag: Lehrkräfte, Räume und Zeiten.',
+    'Unabhängig vom Archivieren bleibt Folgendes gespeichert:',
+    'Die Schülerliste mit Namen und Klassen, aus der Lehrkräfte für '
+      + 'Einladungen auswählen. Sie bleibt, bis die Schule sie löscht.',
+    'Fehlgeschlagene Anmeldeversuche mit dem eingegebenen '
+      + 'WebUntis-Benutzernamen und der IP-Adresse, zum Schutz vor dem '
+      + 'Durchprobieren von Passwörtern. '
+      + 'Erfolgreiche Anmeldungen werden nur festgehalten, wenn die Schule es '
+      + 'eingestellt hat. Die Einträge werden nach einer Frist gelöscht, die '
+      + 'die Schule festlegt (voreingestellt 30 Tage, höchstens 365), und zwar '
+      + 'bei der ersten Anmeldung an der App nach Ablauf der Frist.',
+    'Für den persönlichen Kalender-Link eine Kennnummer des Kontos '
+      + '(kein Name) zusammen mit dem geheimen Link. Der Eintrag entsteht, sobald '
+      + '„Meine Termine“ geöffnet wird, und bleibt bestehen; dafür gibt es '
+      + 'derzeit keine Frist. „Neuen Link erzeugen“ macht den alten Link '
+      + 'ungültig.',
+  ];
 }
 
 // Baut eine nummerierte Liste aus Strings.

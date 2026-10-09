@@ -1,5 +1,46 @@
 # Changelog - sprechtag
 
+## v0.9.74 (Oktober 2026) – Datenschutz-Absatz der Hilfe stimmt (H9)
+
+Die Hilfeseite versprach: „Beim Archivieren eines Sprechtags werden alle
+persönlichen Daten … gelöscht.“ Das stimmte nicht. Am Code nachgesehen:
+Das Archivieren löscht Buchungen (mit dem Hinweis an die Lehrkraft),
+Einladungen, die ermittelten Lehrkräfte des Kindes und die Mitteilungen
+dieses Sprechtags. Es bleiben die Schülerliste (bis die Schule sie
+löscht), das Login-Protokoll (eigene Frist, voreingestellt 30 Tage) und
+das Kalender-Abo (ohne Frist und ohne Löschweg).
+
+- Fester Datenschutz-Absatz neu in `datenschutzAbsaetze()`: Er sagt, was
+  wann gelöscht wird und was wie lange bleibt. Ehrlich ist er auch darin,
+  dass es fürs Archivieren keine automatische Frist gibt. `hilfe_zusatz`
+  ist unverändert.
+- Die Entscheidung des Betreibers zu E19 ist nachgetragen: Abgesagte
+  Termine räumt das Archivieren auf, eine eigene Frist gibt es nicht.
+- Befund `docs/BEFUND-2026-10-09-daten-neben-dem-archiv.md`. Darin:
+  Teilnahme-Bemerkungen überdauern das Archivieren und wandern beim
+  Kopieren mit (D2, nach Betreiber dringlicher als D1), Kalender-Abo ohne
+  Löschweg (D1, jetzt in der Hilfe genannt, keine Löschregel gebaut), FAQ nennt noch das Dienstkonto (D3/H13), der Bestätigungsdialog
+  nennt die Mitteilungen nicht (D4). Nichts davon ist behoben.
+- Keine Migration.
+
+### Prüfungen
+- 1226 → 1270 Prüfzeilen in 62 Suiten (vorher 60), alle grün;
+  `tests-sprechtag.sh` 29.
+  - Neu `run_archivieren.php` (23): Der Archivierzweig läuft gegen eine
+    mitschreibende Datenbank. Geprüft wird, welche Tabellen er leert, nur
+    für diesen Sprechtag, ohne Archivieren nichts und nur bei Phase
+    „archiviert“. Als Engstelle muss jede Tabelle mit `sprechtag_id` (aus
+    `sql/*.sql` ermittelt) geleert werden oder als Struktur gelten, und
+    jede Tabelle ohne sie muss eingeordnet sein. Die Ablage aus E19 macht
+    die Suite rot, bis sie mitgelöscht wird.
+  - Neu `frontend_datenschutz_test.js` (21): Der sichtbare Text wird
+    ausgeführt. Die alte Zusage fehlt, jede personenbezogene Tabelle aus
+    `run_archivieren.php` ist genannt, und die Zahlen sind an ihre Quelle
+    gebunden (Voreinstellung aus `sql/16`, Obergrenze aus `index.php`).
+    Gegen den alten Text: 19 rot.
+- Mutationen 285 → 302 Ergebniszeilen (AR1–AR9, DS1–DS8 neu), alle
+  angeschlagen, H4 grün, Rücknahme belegt.
+
 ## v0.9.73 (Oktober 2026) – Absagen an alle Erziehungsberechtigten
 
 Entscheidung des Betreibers (Nachtrag zu E17): Absagen gehen über

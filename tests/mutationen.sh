@@ -847,6 +847,44 @@ mut SV22 $IDX 's/\$lid,\n                        mit_absage_art\(\(int\)\$b\[\x2
 mut SV23 $BUP 's/(\$kind, null,\n                wu_sitzung\(\$cfg\))\);/$1, \x27eltern\x27);/' \
   $SV "Bestätigung nach Elternbuchung bleibt am buchenden Konto"
 
+echo "== v0.9.74: Archivieren und Datenschutz-Absatz der Hilfe (H9)"
+AR=tests/run_archivieren.php
+DS=tests/frontend_datenschutz_test.js
+mut AR1 $IDX 's/\n            \$pdo->prepare\(\x27DELETE FROM einladungen WHERE sprechtag_id = \?\x27\)->execute\(\[\$sid\]\);//' \
+  $AR "jede Tabelle mit sprechtag_id wird geleert oder ist Struktur"
+mut AR2 $IDX 's/\$archivieren = \(\$body\[\x27phase\x27\] \?\? \x27\x27\) === \x27archiviert\x27;/\$archivieren = (\$body[\x27phase\x27] ?? \x27\x27) !== \x27archiviert\x27;/' \
+  $AR "Archivieren nur bei Phase „archiviert“"
+mut AR3 $IDX 's/        if \(\$archivieren\) \{\n            \$pdo->prepare\(\x27DELETE FROM buchungen/        if (true) {\n            \$pdo->prepare(\x27DELETE FROM buchungen/' \
+  $AR "Voraussetzung: genau ein Block"
+mut AR4 $IDX 's/DELETE FROM mitteilungen WHERE sprechtag_id = \?\x27\)->execute\(\[\$sid\]\)/DELETE FROM mitteilungen\x27)->execute()/' \
+  $AR "jede Löschung nur für DIESEN Sprechtag"
+mut AR5 sql/21_dienstkonto_entfernen.sql 's/\z/\nCREATE TABLE IF NOT EXISTS abgesagte_termine (\n    id            INT UNSIGNED NOT NULL AUTO_INCREMENT,\n    sprechtag_id  INT UNSIGNED NOT NULL,\n    PRIMARY KEY (id)\n) ENGINE=InnoDB;\n/' \
+  $AR "jede Tabelle mit sprechtag_id wird geleert oder ist Struktur"
+mut AR6 sql/21_dienstkonto_entfernen.sql 's/\z/\nCREATE TABLE IF NOT EXISTS notizen (\n    id            INT UNSIGNED NOT NULL AUTO_INCREMENT,\n    eltern_user_id INT UNSIGNED NOT NULL,\n    PRIMARY KEY (id)\n) ENGINE=InnoDB;\n/' \
+  $AR "jede Tabelle ohne sprechtag_id ist eingeordnet"
+mut AR7 $IDX 's/(            \$pdo->prepare\(\x27DELETE FROM kind_lehrer_cache WHERE sprechtag_id = \?\x27\)->execute\(\[\$sid\]\);)/${1}\n            \$pdo->prepare(\x27DELETE FROM sprechtag_lehrer WHERE sprechtag_id = ?\x27)->execute([\$sid]);/' \
+  $AR "Struktur wird NICHT geleert"
+mut AR8 backend/api/kalender.php 's/\z/\nfunction kal_abo_weg(PDO \$p): void { \$p->exec(\x27DELETE FROM kalender_abo\x27); }\n/' \
+  $AR "Kalender-Abo: kein Löschweg im Code"
+mut AR9 $IDX 's/DELETE FROM login_log WHERE zeitpunkt < NOW\(\) - INTERVAL \? DAY/DELETE FROM login_log WHERE zeitpunkt < NOW() - INTERVAL ? MONTH/' \
+  $AR "Login-Protokoll: Bereinigung nach login_log_tage vorhanden"
+mut DS1 $APP 's/  for \(const a of datenschutzAbsaetze\(\)\) hb\.appendChild\(el\(\x27p\x27, null, a\)\);\n//' \
+  $DS "ansichtHilfe zeigt den Absatz unter „Datenschutz“"
+mut DS2 $APP 's/(  for \(const a of datenschutzAbsaetze\(\)\) hb\.appendChild\(el\(\x27p\x27, null, a\)\);\n)/${1}  hb.appendChild(el(\x27p\x27, null, \x27Beim Archivieren werden alle persönlichen Daten gelöscht.\x27));\n/' \
+  $DS "NICHT mehr: „alle persönlichen Daten“ werden gelöscht"
+mut DS3 sql/16_login_log.sql 's/\(\x27login_log_tage\x27,    \x2730\x27\)/(\x27login_log_tage\x27,    \x2714\x27)/' \
+  $DS "Login: Frist mit der Voreinstellung aus der Migration (14 Tage)"
+mut DS4 $IDX 's/max\(1, min\(365, \(int\)marke_wert\(\$pdo, \x27login_log_tage\x27/max(1, min(180, (int)marke_wert(\$pdo, \x27login_log_tage\x27/' \
+  $DS "Login: Obergrenze aus dem Backend (180)"
+mut DS5 $APP 's/    \x27Für den persönlichen Kalender-Link.*?\n(    \x27|  \];)/$1/s' \
+  $DS "Hilfe nennt, was beim Archivieren bleibt: kalender_abo"
+mut DS6 $APP 's/    \x27Die Schülerliste mit Namen und Klassen.*?\n    \x27/    \x27/s' \
+  $DS "Hilfe nennt, was beim Archivieren bleibt: schueler"
+mut DS7 $APP 's/WebUntis-Benutzernamen und der IP-Adresse, zum Schutz/WebUntis-Benutzernamen, zum Schutz/' \
+  $DS "Login: Benutzername und IP-Adresse"
+mut DS8 $APP 's/Dafür gibt es keine \x27\n      \+ \x27automatische Frist\. //' \
+  $DS "… ohne automatische Frist"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1

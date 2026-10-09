@@ -152,3 +152,24 @@ Ausführlich im CHANGELOG unter v0.9.64, Teil C. Kurz:
   ist Rückfall.
 - Aktuell: `ENTSCHEIDUNGEN.md`, die beiden `BEFUND-*`,
   `signage-wiederverwenden.md`.
+
+---
+
+## Nachtrag 09.10.2026
+
+**H9 behoben in v0.9.74.** Der feste Datenschutz-Absatz steht jetzt in
+`datenschutzAbsaetze()` (`frontend/app.js`). Er nennt, was das Archivieren
+löscht, was bleibt (Schülerliste, fehlgeschlagene Anmeldeversuche mit
+Frist, Kalender-Link ohne Frist) und dass es für das Archivieren selbst
+keine automatische Frist gibt. Geprüft wird das in
+`tests/frontend_datenschutz_test.js` und `tests/run_archivieren.php`;
+Einzelheiten stehen in `BEFUND-2026-10-09-daten-neben-dem-archiv.md`.
+`hilfe_zusatz` ist nicht angefasst.
+
+**H13 — FAQ „… es kam keine Bestätigung.“** *Steht dort:* „sofern ein
+Dienstkonto hinterlegt ist“. *Gilt heute:* Seit v0.9.72 gibt es kein
+Dienstkonto mehr. Die Bestätigung geht über die Sitzung der buchenden
+Person; ist sie abgelaufen, wird die Bestätigung vorgemerkt. Oben unter
+„Geprüft und weiterhin richtig“ stand der Satz noch als richtig, und zwar
+für den Stand vor v0.9.72. Nicht behoben, weil das Nachziehen der Hilfeseite
+nicht beauftragt ist.
