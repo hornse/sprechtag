@@ -793,7 +793,22 @@ anhalten und melden statt zu senden (geschlossen scheitern statt raten). Ob
 das noch gebaut wird, hängt davon ab, wie bald die Umstellung kommt – das
 wird mit dem Zuschnitt entschieden.
 
+> **Teilweise überholt (Nachtrag 09.10.2026, unten):** Der folgende Absatz
+> setzt voraus, Bestätigungen und Absagen liefen über das Dienstkonto. Das war
+> aus dem Ablauf **geschlossen, nicht am Code gelesen**, und stimmt so nicht.
+> Der Absatz bleibt als damaliger Stand stehen.
+
 **Offen vor dem Bau:** ob die Umstellung in Zug 4 aufgeht oder ein eigener Zug
 wird; die Architekturfrage zu `mit_rest_aus_sitzung()`; ob PARENTS auch über
 die Sitzung des Dienstkontos trägt; die Antwort bei einem Kind ohne
 hinterlegte Eltern.
+
+**Nachtrag zu E16, 09.10.2026 – Richtigstellung zum Versandweg:**
+Der Versand an Eltern läuft heute **zuerst über die Sitzung der handelnden
+Person**, das Dienstkonto nur als Rückfall, wenn keine nutzbare Sitzung da ist
+(`mit_einreihen_und_senden()`); die Bestätigung nach einer Elternbuchung
+bekommt gar keine Dienstkonto-Zugangsdaten. Die gegenteilige Angabe in Befund
+16/17 und oben war geschlossen, nicht gelesen (Befund Abschnitt 18). Zuschnitt
+und Endbedingung von E16 bleiben; die Frage „PARENTS über das Dienstkonto“
+betrifft nur den Rückfall. Ob das Dienstkonto ganz entfallen kann, ist eigene
+Lage: `docs/BESTAND-DIENSTKONTO-2026-10-09.md`.

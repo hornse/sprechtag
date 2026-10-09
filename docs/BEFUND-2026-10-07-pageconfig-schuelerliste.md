@@ -688,6 +688,11 @@ noch nicht. Für den Umbau: Der Erfolg hängt an `numberOfRecipients` ≥ 1 und 
 der Kind-Kennung; der Testfall „Kind mit mehreren Elternkonten“ ist belegt
 (vier), der Fall „Kind ohne hinterlegte Eltern“ ist es **nicht**.
 
+> **Teilweise überholt (Nachtrag 09.10.2026, Abschnitt 18):** Die Angabe,
+> Bestätigungen und Absagen liefen heute über das Dienstkonto, ist aus dem
+> Ablauf **geschlossen, nicht am Code gelesen** – und stimmt so nicht. Der
+> Absatz bleibt als damaliger Stand stehen.
+
 **Nicht gemessen:**
 - ob `/v2/messages` mit PARENTS auch über die **Sitzung des Dienstkontos**
   trägt (gemessen ist die Lehrkraft-Sitzung); heute versendet sprechtag
@@ -699,6 +704,11 @@ Folge: E16 in `docs/ENTSCHEIDUNGEN.md`.
 ---
 
 ## 17 — Nachtrag 09.10.2026: Messung über die Sitzung des Dienstkontos vorbereitet (v0.9.70)
+
+> **Teilweise überholt (Nachtrag 09.10.2026, Abschnitt 18):** Die Angabe,
+> Bestätigungen und Absagen liefen heute über das Dienstkonto, ist aus dem
+> Ablauf **geschlossen, nicht am Code gelesen** – und stimmt so nicht. Der
+> Absatz bleibt als damaliger Stand stehen.
 
 Lücke aus Abschnitt 16: PARENTS ist nur über die **Lehrkraft**-Sitzung
 gemessen. Bestätigungen und Absagen laufen heute über das **Dienstkonto** –
@@ -715,4 +725,30 @@ Zu messen: (1) Trägt PARENTS über die Dienstkonto-Sitzung (Status,
 `numberOfRecipients`)? (2) Dieselbe Empfängerzahl wie über die
 Lehrkraft-Sitzung (4)? Dazu, wenn sich ein Kind **ohne** hinterlegte Eltern
 finden lässt: wie die Antwort dann aussieht – sonst bleibt das offen.
+
+---
+
+## 18 — Nachtrag 09.10.2026: Richtigstellung zum Versandweg
+
+In Abschnitt 16, Abschnitt 17 und E16 stand – sinngemäß –, Bestätigungen und
+Absagen liefen heute über das Dienstkonto. **Herkunft des Fehlers:** aus dem
+Ablauf geschlossen („bei einer Buchung durch Eltern ist keine Lehrkraft
+angemeldet, also muss das Dienstkonto senden“), **nicht am Code gelesen.**
+
+**Am Code gelesen** (Stand v0.9.70; Bestandsaufnahme
+`docs/BESTAND-DIENSTKONTO-2026-10-09.md`):
+- `mit_einreihen_und_senden()` nimmt **zuerst die Sitzung der angemeldeten
+  Person**; das Dienstkonto greift nur, wenn es keine nutzbare Sitzung gibt.
+  Scheitert der Versand mit Sitzung, gibt es keinen Rückfall aufs Dienstkonto.
+- Die **Bestätigung nach einer Elternbuchung** bekommt **keine**
+  Dienstkonto-Zugangsdaten: Sie versucht die Sitzung der Eltern, sonst bleibt
+  sie „offen“.
+- Absagen durch die Lehrkraft, Einladungen und die Bestätigung nach
+  stellvertretender Buchung laufen zuerst über die Sitzung der Lehrkraft, das
+  Dienstkonto nur als Rückfall.
+
+**Was das an der Messung aus Abschnitt 17 ändert:** Die Frage „trägt PARENTS
+über die Dienstkonto-Sitzung?“ bleibt sinnvoll für den Rückfall (abgelaufene
+Sitzung), ist aber nicht die Frage nach dem **Normalweg**, als die sie gestellt
+war. Der Normalweg ist die Sitzung der handelnden Person.
 

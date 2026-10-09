@@ -2,6 +2,11 @@
 
 ## v0.9.70 (Oktober 2026) – Messung PARENTS auch über die Sitzung des Dienstkontos
 
+> **Teilweise überholt (09.10.2026, Befund Abschnitt 18):** „Bestätigungen und
+> Absagen laufen über das Dienstkonto“ war geschlossen, nicht am Code gelesen,
+> und stimmt so nicht – zuerst gilt die Sitzung der handelnden Person. Der
+> Absatz bleibt als damaliger Stand stehen.
+
 Vor dem Umbau (E16): PARENTS ist nur über die Lehrkraft-Sitzung gemessen,
 Bestätigungen und Absagen laufen aber über das Dienstkonto (bei einer Buchung
 durch Eltern ist keine Lehrkraft angemeldet).
