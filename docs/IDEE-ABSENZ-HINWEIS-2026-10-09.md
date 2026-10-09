@@ -53,3 +53,23 @@ Verwaltung entscheidet weiterhin.
   Ein Dienstkonto gibt es seit v0.9.72 nicht mehr (E17).
 - Dieselbe Frage wie bei jedem fremden Beleg: Was ändert er an dem, was wir
   prüfen?
+
+## Nachtrag 09.10.2026: Veranstaltungsblöcke unter den „Klassen“
+
+Nebenfund aus der Messung zu Zug 4 (Befund pageconfig-Schülerliste,
+Abschnitt 20): `timetable/filter?resourceType=CLASS` liefert unter den 40
+„Klassen“ auch **`Veranst1`, `Veranst2`, `Veranst3`** und **`RaN1`**. Sie
+haben keine Schüler. Vermutlich sind es die Veranstaltungsblöcke aus
+Befund 2 oben (Einordnung des Betreibers, nicht gemessen).
+
+**Für die Idee heißt das:** Der Sprechtag liegt vermutlich auf einem
+dieser Blöcke. Damit gäbe es ein Erkennungsmerkmal, das nicht geraten ist:
+die Kennung der „Klasse“ statt eines Feldnamens. Zu belegen wäre:
+- auf welchem Block der Sprechtag liegt; das zeigt der Mitschnitt eines
+  Tages mit eingetragenem Sprechtag;
+- ob der Block über diese Kennung im Stundenplan zu finden ist;
+- und ob ein abgesagter Block `CANCELLED` trägt.
+
+Die Namen `Veranst1` usw. vergibt die Schule. Ein Erkennungsmerkmal am
+Namen wäre geraten; am ehesten trägt die Kennung, und die ist erst zu
+belegen.

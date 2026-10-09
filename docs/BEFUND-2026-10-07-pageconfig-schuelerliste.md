@@ -793,3 +793,47 @@ Einladungsauswahl die Namen aus `pageconfig`.
 **Was die Antwort entscheiden soll:** welches Feld im Bau Nachname und
 Vorname liefert, welches den Klassennamen, und ob Klassennamen eindeutig
 genug sind, um nach ihnen zu gruppieren.
+
+---
+
+## 20 — Nachtrag 09.10.2026: Messteil ausgewertet (Betreiber)
+
+Gemessen vom Betreiber über `GET /api/messung/sitzung` (v0.9.75), Teil
+`schuelerliste`, mit einer Lehrkraft-Sitzung. Zahlen wie gemeldet; die Antwort
+enthielt keine Namen.
+
+**Namensfelder** (1314 verglichen, alle aktiven):
+
+| Feld | Ergebnis |
+|---|---|
+| `longName` | = Nachname bei **1314 von 1314** |
+| `forename` | = Vorname bei **1313 von 1314** |
+| `name` | gefüllt, gleicht **keiner** Namensform (vermutlich eine Kennung) |
+| `displayName` | **leer** (0 gefüllt) |
+| `externKey` | 1307 gefüllt, keine Namensübereinstimmung (die Schild-ID) |
+
+**Entschieden:** Nachname aus `longName`, Vorname aus `forename`.
+
+*Randnotiz, kein Problem:* Ein Kind trägt in `pageconfig` einen anderen
+Vornamen als in der alten Tabelle, etwa wegen einer Namensänderung oder
+eines Zweitnamens. Die alte Tabelle ist also nicht überall aktuell. Das
+spricht eher für den Umbau. Die drei Fälle, in denen `forename` dem
+Nachnamen gleicht, sind vermutlich Kinder mit gleichem Vor- und Nachnamen
+(Vermutung des Betreibers).
+
+**Klassen** (`timetable/filter`, Schulzeit):
+- Alle **1235** `klasseId` werden im Filter gefunden.
+- **`displayName`** = Kurzname bei **40 von 40**: Er ist der Klassenname.
+  `longName` trifft nur 34 und wird **nicht** verwendet.
+- Die Kurznamen sind eindeutig.
+- **Vier der 40 „Klassen“ sind keine Klassen:** `Veranst1`, `Veranst2`,
+  `Veranst3` und `RaN1`. Es sind zugleich die vier ohne Schüler, vermutlich
+  Veranstaltungsblöcke (Einordnung des Betreibers). Für Zug 4 spielt das
+  keine Rolle, denn ohne Schüler erscheinen sie in keiner Auswahl. Für die
+  Absenz-Idee ist es ein Ansatzpunkt und dort nachgetragen.
+
+**Was ändert dieser Beleg an dem, was wir prüfen?** In die Prüfdaten von
+Schritt 2 gehören: eine „Klasse“ ohne Schüler, an deren Namen sich kein
+Kind hängt; ein Kind, dessen `forename` vom gespeicherten Namen abweicht
+(der gespeicherte Name stammt aus `pageconfig`, nicht aus der alten
+Tabelle); ein Klassenname aus `displayName`, der von `longName` abweicht.
