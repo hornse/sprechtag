@@ -759,3 +759,41 @@ nicht. Bei schuleigenen Gruppen (die Volljährigen-Gruppen) ist der Abgleich
 Augenschein stimmen die gekürzten Fassungen überein. Deshalb zeigt die Seite
 bei den gewählten Gruppen, was verglichen wird, und warnt bei systemeigenen
 Gruppen und bei Gruppen, die nicht in der Liste stehen.
+
+## E16 — Eltern-Mitteilungen über recipientOption PARENTS; der Namensabgleich ist ein Zustand auf Zeit
+
+**Stand 09.10.2026. Entscheidung des Betreibers; noch nicht gebaut.**
+
+**Der Namensabgleich (`mit_eltern_ids_ermitteln()`) ist ein Zustand, der
+behoben werden soll** – keine Ausnahme. Er weicht von FALLSTRICKE 6 ab („Über
+den Namen wird nie zugeordnet“), weil es lange keinen anderen Weg von der
+Kind-Kennung zu den Eltern gab: Schild führt keine Eltern-Kennung (Auskunft
+Betreiber, Befund Abschnitt 12). Diesen Weg gibt es jetzt: `POST
+/v2/messages` mit `recipientOption: "PARENTS"` und der Kind-Kennung erreicht
+die Erziehungsberechtigten, ohne Suche, ohne Namen, ohne Kreiswechsel
+(gemessen 09.10.2026, Befund Abschnitt 16).
+
+**Bedingung, unter der der Zustand endet:** Der Mitteilungsversand an Eltern
+ist auf `/v2/messages` mit PARENTS umgestellt. Dann entfällt
+`mit_eltern_ids_ermitteln()` samt Namensabgleich. **Kein Eintrag in
+`bestand-ausnahmen.md`** (Auskunft koordination: die ist für
+Vendoring-Abweichungen).
+
+**Zuschnitt der Umstellung:**
+- **An Eltern** – Bestätigungen, Absagen, Einladungen, alles, was heute über
+  `mit_eltern_ids_ermitteln()` läuft – wechselt auf `/v2/messages` mit
+  PARENTS und der Kind-Kennung.
+- **Die Erinnerungen bleiben** auf `/v2/messages/users` mit
+  `recipientUserIds`: Sie gehen an eine Liste, nicht an die Eltern eines
+  Kindes. `/v2/messages/users` kennt `recipientOption` nicht (gemessen:
+  Status 500).
+
+**Bis zur Umstellung:** Der Namensweg soll bei mehr als einem exakten Treffer
+anhalten und melden statt zu senden (geschlossen scheitern statt raten). Ob
+das noch gebaut wird, hängt davon ab, wie bald die Umstellung kommt – das
+wird mit dem Zuschnitt entschieden.
+
+**Offen vor dem Bau:** ob die Umstellung in Zug 4 aufgeht oder ein eigener Zug
+wird; die Architekturfrage zu `mit_rest_aus_sitzung()`; ob PARENTS auch über
+die Sitzung des Dienstkontos trägt; die Antwort bei einem Kind ohne
+hinterlegte Eltern.

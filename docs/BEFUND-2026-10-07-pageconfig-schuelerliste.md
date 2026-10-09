@@ -659,3 +659,40 @@ zwei Elternkonten die Rede. Die Messung zeigt die Zahl.
   eigener Eintrag in `docs/ENTSCHEIDUNGEN.md` mit der Bedingung, unter der er
   endet – sobald die Messung ausgewertet ist.
 
+---
+
+## 16 — Nachtrag 09.10.2026: recipientOption PARENTS trägt – auf /v2/messages
+
+Gemessen vom Betreiber am 09.10.2026, Produktivsystem, über
+`POST /api/messung/parents` (v0.9.69) mit der Sitzung einer **Lehrkraft**, am
+Testkind mit vier (Test-)Elternkonten. Keine Kennungen in diesem Text.
+
+| Pfad | Ergebnis |
+|---|---|
+| `POST /v2/messages/users`, `recipientOption: "PARENTS"` | **Status 500**, leere Standardmeldung („Es ist ein Fehler aufgetreten. {0}“), keine Prüfpfade – **der Pfad kennt das Feld nicht** |
+| `POST /v2/messages`, `recipientOption: "PARENTS"`, Kind-Kennung | **Status 200, `numberOfRecipients` 4**, Ergebnis „erreicht“; die Nachricht lag im **Elternpostfach** – belegt, nicht nur über die Zahl |
+
+- **`kennung_in_schuelerliste`: ja.** Die Kind-Kennung aus dem Kreis der
+  Schülerliste (`getStudents`/`pageconfig`) wirkt direkt – **kein
+  Kreiswechsel** nötig.
+- **Vergleich:** Der Namensweg (`mit_eltern_ids_ermitteln()`) fand für
+  dasselbe Kind **ebenfalls 4 Konten**. Der offene Punkt „Erreicht der
+  Namensweg alle Elternteile?“ (Abschnitt 12) ist damit **entwarnt** – er
+  findet dieselben. Er ist nicht falsch, aber umständlicher und bei
+  Namensgleichheit anfällig, wo PARENTS es nicht ist.
+- Die Messung schickte keine Kopie an das Kind (`copyToStudent: false`); die
+  4 sind die Eltern.
+
+**Was ändert dieser Beleg an dem, was wir prüfen?** Heute nichts – gebaut wird
+noch nicht. Für den Umbau: Der Erfolg hängt an `numberOfRecipients` ≥ 1 und an
+der Kind-Kennung; der Testfall „Kind mit mehreren Elternkonten“ ist belegt
+(vier), der Fall „Kind ohne hinterlegte Eltern“ ist es **nicht**.
+
+**Nicht gemessen:**
+- ob `/v2/messages` mit PARENTS auch über die **Sitzung des Dienstkontos**
+  trägt (gemessen ist die Lehrkraft-Sitzung); heute versendet sprechtag
+  Bestätigungen und Absagen mit hinterlegtem Dienstkonto über dessen Sitzung;
+- wie die Antwort bei einem Kind **ohne** hinterlegte Eltern aussieht.
+
+Folge: E16 in `docs/ENTSCHEIDUNGEN.md`.
+
