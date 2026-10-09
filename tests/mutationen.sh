@@ -717,12 +717,21 @@ mut MP3 $MS 's/\$aus\[\x27ergebnis\x27\] = is_int\(\$n\) \? \(\$n >= 1 \? \x27er
   $MP "200 mit 0: angenommen, niemand erreicht"
 mut MP4 $MS 's/(\x27konten\x27 => count\(\(array\)\(\$nw\[\x27ids\x27\] \?\? \[\]\)\),)/$1 \x27ids\x27 => \$nw[\x27ids\x27] ?? [],/' \
   $MP "keine Personenangaben"
-mut MP5 $IDX 's/(\x27parents\x27\) \{\n    )auth_require_lehrkraft\(\);/$1auth_require();/' \
+mut MP5 $IDX 's/(\x27parents\x27\) \{\n    \$u = )auth_require_lehrkraft\(\);/$1auth_require();/' \
   $MP "Eltern können die Messung nicht auslösen"
 mut MP6 $MS 's/    \$antwort = \$s\[\x27rest\x27\]->postMultipart\(/    \$s[\x27rest\x27]->postMultipart(MESSUNG_PARENTS_PFADE[\x27messages\x27], messung_parents_koerper(\$kind));\n    \$antwort = \$s[\x27rest\x27]->postMultipart(/' \
   $MP "Pfad users: genau EIN Versand"
 mut MP7 $MS 's/(    \x27messages\x27 => \x27\/WebUntis\/api\/rest\/view\/v2\/messages\x27,)/$1\n    \x27beides\x27 => \x27\/WebUntis\/api\/rest\/view\/v2\/messages\/users\x27,/' \
   $MP "ohne Bestätigung, mit unbekanntem Pfad, ohne Kind-Kennung: KEIN Versand"
+# v0.9.70 – über die Sitzung des Dienstkontos
+mut MP8 $MS 's/if \(\$welche === \x27dienstkonto\x27 && \$rolle !== \x27admin\x27\) \{/if (false) {/' \
+  $MP "über das Dienstkonto nur für die Verwaltung"
+mut MP9 $MS 's/\$s = \$welche === \x27dienstkonto\x27 \? \$sitzungDienstkonto\(\) : \$sitzungEigene\(\);/\$s = \$sitzungEigene();/' \
+  $MP "sitzung dienstkonto: der Versand geht über die Dienstkonto-Sitzung"
+mut MP10 $MS 's/    \} finally \{\n        if \(isset\(\$s\[\x27abmelden\x27\]\)\) \(\$s\[\x27abmelden\x27\]\)\(\);\n    \}/    } finally {\n    }/' \
+  $MP "… und die Dienstkonto-Sitzung wird danach abgemeldet"
+mut MP11 $MS 's/if \(!in_array\(\$welche, \[\x27eigene\x27, \x27dienstkonto\x27\], true\)\) \{/if (false) {/' \
+  $MP "unbekannte Sitzungsangabe: kein Versand"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi

@@ -696,3 +696,23 @@ der Kind-Kennung; der Testfall „Kind mit mehreren Elternkonten“ ist belegt
 
 Folge: E16 in `docs/ENTSCHEIDUNGEN.md`.
 
+---
+
+## 17 — Nachtrag 09.10.2026: Messung über die Sitzung des Dienstkontos vorbereitet (v0.9.70)
+
+Lücke aus Abschnitt 16: PARENTS ist nur über die **Lehrkraft**-Sitzung
+gemessen. Bestätigungen und Absagen laufen heute über das **Dienstkonto** –
+notwendigerweise, denn bei einer Buchung durch Eltern ist keine Lehrkraft
+angemeldet. Ohne Messung hinge der Umbau (E16) an einer ungemessenen Annahme.
+
+`POST /api/messung/parents` nimmt jetzt `"sitzung": "dienstkonto"` (nur die
+Verwaltung). Die Sitzung wird geöffnet wie im Betrieb für Bestätigungen und
+Absagen (Zugang aus `dk_lesen()`, `authenticate`, Token) und nach dem Versand
+abgemeldet. Dieselben Sicherungen wie bisher: nur mit `"bestaetigt": true`,
+fester Testbetreff, genau ein Versand.
+
+Zu messen: (1) Trägt PARENTS über die Dienstkonto-Sitzung (Status,
+`numberOfRecipients`)? (2) Dieselbe Empfängerzahl wie über die
+Lehrkraft-Sitzung (4)? Dazu, wenn sich ein Kind **ohne** hinterlegte Eltern
+finden lässt: wie die Antwort dann aussieht – sonst bleibt das offen.
+

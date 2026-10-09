@@ -1,5 +1,26 @@
 # Changelog - sprechtag
 
+## v0.9.70 (Oktober 2026) – Messung PARENTS auch über die Sitzung des Dienstkontos
+
+Vor dem Umbau (E16): PARENTS ist nur über die Lehrkraft-Sitzung gemessen,
+Bestätigungen und Absagen laufen aber über das Dienstkonto (bei einer Buchung
+durch Eltern ist keine Lehrkraft angemeldet).
+
+- `POST /api/messung/parents` nimmt `"sitzung": "eigene"` (Vorgabe, wie
+  bisher) oder `"dienstkonto"` – Letzteres **nur für die Verwaltung**. Die
+  Dienstkonto-Sitzung wird geöffnet wie im Betrieb und nach dem Versand
+  abgemeldet (auch bei einem Fehler). Sicherungen unverändert: nur bestätigt,
+  fester Testbetreff, genau ein Versand. Die Antwort nennt die benutzte
+  Sitzung.
+- Befund Abschnitt 17.
+
+### Prüfungen
+- 1133 → 1139 Prüfzeilen in 58 Suiten, alle grün; `tests-sprechtag.sh` 29.
+  `run_messung_parents.php` +6 (Versand über die gewählte Sitzung, Abmelden
+  genau einmal, nur Verwaltung, unbekannte Angabe, kein Dienstkonto, Route).
+- Mutationen 236 → 240, alle angeschlagen, H4 grün, Rücknahme belegt. MP5 kam
+  im ersten Lauf nicht an (Zeile umgebaut), Muster nachgezogen.
+
 ## v0.9.69 (Oktober 2026) – Messung: recipientOption PARENTS auf unserem Pfad
 
 Vor Zug 4, nur messen. Frage: Erreicht `recipientOption: "PARENTS"` mit der

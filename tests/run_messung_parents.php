@@ -88,10 +88,14 @@ final class ErsatzRest
     { $this->posts[] = [$pfad, $daten, 'json']; return $this->antwort; }
 }
 $ok = ['status' => 200, 'json' => ['numberOfRecipients' => 4, 'numberOfCCRecipients' => null], 'text' => ''];
-$lauf = function (array $eingabe, ?ErsatzRest $rest, array $namensweg = ['ids' => [7, 8], 'quelle' => 'webuntis', 'kind_name' => 'Erfunden Kind'])
+$lauf = function (array $eingabe, ?ErsatzRest $rest, array $namensweg = ['ids' => [7, 8], 'quelle' => 'webuntis', 'kind_name' => 'Erfunden Kind'],
+                  string $rolle = 'admin', ?ErsatzRest $dk = null, ?int &$abgemeldet = null)
 {
-    return messung_parents_ausfuehren($eingabe,
+    $abgemeldet = 0;
+    return messung_parents_ausfuehren($eingabe, $rolle,
         fn() => ['rest' => $rest, 'grund' => $rest === null ? 'kein_cookie' : null],
+        function () use ($dk, &$abgemeldet) { return ['rest' => $dk, 'grund' => $dk === null ? 'kein_dienstkonto' : null,
+            'abmelden' => function () use (&$abgemeldet) { $abgemeldet++; }]; },
         fn(int $kind) => $namensweg, fn(int $kind) => true);
 };
 $r1 = new ErsatzRest($ok);
@@ -147,6 +151,39 @@ $rl = route($zweig, ['rolle' => 'lehrkraft', 'kinder' => []], ['kind_id' => 9004
 pruefe('Lehrkraft ohne Bestätigung: Antwort 200, nicht gesendet, mit Grund',
     $rl->status === 200 && ($rl->daten['bericht']['gesendet'] ?? null) === false
     && str_contains((string)($rl->daten['bericht']['grund'] ?? ''), 'bestätigt'));
+
+// ------------------------------------------------------------
+// v0.9.70: über die Sitzung des DIENSTKONTOS. Bestätigungen und Absagen
+// laufen heute notwendigerweise darüber (bei einer Buchung durch Eltern ist
+// keine Lehrkraft angemeldet); PARENTS ist nur über die Lehrkraft-Sitzung
+// gemessen (Befund Abschnitt 16).
+echo "Über die Sitzung des Dienstkontos (v0.9.70)\n";
+$eig = new ErsatzRest($ok); $dk = new ErsatzRest($ok); $ab = null;
+$ad = $lauf(['kind_id' => 90042, 'pfad' => 'messages', 'bestaetigt' => true, 'sitzung' => 'dienstkonto'],
+    $eig, ['ids' => [7, 8], 'quelle' => 'webuntis', 'kind_name' => 'x'], 'admin', $dk, $ab);
+pruefe('sitzung dienstkonto: der Versand geht über die Dienstkonto-Sitzung, nicht über die eigene',
+    count($dk->posts) === 1 && count($eig->posts) === 0 && ($ad['sitzung'] ?? null) === 'dienstkonto'
+    && ($ad['antwort']['empfaenger'] ?? null) === 4);
+pruefe('… und die Dienstkonto-Sitzung wird danach abgemeldet (genau einmal)', $ab === 1);
+$eig2 = new ErsatzRest($ok); $dk2 = new ErsatzRest($ok); $ab2 = null;
+$al = $lauf(['kind_id' => 90042, 'pfad' => 'messages', 'bestaetigt' => true, 'sitzung' => 'dienstkonto'],
+    $eig2, ['ids' => [], 'quelle' => null, 'kind_name' => ''], 'lehrkraft', $dk2, $ab2);
+pruefe('über das Dienstkonto nur für die Verwaltung: Lehrkraft – kein Versand, Grund genannt',
+    count($dk2->posts) === 0 && count($eig2->posts) === 0 && ($al['gesendet'] ?? null) === false
+    && str_contains((string)($al['grund'] ?? ''), 'Verwaltung'));
+$eig3 = new ErsatzRest($ok);
+$au = $lauf(['kind_id' => 90042, 'pfad' => 'messages', 'bestaetigt' => true, 'sitzung' => 'irgendeine'], $eig3);
+$ae = $lauf(['kind_id' => 90042, 'pfad' => 'messages', 'bestaetigt' => true], $eig3);
+pruefe('unbekannte Sitzungsangabe: kein Versand; ohne Angabe: die eigene Sitzung (wie bisher)',
+    ($au['gesendet'] ?? null) === false && count($eig3->posts) === 1 && ($ae['sitzung'] ?? null) === 'eigene');
+$ak = $lauf(['kind_id' => 90042, 'pfad' => 'messages', 'bestaetigt' => true, 'sitzung' => 'dienstkonto'],
+    new ErsatzRest($ok), ['ids' => [], 'quelle' => null, 'kind_name' => ''], 'admin', null);
+pruefe('ohne nutzbares Dienstkonto: kein Versand, Grund aus der Sitzung',
+    ($ak['gesendet'] ?? null) === false && str_contains((string)($ak['grund'] ?? ''), 'kein_dienstkonto'));
+$rd = route($zweig, ['rolle' => 'lehrkraft', 'kinder' => []],
+    ['kind_id' => 90042, 'pfad' => 'messages', 'bestaetigt' => true, 'sitzung' => 'dienstkonto']);
+pruefe('Route: Lehrkraft mit sitzung dienstkonto – Antwort 200, nicht gesendet',
+    $rd->status === 200 && ($rd->daten['bericht']['gesendet'] ?? null) === false);
 
 echo "\n" . ($fehler === 0 ? "ALLE TESTS GRÜN\n" : "$fehler ROT\n");
 exit($fehler === 0 ? 0 : 1);

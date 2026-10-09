@@ -51,7 +51,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.69', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.70', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -1055,16 +1055,18 @@ if ($methode === 'POST' && ($seg[0] ?? '') === 'sondierung') {
 // unserem Pfad? VERSCHICKT GENAU EINE Testnachricht über die Sitzung der
 // aufrufenden Lehrkraft – nur mit "bestaetigt": true, nur an "users" oder
 // "messages". Antwort: Zahlen und Formate, keine Personen.
-//   POST /api/messung/parents  {kind_id, pfad: users|messages, bestaetigt: true}
+//   POST /api/messung/parents  {kind_id, pfad: users|messages, bestaetigt: true,
+//                               sitzung: eigene (Vorgabe) | dienstkonto (nur Verwaltung, v0.9.70)}
 if ($methode === 'POST' && ($seg[0] ?? '') === 'messung' && ($seg[1] ?? '') === 'parents') {
-    auth_require_lehrkraft();
+    $u = auth_require_lehrkraft();
     $pdo = db($cfg);
-    json_ok(['bericht' => messung_parents_ausfuehren($body,
+    json_ok(['bericht' => messung_parents_ausfuehren($body, (string)$u['rolle'],
         function () use ($cfg): array {
             $grund = null;
             $rest = mit_rest_aus_sitzung($cfg, $grund);
             return ['rest' => $rest, 'grund' => $grund];
         },
+        fn(): array => messung_dienstkonto_sitzung($cfg, $pdo),
         fn(int $kind): array => mit_eltern_ids_ermitteln($cfg, $pdo, $kind),
         function (int $kind) use ($pdo): bool {
             $st = $pdo->prepare('SELECT COUNT(*) FROM schueler WHERE webuntis_id = ?');
