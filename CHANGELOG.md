@@ -21,8 +21,8 @@ bleibt wie gebaut (Entscheidung Betreiber, keine zweite Schwelle).
 2. **`GET /api/anzeige` liefert kein `halbtags` mehr.** Die öffentliche
    Anzeige las das Feld nicht. **Im Betrieb gemessen** (ohne Anmeldung,
    nur Schlüssel und Zählwerte): unter v0.9.60 trugen alle 101
-   Lehrkräfte der Antwort den Schlüssel, 3 mit Wert 1; Messung nach der
-   Auslieferung siehe Bericht. `raum_name` liefert die Anzeige ebenfalls,
+   Lehrkräfte der Antwort den Schlüssel, 3 mit Wert 1; unter v0.9.61
+   (nach der Auslieferung gemessen) 0 von 101. `raum_name` liefert die Anzeige ebenfalls,
    ohne es zu lesen – keine Personenangabe, nicht entfernt.
 
 ### Teil B – Sonderrollen abgesetzt (E10-Nachtrag: Vierteilung)
