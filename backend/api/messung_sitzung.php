@@ -4,6 +4,12 @@
 //
 //   GET /api/messung/sitzung   (jede angemeldete Person, nur Zahlen)
 //
+// Seit v0.9.69 zusätzlich, als EIGENE Route (POST /api/messung/parents):
+// Erreicht recipientOption „PARENTS“ mit der Kennung des Kindes die Eltern
+// auch auf unserem Pfad? VERSCHICKT GENAU EINE Testnachricht – nur bestätigt,
+// nur an einen benannten Pfad, mit festem Testbetreff. Vorlage: Beilage
+// docs/beilagen/lernzeiten-mitteilung-parents.md.
+//
 // Seit v0.9.67 zusätzlich: /WebUntis/api/userrole/config – alle
 // Benutzergruppen der Schule (data.userGroups: id, label, userCount, userRole,
 // userCountByUserRole) als mögliche Auswahlliste für die zugelassenen Gruppen
@@ -481,6 +487,114 @@ function messung_benutzergruppen(array $r, ?string $eigene): array
     }
     $aus['deutung'] = 'Liste gelesen: ' . $aus['eintraege'] . ' Gruppen, davon ' . $aus['mit_schuelern'] . ' mit Schülern.';
     return $aus;
+}
+
+// ---- Messung recipientOption PARENTS (v0.9.69) ----------------------------
+
+/** Die Pfade, zwischen denen gemessen wird – sonst keiner. */
+const MESSUNG_PARENTS_PFADE = [
+    'users'    => '/WebUntis/api/rest/view/v2/messages/users',   // heute im Betrieb
+    'messages' => '/WebUntis/api/rest/view/v2/messages',         // lernzeiten
+];
+
+/**
+ * Der Körper wie in lernzeiten gemessen (Beilage), an die Eltern über die
+ * Kennung des Kindes, OHNE Kopie an das Kind, mit festem Testbetreff.
+ */
+function messung_parents_koerper(int $kind): array
+{
+    return [
+        'subject'             => 'sprechtag – Testnachricht (Messung), bitte ignorieren',
+        'content'             => 'Dies ist eine Testnachricht des Sprechtag-Systems. '
+            . 'Sie prüft einen Versandweg und kann gelöscht werden.',
+        'recipientOption'     => 'PARENTS',
+        'recipientPersonIds'  => [$kind],
+        'recipientGroupIds'   => [],
+        'copyToStudent'       => false,
+        'requestConfirmation' => false,
+        'oneDriveAttachments' => [],
+        'forbidReply'         => false,
+    ];
+}
+
+/**
+ * Deutet die Antwort. Erfolg heißt numberOfRecipients ≥ 1 – nicht Status
+ * 200 (ein 2xx ohne Zahl ist „unklar“, mit 0 „niemand“). Ohne Personen:
+ * nur Status, Schlüsselnamen der Antwort, Zahlen, Meldung und die Pfade
+ * von Prüffehlern.
+ */
+function messung_parents_deuten(array $r): array
+{
+    $st = (int)($r['status'] ?? 0);
+    $j = is_array($r['json'] ?? null) ? $r['json'] : null;
+    $schluessel = $j !== null ? array_map('strval', array_keys($j)) : [];
+    sort($schluessel);
+    $aus = ['status' => $st, 'schluessel' => $schluessel, 'empfaenger' => null, 'cc' => null,
+            'meldung' => '', 'pruef_pfade' => []];
+    if ($st >= 200 && $st < 300) {
+        $n = $j['numberOfRecipients'] ?? null;
+        $aus['empfaenger'] = is_int($n) ? $n : null;
+        $aus['cc'] = is_int($j['numberOfCCRecipients'] ?? null) ? $j['numberOfCCRecipients'] : null;
+        $aus['ergebnis'] = is_int($n) ? ($n >= 1 ? 'erreicht' : 'niemand') : 'unklar';
+    } elseif ($st === 401 || $st === 403) {
+        $aus['ergebnis'] = 'keine_rechte';
+    } elseif ($st === 0) {
+        $aus['ergebnis'] = 'unklar';   // Zeitüberschreitung: kann angekommen sein
+        $aus['meldung'] = substr((string)($r['text'] ?? ''), 0, 200);
+    } else {
+        $aus['ergebnis'] = 'abgelehnt';
+        $aus['meldung'] = substr((string)($j['errorMessage'] ?? $j['message'] ?? ''), 0, 200);
+        foreach ((array)($j['validationErrors'] ?? []) as $v) {
+            if (is_array($v) && is_string($v['path'] ?? null)) $aus['pruef_pfade'][] = $v['path'];
+        }
+    }
+    $aus['deutung'] = [
+        'erreicht'     => 'Angenommen, ' . $aus['empfaenger'] . ' Empfänger erreicht.',
+        'niemand'      => 'Angenommen, aber niemand erreicht – der Pfad kennt die Angabe womöglich nicht.',
+        'unklar'       => 'Unklar, ob etwas hinausging – in WebUntis unter „Gesendet“ nachsehen.',
+        'keine_rechte' => 'Keine Rechte zum Senden – mit einem Konto mit Mitteilungsrecht messen.',
+        'abgelehnt'    => 'Abgelehnt – Meldung und Prüffehler nennen den Grund.',
+    ][$aus['ergebnis']];
+    return $aus;
+}
+
+/**
+ * Führt die Messung aus – GENAU EIN Versand, nur wenn alles stimmt:
+ * $eingabe: ['kind_id' => int, 'pfad' => 'users'|'messages', 'bestaetigt' => true].
+ * $sitzung: liefert ['rest' => ?Client, 'grund' => ?string] (wie
+ * mit_rest_aus_sitzung); $namensweg(int): Ergebnis von
+ * mit_eltern_ids_ermitteln() – zum Vergleich, sendet nichts;
+ * $inSchuelerliste(int): steht die Kennung in schueler.webuntis_id?
+ * Die Antwort nennt weder Kind-Kennung noch Namen noch Eltern-Kennungen.
+ */
+function messung_parents_ausfuehren(array $eingabe, callable $sitzung, callable $namensweg,
+                                    callable $inSchuelerliste): array
+{
+    $kind = (int)($eingabe['kind_id'] ?? 0);
+    $pfad = (string)($eingabe['pfad'] ?? '');
+    if (($eingabe['bestaetigt'] ?? null) !== true) {
+        return ['gesendet' => false, 'grund' => 'Nicht bestätigt – die Messung verschickt eine echte '
+            . 'Nachricht und braucht "bestaetigt": true.'];
+    }
+    if (!isset(MESSUNG_PARENTS_PFADE[$pfad])) {
+        return ['gesendet' => false, 'grund' => 'Pfad muss "users" oder "messages" sein.'];
+    }
+    if ($kind <= 0) return ['gesendet' => false, 'grund' => 'kind_id fehlt.'];
+    $s = $sitzung();
+    if (($s['rest'] ?? null) === null) {
+        return ['gesendet' => false, 'grund' => 'Keine nutzbare WebUntis-Sitzung (' . (string)($s['grund'] ?? '')
+            . ') – neu anmelden und erneut messen.'];
+    }
+    $nw = $namensweg($kind);
+    $liste = $inSchuelerliste($kind);
+    $antwort = $s['rest']->postMultipart(MESSUNG_PARENTS_PFADE[$pfad], messung_parents_koerper($kind));
+    return [
+        'gesendet' => true,
+        'pfad' => $pfad,
+        'antwort' => messung_parents_deuten($antwort),
+        'namensweg' => ['konten' => count((array)($nw['ids'] ?? [])), 'quelle' => $nw['quelle'] ?? null],
+        'kennung_in_schuelerliste' => $liste,
+    ];
 }
 
 /** Ein Abruf, der nie wirft: Fehler werden mit Klasse und Meldung berichtet. */

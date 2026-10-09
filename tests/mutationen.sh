@@ -707,6 +707,23 @@ mut FAW5 $APP 's/Im persönlichen Bereich zeigt WebUntis den vollständigen Name
 mut FAW6 $APP 's/    if \(d\.auswahl_fehler\) \{/    if (false) {/' \
   $FSG "Abruf gescheitert: Grund steht da"
 
+# v0.9.69 – Messung recipientOption PARENTS (verschickt eine echte Nachricht)
+MP=tests/run_messung_parents.php
+mut MP1 $MS 's/if \(\(\$eingabe\[\x27bestaetigt\x27\] \?\? null\) !== true\) \{/if (false) {/' \
+  $MP "ohne Bestätigung, mit unbekanntem Pfad, ohne Kind-Kennung: KEIN Versand"
+mut MP2 $MS 's/\x27copyToStudent\x27       => false,/\x27copyToStudent\x27       => true,/' \
+  $MP "PARENTS, die Kennung des Kindes, ohne Kopie an das Kind"
+mut MP3 $MS 's/\$aus\[\x27ergebnis\x27\] = is_int\(\$n\) \? \(\$n >= 1 \? \x27erreicht\x27 : \x27niemand\x27\) : \x27unklar\x27;/\$aus[\x27ergebnis\x27] = \x27erreicht\x27;/' \
+  $MP "200 mit 0: angenommen, niemand erreicht"
+mut MP4 $MS 's/(\x27konten\x27 => count\(\(array\)\(\$nw\[\x27ids\x27\] \?\? \[\]\)\),)/$1 \x27ids\x27 => \$nw[\x27ids\x27] ?? [],/' \
+  $MP "keine Personenangaben"
+mut MP5 $IDX 's/(\x27parents\x27\) \{\n    )auth_require_lehrkraft\(\);/$1auth_require();/' \
+  $MP "Eltern können die Messung nicht auslösen"
+mut MP6 $MS 's/    \$antwort = \$s\[\x27rest\x27\]->postMultipart\(/    \$s[\x27rest\x27]->postMultipart(MESSUNG_PARENTS_PFADE[\x27messages\x27], messung_parents_koerper(\$kind));\n    \$antwort = \$s[\x27rest\x27]->postMultipart(/' \
+  $MP "Pfad users: genau EIN Versand"
+mut MP7 $MS 's/(    \x27messages\x27 => \x27\/WebUntis\/api\/rest\/view\/v2\/messages\x27,)/$1\n    \x27beides\x27 => \x27\/WebUntis\/api\/rest\/view\/v2\/messages\/users\x27,/' \
+  $MP "ohne Bestätigung, mit unbekanntem Pfad, ohne Kind-Kennung: KEIN Versand"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1

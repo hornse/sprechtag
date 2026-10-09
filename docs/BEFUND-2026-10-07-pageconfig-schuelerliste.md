@@ -616,3 +616,46 @@ beides und nennt das Format.
 
 Umgesetzt in v0.9.68 (E15-Nachtrag).
 
+---
+
+## 15 — Nachtrag 09.10.2026: Messung recipientOption PARENTS vorbereitet (v0.9.69)
+
+**Frage:** Erreicht `recipientOption: "PARENTS"` mit der Kennung des Kindes die
+Erziehungsberechtigten auch auf unserem Pfad? Trägt es, entfällt
+`mit_eltern_ids_ermitteln()` samt Namensabgleich (Abschnitt 5) – und damit
+die Abweichung von FALLSTRICKE 6 und ein Kreiswechsel.
+
+**Vorlage:** lernzeiten, gemessen 06.10.2026 für `POST /v2/messages` mit
+`recipientPersonIds` (Beilage `docs/beilagen/lernzeiten-mitteilung-parents.md`).
+sprechtag nutzt `POST /v2/messages/users` mit `recipientUserIds` – ob dieser
+Pfad `recipientOption` kennt, ist offen.
+
+**Messweg:** `POST /api/messung/parents` (nur Lehrkraft/Verwaltung, über die
+eigene Sitzung) verschickt **genau eine** Testnachricht mit festem Betreff –
+nur mit `"bestaetigt": true`, nur an `users` oder `messages`, ohne Kopie an
+das Kind. Antwort: Status, `numberOfRecipients`, Schlüsselnamen, bei
+Ablehnung Meldung und Prüfpfade; daneben die Zahl der Konten, die der
+**Namensweg** für dasselbe Kind fände, und ob die Kennung in
+`schueler.webuntis_id` steht. Keine Kennungen, keine Namen.
+
+**Zur Kennung (Frage 3 der Messung):** Für Schüler fallen Personenkennung und
+Kind-Kennung zusammen (Abschnitt 12). Die Messung kann „personId oder
+Kind-Kennung“ deshalb nicht trennen; sie meldet, ob die verwendete Kennung im
+Kreis der Schülerliste liegt.
+
+**Abweichung zum Auftrag:** lernzeiten maß beim Testkind **vier** Empfänger
+(dort als Testeltern hinterlegte Kolleginnen und Kollegen); im Auftrag ist von
+zwei Elternkonten die Rede. Die Messung zeigt die Zahl.
+
+### Offene Punkte (neu)
+
+- **Mehrdeutigkeit im Namensweg:** Liefert die Empfängersuche in
+  `mit_eltern_ids_ermitteln()` mehr als einen exakten Treffer, soll **nicht**
+  gesendet, sondern angehalten und gemeldet werden – geschlossen scheitern
+  statt raten. Gilt, solange der Namensweg im Code steht, auch wenn PARENTS
+  trägt. (Nicht gebaut; Auftrag 09.10.2026.)
+- **Vermerk zum Namensabgleich:** kein Eintrag in `bestand-ausnahmen.md`
+  (Auskunft koordination: die ist für Vendoring-Abweichungen), sondern ein
+  eigener Eintrag in `docs/ENTSCHEIDUNGEN.md` mit der Bedingung, unter der er
+  endet – sobald die Messung ausgewertet ist.
+

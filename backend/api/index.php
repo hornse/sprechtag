@@ -51,7 +51,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.68', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.69', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -1048,6 +1048,29 @@ if ($methode === 'POST' && ($seg[0] ?? '') === 'sondierung') {
         sleep(2);
         json_err('Sondierung fehlgeschlagen: ' . $e->getMessage(), 502);
     }
+}
+
+// MESSUNG (v0.9.69), kein Feature – siehe messung_sitzung.php. Erreicht
+// recipientOption PARENTS die Eltern über die Kennung des Kindes, auch auf
+// unserem Pfad? VERSCHICKT GENAU EINE Testnachricht über die Sitzung der
+// aufrufenden Lehrkraft – nur mit "bestaetigt": true, nur an "users" oder
+// "messages". Antwort: Zahlen und Formate, keine Personen.
+//   POST /api/messung/parents  {kind_id, pfad: users|messages, bestaetigt: true}
+if ($methode === 'POST' && ($seg[0] ?? '') === 'messung' && ($seg[1] ?? '') === 'parents') {
+    auth_require_lehrkraft();
+    $pdo = db($cfg);
+    json_ok(['bericht' => messung_parents_ausfuehren($body,
+        function () use ($cfg): array {
+            $grund = null;
+            $rest = mit_rest_aus_sitzung($cfg, $grund);
+            return ['rest' => $rest, 'grund' => $grund];
+        },
+        fn(int $kind): array => mit_eltern_ids_ermitteln($cfg, $pdo, $kind),
+        function (int $kind) use ($pdo): bool {
+            $st = $pdo->prepare('SELECT COUNT(*) FROM schueler WHERE webuntis_id = ?');
+            $st->execute([$kind]);
+            return (int)$st->fetchColumn() > 0;
+        })]);
 }
 
 // MESSUNG (v0.9.54), kein Feature – siehe messung_sitzung.php. Misst die

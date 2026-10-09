@@ -1,5 +1,33 @@
 # Changelog - sprechtag
 
+## v0.9.69 (Oktober 2026) – Messung: recipientOption PARENTS auf unserem Pfad
+
+Vor Zug 4, nur messen. Frage: Erreicht `recipientOption: "PARENTS"` mit der
+Kennung des Kindes die Eltern auch über `/v2/messages/users` (unser Pfad) bzw.
+`/v2/messages` (lernzeiten)? Trägt es, entfällt der Namensabgleich.
+
+- Neue Route `POST /api/messung/parents` `{kind_id, pfad: "users"|"messages",
+  bestaetigt: true}` – nur Lehrkraft/Verwaltung, über die eigene Sitzung.
+  **Verschickt genau eine Testnachricht** (fester Betreff „sprechtag –
+  Testnachricht (Messung), bitte ignorieren“, ohne Kopie an das Kind). Ohne
+  Bestätigung, mit anderem Pfad oder ohne Kind-Kennung: kein Versand.
+- Antwort: Status, `numberOfRecipients` (Erfolg heißt ≥ 1, nicht Status 200),
+  Schlüsselnamen, bei Ablehnung Meldung und Prüfpfade; dazu die Zahl der
+  Konten, die der Namensweg fände, und ob die Kennung in der Schülerliste
+  steht. Keine Kennungen, keine Namen.
+- Körper nach lernzeiten, als Beilage im Repo
+  (`docs/beilagen/lernzeiten-mitteilung-parents.md`, Stand `430d98d`).
+- Befund Abschnitt 15: Messweg, die Grenze bei der Kennung (für Schüler fallen
+  Personen- und Kind-Kennung zusammen), Abweichung vier gegen zwei Elternkonten,
+  zwei offene Punkte (Mehrdeutigkeit im Namensweg; Form des Vermerks).
+
+### Prüfungen
+- 1117 → 1133 Prüfzeilen in 58 Suiten, alle grün; `tests-sprechtag.sh` 29.
+  Neu: `run_messung_parents.php` (16) – vor allem, dass nur gesendet wird, wenn
+  es soll: genau einmal, nur bestätigt, nur an benannte Pfade; Eltern können
+  nicht auslösen (Route ausgeführt).
+- Mutationen 229 → 236, alle angeschlagen, H4 grün, Rücknahme belegt.
+
 ## v0.9.68 (Oktober 2026) – Auswahlliste der Gruppen statt Eintippen (E15-Nachtrag)
 
 ### Was gebaut ist
