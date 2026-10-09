@@ -1,5 +1,35 @@
 # Changelog - sprechtag
 
+## v0.9.75 (Oktober 2026) – Zug 4, Schritt 1: welches Feld trägt den Namen (Messung)
+
+Zug 4 („Schülerliste aus WebUntis, Schild entfällt“) ist entschieden
+(E20: keine lokale Liste mehr, Namen nur am Vorgang, Klasse wird
+festgehalten). Vor dem Bau wird gemessen, was bisher nur angenommen war.
+
+- `GET /api/messung/sitzung` hat als Lehrkraft oder Verwaltung einen neuen
+  Teil `schuelerliste` mit `messung_schuelerliste()`. Er zählt je
+  `pageconfig`-Feld, ob es dem Nachnamen oder Vornamen der alten Tabelle
+  gleicht. Für die Klassennamen aus `timetable/filter` gibt er Abdeckung,
+  Eindeutigkeit und Kurznamen aus. Die Antwort enthält nur Zählwerte und
+  Klassennamen.
+- Die alte Tabelle `schueler` bleibt als Vergleichsmaßstab stehen, bis
+  Schritt 4 sie abbaut.
+- README auf die Liste zum Nachziehen (Hilfe-Abgleich, Nachtrag).
+- Keine Migration.
+
+### Prüfungen
+- 1270 → 1289 Prüfzeilen in 62 Suiten, alle grün; `tests-sprechtag.sh` 29.
+  `run_messung_sitzung.php` hat 19 neue Prüfungen: Die Felder werden
+  getrennt gezählt, Leerzeichen am Rand zählen nicht, eine Messung ohne
+  gemeinsame Kennung meldet „KEIN Befund“. Die Antwort enthält keine Namen
+  und Kennungen; die Eltern-Sicht misst nicht; die Route liest die alte
+  Liste nur für Lehrkraft und Verwaltung. Zuerst rot (19), dann grün.
+- Mutationen 302 → 312 Ergebniszeilen (SU1–SU10), alle angeschlagen, H4
+  grün, Rücknahme belegt. Im ersten Lauf schlug SU5 nicht an: Mit zwei
+  Klassen ergaben „ohne Schüler“ und „mit Schülern“ beide 1. Die Testdaten
+  haben jetzt drei Klassen. Das Suchmuster von S16 ist an den neuen
+  Aufruf angepasst; es kam vorher nicht mehr an.
+
 ## v0.9.74 (Oktober 2026) – Datenschutz-Absatz der Hilfe stimmt (H9)
 
 Die Hilfeseite versprach: „Beim Archivieren eines Sprechtags werden alle

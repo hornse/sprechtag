@@ -173,3 +173,9 @@ Person; ist sie abgelaufen, wird die Bestätigung vorgemerkt. Oben unter
 „Geprüft und weiterhin richtig“ stand der Satz noch als richtig, und zwar
 für den Stand vor v0.9.72. Nicht behoben, weil das Nachziehen der Hilfeseite
 nicht beauftragt ist.
+
+**Nachtrag 09.10.2026 — README auf die Liste (Betreiber):** Die `README.md`
+(auf GitHub die Startseite) beschreibt einen Stand von vor diesem Tag:
+Dienstkonto, Schild-Import, die alte Kachel-Gliederung. Sie wird zusammen
+mit der Hilfeseite und den Fachdokumenten nachgezogen, **nicht** in Zug 4
+selbst.

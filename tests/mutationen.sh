@@ -296,7 +296,7 @@ mut S14 $MS "s/'gefuellt'       => messung_format\(\\\$v\) !== 'leer',/'gefuellt
   $S "Kind 2 ohne Klasse: Feld fehlt, nicht gefüllt"
 mut S15 $MS "s/return 'Objekt\{' \. implode\(',', \\\$k\) \. '\}';/return json_encode(\\\$v);/" \
   $S "weder Kennung noch Name der Klassenleitung in der Antwort"
-mut S16 $IX 's/\$probe, \$lehrer, \$ferien\)\]\);/\$probe, [], \$ferien)]);/' \
+mut S16 $IX 's/\$probe, \$lehrer, \$ferien, \$alt\)\]\);/\$probe, [], \$ferien, \$alt)]);/' \
   $S "Route reicht den Grund aus wu_sitzung() durch"
 mut S17 $MS "s/\\\$nachId\[\(int\)\(\\\$k\['id'\] \?\? 0\)\] \?\? null/\\\$nachId[0] ?? null/" \
   $S "Kind 1: Klassenleitung gefüllt, Format Objekt{id,name}"
@@ -884,6 +884,30 @@ mut DS7 $APP 's/WebUntis-Benutzernamen und der IP-Adresse, zum Schutz/WebUntis-B
   $DS "Login: Benutzername und IP-Adresse"
 mut DS8 $APP 's/Dafür gibt es keine \x27\n      \+ \x27automatische Frist\. //' \
   $DS "… ohne automatische Frist"
+
+echo "== v0.9.75: Zug 4, Schritt 1 – Messteil Schülerliste"
+MSZ=backend/api/messung_sitzung.php
+RMS=tests/run_messung_sitzung.php
+mut SU1 $MSZ 's/\$t = fn\(\$v\) => is_scalar\(\$v\) \? trim\(\(string\)\$v\) : \x27\x27;/\$t = fn(\$v) => is_scalar(\$v) ? (string)\$v : \x27\x27;/' \
+  $RMS "longName = Nachname bei 3 von 3"
+mut SU2 $MSZ 's/if \(\$a === null \|\| \$nn === \x27\x27\) continue;/if (\$nn === \x27\x27 \&\& false) continue;/' \
+  $RMS "Einträge 4, davon 3 in der alten Liste"
+mut SU3 $MSZ 's/if \(\$w === trim\(\$nn \. \x27 \x27 \. \$vn\)\)/if (\$w === trim(\$vn . \x27  \x27 . \$nn))/' \
+  $RMS "name = „Nachname Vorname“ bei 2 von 3"
+mut SU4 $MSZ 's/\x27kurzname_eindeutig\x27   => count\(array_unique\(\$kurz\)\) === count\(\$kurz\)/\x27kurzname_eindeutig\x27   => true/' \
+  $RMS "doppelter Kurzname: eindeutig false"
+mut SU5 $MSZ 's/count\(array_diff_key\(\$imFilter, \$mitSchuelern\)\)/count(array_intersect_key(\$imFilter, \$mitSchuelern))/' \
+  $RMS "Klassen: 3 im Filter, 2 davon ohne Schüler"
+mut SU6 $MSZ 's/\$bericht\[\x27schuelerliste\x27\] = !in_array\(\$u\[\x27rolle\x27\] \?\? \x27\x27, \[\x27lehrkraft\x27, \x27admin\x27\], true\)/\$bericht[\x27schuelerliste\x27] = false/' \
+  $RMS "Eltern: schuelerliste nicht gemessen"
+mut SU7 $IDX 's/\$alt = in_array\(\$u\[\x27rolle\x27\], \[\x27lehrkraft\x27, \x27admin\x27\], true\)\n/\$alt = true\n/' \
+  $RMS "Route liest die alte Liste nur für Lehrkraft/Verwaltung"
+mut SU8 $MSZ 's/    if \(\$verglichen === 0\) \{\n        \$aus\[\x27deutung\x27\]/    if (\$verglichen < 0) {\n        \$aus[\x27deutung\x27]/' \
+  $RMS "keine gemeinsame Kennung: verglichen 0"
+mut SU9 $MSZ 's/(\$aus = \[\x27eintraege\x27 => \$eintraege,)/${1} \x27probe\x27 => array_column(\$liste, \x27longName\x27),/' \
+  $RMS "Antwort ohne Namen, Kennungen und externKey"
+mut SU10 $MSZ 's/if \(\$name === \x27schulzeit\x27\) \$klassenSchulzeit = \$r\[\x27json\x27\];/if (\$name === \x27schulzeit\x27) \$klassenSchulzeit = null;/' \
+  $RMS "Lehrkraft: schuelerliste gemessen"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi

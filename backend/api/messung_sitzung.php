@@ -681,9 +681,109 @@ function messung_abruf(object $rest, string $pfad, array $query): array
  * messung_token_probe() bei 'kein_token'. $heute ist einstellbar für
  * Prüfungen.
  */
+/**
+ * Zug 4 (v0.9.75): Welches pageconfig-Feld trägt Nachname und Vorname, und
+ * welches Feld von timetable/filter den Klassennamen? Gemessen sind bisher
+ * nur die FELDNAMEN (Befund pageconfig-Schülerliste, Abschnitte 1 und 11).
+ *
+ * Vergleichsmaßstab ist die alte Tabelle schueler (aus getStudents: foreName
+ * → vorname, longName → nachname), je Kennung – derselbe Kreis (Abschnitt 1).
+ * $alt: [webuntis_id => ['vorname' => …, 'nachname' => …]], null = nicht
+ * gemessen. $klassenJson: Antwort von timetable/filter (classes[] oder
+ * data.classes), null = Klassen nicht gemessen.
+ *
+ * Ausgabe NUR Zählwerte – und die Kurznamen der Klassen (keine
+ * Personendaten). Keine Namen, keine Kennungen, kein externKey.
+ */
+function messung_schuelerliste(array $liste, $klassenJson, ?array $alt): array|string
+{
+    if ($alt === null) return 'nicht gemessen (keine alte Liste übergeben)';
+    $t = fn($v) => is_scalar($v) ? trim((string)$v) : '';
+    $felder = ['name', 'forename', 'longName', 'displayName', 'externKey'];
+    $leer = ['gefuellt' => 0, 'gleich_nachname' => 0, 'gleich_vorname' => 0,
+             'gleich_vorname_nachname' => 0, 'gleich_nachname_vorname' => 0,
+             'gleich_nachname_komma_vorname' => 0];
+    $nf = array_fill_keys($felder, $leer);
+    $eintraege = 0; $verglichen = 0; $mitKlasse = 0; $klasseIds = [];
+    foreach ($liste as $e) {
+        if (!is_array($e)) continue;
+        $eintraege++;
+        $kl = (int)($e['klasseId'] ?? 0);
+        if ($kl > 0) { $mitKlasse++; $klasseIds[] = $kl; }
+        foreach ($felder as $f) if ($t($e[$f] ?? null) !== '') $nf[$f]['gefuellt']++;
+        $a = $alt[(int)($e['id'] ?? 0)] ?? null;
+        $vn = $t($a['vorname'] ?? ''); $nn = $t($a['nachname'] ?? '');
+        if ($a === null || $nn === '') continue;
+        $verglichen++;
+        foreach ($felder as $f) {
+            $w = $t($e[$f] ?? null);
+            if ($w === '') continue;
+            if ($w === $nn) $nf[$f]['gleich_nachname']++;
+            if ($vn !== '' && $w === $vn) $nf[$f]['gleich_vorname']++;
+            if ($w === trim($vn . ' ' . $nn)) $nf[$f]['gleich_vorname_nachname']++;
+            if ($w === trim($nn . ' ' . $vn)) $nf[$f]['gleich_nachname_vorname']++;
+            if ($vn !== '' && $w === $nn . ', ' . $vn) $nf[$f]['gleich_nachname_komma_vorname']++;
+        }
+    }
+
+    $aus = ['eintraege' => $eintraege, 'verglichen' => $verglichen, 'namensfelder' => $nf];
+    if ($verglichen === 0) {
+        $aus['deutung'] = 'Keine Kennung zugleich in pageconfig und in der alten Liste (mit Namen) – '
+            . 'kein Vergleich möglich. KEIN Befund.';
+    } else {
+        $voll = [];
+        foreach ($nf as $f => $z) {
+            foreach (['gleich_nachname', 'gleich_vorname'] as $k) {
+                if ($z[$k] === $verglichen) $voll[] = $f . ' ' . $k;
+            }
+        }
+        $aus['deutung'] = $voll === []
+            ? 'Kein Feld stimmt bei ALLEN verglichenen Einträgen mit Nachname oder Vorname überein – Zahlen einzeln lesen.'
+            : 'Bei allen ' . $verglichen . ' verglichenen Einträgen: ' . implode(', ', $voll) . '.';
+    }
+
+    $klassen = is_array($klassenJson)
+        ? ($klassenJson['classes'] ?? $klassenJson['data']['classes'] ?? null) : null;
+    if (!is_array($klassen)) {
+        $aus['klassen'] = 'nicht gemessen (kein classes[] aus timetable/filter)';
+        return $aus;
+    }
+    $imFilter = []; $kurz = [];
+    $kf = ['longName' => ['gefuellt' => 0, 'gleich_kurzname' => 0, 'enthaelt_kurzname' => 0],
+           'displayName' => ['gefuellt' => 0, 'gleich_kurzname' => 0, 'enthaelt_kurzname' => 0]];
+    foreach ($klassen as $k) {
+        $c = is_array($k['class'] ?? null) ? $k['class'] : null;
+        $id = (int)($c['id'] ?? 0);
+        if ($id <= 0) continue;
+        $s = $t($c['shortName'] ?? null);
+        $imFilter[$id] = true;
+        $kurz[] = $s;
+        foreach ($kf as $f => $_) {
+            $w = $t($c[$f] ?? null);
+            if ($w === '') continue;
+            $kf[$f]['gefuellt']++;
+            if ($s !== '' && $w === $s) $kf[$f]['gleich_kurzname']++;
+            if ($s !== '' && str_contains($w, $s)) $kf[$f]['enthaelt_kurzname']++;
+        }
+    }
+    $mitSchuelern = array_fill_keys($klasseIds, true);
+    sort($kurz, SORT_STRING);
+    $aus['klassen'] = [
+        'mit_klasse'           => $mitKlasse,
+        'klasse_im_filter'     => count(array_filter($klasseIds, fn($i) => isset($imFilter[$i]))),
+        'filter_klassen'       => count($imFilter),
+        'filter_ohne_schueler' => count(array_diff_key($imFilter, $mitSchuelern)),
+        'kurznamen'            => $kurz,
+        'kurzname_eindeutig'   => count(array_unique($kurz)) === count($kurz) && !in_array('', $kurz, true),
+        'felder'               => $kf,
+    ];
+    return $aus;
+}
+
 function messung_sitzung_bericht(array $u, ?object $rest, ?string $grund,
                                  ?string $heute = null, ?array $probe = null,
-                                 array $lehrer = [], ?array $ferien = null): array
+                                 array $lehrer = [], ?array $ferien = null,
+                                 ?array $alt = null): array
 {
     $bericht = [
         'messung' => 'Frage 2 (BEFUND-2026-10-07-pageconfig-schuelerliste) – '
@@ -766,6 +866,7 @@ function messung_sitzung_bericht(array $u, ?object $rest, ?string $grund,
         ]);
         $a = messung_klassenfilter_auswerten($r['json'], $lehrer);
         $auswertung[$name] = $a;
+        if ($name === 'schulzeit') $klassenSchulzeit = $r['json'];
         $bericht['klassenfilter'][$name] = ['zeitraum' => $f, 'status' => $r['status'],
             'fehler' => $r['fehler']] + $a['bericht'] + [
             'deutung' => $r['fehler'] !== null ? 'Abruf mit Ausnahme – kein Befund.'
@@ -786,6 +887,15 @@ function messung_sitzung_bericht(array $u, ?object $rest, ?string $grund,
         $bericht['klassenfilter']['vergleich'] = messung_zeitraum_vergleich(
             $auswertung['schulzeit']['sig'], $auswertung['ferien']['sig']);
     }
+
+    // ---- 1d. Schülerliste: welches Feld trägt was (Zug 4, v0.9.75) -------
+    // Nur Lehrkraft/Verwaltung: Dort ist pageconfig die volle Liste; die
+    // Route liest die alte Tabelle auch nur für diese Rollen.
+    $bericht['schuelerliste'] = !in_array($u['rolle'] ?? '', ['lehrkraft', 'admin'], true)
+        ? 'nicht gemessen (nur Lehrkraft/Verwaltung)'
+        : (is_array($liste)
+            ? messung_schuelerliste($liste, $klassenSchulzeit ?? null, $alt)
+            : 'nicht gemessen (keine pageconfig-Liste)');
 
     // Eltern: je eigenem Kind über klasseId aus pageconfig (gleicher Kreis
     // wie class.id – an einem Fall vom Betreiber quergeprüft, hier gezählt).

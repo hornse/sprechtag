@@ -1052,3 +1052,58 @@ sie mitgelöscht wird; Mutation AR5 belegt das mit einer nachgestellten
 Ablage. Der Datenschutz-Absatz der Hilfe (`datenschutzAbsaetze()`) nennt
 „die Termine“ allgemein und trägt den Bau ohne Änderung. Beim Bau ist nur
 zu entscheiden, ob dort „auch abgesagte“ ausdrücklich dazugeschrieben wird.
+
+---
+
+## E20 — Zug 4: keine Schülerliste mehr, Namen nur am Vorgang
+
+**Eingetragen:** 09.10.2026 · **wirksam:** schrittweise ab v0.9.75 ·
+**betrifft:** E8 (setzt es um), E17 (Kasten), E19 (Archivieren)
+
+Grundlage: E8 und `docs/BEFUND-2026-10-07-pageconfig-schuelerliste.md`.
+Entschieden vom Betreiber auf die Richtungsfragen vor dem Bau:
+
+- **A — keine lokale Schülerliste mehr.** Die Einladungsauswahl und die
+  Kind-Suche beim stellvertretenden Buchen lesen `pageconfig?type=5` je
+  Aufruf über die Sitzung der Lehrkraft. Gespeichert wird ein Kindname nur
+  dort, wo eine konkrete Buchung, Einladung oder Mitteilung ihn braucht,
+  und das Archivieren löscht ihn mit (E19-Nachtrag,
+  `tests/run_archivieren.php`). Es gibt keinen Sync und keine 1314 Namen
+  auf Vorrat, nichts veraltet zwischen zwei Abgleichen. Die Tabelle
+  `schueler` fällt mit Schritt 4, nach der Messung. Bis dahin bleiben die
+  Altdatensätze als Vergleichsmaßstab stehen.
+  Die ursprüngliche Frage („löschen oder bis zum nächsten Sync stehen
+  lassen“) setzte eine bleibende Liste voraus. Mit A entfällt sie.
+- **B — die Klasse wird festgehalten.** Sie kommt aus denselben zwei
+  Abrufen, die die Klassenleitung (E10, Zug 3) einmal je Anmeldung macht:
+  `pageconfig` liefert `klasseId`, `timetable/filter` den Namen. Ein
+  zusätzlicher Abruf entsteht nicht. Tischvorlage und Kalender der
+  Lehrkraft brauchen sie am Sprechtag.
+- **C — Einladen ohne Sitzung:** Es wird nicht eingeladen, sondern der
+  Kasten „Anmelden und einladen“ gezeigt, dasselbe Muster wie überall
+  (E17). Ungeprüft und ohne Namen zu speichern wäre die stille Lücke aus
+  dem Befund, Abschnitt 3.
+- **D — die freie Eingabe einer Schüler-ID entfällt.** Sie war der Ersatz
+  für eine leere Liste.
+- **E — Kinder ohne Klasse** erscheinen weder in der Einladungsauswahl
+  noch in der Kind-Suche des stellvertretenden Buchens. Eine Quelle, eine
+  Regel.
+- Ohne Rückfrage, ohne Einspruch: Die Admin-Seite behält nur die
+  Benutzergruppen (E15). Der Datenschutz-Absatz der Hilfe verliert den
+  Satz zur Schülerliste. `docs/SCHUELERLISTE.md` bekommt einen
+  Überholt-Vermerk. `mit_eltern_ids_ermitteln()` nimmt den Kindnamen aus
+  `pageconfig`.
+
+**Zuerst gemessen, nicht angenommen:** Gemessen waren die Feldnamen, nicht
+ihr Inhalt. Dass `longName` der Nachname ist, ist eine Vermutung, die von
+`getStudents` übertragen wurde. Den Klassennamen liefert `pageconfig` gar
+nicht. Schritt 1 (v0.9.75) misst deshalb, welches Feld was trägt. Erst
+danach wird gebaut.
+
+**Reihenfolge**, jeder Schritt einzeln geprüft und ausgeliefert:
+1. Messteil. Der Betreiber misst.
+2. Kindname und Klasse beim Buchen, Einladen und Einreihen festhalten; die
+   Anzeigen lesen sie, die Kalender zuerst.
+3. Einladungsauswahl und Kind-Suche aus `pageconfig`.
+4. Abbau von CSV, Sync, Austrittsdatum, Admin-Teil und Suiten. Migration
+   mit Übernahme der Namen vorhandener Buchungen und Wegfall der Tabelle.

@@ -752,3 +752,44 @@ angemeldet, also muss das Dienstkonto senden“), **nicht am Code gelesen.**
 Sitzung), ist aber nicht die Frage nach dem **Normalweg**, als die sie gestellt
 war. Der Normalweg ist die Sitzung der handelnden Person.
 
+
+---
+
+## 19 — Nachtrag 09.10.2026: Messteil Schülerliste vorbereitet (v0.9.75, Zug 4 Schritt 1)
+
+**Lücke:** Gemessen sind die **Feldnamen** von `pageconfig` (Abschnitt 1)
+und von `timetable/filter` (Abschnitt 11), nicht ihr **Inhalt**. „`longName`
+ist der Nachname“ ist von `getStudents` übertragen. Den Klassennamen trägt
+`pageconfig` gar nicht, nur `klasseId`; der Name muss aus
+`timetable/filter` kommen. Welches Feld dort „6b“ trägt, ist nicht
+gemessen.
+
+**Messweg:** `GET /api/messung/sitzung`, als **Lehrkraft** (oder
+Verwaltung), Teil `schuelerliste`:
+- **Vergleichsmaßstab:** Je Kennung wird die alte Tabelle `schueler`
+  herangezogen; ihre Spalten stammen aus `getStudents` (`foreName` →
+  `vorname`, `longName` → `nachname`). Für `name`, `forename`, `longName`,
+  `displayName` und `externKey` wird gezählt: gefüllt; gleich Nachname;
+  gleich Vorname; gleich „Vorname Nachname“, „Nachname Vorname“ und
+  „Nachname, Vorname“.
+- **Klassen** (Filter der Schulzeit, vier Wochen bis heute): wie viele
+  `klasseId` im Filter gefunden werden, Klassen ohne Schüler, die
+  **Kurznamen** (`shortName`; Klassennamen sind keine Personendaten), ob sie
+  eindeutig sind, und ob `longName` bzw. `displayName` dem Kurznamen gleichen
+  oder ihn enthalten.
+- **Antwort:** nur Zählwerte und die Kurznamen der Klassen. Keine Namen,
+  keine Kennungen, kein `externKey`. Die Eltern-Sicht misst diesen Teil
+  nicht.
+
+**Grenze dieser Messung:** Sie zeigt, welches `pageconfig`-Feld dem
+`getStudents`-Feld gleicht. Dass `getStudents.longName` der Nachname ist,
+sagt die Dokumentation der JSON-RPC-Schnittstelle; das ist eine Auskunft,
+keine Messung. Gestützt wird es dadurch, dass die Kind-Suche beim
+stellvertretenden Buchen die Namen in dieser Form anzeigt. Gemeldet hat
+niemand, dass sie verdreht wären. **Ein Beleg ist das nicht.** Den Blick
+auf die Wirklichkeit liefert erst Schritt 3: Dann zeigt die
+Einladungsauswahl die Namen aus `pageconfig`.
+
+**Was die Antwort entscheiden soll:** welches Feld im Bau Nachname und
+Vorname liefert, welches den Klassennamen, und ob Klassennamen eindeutig
+genug sind, um nach ihnen zu gruppieren.

@@ -423,6 +423,88 @@ pruefe('Bericht: für jede Rolle gemessen, Abgleich mit der Gruppe aus profile/g
     && ($bu['benutzergruppen']['eigene_gruppe']['ergebnis'] ?? null) === 'zeichengenau'
     && in_array($UR, array_column($restU->aufrufe, 0), true));
 
+echo "Schülerliste (Zug 4, v0.9.75): welches Feld trägt was – nur Zahlen\n";
+// ERFUNDENE Werte in der belegten Form: Feldnamen von pageconfig aus dem
+// Befund, Abschnitt 1 (id, name, forename, longName, externKey, klasseId);
+// classes[].class mit id und shortName aus Abschnitt 11 (longName und
+// displayName dort ebenfalls genannt). Welcher INHALT in welchem Feld steht,
+// ist genau die Frage – die Daten unten legen es nicht fest, sie decken die
+// Fälle ab, die die Zählung trennen muss.
+pruefe('Voraussetzung: messung_schuelerliste vorhanden', function_exists('messung_schuelerliste'));
+$sl = function_exists('messung_schuelerliste') ? 'messung_schuelerliste' : fn() => [];
+$pcl = [
+    ['id' => 501, 'name' => 'ErfundenA Ute', 'forename' => 'Ute', 'longName' => 'ErfundenA',
+     'externKey' => '9100001', 'klasseId' => 7],
+    ['id' => 502, 'name' => 'ErfundenB Ole', 'forename' => 'Ole', 'longName' => 'ErfundenB ',
+     'externKey' => '9100002', 'klasseId' => 7],
+    ['id' => 503, 'name' => 'xyz', 'forename' => 'Eva', 'longName' => 'ErfundenC',
+     'externKey' => '', 'klasseId' => 0],
+    ['id' => 504, 'name' => 'ErfundenD Tim', 'forename' => 'Tim', 'longName' => 'ErfundenD',
+     'externKey' => '9100004', 'klasseId' => 9],
+];
+$alt = [501 => ['vorname' => 'Ute', 'nachname' => 'ErfundenA'],
+        502 => ['vorname' => 'Ole', 'nachname' => 'ErfundenB'],
+        503 => ['vorname' => 'Eva', 'nachname' => 'ErfundenC'],
+        777 => ['vorname' => 'Nie', 'nachname' => 'Dabei']];
+$filter = ['classes' => [
+    ['class' => ['id' => 7, 'shortName' => '5a', 'longName' => 'Klasse 5a', 'displayName' => '5a']],
+    ['class' => ['id' => 8, 'shortName' => '6b', 'longName' => 'Klasse 6b', 'displayName' => '6b']],
+    ['class' => ['id' => 10, 'shortName' => '7c', 'longName' => 'Klasse 7c', 'displayName' => '7c']],
+]];
+// Drei Klassen, zwei ohne Schüler (8, 10), eine mit (7): „ohne Schüler“ (2)
+// und „mit Schülern“ (1) unterscheiden sich – bei zwei Klassen ergaben
+// beide 1, und die Gegenprobe SU5 schlug nicht an.
+$m = $sl($pcl, $filter, $alt);
+pruefe('Einträge 4, davon 3 in der alten Liste (Vergleichsmenge)',
+    ($m['eintraege'] ?? null) === 4 && ($m['verglichen'] ?? null) === 3);
+pruefe('longName = Nachname bei 3 von 3 (Leerzeichen am Rand zählt nicht)',
+    ($m['namensfelder']['longName']['gleich_nachname'] ?? null) === 3);
+pruefe('forename = Vorname bei 3 von 3',
+    ($m['namensfelder']['forename']['gleich_vorname'] ?? null) === 3);
+pruefe('name = „Nachname Vorname“ bei 2 von 3, NICHT = Nachname',
+    ($m['namensfelder']['name']['gleich_nachname_vorname'] ?? null) === 2
+    && ($m['namensfelder']['name']['gleich_nachname'] ?? null) === 0);
+pruefe('forename ist NICHT der Nachname (Zählung trennt die Felder)',
+    ($m['namensfelder']['forename']['gleich_nachname'] ?? null) === 0);
+pruefe('gefüllt je Feld über ALLE Einträge (externKey 3 von 4, displayName 0)',
+    ($m['namensfelder']['externKey']['gefuellt'] ?? null) === 3
+    && ($m['namensfelder']['displayName']['gefuellt'] ?? null) === 0);
+pruefe('Klassen: 3 mit klasseId, 2 davon im Filter gefunden',
+    ($m['klassen']['mit_klasse'] ?? null) === 3 && ($m['klassen']['klasse_im_filter'] ?? null) === 2);
+pruefe('Klassen: 3 im Filter, 2 davon ohne Schüler',
+    ($m['klassen']['filter_klassen'] ?? null) === 3 && ($m['klassen']['filter_ohne_schueler'] ?? null) === 2);
+pruefe('Klassen: Kurznamen ausgegeben (keine Personendaten), eindeutig',
+    ($m['klassen']['kurznamen'] ?? null) === ['5a', '6b', '7c'] && ($m['klassen']['kurzname_eindeutig'] ?? null) === true);
+pruefe('Klassen: longName = Kurzname 0, enthält ihn 3; displayName = Kurzname 3',
+    ($m['klassen']['felder']['longName']['gleich_kurzname'] ?? null) === 0
+    && ($m['klassen']['felder']['longName']['enthaelt_kurzname'] ?? null) === 3
+    && ($m['klassen']['felder']['displayName']['gleich_kurzname'] ?? null) === 3);
+$txt = json_encode($m, JSON_UNESCAPED_UNICODE);
+pruefe('Antwort ohne Namen, Kennungen und externKey der Kinder',
+    ($m['verglichen'] ?? null) === 3 && $txt !== false && !preg_match('/Erfunden|Ute|Ole|Eva|Tim|50[1-4]|91000/', $txt));
+$dopp = $filter;
+$dopp['classes'][1]['class']['shortName'] = '5a';
+pruefe('doppelter Kurzname: eindeutig false',
+    (($sl($pcl, $dopp, $alt))['klassen']['kurzname_eindeutig'] ?? null) === false);
+$leer = $sl($pcl, $filter, [777 => ['vorname' => 'Nie', 'nachname' => 'Dabei']]);
+pruefe('keine gemeinsame Kennung: verglichen 0, Deutung „KEIN Befund“',
+    ($leer['verglichen'] ?? null) === 0 && str_contains((string)($leer['deutung'] ?? ''), 'KEIN Befund'));
+$ohneF = $sl($pcl, null, $alt);
+pruefe('ohne Klassenfilter: Klassen nicht gemessen, Namen trotzdem',
+    is_string($ohneF['klassen'] ?? null) && ($ohneF['namensfelder']['longName']['gleich_nachname'] ?? null) === 3);
+pruefe('ohne alte Liste: nicht gemessen', is_string($sl($pcl, $filter, null)));
+
+echo "Schülerliste im Bericht: nur Lehrkraft/Verwaltung\n";
+$TF = '/WebUntis/api/rest/view/v1/timetable/filter';
+$restS = new ErsatzRest([$PC => ['status' => 200, 'json' => ['data' => ['elements' => $pcl]]],
+                         $TF => ['status' => 200, 'json' => $filter]]);
+$bs = messung_sitzung_bericht(['rolle' => 'lehrkraft'], $restS, null, '2026-10-09', null, [], null, $alt);
+pruefe('Lehrkraft: schuelerliste gemessen (gegen Filter der Schulzeit)',
+    ($bs['schuelerliste']['verglichen'] ?? null) === 3 && ($bs['schuelerliste']['klassen']['klasse_im_filter'] ?? null) === 2);
+$be = messung_sitzung_bericht($eltern, $restS, null, '2026-10-09', null, [], null, $alt);
+pruefe('Eltern: schuelerliste nicht gemessen',
+    is_string($be['schuelerliste'] ?? null) && str_starts_with($be['schuelerliste'], 'nicht gemessen'));
+
 echo "Aufrufstelle in index.php (ohne Kommentare)\n";
 $code = '';
 foreach (token_get_all((string)file_get_contents(__DIR__ . '/../backend/api/index.php')) as $t) {
@@ -435,12 +517,15 @@ $route = $a === false ? '' : substr($code, $a,
     (int)strpos($code, ']);', (int)strpos($code, 'json_ok(', $a)) - $a + 3);
 pruefe('Route reicht den Grund aus wu_sitzung() durch',
     $route !== '' && preg_match('/\$sitzung = wu_sitzung\(\$cfg\);\s*\$rest = \$sitzung\[\'rest\'\];\s*\$grund = \$sitzung\[\'grund\'\];/', $route) === 1
-    && preg_match('/messung_sitzung_bericht\(\$u,\s*\$rest,\s*\$grund,\s*null,\s*\$probe,\s*\$lehrer,\s*\$ferien\)/', $route) === 1);
+    && preg_match('/messung_sitzung_bericht\(\$u,\s*\$rest,\s*\$grund,\s*null,\s*\$probe,\s*\$lehrer,\s*\$ferien,\s*\$alt\)/', $route) === 1);
 pruefe('Route fährt die Nachprobe genau bei kein_token',
     $route !== '' && preg_match("/\\\$probe = \\\$grund === 'kein_token'\s*\?\s*messung_token_probe\(/", $route) === 1);
 pruefe('Route verlangt eine Anmeldung', $route !== '' && str_contains($route, 'auth_require()'));
 pruefe('Route nimmt den Ferienzeitraum nur mit zwei gültigen Daten',
     $route !== '' && preg_match('/\$ferien = preg_match\([^;]*\$fv\)\s*&&\s*preg_match\([^;]*\$fb\)/s', $route) === 1);
+pruefe('Route liest die alte Liste nur für Lehrkraft/Verwaltung (Zug 4, Vergleichsmaßstab)',
+    $route !== '' && preg_match("/\\\$alt = in_array\\(\\\$u\\['rolle'\\], \\['lehrkraft', 'admin'\\], true\\)\\s*\\?/", $route) === 1
+    && str_contains($route, 'SELECT webuntis_id, vorname, nachname FROM schueler WHERE webuntis_id IS NOT NULL'));
 pruefe('Route gleicht gegen lehrer.webuntis_id und kuerzel ab',
     $route !== '' && str_contains($route, 'SELECT webuntis_id, kuerzel FROM lehrer'));
 

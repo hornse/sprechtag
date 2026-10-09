@@ -50,7 +50,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.74', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.75', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -1101,7 +1101,14 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'messung' && ($seg[1] ?? '') === '
     $fb = (string)($_GET['ferien_bis'] ?? '');
     $ferien = preg_match('/^\d{4}-\d{2}-\d{2}$/', $fv) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fb)
         ? ['von' => $fv, 'bis' => $fb] : null;
-    json_ok(['bericht' => messung_sitzung_bericht($u, $rest, $grund, null, $probe, $lehrer, $ferien)]);
+    // Zug 4 (v0.9.75): die alte Tabelle als Vergleichsmaßstab – welches
+    // pageconfig-Feld trägt Nachname und Vorname? Nur für Lehrkraft und
+    // Verwaltung; die Antwort enthält nur Zählwerte.
+    $alt = in_array($u['rolle'], ['lehrkraft', 'admin'], true)
+        ? array_column(db($cfg)->query('SELECT webuntis_id, vorname, nachname FROM schueler WHERE webuntis_id IS NOT NULL')
+            ->fetchAll(), null, 'webuntis_id')
+        : null;
+    json_ok(['bericht' => messung_sitzung_bericht($u, $rest, $grund, null, $probe, $lehrer, $ferien, $alt)]);
 }
 
 // ============================================================
