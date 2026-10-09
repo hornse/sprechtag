@@ -372,6 +372,74 @@ pruefe('Bericht: Profil für jede Rolle gemessen (hier Lehrkraft, deren Bericht 
     ($bp['profil']['userGroup']['gefuellt'] ?? null) === true
     && in_array($PR, array_column($restP->aufrufe, 0), true));
 
+// ------------------------------------------------------------
+// v0.9.67: /WebUntis/api/userrole/config – alle Benutzergruppen der Schule
+// (Auswahlliste statt Eintippen). Belegt aus dem Browser-Mitschnitt des
+// Betreibers (Admin): data.userGroups, je Eintrag id, label, userCount,
+// userRole, userCountByUserRole; „SuS über 18“ id 25 mit 185 Schülern,
+// „SuS über 18 mit Atte“ id 45, „01_Eltern Attest“ mit 7 Erziehungs-
+// berechtigten. NICHT belegt ist die Form von userCountByUserRole (Objekt
+// oder Liste) – beide Formen sind ERFUNDEN und werden erkannt. Übrige
+// Einträge und Zahlen erfunden.
+echo "userrole/config – Benutzergruppen der Schule (v0.9.67)\n";
+$UR = '/WebUntis/api/userrole/config';
+pruefe('Voraussetzung: messung_benutzergruppen() vorhanden', function_exists('messung_benutzergruppen'));
+if (!function_exists('messung_benutzergruppen')) { echo "\n$fehler ROT\n"; exit(1); }
+$gruppenObj = ['data' => ['userGroups' => [
+    ['id' => 25, 'label' => 'SuS über 18', 'userCount' => 185, 'userRole' => -1,
+     'userCountByUserRole' => ['STUDENT' => 185]],
+    ['id' => 45, 'label' => 'SuS über 18 mit Atte', 'userCount' => 3, 'userRole' => -1,
+     'userCountByUserRole' => ['STUDENT' => 3]],
+    ['id' => 61, 'label' => '01_Eltern Attest', 'userCount' => 7, 'userRole' => -1,
+     'userCountByUserRole' => ['LEGAL_GUARDIAN' => 7]],
+    ['id' => 2, 'label' => 'Lehrkräfte', 'userCount' => 90, 'userRole' => 2,
+     'userCountByUserRole' => ['TEACHER' => 90], 'mitglieder' => [['id' => 777001, 'displayName' => 'Erfunden Geheim']]],
+]]];
+$bg = messung_benutzergruppen(['status' => 200, 'json' => $gruppenObj, 'fehler' => null], 'SuS über 18 mit Atte');
+pruefe('Liste gelesen: Status 200, data.userGroups, 4 Einträge, Felder genannt',
+    $bg['status'] === 200 && $bg['liste_vorhanden'] === true && $bg['eintraege'] === 4
+    && count(array_intersect(['id', 'label', 'userCount', 'userRole', 'userCountByUserRole'], array_keys($bg['felder'] ?? []))) === 5);
+$je = [];
+foreach ($bg['gruppen'] ?? [] as $g) $je[$g['label']] = $g;
+pruefe('je Gruppe Kennung, Name, Rolle, Anzahl und Schüleranzahl (von der Schule vergeben, Zahlen)',
+    ($je['SuS über 18']['id'] ?? null) === 25 && ($je['SuS über 18']['schueler'] ?? null) === 185
+    && ($je['SuS über 18 mit Atte']['id'] ?? null) === 45 && ($je['01_Eltern Attest']['schueler'] ?? null) === 0
+    && ($je['Lehrkräfte']['userRole'] ?? null) === 2 && ($je['Lehrkräfte']['userCount'] ?? null) === 90);
+pruefe('Gruppen mit Schülern gezählt (STUDENT > 0): 2 von 4', ($bg['mit_schuelern'] ?? null) === 2);
+$liste = messung_benutzergruppen(['status' => 200, 'fehler' => null, 'json' => ['data' => ['userGroups' => [
+    ['id' => 25, 'label' => 'SuS über 18', 'userCount' => 185, 'userRole' => -1,
+     'userCountByUserRole' => [['userRole' => 'STUDENT', 'count' => 185], ['userRole' => 'TEACHER', 'count' => 0]]],
+]]]], null);
+pruefe('userCountByUserRole als Liste (erfunden): ebenfalls erkannt, Format genannt',
+    ($liste['gruppen'][0]['schueler'] ?? null) === 185 && str_starts_with((string)($liste['felder']['userCountByUserRole'] ?? ''), 'Liste'));
+pruefe('Abgleich mit profile.userGroup: zeichengenau gefunden',
+    ($bg['eigene_gruppe']['ergebnis'] ?? null) === 'zeichengenau' && ($bg['eigene_gruppe']['id'] ?? null) === 45);
+$fast = messung_benutzergruppen(['status' => 200, 'json' => $gruppenObj, 'fehler' => null], 'SuS über 18 mit atte ');
+pruefe('… nur nach Angleichen gefunden: so gemeldet, mit erster abweichender Stelle',
+    ($fast['eigene_gruppe']['ergebnis'] ?? null) === 'nur_angeglichen'
+    && ($fast['eigene_gruppe']['erste_abweichung'] ?? null) === 17);
+$nein = messung_benutzergruppen(['status' => 200, 'json' => $gruppenObj, 'fehler' => null], 'Gibt es nicht');
+$ohne = messung_benutzergruppen(['status' => 200, 'json' => $gruppenObj, 'fehler' => null], null);
+pruefe('… nicht gefunden: „nein“; ohne eigene Gruppe: „nicht messbar“',
+    ($nein['eigene_gruppe']['ergebnis'] ?? null) === 'nein' && ($ohne['eigene_gruppe']['ergebnis'] ?? null) === 'nicht_messbar');
+pruefe('keine Personenangaben (Mitglieder einer Gruppe erscheinen nicht)',
+    !str_contains(json_encode($bg, JSON_UNESCAPED_UNICODE), 'Geheim') && !str_contains(json_encode($bg), '777001'));
+$k1 = messung_benutzergruppen(['status' => 200, 'json' => ['data' => []], 'fehler' => null], null);
+$k2 = messung_benutzergruppen(['status' => 403, 'json' => null, 'fehler' => null], null);
+$k3 = messung_benutzergruppen(['status' => null, 'json' => null, 'fehler' => 'RuntimeException: weg'], null);
+pruefe('keine Liste: KEIN Befund; 403: kein Zugriff; Ausnahme: kein Befund – drei Deutungen',
+    $k1['liste_vorhanden'] === false && str_contains($k1['deutung'], 'KEIN Befund')
+    && str_contains($k2['deutung'], 'kein Zugriff') && str_contains($k3['deutung'], 'Ausnahme')
+    && count(array_unique([$k1['deutung'], $k2['deutung'], $k3['deutung']])) === 3);
+$restU = new ErsatzRest([$PR => ['status' => 200, 'json' => ['data' => ['profile' => ['userGroup' => 'Lehrkräfte']]]],
+                         $UR => ['status' => 200, 'json' => $gruppenObj],
+                         $PC => ['status' => 200, 'json' => ['data' => [['id' => 1]]]]]);
+$bu = messung_sitzung_bericht(['rolle' => 'lehrkraft'], $restU, null, '2026-10-09');
+pruefe('Bericht: für jede Rolle gemessen, Abgleich mit der Gruppe aus profile/general',
+    ($bu['benutzergruppen']['eintraege'] ?? null) === 4
+    && ($bu['benutzergruppen']['eigene_gruppe']['ergebnis'] ?? null) === 'zeichengenau'
+    && in_array($UR, array_column($restU->aufrufe, 0), true));
+
 echo "Aufrufstelle in index.php (ohne Kommentare)\n";
 $code = '';
 foreach (token_get_all((string)file_get_contents(__DIR__ . '/../backend/api/index.php')) as $t) {

@@ -667,6 +667,22 @@ mut FSG6 $APP 's/S\.sgFehler = String\(f\.message\) \|\| \x27unbekannter Fehler\
 mut FSG7 $APP 's/  if \(S\.sgFehler\) \{/  if (false) {/' \
   $FSG "… kein erneuter Abruf von selbst"
 
+# v0.9.67 – Messung userrole/config (Benutzergruppen der Schule)
+mut UG1 $MS 's/\} elseif \(is_array\(\$w\)\) \{\n            \$rolle = null;/} elseif (false) {\n            \$rolle = null;/' \
+  $S "userCountByUserRole als Liste (erfunden): ebenfalls erkannt"
+mut UG2 $MS 's/if \(\$g\[\x27label\x27\] === \$eigene\) \{/if (\$angl(\$g[\x27label\x27]) === \$angl(\$eigene)) {/' \
+  $S "… nur nach Angleichen gefunden"
+mut UG3 $MS 's/\x27erste_abweichung\x27 => \$pos \+ 1,/\x27erste_abweichung\x27 => \$pos,/' \
+  $S "… nur nach Angleichen gefunden"
+mut UG4 $MS 's/count\(array_filter\(\$gruppen, fn\(\$g\) => \$g\[\x27schueler\x27\] > 0\)\)/count(\$gruppen)/' \
+  $S "Gruppen mit Schülern gezählt"
+mut UG5 $MS 's/    \$bericht\[\x27benutzergruppen\x27\] = messung_benutzergruppen\(/    if ((\$u[\x27rolle\x27] ?? \x27\x27) === \x27eltern\x27) \$bericht[\x27benutzergruppen\x27] = messung_benutzergruppen(/' \
+  $S "Bericht: für jede Rolle gemessen, Abgleich"
+mut UG6 $MS 's/(\x27schueler\x27  => \(int\)\(\$zahlen\[\x27STUDENT\x27\] \?\? 0\),)/$1 \x27roh\x27 => \$e,/' \
+  $S "keine Personenangaben (Mitglieder einer Gruppe erscheinen nicht)"
+mut UG7 $MS 's/: \x27Status 200, aber kein data\.userGroups – Antwortform prüfen\. KEIN Befund\.\x27\);/: \x27Status 200 – kein Zugriff über diese Sitzung.\x27);/' \
+  $S "keine Liste: KEIN Befund"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1

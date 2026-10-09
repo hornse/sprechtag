@@ -1,5 +1,33 @@
 # Changelog - sprechtag
 
+## v0.9.67 (Oktober 2026) – Messung: Benutzergruppen der Schule (userrole/config)
+
+Gebaut wird die Auswahlliste erst nach dem Befund; dieser Zug misst nur.
+
+`GET /api/messung/sitzung` misst jetzt für **jede** Rolle zusätzlich
+`/WebUntis/api/userrole/config` über unsere Sitzung:
+1. Status – je Rolle, also auch, wer die Liste lesen darf;
+2. ob `data.userGroups` kommt, wie viele Einträge, welche Felder (mit Format);
+3. je Gruppe `id`, `label`, `userRole`, `userCount` und die Zahl der Schüler
+   (aus `userCountByUserRole`, Objekt- oder Listenform), dazu wie viele
+   Gruppen Schüler tragen;
+4. ob das `label` der eigenen Gruppe **zeichengenau** dem Text aus
+   `profile/general` gleicht – sonst „nur angeglichen“ (erst nach Trimmen und
+   Groß-/Kleinschreibung gleich, mit erster abweichender Stelle), „nein“ oder
+   „nicht messbar“.
+
+Gruppennamen, -kennungen und Anzahlen gehen in die Antwort (von der Schule
+vergeben); Personen nicht – auch nicht, wenn ein Eintrag Mitglieder trüge.
+Kein Fehlerfall gilt als Befund (keine Liste / kein Zugriff / Ausnahme,
+drei Deutungen). Befund Abschnitt 14: Auskunft des Betreibers zur Quelle,
+`usergrouplist.do` geprüft und verworfen (HTML).
+
+### Prüfungen
+- 1091 → 1102 Prüfzeilen in 57 Suiten, alle grün; `run_messung_sitzung.php`
+  +11 (Form aus dem Mitschnitt; die Form von `userCountByUserRole` ist nicht
+  belegt, beide Varianten erfunden und gekennzeichnet).
+- Mutationen 212 → 219, alle angeschlagen, H4 grün, Rücknahme belegt.
+
 ## v0.9.66 (Oktober 2026) – Behebung: Verwaltungsroute der Schülergruppen stürzte ab
 
 ### Fehler im Betrieb (v0.9.65)

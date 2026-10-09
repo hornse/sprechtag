@@ -4,6 +4,13 @@
 //
 //   GET /api/messung/sitzung   (jede angemeldete Person, nur Zahlen)
 //
+// Seit v0.9.67 zusätzlich: /WebUntis/api/userrole/config – alle
+// Benutzergruppen der Schule (data.userGroups: id, label, userCount, userRole,
+// userCountByUserRole) als mögliche Auswahlliste für die zugelassenen Gruppen
+// (E15). Je Rolle: Status, Einträge, Felder, Gruppen mit Schülern, und ob das
+// label der eigenen Gruppe ZEICHENGENAU dem Text aus profile/general gleicht.
+// Gruppennamen, -kennungen und Anzahlen gehen in die Antwort; Personen nicht.
+//
 // Seit v0.9.64 zusätzlich: /WebUntis/api/profile/general – trägt das Profil
 // der angemeldeten Person ihre Benutzergruppe (userGroup), bei jeder Rolle,
 // eindeutig, und mit Kennung? Zweck: volljährige Schüler erkennen (die
@@ -387,6 +394,95 @@ function messung_profil(array $r): array
     return $aus;
 }
 
+/**
+ * Anzahl je Rolle aus userCountByUserRole – Form nicht belegt: Objekt
+ * {ROLLE: Zahl} oder Liste von Objekten mit einem Rollen- und einem
+ * Zahlfeld. Rückgabe [ROLLE => int]; Unbekanntes ergibt [].
+ */
+function messung_rollenzahlen($v): array
+{
+    $aus = [];
+    if (!is_array($v)) return $aus;
+    foreach ($v as $k => $w) {
+        if (is_string($k) && (is_int($w) || (is_string($w) && ctype_digit($w)))) {
+            $aus[strtoupper($k)] = (int)$w;
+        } elseif (is_array($w)) {
+            $rolle = null; $zahl = null;
+            foreach ($w as $wk => $ww) {
+                if (is_string($ww) && preg_match('/role|rolle|name|type/i', (string)$wk)) $rolle = strtoupper($ww);
+                if (is_int($ww) && preg_match('/count|anzahl|zahl|value/i', (string)$wk)) $zahl = $ww;
+            }
+            if ($rolle !== null && $zahl !== null) $aus[$rolle] = $zahl;
+        }
+    }
+    return $aus;
+}
+
+/**
+ * /WebUntis/api/userrole/config auswerten (v0.9.67). $eigene: userGroup aus
+ * profile/general (Text) oder null. Je Gruppe nur id, label, userRole,
+ * userCount und die Schüleranzahl; die Feldnamen eines Eintrags mit Format.
+ * Abgleich der eigenen Gruppe: 'zeichengenau' | 'nur_angeglichen' (erst nach
+ * Trimmen und Groß-/Kleinschreibung gleich, mit erster abweichender Stelle,
+ * 1-basiert) | 'nein' | 'nicht_messbar'.
+ */
+function messung_benutzergruppen(array $r, ?string $eigene): array
+{
+    $liste = $r['json']['data']['userGroups'] ?? null;
+    $aus = ['status' => $r['status'], 'fehler' => $r['fehler'],
+            'liste_vorhanden' => is_array($liste) && array_is_list($liste)];
+    if (!$aus['liste_vorhanden']) {
+        $aus['deutung'] = $r['fehler'] !== null ? 'Abruf mit Ausnahme – kein Befund.'
+            : ($r['status'] !== 200 ? 'Status ' . $r['status'] . ' – kein Zugriff über diese Sitzung.'
+            : 'Status 200, aber kein data.userGroups – Antwortform prüfen. KEIN Befund.');
+        $aus['eigene_gruppe'] = ['ergebnis' => 'nicht_messbar'];
+        return $aus;
+    }
+    $felder = [];
+    $gruppen = [];
+    foreach ($liste as $e) {
+        if (!is_array($e)) continue;
+        foreach ($e as $k => $w) {
+            if (!isset($felder[$k]) || $felder[$k] === 'leer') $felder[(string)$k] = messung_format($w);
+        }
+        $zahlen = messung_rollenzahlen($e['userCountByUserRole'] ?? null);
+        $gruppen[] = [
+            'id'        => isset($e['id']) && is_int($e['id']) ? $e['id'] : null,
+            'label'     => is_string($e['label'] ?? null) ? $e['label'] : null,
+            'userRole'  => isset($e['userRole']) && is_int($e['userRole']) ? $e['userRole'] : null,
+            'userCount' => isset($e['userCount']) && is_int($e['userCount']) ? $e['userCount'] : null,
+            'schueler'  => (int)($zahlen['STUDENT'] ?? 0),
+        ];
+    }
+    ksort($felder);
+    $aus['eintraege'] = count($gruppen);
+    $aus['felder'] = $felder;
+    $aus['gruppen'] = $gruppen;
+    $aus['mit_schuelern'] = count(array_filter($gruppen, fn($g) => $g['schueler'] > 0));
+    // Abgleich der eigenen Gruppe
+    if ($eigene === null || $eigene === '') {
+        $aus['eigene_gruppe'] = ['ergebnis' => 'nicht_messbar'];
+    } else {
+        $ergebnis = ['ergebnis' => 'nein'];
+        $angl = fn(string $x) => function_exists('mb_strtolower') ? mb_strtolower(trim($x)) : strtolower(trim($x));
+        foreach ($gruppen as $g) {
+            if ($g['label'] === null) continue;
+            if ($g['label'] === $eigene) { $ergebnis = ['ergebnis' => 'zeichengenau', 'id' => $g['id']]; break; }
+            if ($angl($g['label']) === $angl($eigene)) {
+                $a = preg_split('//u', $g['label'], -1, PREG_SPLIT_NO_EMPTY) ?: [];
+                $b = preg_split('//u', $eigene, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+                $pos = 0;
+                while ($pos < count($a) && $pos < count($b) && $a[$pos] === $b[$pos]) $pos++;
+                $ergebnis = ['ergebnis' => 'nur_angeglichen', 'id' => $g['id'], 'erste_abweichung' => $pos + 1,
+                             'laenge_label' => count($a), 'laenge_profil' => count($b)];
+            }
+        }
+        $aus['eigene_gruppe'] = $ergebnis;
+    }
+    $aus['deutung'] = 'Liste gelesen: ' . $aus['eintraege'] . ' Gruppen, davon ' . $aus['mit_schuelern'] . ' mit Schülern.';
+    return $aus;
+}
+
 /** Ein Abruf, der nie wirft: Fehler werden mit Klasse und Meldung berichtet. */
 function messung_abruf(object $rest, string $pfad, array $query): array
 {
@@ -438,7 +534,15 @@ function messung_sitzung_bericht(array $u, ?object $rest, ?string $grund,
 
     // ---- 0. profile/general: Gruppe der angemeldeten Person (v0.9.64) ----
     // Für JEDE Rolle – deshalb vor allem, was für Nicht-Eltern früh endet.
-    $bericht['profil'] = messung_profil(messung_abruf($rest, '/WebUntis/api/profile/general', []));
+    $profilAbruf = messung_abruf($rest, '/WebUntis/api/profile/general', []);
+    $bericht['profil'] = messung_profil($profilAbruf);
+
+    // ---- 0b. userrole/config: alle Benutzergruppen (v0.9.67) ------------
+    // Ebenfalls für jede Rolle; Abgleich mit der eigenen Gruppe von oben.
+    $eigeneGruppe = $profilAbruf['json']['data']['profile']['userGroup'] ?? null;
+    $bericht['benutzergruppen'] = messung_benutzergruppen(
+        messung_abruf($rest, '/WebUntis/api/userrole/config', []),
+        is_string($eigeneGruppe) ? $eigeneGruppe : null);
 
     // ---- 1. pageconfig?type=5 ------------------------------------------
     $pc = messung_abruf($rest, '/WebUntis/api/public/timetable/weekly/pageconfig', ['type' => 5]);

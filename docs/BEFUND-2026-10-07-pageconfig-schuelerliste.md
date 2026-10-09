@@ -562,3 +562,36 @@ mit eigener Gruppe (dürfen nicht gesperrt werden), die gekürzte zweite
 Gruppe (muss treffen, auch wenn der volle Name eingetragen ist), die
 Grenze bei genau 20 Zeichen. Umgesetzt in v0.9.65 (E15).
 
+---
+
+## 14 — Nachtrag 09.10.2026: Quelle für eine Auswahlliste der Gruppen
+
+Anlass: Die zugelassenen Gruppen (E15) werden von Hand eingetippt, mit der
+Kürzungsfalle auf 20 Zeichen. Gesucht ist eine Quelle für eine Auswahlliste.
+
+### Auskunft des Betreibers (Browser, Admin-Konto) – nicht über unsere Sitzung gemessen
+
+**`GET /WebUntis/api/userrole/config`** liefert unter `data.userGroups` alle
+22 Benutzergruppen, je Eintrag `id`, `label`, `userCount`, `userRole`,
+`userCountByUserRole`.
+- Die `id` ist dabei: 25 für „SuS über 18“, 45 für „SuS über 18 mit Atte“ –
+  dieselben Kennungen wie in den Mitschnitten des Empfängerfilters.
+- Das `label` ist **bereits gekürzt** („SuS über 18 mit Atte“), wie in
+  `profile/general`.
+- `userRole` trennt systemeigene Gruppen (2 Lehrkraft, 5 Schüler, 12
+  Erziehungsberechtigte) von schuleigenen (−1).
+- `userCountByUserRole` zeigt, wer in einer Gruppe ist: „SuS über 18“ 185
+  Schüler, „01_Eltern Attest“ 7 Erziehungsberechtigte.
+
+**`usergrouplist.do`: geprüft und verworfen** – eine HTML-Seite (Struts),
+keine maschinenlesbare Antwort.
+
+### Messung über unsere Sitzung – ausstehend
+
+`GET /api/messung/sitzung` misst seit v0.9.67 je Rolle: Status, ob
+`data.userGroups` kommt, Anzahl der Einträge, Felder eines Eintrags (mit
+Format), Gruppen mit Schülern, und ob das `label` der eigenen Gruppe
+**zeichengenau** dem Text aus `profile/general` gleicht. Nicht belegt ist die
+Form von `userCountByUserRole` (Objekt oder Liste) – die Messung erkennt
+beides und nennt das Format.
+
