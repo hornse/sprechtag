@@ -59,6 +59,14 @@
   --schleier:        rgba(0, 0, 0, .35);
   --aufhellung:      rgba(255, 255, 255, .12);
 
+  /* ---- Abstände zwischen Abschnitten (v0.9.63, Entscheidung Betreiber) --
+     Zwei Werte, eine Stelle: zwischen Abschnitten und innerhalb eines
+     Abschnitts. 2rem hat sich am Gerät bei den Sonderrollen bewährt; die
+     Modul-Tokens (--ci-abstand-*) kennen 1.5rem und 2.5rem, kein 2rem.
+     Angewendet in der Regel „Abstände zwischen Abschnitten“ unten. */
+  --abstand-abschnitt: 2rem;
+  --abstand-innen:     .8rem;
+
   /* ---- Kennfarben für mehrfach belegte Räume ---------------
      Acht unterscheidbare Töne, projektspezifisch. Kontrast gegen
      Weiß zwischen 5.17 und 8.39 – alle über AA. */
@@ -244,7 +252,7 @@ body {
                  padding: .7rem .9rem; border-radius: 6px; margin: .8rem 0;
                  font-size: .9rem; line-height: 1.5; }
 /* Kompakte Terminübersicht auf der Buchungsseite */
-.termine-kompakt { display: flex; flex-direction: column; gap: .4rem; margin: .5rem 0; }
+.termine-kompakt { display: flex; flex-direction: column; gap: .4rem; }
 .termin-zeile { display: flex; align-items: center; gap: .8rem;
                 padding: .5rem .7rem; background: var(--blau-hell);
                 border-radius: 8px; }
@@ -298,11 +306,11 @@ body.anzeige-modus { background: var(--akzent); }
 .anzeige-seite { font-weight: 600; opacity: .9; }
 
 /* Interaktive Buchungs-Kacheln (Einstieg für Eltern) */
-.buchen-gitter { display: grid; gap: .8rem; margin-top: .8rem;
+.buchen-gitter { display: grid; gap: .8rem;
                  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); }
-/* Sonderrollen: eigener Abschnitt nach den Unterrichtenden – ein Gitter für
-   sich beginnt eine neue Zeile; der Abstand setzt es ab (v0.9.60, E10). */
-.buchen-sonderrollen { margin-top: 2rem; }
+/* Sonderrollen (.buchen-sonderrollen): eigenes Gitter, beginnt eine neue
+   Zeile; den Abstand davor setzt seit v0.9.63 die allgemeine Regel
+   „Abstände zwischen Abschnitten“ – dieselben 2rem wie bisher. */
 .buchen-kachel { border: 1px solid var(--rand); border-radius: 10px;
                  padding: .9rem 1rem; cursor: pointer; background: var(--flaeche);
                  display: flex; flex-direction: column; gap: .2rem;
@@ -446,6 +454,9 @@ select.konflikt.kf-g, select.konflikt.kf-h {
   .tabelle.karten { display: block; }
   .tabelle.karten tr { display: block; border: 1px solid var(--rand); border-radius: 8px;
                        padding: .4rem .75rem; margin-bottom: .75rem; }
+  /* Die letzte Karte endet ohne Außenabstand – sonst stünde er im Rollrahmen
+     zusätzlich zum Abstand vor dem nächsten Abschnitt (v0.9.63). */
+  .tabelle.karten tr:last-child { margin-bottom: 0; }
   .tabelle.karten tr.kopfzeile { display: none; }
   .tabelle.karten td { display: block; position: relative; border-bottom: none;
                        padding: .3rem 0 .3rem 40%; overflow-wrap: anywhere; }
@@ -488,6 +499,12 @@ select.konflikt.kf-g, select.konflikt.kf-h {
 
 .zeile { display: flex; gap: 1rem; flex-wrap: wrap; }
 .zeile label { flex: 1 1 16rem; }
+/* Ein Label in der Eingabezeile endet ohne Außenabstand unten: Die Zeile ist
+   ein Flex-Behälter, der Abstand verschmölze nicht mit dem nächsten und
+   stünde zusätzlich zu den Abständen der Regel „Abstände zwischen
+   Abschnitten“ (gemessen 42 statt 32 px, v0.9.63). Oben bleibt er – wie
+   bei jedem Label. */
+.zeile > label { margin-bottom: 0; }
 
 label { display: block; font-size: .85rem; font-weight: 600; margin: .6rem 0; }
 input[type=text], input[type=password], input[type=date], textarea {
@@ -530,7 +547,7 @@ input[type=file] {
 
 /* flex-wrap: Ohne Umbruch ragten fünf Knöpfe bei 390 px 262 px über und
    wurden vom Block abgeschnitten (v0.9.60, gemessen). */
-.aktionen { display: flex; align-items: center; gap: 1rem; margin-top: .8rem;
+.aktionen { display: flex; align-items: center; gap: 1rem;
             flex-wrap: wrap; }
 
 button {
@@ -612,13 +629,13 @@ a.knopf:hover { filter: brightness(1.1); }
 
 /* Flache Sektionskarte (Variante A) – kein Aufklappen */
 .sektion { background: var(--flaeche); border: 1px solid var(--rand); border-radius: 8px;
-           padding: 1.1rem 1.3rem; margin: 0 0 1.1rem; }
+           padding: 1.1rem 1.3rem; }
 .sektion-titel { margin: 0 0 .3rem; font-size: 1rem; font-weight: 600;
                  color: var(--text); }
 
 /* Aufklappbare Karte (Variante C) – moderner als graues <details> */
 .block { background: var(--flaeche); border: 1px solid var(--rand); border-radius: 8px;
-         padding: 0; margin: 0 0 .75rem; overflow: hidden; }
+         padding: 0; overflow: hidden; }
 .block > summary { cursor: pointer; font-weight: 600; font-size: .95rem;
                    padding: .85rem 1.2rem; list-style: none; display: flex;
                    align-items: center; gap: .5rem; user-select: none; }
@@ -631,7 +648,34 @@ a.knopf:hover { filter: brightness(1.1); }
 /* Inhalt der Karte bekommt Innenabstand (alles außer dem summary) */
 .block > *:not(summary) { padding-left: 1.2rem; padding-right: 1.2rem; }
 .block > *:not(summary):last-child { padding-bottom: 1rem; }
-.block > summary + * { padding-top: 1rem; }
+.block > summary + * { padding-top: 1rem; margin-top: 0; }
+
+/* ---- Abstände zwischen Abschnitten (v0.9.63, Entscheidung Betreiber) ----
+   EINE Regel statt verteilter Einzelwerte. Bis v0.9.62 brachte jeder
+   Baustein seinen Abstand selbst mit, ein Block oben keinen, ein frei
+   stehender Knopf keinen – gemessen 0 px zwischen Kachelgruppe und
+   „Weitere Lehrkräfte“, 13 px zwischen Tabelle und „Aktualisieren“.
+   Abschnitte sind Blöcke, Sektionen, Kachelgitter, Tabellen, Raster,
+   Knopfzeilen, Zwischenüberschriften und frei stehende Knöpfe – ein Knopf
+   unter einer Liste ist eine eigene Handlung, kein Teil der Liste.
+   Behälter sind die Ansicht, Sektionen, Blöcke und Formulare.
+   :where() trägt keine Spezifität: Die Ausnahmen darunter gewinnen durch
+   ihre Reihenfolge bzw. ihre Klassen. Innerhalb eines Abschnitts
+   (nach einer Überschrift, gleichartige Blöcke untereinander) gilt der
+   kleinere Wert; nach der Titelzeile eines Blocks trägt dessen Polsterung. */
+:where(#ansicht, .sektion, details.block, form) > :where(.block, .sektion, .buchen-gitter, .tabelle-rahmen, .raster, .aktionen, h3, button):not(:first-child) {
+  margin-top: var(--abstand-abschnitt);
+}
+:where(#ansicht, .sektion, details.block, form) > :where(h2, h3, h4) + :where(.block, .sektion, .buchen-gitter, .tabelle-rahmen, .raster, .aktionen, h3, button):not(:first-child) {
+  margin-top: var(--abstand-innen);
+}
+.block + .block { margin-top: var(--abstand-innen); }
+/* Ein frei stehender Knopf ist ein eigener Abschnitt und steht als Block:
+   inline-block verschmölze seinen Abstand nicht mit dem unteren Rand des
+   Vorgängers (Absatz, Label) – gemessen 42–46 statt 32 px. Breite nach
+   Inhalt, wie bisher. Knöpfe in Knopfzeilen (.aktionen, .zeile) betrifft das
+   nicht: Sie sind keine Kinder der Behälter. */
+:where(#ansicht, .sektion, details.block, form) > button { display: block; width: fit-content; }
 .detail-bereich:not(:empty) { margin-top: 1rem; border-top: 1px solid var(--rand); padding-top: 1rem; }
 
 button.klein { padding: .3rem .7rem; font-size: .8rem; }
@@ -666,7 +710,7 @@ input.zeit-feld { display: inline-block; width: 4.5rem; margin-top: 0;
 
 /* Zeitraster */
 .raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));
-          gap: .4rem; margin: .8rem 0; }
+          gap: .4rem; margin: 0; }
 .slot { padding: .5rem; text-align: center; border-radius: 5px; font-size: .85rem;
         border: 1px solid var(--rand); }
 .slot.frei { background: var(--erfolg-flaeche); border-color: var(--gruen); color: var(--gruen);
@@ -709,7 +753,7 @@ input.zeit-feld { display: inline-block; width: 4.5rem; margin-top: 0;
 /* Tabellen. Jede steht in einem Rahmen (tabelleRahmen() in app.js), der
    waagrecht rollt – eine <table> selbst kann das nicht (Zug 3b). */
 .tabelle-rahmen { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.tabelle { width: 100%; border-collapse: collapse; margin: .8rem 0; font-size: .85rem; }
+.tabelle { width: 100%; border-collapse: collapse; margin: 0; font-size: .85rem; }
 .tabelle th { text-align: left; border-bottom: 2px solid var(--rand); padding: .4rem .5rem;
               font-size: .78rem; color: var(--grau); }
 .tabelle td { border-bottom: 1px solid var(--rand); padding: .4rem .5rem; }

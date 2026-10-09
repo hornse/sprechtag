@@ -655,3 +655,35 @@ Zustand des Kontos lebte weiter – eigene Termine, gewähltes Kind,
 persönlicher Kalender-Link –, und wer sich danach im selben Browser
 anmeldete, bekam ihn zu sehen. Eine Liste der zurückzusetzenden Felder
 würde mit jedem neuen Feld veralten; ein Neuladen setzt alle zurück.
+
+## E14 — Abstände zwischen Abschnitten: zwei Werte, eine Regel
+
+**Stand 09.10.2026, v0.9.63. Entscheidung des Betreibers.**
+
+Bis v0.9.62 brachte jeder Baustein seinen Abstand selbst mit; ein Block
+hatte oben keinen, ein frei stehender Knopf gar keinen. Gemessen: 0 px
+zwischen Kachelgruppe und „Weitere Lehrkräfte suchen“, 0 px zwischen
+„Aktualisieren“ und dem folgenden Block, 13 px zwischen Tabelle und
+„Aktualisieren“ – der Knopf sah aus wie die nächste Tabellenzeile.
+
+**Zwei Werte an einer Stelle** (`:root` in `style.css`):
+- `--abstand-abschnitt: 2rem` – zwischen Abschnitten. Am Gerät bewährt bei
+  den Sonderrollen.
+- `--abstand-innen: .8rem` – innerhalb eines Abschnitts: nach einer
+  Überschrift und zwischen gleichartigen Blöcken (FAQ, Klassenlisten
+  bleiben eine Liste).
+
+**Was ein Abschnitt ist:** Block, Sektion, Kachelgitter, Tabelle (im
+Rahmen), Raster, Knopfzeile, Zwischenüberschrift und frei stehender Knopf.
+- **Ein Knopf unter einer Liste ist ein eigener Abschnitt** (2rem): Er ist
+  keine Fortsetzung der Tabelle, sondern eine Handlung, die man bewusst
+  auslöst. Eine dritte Stufe (1rem für den Knopf) wäre feiner, ist aber
+  schwerer zu halten.
+- **Die Sektionen der Verwaltung bekommen ebenfalls 2rem**, obwohl Rahmen
+  sie trennen – eine Ausnahme wäre eine dritte Regel.
+
+Die Bausteine tragen keinen eigenen Außenabstand mehr. Wo ein Element einen
+inneren Abstand unten mitbrachte, der nicht verschmilzt (Label in der
+Eingabezeile, letzte Karte im Rollrahmen, frei stehender Knopf als
+`inline-block`), ist er entfernt bzw. der Knopf steht als Block – sonst
+stünden statt 32 bis zu 46 px da (gemessen).

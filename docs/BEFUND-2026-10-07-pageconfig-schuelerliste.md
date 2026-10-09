@@ -461,3 +461,75 @@ Annahme in den Code.
 `timetable/filter?resourceType=CLASS` über die Eltern-Sitzung, die
 Zuordnung läuft über `klasseId` (pageconfig) auf `class.id` (E10,
 Nachtrag).
+
+---
+
+## 12 — Nachtrag 09.10.2026: Eltern-Zuordnung (Auskunft) und Frage 3 beantwortet
+
+### Auskunft des Betreibers zur Quelle – nicht gemessen
+
+1. **Schild führt eine Kennung für Schüler (Schild-ID), aber keine für
+   Eltern.** Eltern stehen in der Quelle nicht als eigene Datensätze mit
+   Kennung. Das erklärt, warum `mit_eltern_ids_ermitteln()` (Abschnitt 5)
+   über den Namen geht: Von der Kind-Kennung zu den Eltern gibt es keinen
+   Schlüssel. **Kein Versäumnis, sondern die Folge der Quelle.**
+2. **Beim Einpflegen neuer Eltern wird über die Schild-ID des Kindes
+   identifiziert:** zwei Elternteile ergeben zwei CSV-Zeilen mit derselben
+   Kind-ID. Die Zuordnung Kind → Eltern ist in WebUntis damit **fest
+   hinterlegt, nicht erschlossen.**
+
+**Folgerung (geschlossen, nicht gemessen):** Diese hinterlegte Verknüpfung
+nutzt vermutlich `recipientOption PARENTS`. Der Namensabgleich in
+`mit_eltern_ids_ermitteln()` baut eine Brücke nach, die daneben bereits
+besteht – schlechter, weil Namen mehrdeutig sein können und die
+hinterlegte Verknüpfung nicht. Trägt `PARENTS`, würden bei zwei
+Elternteilen beide erreicht, ohne Zutun (lernzeiten maß vier Empfänger bei
+einer Kind-Kennung). Der Namensweg findet dagegen nur, wen die
+Empfängersuche unter dem Kindnamen ausgibt.
+
+Die `externKey`-Spalte aus `pageconfig` (1307 von 1314 gefüllt,
+Abschnitt 1) ist die Schild-ID der **Schüler** und wäre als Brücke
+nutzbar, falls je nötig. Für Eltern gibt es diese Möglichkeit nicht.
+
+### Frage 3 beantwortet: ein Kreis
+
+Gemeldet vom Betreiber am 09.10.2026. **Prüfweg:** mit einem volljährigen
+Schülerkonto angemeldet, `GET /api/auth/me` gelesen. Keine Kennungen in
+diesem Text.
+
+**Ergebnis:** `person_id` und die Kind-Kennung in `kinder` sind identisch,
+und es ist dieselbe Kennung, die im Elternkonto als zweites Kind stand und
+gegen `schueler.webuntis_id` belegt wurde (Abschnitt 10). Die Kreise sind
+also nicht „Erwachsene gegen Schüler“, sondern **„Person gegen
+Benutzerkonto“**; bei Schülern fällt die Personenkennung mit der
+Schülerkennung zusammen. Die Sorge aus Abschnitt 7 – eine Buchung
+volljähriger Schüler trüge eine Kennung aus einem anderen Kreis – trifft
+nicht zu.
+
+**Vorbehalt:** Das Testkonto ist keiner Klasse zugeordnet und hat keinen
+Stundenplan. Für den Nummernkreis spielt das keine Rolle; als Testfall
+für einen volljährigen Schüler, der buchen will, taugt es nicht – ohne
+Klasse gäbe es keine unterrichtenden Lehrkräfte und keine Kacheln.
+
+**Gegenprobe gegen die Datenbank:** steht aus, der Betreiber reicht sie
+nach.
+
+**Was ändert dieser Beleg an dem, was wir prüfen?** Am Code nichts: Der
+Weg setzt die `personId` schon heute als Kind-Kennung ein
+(`backend/api/webuntis_adapter.php`), und die ist nun belegt im richtigen
+Kreis. Für die Prüfdaten heißt es: Ein Testfall „volljähriger Schüler“
+darf `person_id` und Kind-Kennung gleich setzen – das ist jetzt belegt,
+nicht angenommen.
+
+### Offene Punkte (neu)
+
+- **Erreicht der Namensweg alle Elternteile?** Ob die Empfängersuche
+  unter dem Kindnamen immer alle Elternteile ausgibt, hat nie jemand
+  geprüft. Bei zwei Elternteilen mit verschiedenen Nachnamen oder bei
+  Namensgleichheit ist das offen. Die Messung von `PARENTS` würde es
+  beantworten (nicht in diesem Zug).
+- **Volljährige Schüler mit Klasse:** Gibt es sie, und erscheinen ihre
+  unterrichtenden Lehrkräfte? Separat zu prüfen; das vorhandene Testkonto
+  hat keine Klasse.
+- **Gegenprobe Frage 3 gegen die Datenbank** – nachgereicht vom Betreiber.
+

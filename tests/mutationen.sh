@@ -568,6 +568,27 @@ mut LZ4 $APP 's/const td = el\(\x27td\x27, \x27anwesenheit-zelle\x27\);/const td
 mut LZ5 $CSS 's/\.anwesenheit-zelle \{ white-space: nowrap; \}/.anwesenheit-zelle { }/' \
   $LZ "… und bricht nicht um"
 
+# v0.9.63 – Abstände zwischen Abschnitten: zwei Werte, eine Regel
+AB=tests/frontend_abstaende_test.js
+mut AB1 $CSS 's/--abstand-abschnitt: 2rem;/--abstand-abschnitt: 1rem;/' \
+  $AB "zwei Werte an einer Stelle"
+mut AB2 $CSS 's/\.block \+ \.block \{ margin-top: var\(--abstand-innen\); \}/.block + .block { margin-top: var(--abstand-abschnitt); }/' \
+  $AB "genau eine Regel setzt den Abstand zwischen Abschnitten"
+mut AB3 $CSS 's/h3, button\):not\(:first-child\) \{\n  margin-top: var\(--abstand-abschnitt\);/h3):not(:first-child) {\n  margin-top: var(--abstand-abschnitt);/' \
+  $AB "… sie gilt in Ansicht, Sektion und Block"
+mut AB4 $CSS 's/\n:where\(#ansicht, \.sektion, details\.block, form\) > :where\(\.block/\n:is(#ansicht, .sektion, details.block, form) > :where(.block/' \
+  $AB "… ohne Spezifität aus Behälter oder Abschnitt"
+mut AB5 $CSS 's/\n:where\(#ansicht, \.sektion, details\.block, form\) > :where\(h2, h3, h4\) \+ [^\n]*\n  margin-top: var\(--abstand-innen\);\n\}//' \
+  $AB "nach einer Überschrift der kleinere Wert"
+mut AB6 $CSS 's/\.block > summary \+ \* \{ padding-top: 1rem; margin-top: 0; \}/.block > summary + * { padding-top: 1rem; }/' \
+  $AB "nach der Titelzeile eines Blocks trägt die Polsterung"
+mut AB7 $CSS 's/\n\.block \+ \.block \{ margin-top: var\(--abstand-innen\); \}//' \
+  $AB "gleichartige Blöcke bleiben eine Liste"
+mut AB8 $CSS 's/           padding: 1\.1rem 1\.3rem; \}/           padding: 1.1rem 1.3rem; margin: 0 0 1.1rem; }/' \
+  $AB "keine Bausteine mit eigenem Außenabstand"
+mut AB9 $CSS 's/\z/\n.buchen-sonderrollen { margin-top: 2rem; }\n/' \
+  $AB "keine Sonderregel mehr für die Sonderrollen"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1

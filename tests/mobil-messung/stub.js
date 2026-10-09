@@ -148,8 +148,17 @@
     return oben === Infinity ? null : { oben, unten };
   }
   function fugen() {
-    const behaelter = [document.querySelector('#ansicht'),
-      ...document.querySelectorAll('#ansicht .sektion, #ansicht details.block[open]')].filter(Boolean);
+    // Behälter: die Ansicht, Sektionen, offene Blöcke – und jedes Element im
+    // Fluss, das einen Abschnitt enthält (v0.9.63). So misst das Werkzeug
+    // auch dort, wo die Abstandsregel NICHT gilt, und zeigt Lücken in ihr.
+    const ABSCHNITT = '.block, .sektion, .buchen-gitter, .tabelle-rahmen, .raster, .aktionen, h3, button';
+    const menge = new Set([document.querySelector('#ansicht'),
+      ...document.querySelectorAll('#ansicht .sektion, #ansicht details.block[open]')]);
+    for (const x of document.querySelectorAll('#ansicht :is(' + ABSCHNITT + ')')) {
+      const p = x.parentElement;
+      if (p && getComputedStyle(p).display === 'block' && !p.closest('table')) menge.add(p);
+    }
+    const behaelter = [...menge].filter(Boolean);
     const paare = [];
     for (const b of behaelter) {
       const kinder = [...b.children].filter((k) => k.tagName !== 'SUMMARY')

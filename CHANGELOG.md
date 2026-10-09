@@ -1,5 +1,73 @@
 # Changelog - sprechtag
 
+## v0.9.63 (Oktober 2026) – Abstände zwischen Abschnitten: zwei Werte, eine Regel (E14)
+
+Entscheidung des Betreibers zu den Richtungsfragen aus v0.9.62: Ein Knopf
+unter einer Liste ist ein eigener Abschnitt (2rem); die Sektionen der
+Verwaltung bekommen ebenfalls 2rem; gleichartige Blöcke bleiben eine Liste.
+
+### Die Regel
+Zwei Werte in `:root`: `--abstand-abschnitt: 2rem`, `--abstand-innen:
+.8rem`. Eine Regel setzt den Abstand vor jedem Abschnitt (Block, Sektion,
+Kachelgitter, Tabellenrahmen, Raster, Knopfzeile, Zwischenüberschrift,
+frei stehender Knopf) in Ansicht, Sektion, Block und Formular; nach einer
+Überschrift und zwischen gleichartigen Blöcken gilt der kleinere Wert,
+nach der Titelzeile eines Blocks dessen Polsterung. `:where()` hält die
+Regel ohne Spezifität. Die Bausteine tragen keinen eigenen Außenabstand
+mehr; die Sonderregel der Sonderrollen ist entfallen (die allgemeine Regel
+gibt dieselben 2rem).
+
+Drei Stellen trugen innen einen unteren Abstand, der nicht verschmilzt,
+und ergaben 40–46 statt 32 px: Label in der Eingabezeile (`.zeile`,
+Flex), letzte Karte im Rollrahmen, frei stehender Knopf (`inline-block`).
+Behoben: Label in `.zeile` ohne Abstand unten, letzte Karte ohne, frei
+stehender Knopf als Block mit Breite nach Inhalt (kein Paar „Knopf →
+Knopf“ in den Behältern, gemessen und im Code nachgesehen).
+
+### Gemessen (WebKit, 390 px; Fuge an der sichtbaren Kante)
+Das Werkzeug misst jetzt in jedem Behälter, der einen Abschnitt enthält,
+nicht nur in den drei bekannten – so zeigt es auch Lücken in der Regel.
+
+| Paar | v0.9.62 | v0.9.63 |
+|---|---|---|
+| Kachelgruppe → „Weitere Lehrkräfte suchen“ | 0 | 32 |
+| Knopf → Block („Aktualisieren“ → „Kalender abonnieren“) | 0 | 32 |
+| Tabelle / Raster → „Aktualisieren“ | 13 | 32 |
+| Kompaktliste → Knopf | 8 | 32 |
+| Eingabezeile → Knopf („Suchen“) | 10 | 32 |
+| Sektion → Sektion (Verwaltung) | 18 | 32 |
+| Block → Zwischenüberschrift | 19 | 32 |
+| Block → Block (Liste) | 12 | 13 |
+| Überschrift → Inhalt | 19 | 19 |
+| Kachelgruppe → Sonderrollen | 32 | 32 |
+
+**Folgen, die am Gerät anzusehen sind:**
+- Unter „Weitere Lehrkräfte suchen“ stehen die Treffer 32 px unter dem
+  Suchfeld (vorher 13) – das Kachelgitter ist ein Abschnitt. Bei der
+  stellvertretenden Buchung stehen die Treffer 12 px darunter (die
+  Trefferliste dort ist kein Abschnitt). Zwei Fälle „Suchfeld →
+  Ergebnisse“ mit verschiedenem Abstand.
+- Die Anmeldung: „Anmelden“ steht 32 px unter dem Passwortfeld (vorher 13).
+- Eingabezeile → nächstes Feld enger, z. B. „Sprechtag“ → „Kind“ 19 → 10 px,
+  wie Label → Label anderswo.
+- Hilfe: der Schlusshinweis nach der letzten Sektion 18 → 12 px.
+
+Nicht von der Regel erfasst und unverändert: Abstände innerhalb von
+Formularen (Hinweis → Eingabezeile 14–24 px, Häkchen-Zeilen 8 px).
+
+### Befund
+`docs/BEFUND-2026-10-07-pageconfig-schuelerliste.md` Abschnitt 12:
+Auskunft des Betreibers zur Eltern-Zuordnung (Schild führt keine
+Eltern-Kennung; die Zuordnung Kind → Eltern ist in WebUntis hinterlegt) und
+Frage 3 beantwortet – ein Kreis („Person gegen Benutzerkonto“). Drei neue
+offene Punkte.
+
+### Prüfungen
+- 1020 → 1029 Prüfzeilen in 54 Suiten, alle grün; `tests-sprechtag.sh`
+  29. Neu: `frontend_abstaende_test.js` (9).
+- Mutationen 171 → 180 Ergebniszeilen, alle angeschlagen, H4 grün,
+  Rücknahme gegen Prüfsummen belegt.
+
 ## v0.9.62 (Oktober 2026) – Zeile der Lehrkraft-Tabelle behält ihre Ausrichtung; Abstände gemessen
 
 Bestätigt am Gerät (v0.9.61): Ein Elternkonto bekommt für
