@@ -14,6 +14,10 @@ nur im Changelog oder in der Sitzung standen.
 **Eingetragen:** 07.10.2026 · **wirksam seit:** v0.9.48 (07.10.2026),
 Begründung berichtigt in v0.9.50
 
+> **Teilweise überholt (E17, 09.10.2026):** Das Dienstkonto ist abgeschafft;
+> es gibt keinen Rückfall mehr. Der erste Satz gilt weiter, der zweite nicht.
+> Der Absatz bleibt als damaliger Stand stehen.
+
 **Entschieden:** Eine Mitteilung geht unter dem WebUntis-Konto der
 angemeldeten Lehrkraft hinaus. Das Dienstkonto bleibt Rückfall – für
 abgelaufene Sitzungen und für Erinnerungen, bei denen zum Sendezeitpunkt
@@ -383,6 +387,11 @@ anmelden und erneut senden“. Das ist im Code vorgesehen
 (`mit_einreihen_und_senden()`, Rückgabe `status => 'offen'`), aber
 ungemessen.
 
+> **Teilweise überholt (E17, 09.10.2026):** Behoben in v0.9.72 –
+> `mit_rest_aus_sitzung()` ist durch `wu_sitzung()` ersetzt, das abgelaufen,
+> nicht erreichbar und kaputt (Programmierfehler) getrennt meldet; einen
+> Rückfall gibt es nicht mehr. Der Absatz bleibt als damaliger Stand stehen.
+
 **Daneben gefunden, nicht behoben:** `mit_rest_aus_sitzung()` fängt mit
 `catch (Throwable …)` und gibt dann ebenfalls `null` zurück. Ein
 Programmierfehler in diesem Weg sähe deshalb genau so aus wie eine
@@ -723,6 +732,9 @@ sind 5, gleich welchen Alters); die Schule pflegt sie in Benutzergruppen.
 (personType 5) geprüft. Eltern tragen ebenfalls eine Gruppe („01_Eltern
 Attest“); eine Prüfung allein über Gruppennamen träfe sie versehentlich.
 
+> **Teilweise überholt (E17, 09.10.2026):** Die Seite heißt seit v0.9.72
+> „Schülerliste“. Der Absatz bleibt als damaliger Stand stehen.
+
 **Zugelassene Gruppen sind eine Einstellung der Verwaltung**, nicht fest
 im Code („Dienstkonto & Schülerliste“ → „Volljährige Schülerinnen und
 Schüler“). Heute sind es zwei Gruppen; ob eine dritte dazukommt, weiß
@@ -812,3 +824,123 @@ bekommt gar keine Dienstkonto-Zugangsdaten. Die gegenteilige Angabe in Befund
 und Endbedingung von E16 bleiben; die Frage „PARENTS über das Dienstkonto“
 betrifft nur den Rückfall. Ob das Dienstkonto ganz entfallen kann, ist eigene
 Lage: `docs/BESTAND-DIENSTKONTO-2026-10-09.md`.
+
+---
+
+## E17 — Das Dienstkonto ist abgeschafft; eine abgelaufene Sitzung wird gesagt, nicht überbrückt
+
+**Eingetragen:** 09.10.2026 · **wirksam seit:** v0.9.72 · **betrifft:** E1,
+E9, E16 · **benötigt:** `sql/21_dienstkonto_entfernen.sql`
+
+**Entschieden (Betreiber):** Es gibt kein Dienstkonto mehr. Jede
+WebUntis-Aktion läuft über die Sitzung der handelnden Person. Die
+Verwaltungsseite, die Verschlüsselung und die hinterlegten Zugangsdaten sind
+entfernt. Gespeichert wird kein WebUntis-Passwort mehr. Nur der Schüler-Sync
+nimmt bis Zug 4 eingetippte Zugangsdaten, für den einen Abgleich.
+
+**Warum (Betreiber, über die Technik hinaus):** Der Rückfall erkauft
+Bequemlichkeit mit hinterlegten Kontodaten, und er macht still rückgängig,
+was v0.9.48 erreicht hat (E1). Springt das Dienstkonto ein, kommt eine Absage
+bei den Eltern von einem anonymen Verwaltungskonto statt von der Lehrkraft,
+die abgesagt hat. Niemand merkt es, weil die Nachricht ankommt. Eine Sitzung
+läuft ab, das ist richtig so. Die Frage ist nur, ob das System es sagt oder
+verdeckt.
+
+**Grundlage, gemessen 09.10.2026 (Betreiber):**
+- Erinnerungen über die eigene Sitzung: Admin **und** Lehrkraft lösen die
+  Testliste (QUICK, 2 Personen) über `CUSTOM/filter` vollständig auf und
+  senden über `/v2/messages/users` (`numberOfRecipients` 2). Beide
+  Nachrichten sind angekommen. Die fachliche Frage aus v0.9.71 (wer die
+  Erinnerungen auslöst) erledigt sich: Die Verwaltung kann es weiter.
+- PARENTS über die Lehrkraft-Sitzung: 4 Empfänger, angekommen (E16).
+- Die Bestandsaufnahme (`docs/BESTAND-DIENSTKONTO-2026-10-09.md`): Das
+  Dienstkonto greift nirgends, während niemand angemeldet ist.
+
+**Die abgelaufene Sitzung – die Form (Betreiber):**
+- Die Mitteilung bleibt in der Warteschlange stehen, der Text geht nicht
+  verloren.
+- **Am Ort der Handlung** erscheint ein Kasten, etwa: „Die Absage ist
+  gespeichert, aber noch NICHT verschickt: Ihre WebUntis-Anmeldung ist
+  abgelaufen.“ Darin stehen Benutzername (vorausgefüllt) und Passwort, und der
+  Knopf „Anmelden und senden“ meldet neu an und schickt **dieselben**
+  Mitteilungen hinaus. Bei der stellvertretenden Buchung heißt er „Anmelden
+  und buchen“, dort wird ohne Sitzung nicht gebucht (unten).
+- **Nach jeder Anmeldung** steht oben „N Mitteilungen sind gespeichert, aber
+  noch nicht verschickt“ mit „Jetzt senden“ und „Ansehen“. Das fängt den
+  Fall, dass jemand Stunden später wiederkommt, was bei einer Absage am
+  meisten zählt. Eine Lehrkraft sieht ihre eigenen, die Verwaltung alle. Es
+  zählen nur Sprechtage ab heute. In der Ansicht „Mitteilungen“ steht der
+  Hinweis nicht, dort ist derselbe Stand ein eigener Abschnitt.
+- Erinnerungen: Kasten zum Anmelden, aber **kein** automatischer Versand
+  danach. Ein Versand an alle bleibt eine bewusste zweite Handlung.
+
+**Drei Ursachen, getrennt gemeldet (behebt E9 „Daneben gefunden“):**
+`wu_sitzung()` im Adapter ist der einzige Zugang. Sie meldet:
+- **abgelaufen**: keine Sitzung festgehalten, oder kein Token und die
+  Nachprobe zeigt die Anmeldeseite bzw. einen Status unter 500. Nur hier
+  hilft das Neuanmelden, nur hier kommt der Kasten.
+- **nicht erreichbar**: Status 0, ab 500, flüchtig, oder eine `Exception`.
+- **kaputt**: ein `Error`, also ein Programmierfehler. Die Meldung verweist an
+  die Administration.
+
+`tokenHolen()` (vendort aus webuntis-client-php) sagt nur ja oder nein. Die
+Nachprobe liest deshalb den Status desselben Abrufs, wie
+`messung_token_probe()` seit v0.9.54. „ab 500 = nicht erreichbar“ ist
+**abgeleitet, nicht gemessen**.
+
+**Die Stellen der Bestandsaufnahme danach:**
+
+| # | Stelle | jetzt |
+|---|---|---|
+| 1 | Bestätigung nach Elternbuchung | Sitzung der Eltern, wie bisher; an das buchende Konto |
+| 2 | stellvertretende Buchung | Elternkonto über die Namenssuche **mit der Sitzung der Lehrkraft**; Bestätigung über **PARENTS** an alle |
+| 3 | Absage | Sitzung der absagenden Person; an das gebuchte Konto |
+| 4 | Einladung | **PARENTS**, keine Elternkonten-Suche mehr |
+| 5 | Ausfall | Sitzung der Verwaltung; alle Absagen eingereiht, ein Versand |
+| 6 | Sammelversand | Sitzung der handelnden Person, keine Zugangsdaten |
+| 7 | Elternkonten-Ermittlung | nur noch für die Zuordnung der stellvertretenden Buchung |
+| 8 | Kacheln (Stundenplan des Kindes) | Sitzung der angemeldeten Person |
+| 9 | Lehrkräfte-Ermittlung von Hand | Sitzung (Betreiber), ohne Zugangsdaten |
+| 10 | Erinnerungen | Sitzung der Verwaltung |
+| 11 | Schüler-Sync | eingetippte Zugangsdaten bis Zug 4 (Betreiber) |
+| 12 | Statusanzeige | entfernt |
+| 13 | Messung über das Dienstkonto | entfernt; `sitzung: dienstkonto` wird abgelehnt |
+
+**PARENTS – Zuschnitt nach E16:** E16 nennt „alles, was heute über
+`mit_eltern_ids_ermitteln()` läuft“: Einladung und die Bestätigung der
+stellvertretenden Buchung. Absage und Bestätigung nach Elternbuchung liefen
+nie darüber. Sie kennen das Konto aus der Buchung und gehen weiter an dieses
+eine Konto. Das ist **meine Lesart des Zuschnitts**; falls „Absagen“ in E16
+auch die an alle Erziehungsberechtigten meinte, ist das ein eigener Schritt.
+
+**Stellvertretende Buchung (Betreiber):** Der Termin braucht ein Elternkonto
+(Meine Termine, Kalender, Kollisionsprüfung Fall A, spätere Absage). Es kommt
+aus der Namenssuche über die Sitzung der Lehrkraft, mit Rückfall auf frühere
+Buchungen. Ist die Sitzung nicht nutzbar, wird **nicht** gebucht. Die
+Mehrdeutigkeits-Absicherung bleibt für diese eine Stelle offen.
+**Berichtigung:** In der Rückfrage stand, die Namenssuche über die
+Lehrkraft-Sitzung sei gemessen. Das stimmt nicht. Der Namensweg der Messung
+v0.9.69 lief damals über das Dienstkonto. Seit v0.9.72 misst
+`POST /api/messung/parents` die Suche über die eigene Sitzung
+(`namensweg.quelle` = `webuntis`).
+
+**Zugehörigkeit einer Mitteilung:** Die Warteschlange trägt jetzt die
+Lehrkraft (`lehrer_id`). Eine Lehrkraft kann so ihre Absage nachsenden,
+obwohl die Buchung gelöscht ist; über die Buchungen ging das vorher nicht.
+Die Bestätigung nach einer Elternbuchung nennt alle Termine der Eltern und
+trägt deshalb keine Lehrkraft. Dafür gilt die bisherige Regel über die
+Buchungen, und im Hinweis nach der Anmeldung steht sie bei der Verwaltung.
+
+**Nicht gemessen:**
+- die Namenssuche über die Lehrkraft-Sitzung (oben);
+- der Stundenplan beliebiger Kinder über die Sitzung der Verwaltung bzw.
+  volljähriger Schüler (Stelle 8). Scheitert es, gibt es keine Kacheln, und
+  die Seite sagt warum;
+- ob Eltern über ihre Sitzung an sich selbst senden dürfen (Stelle 1);
+- der Kasten auf dem Gerät. Die Breitenmessung (WebKit, 320 px) zeigt nur
+  den Hinweis, nicht den Kasten. Das ist ein Abnahmepunkt.
+
+**Beim Ausrollen:** `sql/21_dienstkonto_entfernen.sql` **vor** dem Code
+einspielen. Die neuen Spalten sind für v0.9.71 unschädlich, v0.9.72 braucht
+sie. Danach `dienstkonto_schluessel` aus `backend/config.php` auf dem Server
+entfernen; die Datei ist nicht versioniert.

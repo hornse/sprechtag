@@ -34,7 +34,9 @@ const S = {
   einlLaedt: false,                  // Auto-Load-Guard Einladungen
   mitteilungen: null,
   mittLaedt: false,                  // Auto-Load-Guard Mitteilungen
-  dienstkonto: null,   // Status des hinterlegten Dienstkontos
+  sitzungsKasten: null, // abgelaufene WebUntis-Anmeldung am Ort der Handlung (E17)
+  offenHinweis: null,   // {anzahl, ids}: eigene, noch nicht verschickte Mitteilungen
+  benutzername: '',     // nur zum Vorausfüllen des Kastens, nie gespeichert
   marke: null,         // Branding: Schulname, Titel, Logo (keine Farben, E7)
   adminOffen: false,   // Admin-Gruppe in der Seitenleiste aufgeklappt?
   lehrerSort: null,    // Sortierung der Lehrer-Tabelle {feld, richtung}
@@ -95,7 +97,13 @@ async function api(pfad, optionen = {}) {
     body: optionen.body ? JSON.stringify(optionen.body) : undefined,
   });
   const daten = await antwort.json().catch(() => ({}));
-  if (!antwort.ok) throw new Error(daten.fehler || ('Fehler ' + antwort.status));
+  if (!antwort.ok) {
+    const f = new Error(daten.fehler || ('Fehler ' + antwort.status));
+    // Ursache, wenn die WebUntis-Sitzung fehlt (E17): abgelaufen /
+    // nicht_erreichbar / kaputt – die Aufrufstelle zeigt danach den Kasten.
+    f.sitzung = daten.sitzung || null;
+    throw f;
+  }
   return daten;
 }
 
@@ -338,6 +346,7 @@ async function start() {
 
   if (S.user) {
     await ladeSprechtage();
+    ladeOffenHinweis();
     const standard = S.user.rolle === 'admin' ? 'admin-aktiv'
       : S.user.rolle === 'lehrkraft' ? 'lehrkraft' : 'buchen';
     // Beim Neuladen die Ansicht aus dem URL-Hash wiederherstellen, sofern sie
@@ -612,6 +621,129 @@ async function abmelden() {
   location.replace(location.pathname);
 }
 
+// ============================================================
+// ABGELAUFENE WEBUNTIS-ANMELDUNG (v0.9.72, E17)
+// ============================================================
+// Es gibt kein Dienstkonto mehr, das eine abgelaufene Sitzung still
+// überbrückt. Was die Person auslöst, läuft unter ihrem Namen – und ist die
+// Anmeldung abgelaufen, sagt die Oberfläche es am Ort der Handlung: Die
+// Mitteilung ist gespeichert, aber noch nicht verschickt. Neu anmelden,
+// dann geht es mit demselben Klick weiter.
+
+// Zeigt den Kasten in der aktuellen Ansicht. auftrag: {text, knopf, aktion}
+// – aktion läuft nach der Neuanmeldung (z. B. die gespeicherten senden).
+function zeigeSitzungsKasten(auftrag) {
+  S.sitzungsKasten = Object.assign({ ansicht: S.ansicht }, auftrag);
+  S.meldung = null;
+  zeichne();
+  const k = document.querySelector('.sitzung-kasten');
+  if (k && k.scrollIntoView) k.scrollIntoView({ block: 'center' });
+  const pw = document.getElementById('sk-passwort');
+  if (pw) pw.focus();
+}
+
+// Wertet die Ursache aus, wenn die Sitzung fehlte. Gibt true zurück, wenn
+// etwas gezeigt wurde. Nur „abgelaufen“ bekommt den Kasten – bei „nicht
+// erreichbar“ oder „kaputt“ hilft eine Neuanmeldung nicht, das sagt die
+// Meldung selbst.
+function sitzungAuswerten(sitzung, meldetext, auftrag) {
+  if (!sitzung) return false;
+  if (sitzung === 'abgelaufen') {
+    zeigeSitzungsKasten(Object.assign({ text: meldetext }, auftrag));
+  } else {
+    meldung(meldetext, 'fehler');
+  }
+  return true;
+}
+
+function sitzungsKastenElement(k) {
+  const box = el('div', 'meldung fehler sitzung-kasten');
+  box.setAttribute('role', 'alert');
+  box.appendChild(el('p', null, k.text));
+  const form = document.createElement('form');
+  form.appendChild(feld('WebUntis-Benutzername', 'sk-benutzer', 'text', S.benutzername || ''));
+  form.appendChild(feld('Passwort', 'sk-passwort', 'password'));
+  const aktionen = el('div', 'aktionen');
+  const los = el('button', null, k.knopf || 'Anmelden');
+  los.type = 'submit';
+  aktionen.appendChild(los);
+  aktionen.appendChild(knopf('Später', 'klein', () => {
+    S.sitzungsKasten = null;
+    meldung('Nicht verschickt. Die Mitteilung bleibt gespeichert und erscheint nach '
+      + 'der nächsten Anmeldung als Hinweis.', 'info');
+  }));
+  form.appendChild(aktionen);
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const benutzername = wert('sk-benutzer');
+    const passwort = wert('sk-passwort');
+    if (benutzername === '' || passwort === '') {
+      meldung('Bitte Benutzername und Passwort eingeben.', 'fehler');
+      return;
+    }
+    los.disabled = true;
+    try {
+      S.user = await api('/api/auth/login', { method: 'POST',
+        body: { benutzername, passwort } });
+      S.benutzername = benutzername;
+    } catch (f) {
+      los.disabled = false;
+      meldung(String(f.message), 'fehler');
+      return;
+    }
+    const aktion = k.aktion;
+    S.sitzungsKasten = null;
+    if (aktion) await aktion();
+    else meldung('Neu angemeldet.', 'ok');
+  });
+  box.appendChild(form);
+  return box;
+}
+
+// Sendet gespeicherte Mitteilungen über die eigene Sitzung. Ist sie
+// abgelaufen, kommt der Kasten – und nach der Anmeldung derselbe Aufruf.
+async function sendeVorgemerkte(ids, text) {
+  try {
+    const d = await api('/api/mitteilungen/senden', { method: 'POST',
+      body: { sprechtag_id: S.aktiverSprechtag ? S.aktiverSprechtag.id : 0, ids } });
+    if (sitzungAuswerten(d.sitzung, (text || 'Noch NICHT verschickt: ') + d.grund,
+      { knopf: 'Anmelden und senden', aktion: () => sendeVorgemerkte(ids, text) })) return;
+    S.mitteilungen = null; S.mittLaedt = false;
+    meldung(d.grund, d.gesendet > 0 && d.fehler === 0 ? 'ok' : 'fehler');
+  } catch (f) {
+    meldung(String(f.message), 'fehler');
+  }
+  ladeOffenHinweis();
+}
+
+// Nach jeder Anmeldung: Gibt es eigene, noch nicht verschickte Mitteilungen?
+async function ladeOffenHinweis() {
+  if (!S.user || !['lehrkraft', 'admin'].includes(S.user.rolle)) {
+    S.offenHinweis = null;
+    return;
+  }
+  try {
+    const d = await api('/api/mitteilungen/offen-eigene');
+    const vorher = S.offenHinweis ? S.offenHinweis.anzahl : 0;
+    S.offenHinweis = d.anzahl > 0 ? d : null;
+    if (vorher !== (d.anzahl || 0)) zeichne();
+  } catch { S.offenHinweis = null; }
+}
+
+function offenHinweisElement() {
+  const h = S.offenHinweis;
+  const box = el('div', 'meldung info offen-hinweis');
+  box.setAttribute('role', 'status');
+  box.appendChild(el('p', null, h.anzahl === 1
+    ? '1 Mitteilung ist gespeichert, aber noch nicht verschickt.'
+    : h.anzahl + ' Mitteilungen sind gespeichert, aber noch nicht verschickt.'));
+  const aktionen = el('div', 'aktionen');
+  aktionen.appendChild(knopf('Jetzt senden', null, () => sendeVorgemerkte(h.ids)));
+  aktionen.appendChild(knopf('Ansehen', 'klein', () => wechsleAnsicht('mitteilungen')));
+  box.appendChild(aktionen);
+  return box;
+}
+
 // Mobiles Menü: Hamburger öffnet, Overlay schließt.
 $('#mobil-menue')?.addEventListener('click', () => {
   const offen = $('#seitenleiste')?.classList.contains('offen');
@@ -668,6 +800,15 @@ function zeichne() {
     const m = el('div', 'meldung ' + S.meldung.art, S.meldung.text);
     m.setAttribute('role', 'alert');
     ziel.appendChild(m);
+  }
+  // Abgelaufene Anmeldung (E17): bleibt stehen, bis sie erledigt ist.
+  if (S.sitzungsKasten && S.sitzungsKasten.ansicht === S.ansicht) {
+    ziel.appendChild(sitzungsKastenElement(S.sitzungsKasten));
+  } else if (S.offenHinweis && S.user && S.ansicht !== 'login'
+             && S.ansicht !== 'mitteilungen') {
+    // Nicht in „Mitteilungen“: Dort steht dasselbe als eigener Abschnitt –
+    // eine Darstellung, nicht zwei.
+    ziel.appendChild(offenHinweisElement());
   }
 
   const ansichten = {
@@ -799,7 +940,7 @@ function zeichneNavigation() {
     sub.appendChild(navKnopf('admin-marke', 'Erscheinungsbild', true, 'inhalte'));
     sub.appendChild(navKnopf('admin-anzeige', 'Anzeige', true, 'bildschirm'));
     sub.appendChild(navKnopf('admin-sprechtage', 'Sprechtage', true, 'kalender'));
-    sub.appendChild(navKnopf('admin-daten', 'Dienstkonto & Schülerliste', true, 'personen'));
+    sub.appendChild(navKnopf('admin-daten', 'Schülerliste', true, 'personen'));
     sub.appendChild(navKnopf('admin-loginlog', 'Login-Protokoll', true, 'datei'));
     sub.appendChild(navKnopf('admin-texte', 'Texte', true, 'stift'));
     sub.appendChild(navKnopf('admin-erinnerungen', 'Erinnerungen', true, 'glocke'));
@@ -938,9 +1079,12 @@ function ansichtLogin(ziel) {
     ev.preventDefault();
     senden.disabled = true;
     try {
+      const benutzername = wert('login-benutzer');
       S.user = await api('/api/auth/login', { method: 'POST', body: {
-        benutzername: wert('login-benutzer'), passwort: wert('login-passwort') } });
+        benutzername, passwort: wert('login-passwort') } });
+      S.benutzername = benutzername;
       await ladeSprechtage();
+      ladeOffenHinweis();
       S.ansicht = S.user.rolle === 'admin' ? 'admin-aktiv'
         : S.user.rolle === 'lehrkraft' ? 'lehrkraft' : 'buchen';
       setzeHash(S.ansicht);
@@ -1435,6 +1579,15 @@ async function ladeLehrerListe() {
         + '. Bitte in der Administration die Stammdaten synchronisieren.', 'fehler');
     } else if (S.lehrerListe.buchen_gesperrt) {
       meldung(null);   // die Erklärung steht in der Seite (E15)
+    } else if (S.lehrerListe.sitzung
+               && (S.lehrerListe.unterrichtend || []).length === 0) {
+      // Ohne Dienstkonto ermittelt die eigene Sitzung (E17); ist sie
+      // abgelaufen, wird das gesagt – nicht „noch keine Lehrkräfte“.
+      sitzungAuswerten(S.lehrerListe.sitzung,
+        'Die Lehrkräfte Ihres Kindes konnten nicht aus dem Stundenplan ermittelt '
+        + 'werden: ' + S.lehrerListe.sitzung_meldung,
+        { knopf: 'Anmelden', aktion: async () => {
+          S.lehrerListe = null; S.lehrerLaedt = false; meldung(null); } });
     } else if (!S.lehrerListe.nur_eingeladene
                && (S.lehrerListe.unterrichtend || []).length === 0) {
       meldung('Für dieses Kind sind noch keine Lehrkräfte hinterlegt. '
@@ -2028,9 +2181,16 @@ async function stellvertretendBuchen(lehrerId, slot) {
     S.svKindSuche = '';
     S.svRaster = null;
     await ladeSvRaster(lehrerId);
-    meldung(d.hinweis || 'Termin eingetragen.', 'ok');
+    const m = d.mitteilung;
+    if (!(m && m.status !== 'gesendet' && sitzungAuswerten(m.sitzung,
+        d.hinweis, { knopf: 'Anmelden und senden', aktion: () => sendeVorgemerkte(m.ids) }))) {
+      meldung(d.hinweis || 'Termin eingetragen.', m && m.status !== 'gesendet' ? 'fehler' : 'ok');
+    }
   } catch (f) {
     S.svLaeuft = false;
+    // Abgelaufen: Es wurde NICHT gebucht – nach der Anmeldung derselbe Klick.
+    if (sitzungAuswerten(f.sitzung, 'Der Termin ist noch NICHT eingetragen: ' + f.message,
+      { knopf: 'Anmelden und buchen', aktion: () => stellvertretendBuchen(lehrerId, slot) })) return;
     meldung(String(f.message), 'fehler');
   }
 }
@@ -2067,9 +2227,15 @@ async function lehrkraftStorno(b) {
     S.svRaster = null;
     await ladeSvRaster(lid);
     const m = d.mitteilung;
-    meldung('Termin abgesagt. ' + (m && m.status === 'gesendet'
-      ? 'Die Erziehungsberechtigten wurden benachrichtigt.'
-      : 'Die Benachrichtigung ist unter „Mitteilungen" zum Versand vorgemerkt.'), 'ok');
+    if (m && m.status === 'gesendet') {
+      meldung('Termin abgesagt. Die Erziehungsberechtigten wurden benachrichtigt.', 'ok');
+    } else if (!(m && sitzungAuswerten(m.sitzung,
+        'Termin abgesagt. Die Absage an die Erziehungsberechtigten ist gespeichert, aber '
+        + 'noch NICHT verschickt: ' + m.grund,
+        { knopf: 'Anmelden und senden', aktion: () => sendeVorgemerkte(m.ids) }))) {
+      meldung('Termin abgesagt. Die Absage ist noch NICHT verschickt'
+        + (m && m.grund ? ': ' + m.grund : '.') + ' Sie steht unter „Mitteilungen".', 'fehler');
+    }
   } catch (f) { meldung(String(f.message), 'fehler'); }
 }
 
@@ -2154,16 +2320,24 @@ function ansichtEinladungen(ziel) {
         return;
       }
       meldung(ids.length + ' Einladung(en) werden angelegt …', 'info');
-      let ok = 0; let ohneKonto = 0; let benachrichtigt = 0;
+      let ok = 0; let benachrichtigt = 0;
       const probleme = [];
+      const liegen = [];      // gespeichert, aber nicht verschickt (Kennungen)
+      let ursache = null;     // abgelaufen / nicht_erreichbar / kaputt
+      let liegenGrund = '';
       for (const id of ids) {
         try {
           const d = await api('/api/einladungen', { method: 'POST', body: {
             sprechtag_id: S.aktiverSprechtag.id, schueler_id: id,
             hinweis } });
           ok++;
-          if (d.eltern_bekannt === false) ohneKonto++;
-          else benachrichtigt += (d.eltern_anzahl || 0);
+          const m = d.mitteilung;
+          if (m && m.status === 'gesendet') benachrichtigt++;
+          else if (m) {
+            liegen.push(...(m.ids || []));
+            ursache = ursache || m.sitzung;
+            liegenGrund = liegenGrund || m.grund;
+          }
         } catch (f) {
           // Fehler NICHT verschlucken – sonst bleibt unklar, warum
           // nichts passiert ist.
@@ -2174,15 +2348,16 @@ function ansichtEinladungen(ziel) {
       if (probleme.length === 0) {
         let text = ok + ' Einladung(en) angelegt';
         if (benachrichtigt > 0) {
-          text += ', ' + benachrichtigt + ' Erziehungsberechtigte benachrichtigt';
+          text += ', bei ' + benachrichtigt + ' die Erziehungsberechtigten benachrichtigt';
         }
         text += '.';
-        if (ohneKonto > 0) {
-          text += ' Bei ' + ohneKonto + ' davon war keine automatische '
-            + 'Benachrichtigung möglich, weil noch kein Elternkonto bekannt '
-            + 'ist – bitte auf anderem Weg informieren.';
+        if (liegen.length > 0) {
+          text += ' ' + liegen.length + ' Mitteilung(en) sind gespeichert, aber noch '
+            + 'NICHT verschickt: ' + liegenGrund;
+          if (sitzungAuswerten(ursache, text, { knopf: 'Anmelden und senden',
+            aktion: () => sendeVorgemerkte(liegen) })) return;
         }
-        meldung(text, ohneKonto > 0 ? 'info' : 'ok');
+        meldung(text, liegen.length > 0 ? 'fehler' : 'ok');
       } else {
         const einmalig = [...new Set(probleme)];
         meldung(ok + ' angelegt, ' + probleme.length + ' fehlgeschlagen: '
@@ -2434,79 +2609,7 @@ function ansichtAdminMarke(ziel) {
 }
 
 function ansichtAdminDaten(ziel) {
-  ziel.appendChild(el('h2', null, 'Dienstkonto & Schülerliste'));
-
-  // ---- Dienstkonto ------------------------------------------------------
-  const dk = sektion('Dienstkonto für die Lehrkraft-Ermittlung');
-  dk.appendChild(el('p', 'hinweis',
-    'Damit Eltern beim Buchen sofort ihre Lehrkräfte sehen, ermittelt das '
-    + 'System sie im Hintergrund aus dem Stundenplan. Dafür wird ein '
-    + 'WebUntis-Konto mit Leserecht auf Schülerstundenpläne benötigt. '
-    + 'Die Zugangsdaten werden verschlüsselt gespeichert.'));
-  dk.appendChild(el('p', 'hinweis-wichtig',
-    'Bitte möglichst ein eigenes Dienstkonto mit minimalen Rechten verwenden, '
-    + 'nicht das persönliche Konto. Wer Zugriff auf Server und Datenbank hat, '
-    + 'kann die Zugangsdaten entschlüsseln – das lässt sich nicht vermeiden, '
-    + 'weil der Server sie im Klartext zum Anmelden braucht.'));
-  const dkStatus = el('div', 'dk-status');
-  dk.appendChild(dkStatus);
-  const dkZeile = el('div', 'zeile');
-  dkZeile.appendChild(feld('WebUntis-Benutzername', 'dk-benutzer'));
-  dkZeile.appendChild(feld('Passwort', 'dk-passwort', 'password'));
-  dk.appendChild(dkZeile);
-  const dkAktionen = el('div', 'aktionen');
-  dkAktionen.appendChild(knopf('Speichern und prüfen', null, async () => {
-    const daten = { benutzername: wert('dk-benutzer'), passwort: wert('dk-passwort') };
-    if (daten.benutzername === '' || daten.passwort === '') {
-      meldung('Bitte Benutzername und Passwort eingeben.', 'fehler');
-      return;
-    }
-    meldung('Zugangsdaten werden gespeichert …', 'info');
-    try {
-      const d = await api('/api/dienstkonto', { method: 'POST', body: daten });
-      S.dienstkonto = d;
-      meldung(d.grund + (d.entschluesselbar
-        ? ' Verschlüsselung funktioniert.'
-        : ' ACHTUNG: Entschlüsselung schlug fehl – Schlüssel prüfen.'),
-        d.entschluesselbar ? 'ok' : 'fehler');
-    } catch (f) { meldung(String(f.message), 'fehler'); }
-  }));
-  dkAktionen.appendChild(knopf('Entfernen', 'klein gefahr', async () => {
-    if (!confirm('Zugangsdaten des Dienstkontos löschen? Die Lehrkraft-'
-      + 'Ermittlung läuft danach nicht mehr automatisch.')) return;
-    try {
-      await api('/api/dienstkonto', { method: 'DELETE' });
-      S.dienstkonto = null;
-      meldung('Dienstkonto entfernt.', 'ok');
-    } catch (f) { meldung(String(f.message), 'fehler'); }
-  }));
-  dk.appendChild(dkAktionen);
-  ziel.appendChild(dk);
-
-  // Status anzeigen (aus dem Zustand, sonst nachladen)
-  if (S.dienstkonto === null) {
-    dkStatus.appendChild(el('p', 'hinweis', 'Status wird geladen …'));
-    api('/api/dienstkonto').then((d) => { S.dienstkonto = d; zeichne(); })
-      .catch(() => { S.dienstkonto = { hinterlegt: false, schluessel_ok: false }; });
-  } else {
-    const d = S.dienstkonto;
-    if (!d.schluessel_ok) {
-      dkStatus.appendChild(el('p', 'meldung fehler',
-        'Kein Verschlüsselungsschlüssel in config.php hinterlegt '
-        + '(dienstkonto_schluessel, mindestens 32 Zeichen). Solange er fehlt, '
-        + 'können keine Zugangsdaten gespeichert werden.'));
-    } else if (d.hinterlegt) {
-      dkStatus.appendChild(el('p', 'meldung ok',
-        'Dienstkonto hinterlegt: ' + d.benutzer
-        + ' · Verfahren: ' + d.verfahren
-        + (d.entschluesselbar ? ' · entschlüsselbar'
-                              : ' · NICHT entschlüsselbar (Schlüssel geändert?)')));
-    } else {
-      dkStatus.appendChild(el('p', 'hinweis',
-        'Noch kein Dienstkonto hinterlegt. Ohne eines müssen Eltern beim '
-        + 'ersten Besuch selbst ermitteln lassen.'));
-    }
-  }
+  ziel.appendChild(el('h2', null, 'Schülerliste'));
 
   // ---- Schülerliste ------------------------------------------------------
   const sl = sektion('Schülerliste für die Einladungsauswahl');
@@ -2539,11 +2642,22 @@ function ansichtAdminDaten(ziel) {
 
   sl.appendChild(el('h4', null, '1. Aus WebUntis übernehmen'));
   sl.appendChild(el('p', 'hinweis-klein',
-    'Holt IDs und Namen. Nutzt das hinterlegte Dienstkonto.'));
+    'Holt IDs und Namen. Dafür meldet sich das System einmal mit den '
+    + 'Zugangsdaten an, die Sie hier eingeben – sie werden nicht gespeichert.'));
+  const syncZeile = el('div', 'zeile');
+  syncZeile.appendChild(feld('WebUntis-Benutzername', 'sync-benutzer', 'text', S.benutzername || ''));
+  syncZeile.appendChild(feld('Passwort', 'sync-passwort', 'password'));
+  sl.appendChild(syncZeile);
   sl.appendChild(knopf('Schüler:innen aus WebUntis holen', 'klein', async () => {
+    // Werte VOR meldung() lesen (meldung() zeichnet die Ansicht neu)
+    const zugang = { benutzername: wert('sync-benutzer'), passwort: wert('sync-passwort') };
+    if (zugang.benutzername === '' || zugang.passwort === '') {
+      meldung('Bitte Benutzername und Passwort eingeben.', 'fehler');
+      return;
+    }
     meldung('Schülerliste wird geholt …', 'info');
     try {
-      const d = await api('/api/schueler/sync', { method: 'POST', body: {} });
+      const d = await api('/api/schueler/sync', { method: 'POST', body: zugang });
       S.schuelerAnzahl = null;
       meldung(d.gelesen + ' gelesen, ' + d.neu + ' neu, '
         + d.aktualisiert + ' aktualisiert.', 'ok');
@@ -3409,7 +3523,11 @@ async function lehrerAusfall(s, l) {
   try {
     const d = await api('/api/sprechtage/' + s.id + '/lehrer/' + l.lehrer_id
       + '/ausfall', { method: 'POST', body: { nachricht } });
-    toast(d.hinweis || 'Ausfall eingetragen.', 'ok');
+    const m = d.mitteilung;
+    if (m && m.offen > 0 && sitzungAuswerten(m.sitzung,
+        d.hinweis + ' ' + m.grund,
+        { knopf: 'Anmelden und senden', aktion: () => sendeVorgemerkte(m.ids) })) return;
+    toast(d.hinweis || 'Ausfall eingetragen.', m && m.offen > 0 ? 'fehler' : 'ok');
     oeffneLehrerVerwaltung(s);
   } catch (f) { toast(String(f.message), 'fehler'); }
 }
@@ -3744,7 +3862,7 @@ function ansichtAdminErinnerungen(ziel) {
 
   ziel.appendChild(el('p', 'hinweis',
     'Sendet eine allgemeine Erinnerung an eine WebUntis-Empfängerliste (z. B. '
-    + '„alle Eltern"). Der Versand läuft über das hinterlegte Dienstkonto und '
+    + '„alle Eltern"). Der Versand läuft unter Ihrem WebUntis-Konto und '
     + 'wird von Ihnen bewusst ausgelöst – es gibt keinen automatischen Versand.'));
 
   // ---- Empfängerliste ----
@@ -3818,7 +3936,12 @@ function ansichtAdminErinnerungen(ziel) {
       await speichern();               // erst speichern, damit die Prüfung
       const d = await api('/api/erinnerungen/vorschau');  // die aktuellen Werte nutzt
       // Conf neu laden lassen, aber Formulareingaben sind ja gespeichert.
-      S.erinnerungConf = undefined; S.erinnerungVorschau = d; zeichne();
+      S.erinnerungConf = undefined; S.erinnerungVorschau = d;
+      // Abgelaufen (E17): anmelden, dann selbst erneut prüfen – keine Automatik.
+      if (sitzungAuswerten(d.sitzung, 'Empfänger nicht geprüft: ' + d.grund,
+        { knopf: 'Anmelden', aktion: async () => meldung(
+          'Neu angemeldet – bitte „Empfänger prüfen“ erneut auslösen.', 'ok') })) return;
+      zeichne();
     } catch (f) { toast(String(f.message), 'fehler'); }
   }));
   versand.appendChild(va);
@@ -3839,6 +3962,11 @@ function ansichtAdminErinnerungen(ziel) {
         try {
           const r = await api('/api/erinnerungen/senden', { method: 'POST' });
           S.erinnerungVorschau = null;
+          // Abgelaufen (E17): NICHT verschickt; nach der Anmeldung bewusst
+          // erneut prüfen und senden – an alle wird nie automatisch gesendet.
+          if (sitzungAuswerten(r.sitzung, 'Die Erinnerung wurde NICHT verschickt: ' + r.grund,
+            { knopf: 'Anmelden', aktion: async () => meldung('Neu angemeldet – bitte die '
+              + 'Empfänger erneut prüfen und dann senden.', 'ok') })) return;
           // Drei Stände: bestätigt gesendet, unklar, Fehlschlag.
           // „Unklar" ist bewusst KEIN Erfolg: WebUntis hat die Mitteilung
           // womöglich angenommen, aber nicht bestätigt. Erneut zu senden
@@ -3973,9 +4101,10 @@ function ansichtSondierung(ziel) {
 function ansichtMitteilungen(ziel) {
   ziel.appendChild(el('h2', null, 'Mitteilungen an Erziehungsberechtigte'));
   ziel.appendChild(el('p', 'hinweis',
-    'Terminbestätigungen und Absagen werden hier gesammelt. Ist ein '
-    + 'Dienstkonto hinterlegt, versendet das System sie automatisch beim '
-    + 'Buchen und Absagen; hier lassen sich liegengebliebene nachsenden.'));
+    'Terminbestätigungen, Einladungen und Absagen werden hier gesammelt. Das '
+    + 'System versendet sie sofort unter dem Namen der Person, die gebucht, '
+    + 'eingeladen oder abgesagt hat. Was liegen geblieben ist – etwa weil die '
+    + 'WebUntis-Anmeldung abgelaufen war –, lässt sich hier nachsenden.'));
   if (!sprechtagWaehler(ziel, () => { S.mitteilungen = null; S.mittLaedt = false; })) return;
 
   if (S.mitteilungen === null) {
@@ -4002,37 +4131,20 @@ function ansichtMitteilungen(ziel) {
       + 'Beim ersten Versand werden mehrere Feldstrukturen ausprobiert; '
       + 'die funktionierende wird gemerkt. Schlägt alles fehl, bleiben die '
       + 'Mitteilungen hier stehen und können manuell in WebUntis versendet werden.'));
-    // Zugangsdaten nur nötig, wenn kein Dienstkonto hinterlegt ist
-    const mitDienstkonto = S.dienstkonto !== null
-      && S.dienstkonto.hinterlegt && S.dienstkonto.entschluesselbar;
-    if (!mitDienstkonto) {
-      kasten.appendChild(el('p', 'hinweis-klein',
-        'Kein Dienstkonto hinterlegt – bitte Zugangsdaten eingeben. '
-        + 'Mit hinterlegtem Dienstkonto entfällt dieser Schritt.'));
-      const z = el('div', 'zeile');
-      z.appendChild(feld('WebUntis-Benutzername', 'mv-benutzer'));
-      z.appendChild(feld('Passwort', 'mv-passwort', 'password'));
-      kasten.appendChild(z);
-    }
+    // Über die eigene Sitzung (E17) – keine Zugangsdaten. Ist sie
+    // abgelaufen, kommt der Kasten; danach derselbe Versand.
     kasten.appendChild(knopf('Offene Mitteilungen versenden', null, async () => {
-      // Werte VOR meldung() lesen (meldung() zeichnet die Ansicht neu)
-      const auftrag = { sprechtag_id: S.aktiverSprechtag.id };
-      if (!mitDienstkonto) {
-        auftrag.benutzername = wert('mv-benutzer');
-        auftrag.passwort = wert('mv-passwort');
-        if (auftrag.benutzername === '' || auftrag.passwort === '') {
-          meldung('Bitte Benutzername und Passwort eingeben.', 'fehler');
-          return;
-        }
-      }
       meldung('Versand läuft …', 'info');
       try {
         const d = await api('/api/mitteilungen/senden',
-          { method: 'POST', body: auftrag });
+          { method: 'POST', body: { sprechtag_id: S.aktiverSprechtag.id } });
+        if (sitzungAuswerten(d.sitzung, 'Noch NICHT verschickt: ' + d.grund,
+          { knopf: 'Anmelden und senden', aktion: () => sendeVorgemerkte(d.ids) })) return;
         S.versandProtokoll = d.protokoll || null;
         await ladeMitteilungen();
         meldung(d.grund + (d.variante ? ' (Variante: ' + d.variante + ')' : ''),
           d.gesendet > 0 ? 'ok' : 'fehler');
+        ladeOffenHinweis();
       } catch (f) { meldung(String(f.message), 'fehler'); }
     }));
     ziel.appendChild(kasten);
@@ -4136,9 +4248,6 @@ function ansichtMitteilungen(ziel) {
 
 async function ladeMitteilungen() {
   try {
-    if (S.dienstkonto === null) {
-      try { S.dienstkonto = await api('/api/dienstkonto'); } catch { }
-    }
     const d = await api('/api/mitteilungen?sprechtag=' + S.aktiverSprechtag.id);
     S.mitteilungen = d.mitteilungen || [];
     meldung(null);

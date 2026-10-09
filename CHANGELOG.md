@@ -1,5 +1,70 @@
 # Changelog - sprechtag
 
+## v0.9.72 (Oktober 2026) – Dienstkonto abgeschafft; die abgelaufene Sitzung wird gesagt – benötigt Migration `sql/21_dienstkonto_entfernen.sql`
+
+Grundlage gemessen am 09.10.2026: Admin und Lehrkraft lösen die Testliste über
+die eigene Sitzung auf und senden an sie; PARENTS trägt über die
+Lehrkraft-Sitzung. Entscheidung und Begründung: `docs/ENTSCHEIDUNGEN.md`, E17.
+
+- **Kein Dienstkonto mehr.** Jede WebUntis-Aktion läuft über die Sitzung der
+  handelnden Person. Entfernt: `dienstkonto.php` (Verschlüsselung, Ablage),
+  `/api/dienstkonto`, der Abschnitt auf der Verwaltungsseite (heißt jetzt
+  „Schülerliste“), `dienstkonto_schluessel` in der Konfigurationsvorlage, die
+  Messung über das Dienstkonto (v0.9.70). Die Migration löscht die
+  hinterlegten Zugangsdaten.
+- **Ein Sitzungszugang:** `wu_sitzung()` im Adapter ersetzt
+  `mit_rest_aus_sitzung()` und meldet drei Ursachen getrennt: abgelaufen,
+  nicht erreichbar, kaputt (Programmierfehler). Behebt E9 „Daneben gefunden“:
+  Ein Netzfehler und eine Ausnahme sahen bisher aus wie ein Ablauf.
+- **Abgelaufene Sitzung:** Die Mitteilung bleibt in der Warteschlange. Am Ort
+  der Handlung steht ein Kasten („gespeichert, aber noch NICHT verschickt“)
+  mit Anmeldung und „Anmelden und senden“; danach gehen dieselben Mitteilungen
+  hinaus. Nach jeder Anmeldung erscheint „N Mitteilungen … noch nicht
+  verschickt“ mit „Jetzt senden“. Absage, Einladung, Ausfall, Sammelversand,
+  stellvertretende Buchung („Anmelden und buchen“, ohne Sitzung wird nicht
+  gebucht), Erinnerungen (nur anmelden, kein automatischer Versand),
+  Kacheln.
+- **PARENTS:** Einladung und Bestätigung der stellvertretenden Buchung gehen
+  über `/v2/messages` mit `recipientOption PARENTS` an alle
+  Erziehungsberechtigten des Kindes. Erfolg erst bei `numberOfRecipients` ≥ 1.
+  Die Einladung sucht keine Elternkonten mehr.
+- **Warteschlange** trägt die Lehrkraft (`lehrer_id`) und die Empfängerart
+  (`konto` | `eltern`). Eine Lehrkraft kann ihre Absage nachsenden, obwohl die
+  Buchung gelöscht ist.
+- Neue Route `GET /api/mitteilungen/offen-eigene` (Anzahl und Kennungen,
+  keine Personen). `POST /api/mitteilungen/senden` nimmt keine Zugangsdaten
+  mehr. Der Schüler-Sync nimmt eingetippte Zugangsdaten bis Zug 4.
+
+### Migration
+- `sql/21_dienstkonto_entfernen.sql` **vor** dem Ausrollen einspielen (für
+  v0.9.71 unschädlich). Danach `dienstkonto_schluessel` aus
+  `backend/config.php` auf dem Server entfernen.
+
+### Nicht gemessen
+- Namenssuche über die Lehrkraft-Sitzung (stellvertretende Buchung) – messbar
+  über `/api/messung/parents` (`namensweg.quelle`).
+- Stundenplan beliebiger Kinder über die Sitzung der Verwaltung bzw.
+  volljähriger Schüler.
+- Der Kasten auf dem Gerät (Abnahmepunkt). Die Breitenmessung (WebKit,
+  320 px) zeigt den Hinweis ohne Überlauf.
+
+### Prüfungen
+- 1154 → 1221 Prüfzeilen; Suiten 59 → 60, alle grün; `tests-sprechtag.sh` 29.
+  Neu: `run_sitzungszugang.php` (28), `run_sitzung_versand.php` (40),
+  `frontend_sitzung_abgelaufen_test.js` (33). Entfernt mit dem Dienstkonto:
+  `run_dienstkonto.php` (12), `run_dienstkonto_db.php` (14). Angepasst:
+  `frontend_lehrersitzung_test.js` 12 → 8, `run_messung_sitzung.php` 94 → 90
+  (die Gründe prüft jetzt `run_sitzungszugang.php`),
+  `run_messung_parents.php` 22 → 21, `frontend_vollstaendig_test.js` 34 → 35
+  (`ladeOffenHinweis` aufgerufen und definiert).
+- Mutationen 246 → 279 Ergebniszeilen, alle angeschlagen, H4 grün, Rücknahme
+  belegt. Neu SZ1–11, SV1–17, FS1–10. Entfallen S1–S3, S12 (jetzt SZ) und
+  MP8–MP11 (Dienstkonto; neu MP12–MP14 – im Lauf noch als MP8–MP10
+  benannt, Nummern nachträglich auf frei gesetzt, Muster unverändert). Nachgezogen: S9, S11, S16, AW3, FSG5,
+  MP2. Im ersten Lauf ohne Beleg: SV8–SV10, FS2 (falscher Erwartungstext),
+  FS3 (`$1[]`) und AW3 (Muster veraltet). Alle sechs lagen am Werkzeug; SV9
+  und SV10 trafen dieselbe Zeile, die Prüfung ist jetzt geteilt.
+
 ## v0.9.71 (Oktober 2026) – Messung: Liste auflösen und senden über die eigene Sitzung
 
 Frage: Ersetzt eine Lehrkraft- bzw. Verwaltungs-Sitzung das Dienstkonto bei

@@ -88,15 +88,14 @@ final class ErsatzRest
     { $this->posts[] = [$pfad, $daten, 'json']; return $this->antwort; }
 }
 $ok = ['status' => 200, 'json' => ['numberOfRecipients' => 4, 'numberOfCCRecipients' => null], 'text' => ''];
+$namenswegSitzung = [];
 $lauf = function (array $eingabe, ?ErsatzRest $rest, array $namensweg = ['ids' => [7, 8], 'quelle' => 'webuntis', 'kind_name' => 'Erfunden Kind'],
-                  string $rolle = 'admin', ?ErsatzRest $dk = null, ?int &$abgemeldet = null)
+                  string $rolle = 'admin') use (&$namenswegSitzung)
 {
-    $abgemeldet = 0;
     return messung_parents_ausfuehren($eingabe, $rolle,
         fn() => ['rest' => $rest, 'grund' => $rest === null ? 'kein_cookie' : null],
-        function () use ($dk, &$abgemeldet) { return ['rest' => $dk, 'grund' => $dk === null ? 'kein_dienstkonto' : null,
-            'abmelden' => function () use (&$abgemeldet) { $abgemeldet++; }]; },
-        fn(int $kind) => $namensweg, fn(int $kind) => true);
+        function (int $kind, $r) use ($namensweg, &$namenswegSitzung) { $namenswegSitzung[] = $r; return $namensweg; },
+        fn(int $kind) => true);
 };
 $r1 = new ErsatzRest($ok);
 $a1 = $lauf(['kind_id' => 90042, 'pfad' => 'users', 'bestaetigt' => true], $r1);
@@ -153,33 +152,29 @@ pruefe('Lehrkraft ohne Bestätigung: Antwort 200, nicht gesendet, mit Grund',
     && str_contains((string)($rl->daten['bericht']['grund'] ?? ''), 'bestätigt'));
 
 // ------------------------------------------------------------
-// v0.9.70: über die Sitzung des DIENSTKONTOS. Bestätigungen und Absagen
-// laufen heute notwendigerweise darüber (bei einer Buchung durch Eltern ist
-// keine Lehrkraft angemeldet); PARENTS ist nur über die Lehrkraft-Sitzung
-// gemessen (Befund Abschnitt 16).
-echo "Über die Sitzung des Dienstkontos (v0.9.70)\n";
-$eig = new ErsatzRest($ok); $dk = new ErsatzRest($ok); $ab = null;
-$ad = $lauf(['kind_id' => 90042, 'pfad' => 'messages', 'bestaetigt' => true, 'sitzung' => 'dienstkonto'],
-    $eig, ['ids' => [7, 8], 'quelle' => 'webuntis', 'kind_name' => 'x'], 'admin', $dk, $ab);
-pruefe('sitzung dienstkonto: der Versand geht über die Dienstkonto-Sitzung, nicht über die eigene',
-    count($dk->posts) === 1 && count($eig->posts) === 0 && ($ad['sitzung'] ?? null) === 'dienstkonto'
-    && ($ad['antwort']['empfaenger'] ?? null) === 4);
-pruefe('… und die Dienstkonto-Sitzung wird danach abgemeldet (genau einmal)', $ab === 1);
-$eig2 = new ErsatzRest($ok); $dk2 = new ErsatzRest($ok); $ab2 = null;
-$al = $lauf(['kind_id' => 90042, 'pfad' => 'messages', 'bestaetigt' => true, 'sitzung' => 'dienstkonto'],
-    $eig2, ['ids' => [], 'quelle' => null, 'kind_name' => ''], 'lehrkraft', $dk2, $ab2);
-pruefe('über das Dienstkonto nur für die Verwaltung: Lehrkraft – kein Versand, Grund genannt',
-    count($dk2->posts) === 0 && count($eig2->posts) === 0 && ($al['gesendet'] ?? null) === false
-    && str_contains((string)($al['grund'] ?? ''), 'Verwaltung'));
+// v0.9.72 (E17): Das Dienstkonto ist fort. Die Messung läuft nur über die
+// eigene Sitzung; der Namensweg sucht über DIESELBE Sitzung und misst damit
+// die Namenssuche der stellvertretenden Buchung (bis v0.9.71 lief sie über
+// das Dienstkonto – über die Lehrkraft-Sitzung ist sie NICHT gemessen).
+echo "Nur die eigene Sitzung (v0.9.72)\n";
+$eig = new ErsatzRest($ok);
+$ad = $lauf(['kind_id' => 90042, 'pfad' => 'messages', 'bestaetigt' => true, 'sitzung' => 'dienstkonto'], $eig);
+pruefe('sitzung dienstkonto: kein Versand, der Grund sagt, dass es das Dienstkonto nicht mehr gibt',
+    count($eig->posts) === 0 && ($ad['gesendet'] ?? null) === false
+    && str_contains((string)($ad['grund'] ?? ''), 'nicht mehr'));
 $eig3 = new ErsatzRest($ok);
 $au = $lauf(['kind_id' => 90042, 'pfad' => 'messages', 'bestaetigt' => true, 'sitzung' => 'irgendeine'], $eig3);
+$namenswegSitzung = [];
 $ae = $lauf(['kind_id' => 90042, 'pfad' => 'messages', 'bestaetigt' => true], $eig3);
 pruefe('unbekannte Sitzungsangabe: kein Versand; ohne Angabe: die eigene Sitzung (wie bisher)',
     ($au['gesendet'] ?? null) === false && count($eig3->posts) === 1 && ($ae['sitzung'] ?? null) === 'eigene');
-$ak = $lauf(['kind_id' => 90042, 'pfad' => 'messages', 'bestaetigt' => true, 'sitzung' => 'dienstkonto'],
-    new ErsatzRest($ok), ['ids' => [], 'quelle' => null, 'kind_name' => ''], 'admin', null);
-pruefe('ohne nutzbares Dienstkonto: kein Versand, Grund aus der Sitzung',
-    ($ak['gesendet'] ?? null) === false && str_contains((string)($ak['grund'] ?? ''), 'kein_dienstkonto'));
+pruefe('der Namensweg sucht über DIESELBE Sitzung, über die gesendet wird',
+    count($namenswegSitzung) === 1 && $namenswegSitzung[0] === $eig3);
+$soll = mit_parents_koerper(90042, 'B', 'T');
+$ist  = messung_parents_koerper(90042);
+pruefe('eine Quelle: der Messkörper ist der Betriebskörper (mit_parents_koerper), nur Betreff und Text fest',
+    array_keys($ist) === array_keys($soll)
+    && array_diff_key($ist, ['subject' => 1, 'content' => 1]) === array_diff_key($soll, ['subject' => 1, 'content' => 1]));
 $rd = route($zweig, ['rolle' => 'lehrkraft', 'kinder' => []],
     ['kind_id' => 90042, 'pfad' => 'messages', 'bestaetigt' => true, 'sitzung' => 'dienstkonto']);
 pruefe('Route: Lehrkraft mit sitzung dienstkonto – Antwort 200, nicht gesendet',

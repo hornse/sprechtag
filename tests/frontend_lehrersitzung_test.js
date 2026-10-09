@@ -1,7 +1,8 @@
 // ============================================================
 // tests/frontend_lehrersitzung_test.js
 // Prueft den Umbau: Mitteilungen gehen unter dem Konto der angemeldeten
-// Person hinaus, Dienstkonto nur noch als Rueckfall.
+// Person hinaus. Seit v0.9.72 (E17) NUR noch so – das Dienstkonto ist fort;
+// das Verhalten bei abgelaufener Sitzung prüft run_sitzung_versand.php.
 //
 // Grundlage: lernzeiten-Auskunft 06./07.10.2026 (eigener Code hat mit der
 // Lehrkraft-Sitzung gesendet; Scope mg:r ist keine Sperre).
@@ -30,23 +31,13 @@ pruefe('Cookie steht NICHT in auth_user (nicht ans Frontend)',
   aut.indexOf('wu_cookie') > aut.indexOf('function auth_login_speichern'));
 pruefe('Zugriffsfunktion vorhanden', aut.includes('function auth_wu_cookie'));
 
-// ---- Versand nutzt die Sitzung ----
-pruefe('Client aus der Sitzung baubar', mit.includes('function mit_rest_aus_sitzung'));
-// Seit v0.9.54 nennt der Zweig zusätzlich den Grund ({ $grund = …; return null; });
-// geprüft wird weiterhin: kein Token → null. Ausgeführt in run_messung_sitzung.php.
-pruefe('abgelaufene Sitzung gibt null',
-  /if \(!\$rest->tokenHolen\(\)\) (return null;|\{[^}]*return null; \})/.test(mit));
-pruefe('Versand kann vorgegebene Sitzung nutzen',
-  mit.includes('?WebUntisRest $restVorgegeben = null'));
-pruefe('fremde Sitzung wird nicht ausgeloggt',
-  mit.includes('if ($restVorgegeben === null) $wu->logout();'));
-
-// ---- Rangfolge: eigenes Konto vor Dienstkonto ----
-pruefe('eigene Sitzung wird zuerst versucht',
-  mit.indexOf('mit_rest_aus_sitzung($cfg)') < mit.indexOf("'absender' => 'Dienstkonto'"));
-pruefe('Absender wird gemeldet', mit.includes("'absender' => 'eigenes Konto'"));
-pruefe('abgelaufene Sitzung ohne Dienstkonto -> Hinweis auf Neuanmeldung',
-  mit.includes('bitte neu anmelden und erneut senden'));
+// ---- Versand nur über die Sitzung (v0.9.72, E17) ----
+pruefe('Sitzungszugang im Adapter (wu_sitzung)', ada.includes('function wu_sitzung(array $cfg'));
+pruefe('Versand verlangt eine Sitzung – keine eigene Anmeldung mit Zugangsdaten mehr',
+  mit.includes('function mit_versand_ausfuehren(PDO $pdo, array $ids, WebUntisRest $rest)')
+  && !mit.includes('->authenticate('));
+pruefe('kein Dienstkonto als Rückfall',
+  !mit.includes("'absender' => 'Dienstkonto'") && !mit.includes('dk_lesen'));
 
 console.log(fehler === 0 ? '\nALLE TESTS GRUEN' : '\n' + fehler + ' FEHLER');
 process.exit(fehler === 0 ? 0 : 1);

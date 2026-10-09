@@ -20,6 +20,94 @@ require_once __DIR__ . '/../auth/WebUntisAuth.php';
 require_once __DIR__ . '/../auth/WebUntisRest.php';
 require_once __DIR__ . '/../auth/extractors.php';
 
+// ---- Sitzungszugang (v0.9.72, E17) ----------------------------------------
+
+/**
+ * Der Zugang zu WebUntis über die Sitzung der ANGEMELDETEN PERSON – seit
+ * v0.9.72 der einzige. Das Dienstkonto ist abgeschafft (E17): Jede Aktion
+ * läuft unter dem Namen dessen, der sie auslöst, und eine abgelaufene
+ * Sitzung wird gesagt, nicht still überbrückt.
+ *
+ * Grundlage ist der beim Login festgehaltene Sitzungscookie. Gemessen
+ * (lernzeiten, 06.10.2026): Die Sitzung lebt 25–30 Minuten und verlängert
+ * sich NICHT durch Nutzung.
+ *
+ * Rückgabe: ['rest' => ?WebUntisRest, 'art' => ?string, 'grund' => ?string]
+ *   art null               – nutzbar
+ *   art 'abgelaufen'       – neu anmelden hilft; grund 'kein_cookie' (keine
+ *                            Sitzung festgehalten) oder 'kein_token'
+ *   art 'nicht_erreichbar' – WebUntis antwortet nicht (Status 0, ab 500,
+ *                            flüchtig) oder eine Ausnahme (Exception) im Abruf
+ *   art 'kaputt'           – ein Programmierfehler (Error). Bis v0.9.71 sah
+ *                            er aus wie ein Ablauf (E9); jetzt fällt er auf.
+ *
+ * Die Nachprobe: tokenHolen() sagt nur ja oder nein (vendort aus
+ * webuntis-client-php). Bei nein wird derselbe Abruf einmal gelesen – wie
+ * messung_token_probe() seit v0.9.54. Status 0 ist das Netz, nicht der
+ * Ablauf. ab 500 als „nicht erreichbar“ ist abgeleitet, nicht gemessen.
+ *
+ * $client: nur für Prüfungen – baut den Client statt new WebUntisRest.
+ */
+function wu_sitzung(array $cfg, ?callable $client = null): array
+{
+    $cookie = function_exists('auth_wu_cookie') ? auth_wu_cookie() : null;
+    if ($cookie === null) return ['rest' => null, 'art' => 'abgelaufen', 'grund' => 'kein_cookie'];
+
+    try {
+        $wcfg = $cfg['webuntis'];
+        $rest = $client !== null ? $client() : new WebUntisRest($wcfg['base_url'], $wcfg['school']);
+        $rest->mitSessionCookie($cookie);
+        $rest->setzeTimeout(15);
+        if (!$rest->tokenHolen()) {
+            $probe  = $rest->get('/WebUntis/api/token/new');
+            $status = (int)($probe['status'] ?? 0);
+            $text   = trim((string)($probe['text'] ?? ''));
+            if ($status === 0 || $status >= 500) {
+                return ['rest' => null, 'art' => 'nicht_erreichbar',
+                        'grund' => 'nicht_erreichbar: Status ' . $status];
+            }
+            if ($status === 200 && substr_count($text, '.') === 2 && !str_contains($text, '<')) {
+                return ['rest' => null, 'art' => 'nicht_erreichbar',
+                        'grund' => 'nicht_erreichbar: flüchtig (Token erst bei der Nachprobe)'];
+            }
+            return ['rest' => null, 'art' => 'abgelaufen', 'grund' => 'kein_token'];
+        }
+        $rest->tenantErmitteln();
+        return ['rest' => $rest, 'art' => null, 'grund' => null];
+    } catch (Exception $e) {
+        error_log('sprechtag: WebUntis über die Sitzung nicht erreichbar: ' . $e->getMessage());
+        return ['rest' => null, 'art' => 'nicht_erreichbar',
+                'grund' => 'fehler: ' . get_class($e) . ': ' . $e->getMessage()];
+    } catch (Error $e) {
+        error_log('sprechtag: FEHLER im Sitzungszugang: ' . get_class($e) . ': ' . $e->getMessage());
+        return ['rest' => null, 'art' => 'kaputt',
+                'grund' => 'fehler: ' . get_class($e) . ': ' . $e->getMessage()];
+    }
+}
+
+/** Was die handelnde Person liest – je Ursache ein eigener Satz. */
+function wu_sitzung_meldung(?string $art): string
+{
+    return match ($art) {
+        'abgelaufen'       => 'Ihre WebUntis-Anmeldung ist abgelaufen. Bitte melden Sie sich neu an.',
+        'nicht_erreichbar' => 'WebUntis ist gerade nicht erreichbar. Bitte versuchen Sie es in einigen Minuten erneut.',
+        'kaputt'           => 'Interner Fehler beim Zugang zu WebUntis. Bitte die Administration informieren.',
+        default            => '',
+    };
+}
+
+/**
+ * Antwort einer Route, die ohne nutzbare Sitzung nichts tun kann: 409 mit
+ * der Meldung und der Ursache in 'sitzung' – die Oberfläche bietet bei
+ * 'abgelaufen' die Neuanmeldung an. Nie 401: Das hieße „bei sprechtag
+ * nicht angemeldet“, und das stimmt hier nicht.
+ */
+function json_sitzung_fehlt(array $sitzung): never
+{
+    $art = (string)($sitzung['art'] ?? 'kaputt');
+    json_ok(['fehler' => wu_sitzung_meldung($art), 'sitzung' => $art], 409);
+}
+
 /**
  * Benutzergruppe der angemeldeten Person aus /WebUntis/api/profile/general
  * (data.profile.userGroup, Text; gemessen 09.10.2026 für alle drei Rollen).
@@ -81,7 +169,7 @@ function wu_benutzergruppen(object $rest): array
 /**
  * Auswahlliste für die Verwaltungsseite: über die WebUntis-Sitzung der
  * angemeldeten Person ($sitzung liefert ['rest' => ?Client, 'grund' => ?string]
- * wie mit_rest_aus_sitzung()). Scheitert es, kommt keine Liste, sondern ein
+ * wie wu_sitzung()). Scheitert es, kommt keine Liste, sondern ein
  * lesbarer Grund – die Seite fällt dann aufs Eintippen zurück.
  */
 function schueler_gruppen_auswahl(callable $sitzung): array

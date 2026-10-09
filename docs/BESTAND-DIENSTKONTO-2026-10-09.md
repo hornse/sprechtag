@@ -100,3 +100,27 @@ der Testliste (QUICK, zwei Personen).
 **Verwaltung** aus. Trägt nur die Lehrkraft-Sitzung, müsste entweder eine
 Lehrkraft auslösen, oder das Admin-Konto reichte dafür nicht. Das ist zu
 entscheiden, nicht zu lösen.
+
+## Nachtrag 09.10.2026: gemessen, entschieden, umgebaut (v0.9.72, E17)
+
+**Gemessen (Betreiber):** Admin **und** Lehrkraft lösen die Testliste
+(QUICK, 2 Personen) über die eigene Sitzung vollständig auf und senden an sie
+(`numberOfRecipients` 2, beide angekommen). Die fachliche Frage aus dem
+vorigen Nachtrag erledigt sich damit: Die Verwaltung kann die Erinnerungen
+weiter selbst auslösen.
+
+**Entschieden (Betreiber):** Das Dienstkonto entfällt an allen 13 Stellen.
+Wie jede Stelle jetzt läuft, steht als Tabelle in `docs/ENTSCHEIDUNGEN.md`,
+E17. Die offenen Punkte oben, Stand jetzt:
+- **Stelle 1** (Eltern senden an sich selbst): weiter **nicht gemessen**.
+  Klappt es nicht, bleibt die Bestätigung offen. Seit v0.9.72 steht sie dann
+  im Hinweis nach der Anmeldung der Verwaltung.
+- **Kein Rückfall bei gescheitertem Versand mit Sitzung:** Es gibt gar keinen
+  Rückfall mehr. Scheitert der Versand, bleibt die Mitteilung offen, und die
+  Antwort nennt den Grund.
+- **Stelle 8 für Verwaltung und volljährige Schüler:** weiter **nicht
+  gemessen**. Scheitert es, sagt die Seite warum (abgelaufen / nicht
+  erreichbar / Fehler), statt „noch keine Lehrkräfte hinterlegt“.
+- **Neu nicht gemessen:** die Namenssuche über die Sitzung der Lehrkraft (für
+  die Zuordnung der stellvertretenden Buchung). Messbar über
+  `POST /api/messung/parents`, Feld `namensweg.quelle`.

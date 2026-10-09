@@ -28,6 +28,11 @@
 // Tabelle `mitteilungen` als 'offen' gespeichert. Die Lehrkraft sieht
 // sie in ihrer Ansicht und kann sie manuell in WebUntis versenden –
 // der Termin ist trotzdem korrekt storniert.
+//
+// SEIT v0.9.72 (E17): kein Dienstkonto mehr. Versendet wird nur über die
+// Sitzung der handelnden Person (wu_sitzung()); ist sie abgelaufen, bleibt
+// die Mitteilung stehen, und die Antwort sagt es. An die Eltern eines
+// Kindes geht es über recipientOption PARENTS (mit_senden_eltern()).
 // ============================================================
 
 declare(strict_types=1);
@@ -35,6 +40,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../helfer.php';
 require_once __DIR__ . '/../auth/WebUntisAuth.php';
 require_once __DIR__ . '/../auth/WebUntisRest.php';
+require_once __DIR__ . '/webuntis_adapter.php';   // wu_sitzung_meldung()
 
 /**
  * Kandidaten-Varianten für den Versand. Jede beschreibt Pfad und eine
@@ -280,21 +286,21 @@ function mit_eltern_zu_kind(array $users, string $kindName): array
 }
 
 /**
- * Ermittelt die WebUntis-USER-IDs aller Erziehungsberechtigten eines
- * Kindes – auf denselben zwei Wegen wie beim Einladungsversand:
- *   1. WebUntis-Empfängersuche (funktioniert auch beim ersten Sprechtag,
- *      bevor jemand gebucht hat)
+ * Ermittelt die WebUntis-USER-IDs der Erziehungsberechtigten eines Kindes –
+ * seit v0.9.72 NUR noch für die stellvertretende Buchung, die den Termin
+ * einem Konto zuordnen muss (Meine Termine, Kalender, Fall A, Absage). Die
+ * Mitteilungen selbst gehen über PARENTS und brauchen keine Kennungen (E17).
+ *   1. WebUntis-Empfängersuche über die Sitzung der handelnden Lehrkraft
+ *      (gemessen v0.9.69: findet die Konten) – kein Dienstkonto mehr
  *   2. Rückfall: aus früheren Buchungen desselben Kindes
  *
- * Bewusst als gemeinsamer Helfer, damit Einladung und stellvertretende
- * Buchung exakt dieselbe (getestete) Logik nutzen und nicht auseinander-
- * laufen. Fehler bei der WebUntis-Suche werden geloggt, nicht geworfen –
- * der Rückfall greift dann.
+ * $rest null (Sitzung nicht nutzbar): nur Weg 2. Der Aufrufer prüft die
+ * Sitzung vorher und bucht bei abgelaufener nicht (E17).
  *
  * @return array{ids:int[], quelle:?string, kind_name:string}
  *         quelle: 'webuntis' | 'buchung' | null (nichts gefunden)
  */
-function mit_eltern_ids_ermitteln(array $cfg, PDO $pdo, int $schuelerId): array
+function mit_eltern_ids_ermitteln(PDO $pdo, int $schuelerId, ?WebUntisRest $rest): array
 {
     // Kindnamen aus der Schülerliste (für Suche und exakten Namensabgleich)
     $stK = $pdo->prepare(
@@ -307,28 +313,16 @@ function mit_eltern_ids_ermitteln(array $cfg, PDO $pdo, int $schuelerId): array
     $ids = [];
     $quelle = null;
 
-    // ---- Weg 1: WebUntis-Empfängersuche ----------------------------------
-    $zugang = dk_lesen($cfg, $pdo);
-    if ($kindName !== '' && $zugang !== null) {
-        $wcfg = $cfg['webuntis'];
-        $wu = new WebUntisAuth($wcfg['base_url'], $wcfg['school'], $wcfg['client']);
+    // ---- Weg 1: WebUntis-Empfängersuche über die eigene Sitzung ------------
+    if ($kindName !== '' && $rest !== null) {
         try {
-            $wu->authenticate($zugang['benutzer'], $zugang['passwort']);
-            $rest = new WebUntisRest($wcfg['base_url'], $wcfg['school']);
-            $rest->mitSessionCookie((string)$wu->sessionCookie());
-            $rest->setzeTimeout(15);
-            if ($rest->tokenHolen()) {
-                $rest->tenantErmitteln();
-                $suche = (string)($kd['nachname'] ?? $kindName);
-                $treffer = $rest->empfaengerSuchen($suche);
-                $zuord = mit_eltern_zu_kind($treffer['users'], $kindName);
-                $ids = array_map('intval', array_column($zuord['konten'], 'id'));
-                if ($ids !== []) $quelle = 'webuntis';
-            }
-        } catch (Throwable $e) {
+            $suche = (string)($kd['nachname'] ?? $kindName);
+            $treffer = $rest->empfaengerSuchen($suche);
+            $zuord = mit_eltern_zu_kind($treffer['users'], $kindName);
+            $ids = array_map('intval', array_column($zuord['konten'], 'id'));
+            if ($ids !== []) $quelle = 'webuntis';
+        } catch (Exception $e) {
             error_log('sprechtag: Empfängersuche fehlgeschlagen: ' . $e->getMessage());
-        } finally {
-            $wu->logout();
         }
     }
 
@@ -429,119 +423,157 @@ function mit_datum_deutsch(string $iso): string
 }
 
 /**
- * Schreibt eine Mitteilung in die Warteschlange und versucht den Versand,
- * sofern Zugangsdaten übergeben wurden. Ohne Zugangsdaten bleibt sie
- * 'offen' und kann später gesammelt versendet werden.
+ * Schreibt eine Mitteilung in die Warteschlange – nur die Datenbank, kein
+ * Versand. Die Warteschlange ist der Ort, an dem eine Mitteilung stehen
+ * bleibt, wenn die Sitzung abgelaufen ist (E17): Der Text geht nicht
+ * verloren.
  *
- * Rückgabe: ['id' => int, 'status' => 'gesendet'|'offen'|'fehler', 'grund' => string]
+ * $empfaengerArt 'konto':  an ein WebUntis-Konto (empfaenger_user_id).
+ *                'eltern': an die Erziehungsberechtigten des Kindes über
+ *                          recipientOption PARENTS (E16, E17) – ohne
+ *                          Kennungen der Eltern; empfaenger_user_id ist 0.
+ * $lehrerId: die Lehrkraft, um deren Termin es geht. Daran erkennt der
+ *            Versand, ob eine Mitteilung „zu meinen Terminen“ gehört – auch
+ *            nach einer Absage, wenn die Buchung schon gelöscht ist.
  */
-function mit_einreihen_und_senden(
-    array $cfg, PDO $pdo, int $sprechtagId, int $empfaengerUserId,
-    string $anlass, string $betreff, string $text,
-    ?string $benutzer = null, ?string $passwort = null,
-    ?int $schuelerId = null
-): array {
-    $pdo->prepare('INSERT INTO mitteilungen
-        (sprechtag_id, empfaenger_user_id, schueler_id, anlass, betreff,
-         text, status, grund)
-        VALUES (?, ?, ?, ?, ?, ?, "offen", "")')
-        ->execute([$sprechtagId, $empfaengerUserId, $schuelerId, $anlass,
-            kuerze($betreff, 190), $text]);
-    $id = (int)$pdo->lastInsertId();
-
-    // 1. Wahl: die Sitzung der angemeldeten Person. Dann steht ihr Name als
-    //    Absender in WebUntis – nicht das anonyme Dienstkonto.
-    $rest = mit_rest_aus_sitzung($cfg);
-    if ($rest !== null) {
-        $ergebnis = mit_versand_ausfuehren($cfg, $pdo, [$id], '', '', $rest);
-        return ['id' => $id,
-                'status' => $ergebnis['gesendet'] > 0 ? 'gesendet' : 'fehler',
-                'grund'  => $ergebnis['grund'],
-                'absender' => 'eigenes Konto'];
-    }
-
-    // 2. Wahl: Dienstkonto. Greift, wenn die WebUntis-Sitzung abgelaufen ist
-    //    (sie lebt nur 25–30 Minuten) oder niemand angemeldet ist.
-    if ($benutzer === null || $passwort === null || $benutzer === '' || $passwort === '') {
-        return ['id' => $id, 'status' => 'offen',
-                'grund' => 'Die WebUntis-Sitzung ist abgelaufen und es ist kein '
-                    . 'Dienstkonto hinterlegt. Die Mitteilung ist vorgemerkt – '
-                    . 'bitte neu anmelden und erneut senden.'];
-    }
-
-    $ergebnis = mit_versand_ausfuehren($cfg, $pdo, [$id], $benutzer, $passwort);
-    return ['id' => $id,
-            'status' => $ergebnis['gesendet'] > 0 ? 'gesendet' : 'fehler',
-            'grund'  => $ergebnis['grund'],
-            'absender' => 'Dienstkonto'];
-}
-
-/**
- * Baut einen REST-Client aus der WebUntis-Sitzung der ANGEMELDETEN PERSON.
- *
- * Damit gehen Mitteilungen unter ihrem eigenen Namen hinaus statt unter dem
- * des Dienstkontos – ohne dass ihr Passwort je gespeichert wird. Grundlage
- * ist der beim Login festgehaltene Sitzungscookie.
- *
- * Belegt (lernzeiten, 06.10.2026): Eine Lehrkraft darf senden; der Scope
- * mg:r begrenzt das nicht. Gemessen ebenda: Die Sitzung lebt 25–30 Minuten
- * und verlängert sich NICHT durch Nutzung.
- *
- * Rückgabe: der Client, oder NULL wenn keine Sitzung vorliegt bzw. sie
- * abgelaufen ist. Aufrufer sollen dann auf das Dienstkonto zurückfallen
- * oder um erneute Anmeldung bitten – aber NICHT stillschweigend scheitern.
- *
- * $grund (optional, seit v0.9.54) sagt, WARUM NULL kam:
- *   'kein_cookie' – keine WebUntis-Sitzung in der PHP-Sitzung
- *   'kein_token'  – tokenHolen() ohne Token (abgelaufen, vermutlich)
- *   'fehler: <Klasse>: <Meldung>' – Ausnahme im catch unten
- * Das Verhalten ändert sich dadurch nicht: Auch ein Programmierfehler
- * ergibt weiterhin NULL (E9, „Daneben gefunden“ – Behebung offen). Der
- * Grund macht den Unterschied nur für den sichtbar, der ihn abfragt
- * (messung_sitzung.php).
- */
-function mit_rest_aus_sitzung(array $cfg, ?string &$grund = null): ?WebUntisRest
+function mit_einreihen(PDO $pdo, int $sprechtagId, int $empfaengerUserId,
+                       string $anlass, string $betreff, string $text,
+                       ?int $schuelerId = null, ?int $lehrerId = null,
+                       string $empfaengerArt = 'konto'): int
 {
-    $grund = null;
-    $cookie = function_exists('auth_wu_cookie') ? auth_wu_cookie() : null;
-    if ($cookie === null) { $grund = 'kein_cookie'; return null; }
-
-    $wcfg = $cfg['webuntis'];
-    try {
-        $rest = new WebUntisRest($wcfg['base_url'], $wcfg['school']);
-        $rest->mitSessionCookie($cookie);
-        $rest->setzeTimeout(15);
-        // Kein Token = Sitzung abgelaufen (WebUntis leitet dann auf die
-        // Anmeldeseite um, statt ein JWT auszugeben).
-        if (!$rest->tokenHolen()) { $grund = 'kein_token'; return null; }
-        $rest->tenantErmitteln();
-        return $rest;
-    } catch (Throwable $e) {
-        error_log('sprechtag: Sitzung der Lehrkraft nicht nutzbar: '
-            . $e->getMessage());
-        $grund = 'fehler: ' . get_class($e) . ': ' . $e->getMessage();
-        return null;
+    if (!in_array($empfaengerArt, ['konto', 'eltern'], true)) {
+        throw new InvalidArgumentException('Unbekannte Empfängerart: ' . $empfaengerArt);
     }
+    if ($empfaengerArt === 'eltern' && ($schuelerId === null || $schuelerId <= 0)) {
+        throw new InvalidArgumentException('An die Eltern (PARENTS) nur mit der Kennung des Kindes.');
+    }
+    $pdo->prepare('INSERT INTO mitteilungen
+        (sprechtag_id, empfaenger_user_id, empfaenger_art, schueler_id, lehrer_id,
+         anlass, betreff, text, status, grund)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, "offen", "")')
+        ->execute([$sprechtagId, $empfaengerArt === 'eltern' ? 0 : $empfaengerUserId,
+            $empfaengerArt, $schuelerId, $lehrerId, $anlass, kuerze($betreff, 190), $text]);
+    return (int)$pdo->lastInsertId();
 }
 
 /**
- * Versendet offene Mitteilungen. Öffnet EINE WebUntis-Session für alle –
- * oder nutzt eine vorgegebene (dann ohne eigenen Login/Logout).
+ * Versendet eingereihte Mitteilungen über die Sitzung der handelnden Person –
+ * oder lässt sie stehen und sagt, warum. Es gibt keinen Rückfall mehr (E17):
+ * Ist die Sitzung nicht nutzbar, bleiben die Mitteilungen 'offen', und die
+ * Antwort nennt die Ursache. Bei 'abgelaufen' bietet die Oberfläche die
+ * Neuanmeldung an, danach geht es mit einem Klick hinaus.
+ *
+ * $sitzung: Ergebnis von wu_sitzung().
+ * Rückgabe: ['ids' => int[], 'status' => 'gesendet'|'teilweise'|'fehler'|'offen'|'keine',
+ *            'gesendet' => int, 'offen' => int,
+ *            'sitzung' => null|'abgelaufen'|'nicht_erreichbar'|'kaputt',
+ *            'grund' => string]
+ *   'offen'  – nicht versucht, weil die Sitzung nicht nutzbar ist ('sitzung' sagt warum)
+ *   'fehler' – versucht, von WebUntis nicht angenommen ('grund' sagt warum)
+ */
+function mit_senden_oder_vormerken(PDO $pdo, array $ids, array $sitzung): array
+{
+    $ids = array_values(array_filter(array_map('intval', $ids), fn($i) => $i > 0));
+    if ($ids === []) {
+        return ['ids' => [], 'status' => 'keine', 'gesendet' => 0, 'offen' => 0,
+                'sitzung' => null, 'grund' => 'Keine Mitteilung zu senden.'];
+    }
+
+    $rest = $sitzung['rest'] ?? null;
+    if (!$rest instanceof WebUntisRest) {
+        $art = (string)($sitzung['art'] ?? 'kaputt');
+        $platz = implode(',', array_fill(0, count($ids), '?'));
+        $pdo->prepare("UPDATE mitteilungen SET grund = ?
+                       WHERE id IN ($platz) AND status = 'offen'")
+            ->execute(array_merge(['Nicht versendet – WebUntis-Sitzung: ' . $art
+                . ' (' . (string)($sitzung['grund'] ?? '') . ')'], $ids));
+        return ['ids' => $ids, 'status' => 'offen', 'gesendet' => 0, 'offen' => count($ids),
+                'sitzung' => $art, 'grund' => wu_sitzung_meldung($art)];
+    }
+
+    $e = mit_versand_ausfuehren($pdo, $ids, $rest);
+    $offen = count($ids) - $e['gesendet'];
+    return ['ids' => $ids,
+            'status' => $offen === 0 ? 'gesendet' : ($e['gesendet'] === 0 ? 'fehler' : 'teilweise'),
+            'gesendet' => $e['gesendet'], 'offen' => $offen,
+            'sitzung' => null, 'grund' => $e['grund']];
+}
+
+/** Einreihen und gleich versuchen – für die Stellen mit genau einer Mitteilung. */
+function mit_einreihen_und_senden(PDO $pdo, int $sprechtagId, int $empfaengerUserId,
+                                  string $anlass, string $betreff, string $text,
+                                  ?int $schuelerId, ?int $lehrerId, array $sitzung,
+                                  string $empfaengerArt = 'konto'): array
+{
+    $id = mit_einreihen($pdo, $sprechtagId, $empfaengerUserId, $anlass, $betreff, $text,
+        $schuelerId, $lehrerId, $empfaengerArt);
+    return mit_senden_oder_vormerken($pdo, [$id], $sitzung);
+}
+
+// ---- An die Eltern eines Kindes: recipientOption PARENTS (v0.9.72, E17) ----
+
+/** Pfad wie in lernzeiten gemessen; /v2/messages/users lehnt PARENTS mit 500 ab (Befund 16). */
+const MIT_PARENTS_PFAD = '/WebUntis/api/rest/view/v2/messages';
+
+/**
+ * Der Körper für recipientOption PARENTS – an die Eltern über die Kennung des
+ * Kindes, OHNE Kopie an das Kind. Gemessen am 09.10.2026 auf unserem Pfad
+ * (Befund 16: 4 Empfänger, angekommen). messung_parents_koerper() baut die
+ * Testnachricht aus genau dieser Funktion – eine Quelle.
+ */
+function mit_parents_koerper(int $kind, string $betreff, string $text): array
+{
+    return [
+        'subject'             => $betreff,
+        'content'             => $text,
+        'recipientOption'     => 'PARENTS',
+        'recipientPersonIds'  => [$kind],
+        'recipientGroupIds'   => [],
+        'copyToStudent'       => false,
+        'requestConfirmation' => false,
+        'oneDriveAttachments' => [],
+        'forbidReply'         => false,
+    ];
+}
+
+/**
+ * Versand an die Eltern eines Kindes. Erfolg heißt numberOfRecipients ≥ 1,
+ * nicht Status 200 (Befund 16): Ein 2xx mit 0 Empfängern hat niemanden
+ * erreicht, einer ohne Zahl ist unklar – beides bleibt offen, mit Grund.
+ *
+ * Rückgabe: ['ok' => bool, 'grund' => string]
+ */
+function mit_senden_eltern(WebUntisRest $rest, int $kind, string $betreff, string $text): array
+{
+    $r = $rest->postMultipart(MIT_PARENTS_PFAD, mit_parents_koerper($kind, $betreff, $text));
+    $st = (int)($r['status'] ?? 0);
+    if ($st < 200 || $st >= 300) {
+        return ['ok' => false, 'grund' => 'PARENTS: ' . mit_antwort_bewerten($r)['grund']];
+    }
+    $n = is_array($r['json'] ?? null) ? ($r['json']['numberOfRecipients'] ?? null) : null;
+    if (is_int($n) && $n >= 1) {
+        return ['ok' => true, 'grund' => 'PARENTS: HTTP ' . $st . ', ' . $n . ' Empfänger'];
+    }
+    return ['ok' => false, 'grund' => is_int($n)
+        ? 'PARENTS: angenommen, aber niemand erreicht (0 Empfänger)'
+        : 'PARENTS: angenommen, Empfängerzahl unklar – vor erneutem Senden in '
+            . 'WebUntis unter „Gesendet“ nachsehen'];
+}
+
+/**
+ * Versendet Mitteilungen über eine nutzbare Sitzung. Seit v0.9.72 nur noch so
+ * – keine eigene Anmeldung mit Zugangsdaten mehr (E17).
  *
  * Rückgabe: ['gesendet' => int, 'fehler' => int, 'grund' => string,
  *            'variante' => string|null, 'protokoll' => [...]]
  */
-function mit_versand_ausfuehren(array $cfg, PDO $pdo, array $ids,
-                                string $benutzer, string $passwort,
-                                ?WebUntisRest $restVorgegeben = null): array
+function mit_versand_ausfuehren(PDO $pdo, array $ids, WebUntisRest $rest): array
 {
     if ($ids === []) {
         return ['gesendet' => 0, 'fehler' => 0, 'grund' => 'Nichts zu senden.',
                 'variante' => null, 'protokoll' => []];
     }
 
-    $wcfg = $cfg['webuntis'];
-    $wu = new WebUntisAuth($wcfg['base_url'], $wcfg['school'], $wcfg['client']);
     $gesendet = 0; $fehlgeschlagen = 0; $protokoll = []; $letzteVariante = null;
 
     // Zuvor erfolgreiche Variante aus den Einstellungen holen
@@ -553,23 +585,6 @@ function mit_versand_ausfuehren(array $cfg, PDO $pdo, array $ids,
     } catch (Throwable $e) { /* Tabelle ggf. noch leer */ }
 
     try {
-        if ($restVorgegeben !== null) {
-            // Bestehende Sitzung (z. B. der angemeldeten Lehrkraft) nutzen –
-            // kein eigener Login, also auch kein Logout am Ende.
-            $rest = $restVorgegeben;
-        } else {
-            $wu->authenticate($benutzer, $passwort);
-            $rest = new WebUntisRest($wcfg['base_url'], $wcfg['school']);
-            $rest->mitSessionCookie((string)$wu->sessionCookie());
-            $rest->setzeTimeout(15);
-            if (!$rest->tokenHolen()) {
-                return ['gesendet' => 0, 'fehler' => count($ids),
-                        'grund' => 'Kein REST-Zugang (JWT) – Versand nicht möglich.',
-                        'variante' => null, 'protokoll' => []];
-            }
-            $rest->tenantErmitteln();
-        }
-
         $platzhalter = implode(',', array_fill(0, count($ids), '?'));
         $st = $pdo->prepare("SELECT * FROM mitteilungen
                              WHERE id IN ($platzhalter) AND status <> 'gesendet'");
@@ -580,12 +595,19 @@ function mit_versand_ausfuehren(array $cfg, PDO $pdo, array $ids,
             WHERE id = ?');
 
         foreach ($st->fetchAll() as $m) {
-            $e = mit_senden($rest, (int)$m['empfaenger_user_id'],
-                (string)$m['betreff'], (string)$m['text'], $bevorzugt);
+            if ((string)($m['empfaenger_art'] ?? 'konto') === 'eltern') {
+                $e = mit_senden_eltern($rest, (int)$m['schueler_id'],
+                    (string)$m['betreff'], (string)$m['text']);
+                $e['variante'] = null;
+                $e['versuche'] = [['variante' => 'parents', 'grund' => $e['grund']]];
+            } else {
+                $e = mit_senden($rest, (int)$m['empfaenger_user_id'],
+                    (string)$m['betreff'], (string)$m['text'], $bevorzugt);
+            }
 
             if ($e['ok']) {
                 $gesendet++;
-                $letzteVariante = $bevorzugt = $e['variante'];
+                if ($e['variante'] !== null) $letzteVariante = $bevorzugt = $e['variante'];
                 $update->execute(['gesendet', $e['grund'], date('Y-m-d H:i:s'), (int)$m['id']]);
             } else {
                 $fehlgeschlagen++;
@@ -603,21 +625,16 @@ function mit_versand_ausfuehren(array $cfg, PDO $pdo, array $ids,
                 ->execute([$letzteVariante]);
         }
     } catch (RuntimeException $e) {
-        return ['gesendet' => 0, 'fehler' => count($ids),
-                'grund' => 'WebUntis-Anmeldung fehlgeschlagen: ' . $e->getMessage(),
-                'variante' => null, 'protokoll' => []];
-    } finally {
-        // Nur die SELBST aufgebaute Sitzung schliessen. Eine vorgegebene
-        // (die der angemeldeten Lehrkraft) gehoert dieser Funktion nicht und
-        // wird noch gebraucht.
-        if ($restVorgegeben === null) $wu->logout();
+        return ['gesendet' => $gesendet, 'fehler' => count($ids) - $gesendet,
+                'grund' => 'WebUntis-Fehler beim Versand: ' . $e->getMessage(),
+                'variante' => null, 'protokoll' => $protokoll];
     }
 
     $grund = $gesendet > 0
         ? ($gesendet . ' Mitteilung(en) versendet'
             . ($fehlgeschlagen > 0 ? ', ' . $fehlgeschlagen . ' offen geblieben' : '') . '.')
-        : 'Kein Versand möglich – die Mitteilungen bleiben zum manuellen '
-            . 'Versand vorgemerkt.';
+        : 'Kein Versand möglich – die Mitteilungen bleiben vorgemerkt.'
+            . ($protokoll !== [] ? ' Grund: ' . $protokoll[0]['grund'] : '');
 
     return ['gesendet' => $gesendet, 'fehler' => $fehlgeschlagen, 'grund' => $grund,
             'variante' => $letzteVariante, 'protokoll' => $protokoll];

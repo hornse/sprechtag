@@ -35,7 +35,6 @@ require_once __DIR__ . '/webuntis_adapter.php';
 require_once __DIR__ . '/sondierung.php';
 require_once __DIR__ . '/messung_sitzung.php';
 require_once __DIR__ . '/mitteilungen.php';
-require_once __DIR__ . '/dienstkonto.php';
 require_once __DIR__ . '/schueler.php';
 require_once __DIR__ . '/einstellungen.php';
 require_once __DIR__ . '/kalender.php';
@@ -51,7 +50,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.71', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.72', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -240,11 +239,7 @@ if (($seg[0] ?? '') === 'schueler-gruppen') {
         'laenge'        => 20,
     ];
     if ($methode === 'GET') {
-        json_ok($auskunft() + schueler_gruppen_auswahl(function () use ($cfg): array {
-            $grund = null;
-            $rest = mit_rest_aus_sitzung($cfg, $grund);
-            return ['rest' => $rest, 'grund' => $grund];
-        }));
+        json_ok($auskunft() + schueler_gruppen_auswahl(fn(): array => wu_sitzung($cfg)));
     }
     if ($methode === 'POST') {
         $roh = (string)($body['gruppen'] ?? '');
@@ -299,12 +294,12 @@ if (($seg[0] ?? '') === 'erinnerungen') {
 
     // Vorschau: an wie viele Empfänger würde gesendet?
     if ($methode === 'GET' && ($seg[1] ?? '') === 'vorschau') {
-        json_ok(erinnerung_empfaenger_ermitteln($cfg, $pdo));
+        json_ok(erinnerung_empfaenger_ermitteln($pdo, wu_sitzung($cfg)));
     }
 
     // Versand auslösen
     if ($methode === 'POST' && ($seg[1] ?? '') === 'senden') {
-        json_ok(erinnerung_versenden($cfg, $pdo));
+        json_ok(erinnerung_versenden($pdo, wu_sitzung($cfg)));
     }
 
     json_err('Methode nicht unterstützt.', 405);
@@ -944,30 +939,33 @@ if (($seg[0] ?? '') === 'sprechtage') {
             $pdo->prepare('DELETE FROM buchungen WHERE sprechtag_id = ? AND lehrer_id = ?')
                 ->execute([$sid, $lid]);
 
-            // Betroffene Eltern benachrichtigen (Absage). Fehler beim
-            // einzelnen Versand dürfen die Freigabe nicht rückgängig machen.
-            $zugang = dk_lesen($cfg, $pdo);
-            $benachrichtigt = 0;
+            // Betroffene Eltern benachrichtigen (Absage). Erst alle Absagen
+            // einreihen, dann EIN Versand über die Sitzung der Verwaltung
+            // (E17). Ist sie abgelaufen, bleiben die Absagen stehen und die
+            // Antwort sagt es – die Freigabe gilt trotzdem.
+            $ids = [];
             foreach ($buchungen as $b) {
                 try {
                     $t = mit_text_absage((string)$s['name'], (string)$s['datum'],
                         (string)$b['slot_beginn'], $lehrkraft, $grund);
-                    mit_einreihen_und_senden($cfg, $pdo, $sid,
-                        (int)$b['eltern_user_id'], 'absage', $t['betreff'], $t['text'],
-                        $zugang['benutzer'] ?? null, $zugang['passwort'] ?? null,
-                        (int)$b['schueler_id']);
-                    $benachrichtigt++;
-                } catch (Throwable $e) {
+                    $ids[] = mit_einreihen($pdo, $sid, (int)$b['eltern_user_id'], 'absage',
+                        $t['betreff'], $t['text'], (int)$b['schueler_id'], $lid);
+                } catch (PDOException $e) {
                     error_log('sprechtag: Ausfall-Absage nicht vorgemerkt: '
                         . $e->getMessage());
                 }
             }
+            $mitteilung = mit_senden_oder_vormerken($pdo, $ids,
+                $ids === [] ? ['rest' => null, 'art' => null, 'grund' => null] : wu_sitzung($cfg));
 
             json_ok(['ok' => true,
                 'freigegeben'   => count($buchungen),
-                'benachrichtigt'=> $benachrichtigt,
+                'benachrichtigt'=> $mitteilung['gesendet'],
+                'mitteilung'    => $mitteilung,
                 'hinweis' => count($buchungen) . ' Termin(e) freigegeben, '
-                    . $benachrichtigt . ' Elternteil(e) benachrichtigt.']);
+                    . $mitteilung['gesendet'] . ' Elternteil(e) benachrichtigt'
+                    . ($mitteilung['offen'] > 0 ? ', ' . $mitteilung['offen'] . ' Absage(n) noch nicht verschickt' : '')
+                    . '.']);
         }
     }
 
@@ -1058,11 +1056,7 @@ if ($methode === 'POST' && ($seg[0] ?? '') === 'sondierung') {
 if ($methode === 'POST' && ($seg[0] ?? '') === 'messung' && ($seg[1] ?? '') === 'liste') {
     $u = auth_require_lehrkraft();
     json_ok(['bericht' => messung_liste_ausfuehren($body, (string)$u['rolle'],
-        function () use ($cfg): array {
-            $grund = null;
-            $rest = mit_rest_aus_sitzung($cfg, $grund);
-            return ['rest' => $rest, 'grund' => $grund];
-        })]);
+        fn(): array => wu_sitzung($cfg))]);
 }
 
 // MESSUNG (v0.9.69), kein Feature – siehe messung_sitzung.php. Erreicht
@@ -1070,19 +1064,14 @@ if ($methode === 'POST' && ($seg[0] ?? '') === 'messung' && ($seg[1] ?? '') === 
 // unserem Pfad? VERSCHICKT GENAU EINE Testnachricht über die Sitzung der
 // aufrufenden Lehrkraft – nur mit "bestaetigt": true, nur an "users" oder
 // "messages". Antwort: Zahlen und Formate, keine Personen.
-//   POST /api/messung/parents  {kind_id, pfad: users|messages, bestaetigt: true,
-//                               sitzung: eigene (Vorgabe) | dienstkonto (nur Verwaltung, v0.9.70)}
+//   POST /api/messung/parents  {kind_id, pfad: users|messages, bestaetigt: true}
+//   (die Sitzung des Dienstkontos, v0.9.70, gibt es seit v0.9.72 nicht mehr)
 if ($methode === 'POST' && ($seg[0] ?? '') === 'messung' && ($seg[1] ?? '') === 'parents') {
     $u = auth_require_lehrkraft();
     $pdo = db($cfg);
     json_ok(['bericht' => messung_parents_ausfuehren($body, (string)$u['rolle'],
-        function () use ($cfg): array {
-            $grund = null;
-            $rest = mit_rest_aus_sitzung($cfg, $grund);
-            return ['rest' => $rest, 'grund' => $grund];
-        },
-        fn(): array => messung_dienstkonto_sitzung($cfg, $pdo),
-        fn(int $kind): array => mit_eltern_ids_ermitteln($cfg, $pdo, $kind),
+        fn(): array => wu_sitzung($cfg),
+        fn(int $kind, WebUntisRest $rest): array => mit_eltern_ids_ermitteln($pdo, $kind, $rest),
         function (int $kind) use ($pdo): bool {
             $st = $pdo->prepare('SELECT COUNT(*) FROM schueler WHERE webuntis_id = ?');
             $st->execute([$kind]);
@@ -1094,8 +1083,9 @@ if ($methode === 'POST' && ($seg[0] ?? '') === 'messung' && ($seg[1] ?? '') === 
 // eigene Sitzung der aufrufenden Person; Antwort nur Zahlen.
 if ($methode === 'GET' && ($seg[0] ?? '') === 'messung' && ($seg[1] ?? '') === 'sitzung') {
     $u = auth_require();
-    $grund = null;
-    $rest = mit_rest_aus_sitzung($cfg, $grund);
+    $sitzung = wu_sitzung($cfg);
+    $rest = $sitzung['rest'];
+    $grund = $sitzung['grund'];
     $probe = $grund === 'kein_token'
         ? messung_token_probe($cfg, (string)auth_wu_cookie()) : null;
     $lehrer = ['webuntis_ids' => [], 'kuerzel' => [], 'paare' => []];
@@ -1115,7 +1105,11 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'messung' && ($seg[1] ?? '') === '
 // ============================================================
 // MITTEILUNGEN
 //   GET    /api/mitteilungen?sprechtag=ID[&status=offen]
-//   POST   /api/mitteilungen/senden   {sprechtag_id, ids?, benutzername, passwort}
+//   GET    /api/mitteilungen/offen-eigene   {anzahl, ids} – für den Hinweis
+//          nach der Anmeldung (E17): Lehrkraft die eigenen, Verwaltung alle,
+//          nur Sprechtage ab heute
+//   POST   /api/mitteilungen/senden   {sprechtag_id?, ids?} – über die eigene
+//          Sitzung (E17); ist sie nicht nutzbar: gesendet 0 und 'sitzung'
 //   POST   /api/mitteilungen          {sprechtag_id, empfaenger_user_id, betreff, text}
 //   DELETE /api/mitteilungen/{id}     (verwerfen)
 // ============================================================
@@ -1125,7 +1119,7 @@ if (($seg[0] ?? '') === 'mitteilungen') {
 
     if ($methode === 'GET' && !isset($seg[1])) {
         $sid = (int)($_GET['sprechtag'] ?? 0);
-        $sql = 'SELECT m.id, m.empfaenger_user_id, m.schueler_id, m.anlass,
+        $sql = 'SELECT m.id, m.empfaenger_user_id, m.empfaenger_art, m.schueler_id, m.anlass,
                        m.betreff, m.status, m.grund, m.versuche,
                        m.angelegt_am, m.gesendet_am,
                        TRIM(CONCAT(COALESCE(s.nachname,""),
@@ -1149,9 +1143,25 @@ if (($seg[0] ?? '') === 'mitteilungen') {
         json_ok(['mitteilungen' => $stmt->fetchAll()]);
     }
 
-    // Versand anstoßen.
-    // Zugangsdaten: übergeben > hinterlegtes Dienstkonto. Ist eines
-    // hinterlegt, brauchen weder Admins noch Lehrkräfte etwas einzugeben.
+    // Noch nicht verschickte eigene Mitteilungen – für den Hinweis nach der
+    // Anmeldung (E17). Nur Zahl und Kennungen der Mitteilungen, keine Personen.
+    if ($methode === 'GET' && ($seg[1] ?? '') === 'offen-eigene') {
+        $sql = "SELECT m.id FROM mitteilungen m
+                JOIN sprechtage s ON s.id = m.sprechtag_id
+                WHERE m.status = 'offen' AND s.datum >= ?";
+        $werte = [date('Y-m-d')];
+        if ($u['rolle'] !== 'admin') {
+            $sql .= ' AND m.lehrer_id = ?';
+            $werte[] = (int)($u['lehrer_id'] ?? 0);
+        }
+        $stmt = $pdo->prepare($sql . ' ORDER BY m.id LIMIT 200');
+        $stmt->execute($werte);
+        $ids = array_map('intval', array_column($stmt->fetchAll(), 'id'));
+        json_ok(['anzahl' => count($ids), 'ids' => $ids]);
+    }
+
+    // Versand anstoßen – über die Sitzung der handelnden Person (E17). Es
+    // gibt keine Zugangsdaten mehr, weder hinterlegte noch eingetippte.
     if ($methode === 'POST' && ($seg[1] ?? '') === 'senden') {
         $sid = (int)($body['sprechtag_id'] ?? 0);
         $ids = array_values(array_filter(array_map('intval',
@@ -1165,19 +1175,23 @@ if (($seg[0] ?? '') === 'mitteilungen') {
         }
 
         // Lehrkräfte dürfen nur Mitteilungen versenden, die zu ihren
-        // eigenen Buchungen gehören; Admins alles.
+        // eigenen Terminen gehören; Admins alles. Seit v0.9.72 trägt die
+        // Mitteilung die Lehrkraft selbst (auch nach einer Absage, wenn die
+        // Buchung gelöscht ist); ältere ohne sie über die Buchungen wie bisher.
         if ($u['rolle'] !== 'admin' && $ids !== []) {
             $lid = (int)($u['lehrer_id'] ?? 0);
             if ($lid <= 0) json_err('Kein Lehrkraft-Stammsatz zugeordnet', 403);
             $platz = implode(',', array_fill(0, count($ids), '?'));
             $stmt = $pdo->prepare(
                 "SELECT m.id FROM mitteilungen m
-                 WHERE m.id IN ($platz) AND m.sprechtag_id = ?
-                   AND EXISTS (SELECT 1 FROM buchungen b
-                               WHERE b.sprechtag_id = m.sprechtag_id
-                                 AND b.eltern_user_id = m.empfaenger_user_id
-                                 AND b.lehrer_id = ?)");
-            $stmt->execute(array_merge($ids, [$sid, $lid]));
+                 WHERE m.id IN ($platz)
+                   AND (m.lehrer_id = ?
+                        OR (m.lehrer_id IS NULL
+                            AND EXISTS (SELECT 1 FROM buchungen b
+                                        WHERE b.sprechtag_id = m.sprechtag_id
+                                          AND b.eltern_user_id = m.empfaenger_user_id
+                                          AND b.lehrer_id = ?)))");
+            $stmt->execute(array_merge($ids, [$lid, $lid]));
             $ids = array_map('intval', array_column($stmt->fetchAll(), 'id'));
             if ($ids === []) {
                 json_err('Keine dieser Mitteilungen gehört zu Ihren Terminen. '
@@ -1185,35 +1199,32 @@ if (($seg[0] ?? '') === 'mitteilungen') {
             }
         }
 
-        $zugang = null;
-        if (($body['benutzername'] ?? '') !== '' && ($body['passwort'] ?? '') !== '') {
-            $zugang = ['benutzer' => (string)$body['benutzername'],
-                       'passwort' => (string)$body['passwort']];
-        } else {
-            $zugang = dk_lesen($cfg, $pdo);
-        }
-        if ($zugang === null) {
-            json_err('Kein Dienstkonto hinterlegt und keine Zugangsdaten '
-                . 'übergeben. Die Administration kann ein Dienstkonto '
-                . 'unter „Administration → Dienstkonto" eintragen.', 409);
-        }
-
         ignore_user_abort(true);
         set_time_limit(0);
-        $e = mit_versand_ausfuehren($cfg, $pdo, $ids,
-            $zugang['benutzer'], $zugang['passwort']);
+        $sitzung = $ids === [] ? ['rest' => null, 'art' => null, 'grund' => null] : wu_sitzung($cfg);
+        if ($ids !== [] && $sitzung['rest'] === null) {
+            mit_senden_oder_vormerken($pdo, $ids, $sitzung);   // Grund an den Mitteilungen festhalten
+            json_ok(['gesendet' => 0, 'fehler' => 0, 'ids' => $ids,
+                     'sitzung' => $sitzung['art'], 'grund' => wu_sitzung_meldung($sitzung['art']),
+                     'variante' => null, 'protokoll' => []]);
+        }
+        $e = $ids === [] ? ['gesendet' => 0, 'fehler' => 0, 'grund' => 'Nichts zu senden.',
+                            'variante' => null, 'protokoll' => []]
+            : mit_versand_ausfuehren($pdo, $ids, $sitzung['rest']);
         // Protokoll je Variante mitgeben – ohne diese Details lässt sich
         // der undokumentierte Versandweg nicht kalibrieren.
-        json_ok($e);
+        json_ok($e + ['ids' => $ids, 'sitzung' => null]);
     }
 
     // Freie Mitteilung vormerken
     if ($methode === 'POST' && !isset($seg[1])) {
         $empf = (int)($body['empfaenger_user_id'] ?? 0);
         if ($empf <= 0) json_err('empfaenger_user_id fehlt');
-        $e = mit_einreihen_und_senden($cfg, $pdo,
+        $e = mit_einreihen_und_senden($pdo,
             (int)($body['sprechtag_id'] ?? 0), $empf, 'hinweis',
-            req($body, 'betreff'), req($body, 'text'));
+            req($body, 'betreff'), req($body, 'text'), null,
+            $u['rolle'] === 'admin' ? null : ($u['lehrer_id'] ?? null),
+            wu_sitzung($cfg));
         json_ok($e, 201);
     }
 
@@ -1225,44 +1236,11 @@ if (($seg[0] ?? '') === 'mitteilungen') {
 }
 
 // ============================================================
-// DIENSTKONTO (verschlüsselt gespeicherte Zugangsdaten)
-//   GET    /api/dienstkonto          Status (nie das Passwort!)
-//   POST   /api/dienstkonto          {benutzername, passwort}
-//   DELETE /api/dienstkonto          entfernen
-// ============================================================
-if (($seg[0] ?? '') === 'dienstkonto') {
-    // Lesen dürfen auch Lehrkräfte (die Oberfläche muss wissen, ob
-    // Zugangsdaten abgefragt werden müssen). Ändern nur Admins.
-    $u = auth_require_lehrkraft();
-    $pdo = db($cfg);
-
-    if ($methode === 'GET') {
-        $st = dk_status($cfg, $pdo);
-        if ($u['rolle'] !== 'admin') {
-            // Lehrkräfte sehen nur, OB eines nutzbar ist – nicht welches
-            $st = ['hinterlegt' => $st['hinterlegt'],
-                   'entschluesselbar' => $st['entschluesselbar']];
-        }
-        json_ok($st);
-    }
-
-    if ($methode !== 'GET') auth_require_admin();
-    if ($methode === 'POST') {
-        $e = dk_speichern($cfg, $pdo, req($body, 'benutzername'), req($body, 'passwort'));
-        if (!$e['ok']) json_err($e['grund'], 409);
-        json_ok(['ok' => true, 'grund' => $e['grund']] + dk_status($cfg, $pdo));
-    }
-    if ($methode === 'DELETE') {
-        dk_loeschen($pdo);
-        json_ok(['ok' => true]);
-    }
-}
-
-// ============================================================
 // SCHÜLERLISTE (für die Einladungsauswahl)
 //   GET    /api/schueler[?suche=...]   nach Klassen gruppiert
 //   POST   /api/schueler/csv           {csv}          (Admin)
-//   POST   /api/schueler/sync          [{benutzername, passwort}] (Admin)
+//   POST   /api/schueler/sync          {benutzername, passwort} (Admin) –
+//          eingetippt, nicht gespeichert; bis Zug 4 (pageconfig über die Sitzung)
 //   DELETE /api/schueler               alle löschen   (Admin)
 // ============================================================
 if (($seg[0] ?? '') === 'schueler') {
@@ -1290,14 +1268,15 @@ if (($seg[0] ?? '') === 'schueler') {
 
     if ($methode === 'POST' && ($seg[1] ?? '') === 'sync') {
         auth_require_admin();
-        $zugang = null;
-        if (($body['benutzername'] ?? '') !== '' && ($body['passwort'] ?? '') !== '') {
-            $zugang = ['benutzer' => (string)$body['benutzername'],
-                       'passwort' => (string)$body['passwort']];
-        } else {
-            $zugang = dk_lesen($cfg, $pdo);
+        // getStudents (JSON-RPC) braucht eine eigene Anmeldung; über die
+        // Sitzung ist das nicht gemessen. Deshalb eingetippt, nie gespeichert
+        // (E17) – bis Zug 4 die Liste über pageconfig liest.
+        if (($body['benutzername'] ?? '') === '' || ($body['passwort'] ?? '') === '') {
+            json_err('Bitte WebUntis-Benutzername und Passwort eingeben – sie werden '
+                . 'nur für diesen Abgleich benutzt und nicht gespeichert.', 400);
         }
-        if ($zugang === null) json_err('Kein Dienstkonto hinterlegt', 409);
+        $zugang = ['benutzer' => (string)$body['benutzername'],
+                   'passwort' => (string)$body['passwort']];
 
         ignore_user_abort(true);
         set_time_limit(0);

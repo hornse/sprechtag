@@ -197,7 +197,7 @@ const ladeRumpf = rumpf('async function ladeLehrerListe(');
     && !/Wird geladen/.test(texte(rf.z)));
 
   const datenRumpf = rumpf('function ansichtAdminDaten(');
-  pruefe('Aufrufstelle: „Dienstkonto & Schülerliste“ zeichnet den Abschnitt',
+  pruefe('Aufrufstelle: „Schülerliste“ zeichnet den Abschnitt',
     /zeichneSchuelerGruppen\(ziel\);/.test(datenRumpf));
 
   console.log(fehler === 0 ? '\nALLE TESTS GRÜN' : '\n' + fehler + ' FEHLER');

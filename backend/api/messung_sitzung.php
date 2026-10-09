@@ -40,7 +40,7 @@
 //
 // Zweck: Frage 2 aus docs/BEFUND-2026-10-07-pageconfig-schuelerliste.md –
 // trägt der beim Login festgehaltene WebUntis-Cookie (über
-// mit_rest_aus_sitzung(), denselben Weg wie der Mitteilungsversand)
+// wu_sitzung(), denselben Weg wie der Mitteilungsversand)
 //   1. pageconfig?type=5 und
 //   2. bei Eltern den Stundenplan-Abruf für die eigenen Kinder?
 // Die Sondierung hatte beides nur über eine EIGENE Sitzung gemessen.
@@ -509,18 +509,9 @@ const MESSUNG_PARENTS_PFADE = [
  */
 function messung_parents_koerper(int $kind): array
 {
-    return [
-        'subject'             => 'sprechtag – Testnachricht (Messung), bitte ignorieren',
-        'content'             => 'Dies ist eine Testnachricht des Sprechtag-Systems. '
-            . 'Sie prüft einen Versandweg und kann gelöscht werden.',
-        'recipientOption'     => 'PARENTS',
-        'recipientPersonIds'  => [$kind],
-        'recipientGroupIds'   => [],
-        'copyToStudent'       => false,
-        'requestConfirmation' => false,
-        'oneDriveAttachments' => [],
-        'forbidReply'         => false,
-    ];
+    return mit_parents_koerper($kind, 'sprechtag – Testnachricht (Messung), bitte ignorieren',
+        'Dies ist eine Testnachricht des Sprechtag-Systems. '
+        . 'Sie prüft einen Versandweg und kann gelöscht werden.');
 }
 
 /**
@@ -565,46 +556,19 @@ function messung_parents_deuten(array $r): array
 }
 
 /**
- * Sitzung des DIENSTKONTOS für die Messung (v0.9.70): wie der Betrieb sie
- * für Bestätigungen und Absagen öffnet (dk_lesen, authenticate, Token).
- * Rückgabe ['rest' => ?Client, 'grund' => ?string, 'abmelden' => callable].
- * catch (Exception): ein Programmierfehler soll auffallen.
- */
-function messung_dienstkonto_sitzung(array $cfg, PDO $pdo): array
-{
-    $zugang = dk_lesen($cfg, $pdo);
-    if ($zugang === null) return ['rest' => null, 'grund' => 'kein_dienstkonto', 'abmelden' => fn() => null];
-    $wcfg = $cfg['webuntis'];
-    $wu = new WebUntisAuth($wcfg['base_url'], $wcfg['school'], $wcfg['client']);
-    $abmelden = function () use ($wu): void { try { $wu->logout(); } catch (Exception $e) { /* Messung: Abmelden best effort */ } };
-    try {
-        $wu->authenticate($zugang['benutzer'], $zugang['passwort']);
-        $rest = new WebUntisRest($wcfg['base_url'], $wcfg['school']);
-        $rest->mitSessionCookie((string)$wu->sessionCookie());
-        $rest->setzeTimeout(20);
-        if (!$rest->tokenHolen()) return ['rest' => null, 'grund' => 'kein_token', 'abmelden' => $abmelden];
-        $rest->tenantErmitteln();
-        return ['rest' => $rest, 'grund' => null, 'abmelden' => $abmelden];
-    } catch (Exception $e) {
-        $abmelden();
-        return ['rest' => null, 'grund' => 'fehler: ' . get_class($e) . ': ' . $e->getMessage(), 'abmelden' => fn() => null];
-    }
-}
-
-/**
  * Führt die Messung aus – GENAU EIN Versand, nur wenn alles stimmt:
- * $eingabe: ['kind_id' => int, 'pfad' => 'users'|'messages', 'bestaetigt' => true,
- *            'sitzung' => 'eigene' (Vorgabe) | 'dienstkonto' (nur Verwaltung, v0.9.70)].
- * $sitzungEigene / $sitzungDienstkonto: liefern ['rest' => ?Client,
- * 'grund' => ?string, optional 'abmelden' => callable – wird nach dem
- * Versand gerufen]; $namensweg(int): Ergebnis von
- * mit_eltern_ids_ermitteln() – zum Vergleich, sendet nichts;
+ * $eingabe: ['kind_id' => int, 'pfad' => 'users'|'messages', 'bestaetigt' => true].
+ * Die Sitzung des Dienstkontos (v0.9.70) gibt es seit v0.9.72 nicht mehr
+ * (E17); 'sitzung' => 'dienstkonto' wird abgelehnt.
+ * $sitzungEigene: liefert ['rest' => ?Client, 'grund' => ?string] wie
+ * wu_sitzung(); $namensweg(int, ?Client): Ergebnis von
+ * mit_eltern_ids_ermitteln() über DIESELBE Sitzung – zum Vergleich, sendet
+ * nichts (misst seit v0.9.72 die Namenssuche über die eigene Sitzung);
  * $inSchuelerliste(int): steht die Kennung in schueler.webuntis_id?
  * Die Antwort nennt weder Kind-Kennung noch Namen noch Eltern-Kennungen.
  */
 function messung_parents_ausfuehren(array $eingabe, string $rolle, callable $sitzungEigene,
-                                    callable $sitzungDienstkonto, callable $namensweg,
-                                    callable $inSchuelerliste): array
+                                    callable $namensweg, callable $inSchuelerliste): array
 {
     $kind = (int)($eingabe['kind_id'] ?? 0);
     $pfad = (string)($eingabe['pfad'] ?? '');
@@ -617,25 +581,18 @@ function messung_parents_ausfuehren(array $eingabe, string $rolle, callable $sit
         return ['gesendet' => false, 'grund' => 'Pfad muss "users" oder "messages" sein.'];
     }
     if ($kind <= 0) return ['gesendet' => false, 'grund' => 'kind_id fehlt.'];
-    if (!in_array($welche, ['eigene', 'dienstkonto'], true)) {
-        return ['gesendet' => false, 'grund' => 'sitzung muss "eigene" oder "dienstkonto" sein.'];
+    if ($welche !== 'eigene') {
+        return ['gesendet' => false, 'grund' => 'Nur über die eigene Sitzung – das Dienstkonto gibt es '
+            . 'seit v0.9.72 nicht mehr (E17).'];
     }
-    if ($welche === 'dienstkonto' && $rolle !== 'admin') {
-        return ['gesendet' => false, 'grund' => 'Über das Dienstkonto misst nur die Verwaltung.'];
-    }
-    $s = $welche === 'dienstkonto' ? $sitzungDienstkonto() : $sitzungEigene();
+    $s = $sitzungEigene();
     if (($s['rest'] ?? null) === null) {
-        if (isset($s['abmelden'])) ($s['abmelden'])();
         return ['gesendet' => false, 'grund' => 'Keine nutzbare WebUntis-Sitzung (' . (string)($s['grund'] ?? '')
-            . ') – neu anmelden bzw. Dienstkonto prüfen und erneut messen.'];
+            . ') – neu anmelden und erneut messen.'];
     }
-    try {
-        $nw = $namensweg($kind);
-        $liste = $inSchuelerliste($kind);
-        $antwort = $s['rest']->postMultipart(MESSUNG_PARENTS_PFADE[$pfad], messung_parents_koerper($kind));
-    } finally {
-        if (isset($s['abmelden'])) ($s['abmelden'])();
-    }
+    $nw = $namensweg($kind, $s['rest']);
+    $liste = $inSchuelerliste($kind);
+    $antwort = $s['rest']->postMultipart(MESSUNG_PARENTS_PFADE[$pfad], messung_parents_koerper($kind));
     return [
         'gesendet' => true,
         'sitzung' => $welche,
@@ -719,7 +676,7 @@ function messung_abruf(object $rest, string $pfad, array $query): array
 }
 
 /**
- * Der Bericht. $rest ist der Client aus mit_rest_aus_sitzung() oder NULL,
+ * Der Bericht. $rest ist der Client aus wu_sitzung() oder NULL,
  * $grund dessen Grund (siehe dort), $probe das Ergebnis von
  * messung_token_probe() bei 'kein_token'. $heute ist einstellbar für
  * Prüfungen.

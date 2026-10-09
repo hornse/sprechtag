@@ -13,7 +13,6 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/dienstkonto.php';
 require_once __DIR__ . '/klassenleitung.php';
 
 /** Lädt einen Sprechtag oder bricht ab. */
@@ -306,7 +305,11 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'buchbare-lehrer') {
     if ($sperre !== null) bu_gesperrt_antwort($sperre);
     $sprechtag = bu_sprechtag($pdo, $sid);
 
-    // Cache leer? Dann einmalig mit dem Dienstkonto ermitteln.
+    // Cache leer? Dann einmalig über die WebUntis-Sitzung der angemeldeten
+    // Person ermitteln – kein Dienstkonto mehr (E17). Eltern: gemessen
+    // (08.10.2026, Stundenplan des eigenen Kindes). Volljährige Schüler und
+    // Verwaltung für beliebige Kinder: NICHT gemessen. Scheitert es, gibt es
+    // für dieses Kind keine Kacheln, und 'sitzung' sagt warum.
     // Nicht, wenn ohnehin nur Eingeladene erscheinen (Phase 1, E10).
     // Das passiert genau einmal je Kind und Sprechtag und dauert
     // ein bis zwei Sekunden; danach kommt alles aus der Datenbank.
@@ -315,10 +318,17 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'buchbare-lehrer') {
     $st->execute([$sid, $kind]);
     $ermittelt = null;
     $fehlendeStammdaten = [];
+    $sitzungFehlt = null;
+    $sitzung = null;   // höchstens ein Sitzungsabruf je Aufruf
+    $holeSitzung = function () use (&$sitzung, $cfg): array {
+        return $sitzung ??= wu_sitzung($cfg);
+    };
     if ((int)$st->fetchColumn() === 0
         && !slot_nur_eingeladene((string)$sprechtag['phase'], (string)$u['rolle'])) {
-        $zugang = dk_lesen($cfg, $pdo);
-        if ($zugang !== null) {
+        $sz = $holeSitzung();
+        if ($sz['rest'] === null) {
+            $sitzungFehlt = $sz['art'];
+        } else {
             $stS = $pdo->prepare('SELECT datum, referenz_von, referenz_bis,
                                          klausuren_werten
                                   FROM sprechtage WHERE id = ?');
@@ -327,27 +337,16 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'buchbare-lehrer') {
             $ref = (!empty($sp['referenz_von']) && !empty($sp['referenz_bis']))
                 ? ['von' => $sp['referenz_von'], 'bis' => $sp['referenz_bis']]
                 : wu_referenzzeitraum((string)($sp['datum'] ?? date('Y-m-d')));
-
-            $wcfg = $cfg['webuntis'];
-            $wu = new WebUntisAuth($wcfg['base_url'], $wcfg['school'], $wcfg['client']);
             try {
-                $wu->authenticate($zugang['benutzer'], $zugang['passwort']);
-                $rest = new WebUntisRest($wcfg['base_url'], $wcfg['school']);
-                $rest->mitSessionCookie((string)$wu->sessionCookie());
-                $rest->setzeTimeout(20);
-                if ($rest->tokenHolen()) {
-                    $rest->tenantErmitteln();
-                    $e = wu_kind_lehrer_ermitteln($cfg, $pdo, $rest,
-                        $sid, $kind, (string)$ref['von'], (string)$ref['bis'],
-                        (int)($sp['klausuren_werten'] ?? 1) === 1);
-                    $ermittelt = $e['anzahl'];
-                    $fehlendeStammdaten = $e['uebersprungen'];
-                }
+                $sz['rest']->setzeTimeout(20);
+                $e = wu_kind_lehrer_ermitteln($cfg, $pdo, $sz['rest'],
+                    $sid, $kind, (string)$ref['von'], (string)$ref['bis'],
+                    (int)($sp['klausuren_werten'] ?? 1) === 1);
+                $ermittelt = $e['anzahl'];
+                $fehlendeStammdaten = $e['uebersprungen'];
             } catch (Throwable $e) {
                 // Ermittlung darf die Ansicht nicht scheitern lassen
                 error_log('sprechtag: Auto-Ermittlung fehlgeschlagen: ' . $e->getMessage());
-            } finally {
-                $wu->logout();
             }
         }
     }
@@ -358,26 +357,24 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'buchbare-lehrer') {
     // Verwaltung bekommen keine Hervorhebung.
     $klassenleitung = [];
     if ($u['rolle'] === 'eltern' && slot_alle_teilnehmenden_buchbar((string)$sprechtag['phase'])) {
-        $klassenleitung = kl_lehrer_ids($pdo, kl_aus_sitzung($kind, function () use ($cfg): array {
-            $grund = null;
-            $rest = mit_rest_aus_sitzung($cfg, $grund);
-            return ['rest' => $rest, 'grund' => $grund];
-        }));
+        $klassenleitung = kl_lehrer_ids($pdo, kl_aus_sitzung($kind, $holeSitzung));
     }
 
     $liste = bu_buchbare_lehrer($pdo, $sid, $kind, (string)$sprechtag['phase'],
         (string)$u['rolle'], trim((string)($_GET['jahrgang'] ?? '')), $klassenleitung);
     json_ok($liste + ['automatisch_ermittelt' => $ermittelt,
-                      'ohne_stammsatz' => $fehlendeStammdaten]);
+                      'ohne_stammsatz' => $fehlendeStammdaten,
+                      'sitzung' => $sitzungFehlt,
+                      'sitzung_meldung' => wu_sitzung_meldung($sitzungFehlt)]);
 }
 
 // ============================================================
 // POST /api/lehrer-ermitteln  {sprechtag_id, kind_id[, benutzername, passwort]}
 // Füllt kind_lehrer_cache über den Referenzzeitraum.
 //
-// Zugangsdaten: Ohne Angabe wird das hinterlegte Dienstkonto genutzt
-// (verschlüsselt in `einstellungen`). Nur wenn keines hinterlegt ist,
-// müssen Zugangsdaten mitgeschickt werden.
+// Über die WebUntis-Sitzung der angemeldeten Person (E17) – keine
+// Zugangsdaten, weder hinterlegte noch eingetippte. Ist die Sitzung nicht
+// nutzbar: 409 mit 'sitzung' (abgelaufen / nicht_erreichbar / kaputt).
 // ============================================================
 if ($methode === 'POST' && ($seg[0] ?? '') === 'lehrer-ermitteln') {
     $u   = auth_require();
@@ -393,29 +390,11 @@ if ($methode === 'POST' && ($seg[0] ?? '') === 'lehrer-ermitteln') {
         ? ['von' => $s['referenz_von'], 'bis' => $s['referenz_bis']]
         : wu_referenzzeitraum((string)$s['datum']);
 
-    // Zugangsdaten: übergeben > Dienstkonto
-    $zugang = null;
-    if (($body['benutzername'] ?? '') !== '' && ($body['passwort'] ?? '') !== '') {
-        $zugang = ['benutzer' => (string)$body['benutzername'],
-                   'passwort' => (string)$body['passwort']];
-    } else {
-        $zugang = dk_lesen($cfg, $pdo);
-    }
-    if ($zugang === null) {
-        json_err('Kein Dienstkonto hinterlegt. Die Administration kann es '
-            . 'unter „Administration → Dienstkonto" eintragen.', 409);
-    }
-
-    // Eine frische WebUntis-Session ist nötig (Cookie lebt nicht in der PHP-Session)
-    $wcfg = $cfg['webuntis'];
-    $wu = new WebUntisAuth($wcfg['base_url'], $wcfg['school'], $wcfg['client']);
+    $sz = wu_sitzung($cfg);
+    if ($sz['rest'] === null) json_sitzung_fehlt($sz);
+    $rest = $sz['rest'];
     try {
-        $wu->authenticate($zugang['benutzer'], $zugang['passwort']);
-        $rest = new WebUntisRest($wcfg['base_url'], $wcfg['school']);
-        $rest->mitSessionCookie((string)$wu->sessionCookie());
         $rest->setzeTimeout(20);
-        if (!$rest->tokenHolen()) json_err('Kein REST-Zugang (JWT)', 502);
-        $rest->tenantErmitteln();
         ignore_user_abort(true);
         set_time_limit(0);
         $e = wu_kind_lehrer_ermitteln($cfg, $pdo, $rest, $sid, $kind,
@@ -425,8 +404,6 @@ if ($methode === 'POST' && ($seg[0] ?? '') === 'lehrer-ermitteln') {
         $fehlend = $e['uebersprungen'];
     } catch (RuntimeException $e) {
         json_err('Ermittlung fehlgeschlagen: ' . $e->getMessage(), 502);
-    } finally {
-        $wu->logout();
     }
     json_ok(['ok' => true, 'lehrkraefte' => $anzahl,
              'ohne_stammsatz' => $fehlend ?? [],
@@ -589,15 +566,18 @@ if (($seg[0] ?? '') === 'buchungen') {
         }
         $s = bu_sprechtag($pdo, $sid);
 
-        // Elternkonten ermitteln (gemeinsamer Helfer). Für die Buchung
-        // selbst wird EIN Konto benötigt – wir nehmen das erste; alle
-        // werden anschließend über den Termin informiert.
-        $aufl = mit_eltern_ids_ermitteln($cfg, $pdo, $kind);
+        // Elternkonto für die BUCHUNG selbst (Meine Termine, Kalender,
+        // Fall A, spätere Absage) über die Sitzung der Lehrkraft – kein
+        // Dienstkonto mehr (E17). Ist die Sitzung nicht nutzbar, wird NICHT
+        // gebucht; die Antwort sagt warum, die Oberfläche bietet „Anmelden
+        // und buchen“ an. Die Bestätigung geht über PARENTS an alle.
+        $sz = wu_sitzung($cfg);
+        if ($sz['rest'] === null) json_sitzung_fehlt($sz);
+        $aufl = mit_eltern_ids_ermitteln($pdo, $kind, $sz['rest']);
         if ($aufl['ids'] === []) {
             json_err('Zu diesem Kind ließ sich kein Elternkonto ermitteln. '
-                . 'Ist die Schülerliste gepflegt und ein Dienstkonto '
-                . 'hinterlegt? Ersatzweise bleibt die Einladung, mit der die '
-                . 'Eltern selbst buchen.', 409);
+                . 'Steht das Kind in der Schülerliste? Ersatzweise bleibt die '
+                . 'Einladung, mit der die Eltern selbst buchen.', 409);
         }
         $elternIds    = $aufl['ids'];
         $elternUserId = (int)$elternIds[0];
@@ -709,25 +689,23 @@ if (($seg[0] ?? '') === 'buchungen') {
                 'name'        => (string)($le['name'] ?: ($le['kuerzel'] ?? '')),
                 'raum_kuerzel'=> (string)($le['raum_kuerzel'] ?? ''),
             ]], marke_schulname($pdo));
-            $zugang = dk_lesen($cfg, $pdo);
-            foreach ($elternIds as $eid) {
-                $mitteilung = mit_einreihen_und_senden($cfg, $pdo, $sid, (int)$eid,
-                    'bestaetigung', $t['betreff'], $t['text'],
-                    $zugang['benutzer'] ?? null, $zugang['passwort'] ?? null,
-                    $kind);
-            }
-        } catch (Throwable $e) {
-            error_log('sprechtag: Bestätigung (stellvertretend) fehlgeschlagen: '
+            // EINE Mitteilung an alle Erziehungsberechtigten des Kindes
+            // (PARENTS, E17) – über dieselbe Sitzung wie die Ermittlung.
+            $mitteilung = mit_einreihen_und_senden($pdo, $sid, 0, 'bestaetigung',
+                $t['betreff'], $t['text'], $kind, $lid, $sz, 'eltern');
+        } catch (PDOException $e) {
+            error_log('sprechtag: Bestätigung (stellvertretend) nicht vorgemerkt: '
                 . $e->getMessage());
         }
 
         json_ok(['ok' => true, 'id' => $neueId,
             'kind_name'     => $kindName,
-            'eltern_anzahl' => count($elternIds),
             'mitteilung'    => $mitteilung,
             'hinweis' => 'Termin um ' . $slot . ' Uhr für ' . ($kindName ?: 'das Kind')
-                . ' eingetragen. ' . count($elternIds)
-                . ' Erziehungsberechtigte(r) benachrichtigt.'], 201);
+                . ' eingetragen. ' . (($mitteilung['status'] ?? '') === 'gesendet'
+                    ? 'Die Erziehungsberechtigten wurden benachrichtigt.'
+                    : 'Die Bestätigung ist gespeichert, aber noch nicht verschickt'
+                        . (($mitteilung['grund'] ?? '') !== '' ? ': ' . $mitteilung['grund'] : '.'))], 201);
     }
 
     // ---- POST: buchen ----
@@ -885,9 +863,16 @@ if (($seg[0] ?? '') === 'buchungen') {
             $pdo->prepare("DELETE FROM mitteilungen WHERE sprechtag_id = ?
                            AND empfaenger_user_id = ? AND anlass = 'bestaetigung'
                            AND status = 'offen'")->execute([$sid, $elternUserId]);
-            mit_einreihen_und_senden($cfg, $pdo, $sid, (int)$elternUserId,
-                'bestaetigung', $t['betreff'], $t['text'],
-                null, null, $kind);
+            // Über die Sitzung der buchenden Eltern (Stelle 1 der
+            // Bestandsaufnahme – nie über ein Dienstkonto). Klappt es nicht,
+            // bleibt sie offen. Ohne Lehrkraft (null): Die Bestätigung nennt
+            // ALLE Termine der Eltern, nicht nur einen – nachsenden darf jede
+            // Lehrkraft mit einem dieser Termine (bisherige Regel) und die
+            // Verwaltung; im Hinweis nach der Anmeldung steht sie bei der
+            // Verwaltung.
+            mit_einreihen_und_senden($pdo, $sid, (int)$elternUserId,
+                'bestaetigung', $t['betreff'], $t['text'], $kind, null,
+                wu_sitzung($cfg));
         } catch (Throwable $e) {
             error_log('sprechtag: Bestaetigung nicht vorgemerkt: ' . $e->getMessage());
         }
@@ -928,15 +913,14 @@ if (($seg[0] ?? '') === 'buchungen') {
                 $t = mit_text_absage((string)$sp['name'], (string)$sp['datum'],
                     (string)$b['slot_beginn'], $lehrkraft,
                     substr((string)($_GET['nachricht'] ?? ''), 0, 500));
-                // Mit hinterlegtem Dienstkonto direkt versenden –
-                // sonst nur vormerken (Versand über die Mitteilungsansicht).
-                $zugang = dk_lesen($cfg, $pdo);
-                $mitteilung = mit_einreihen_und_senden($cfg, $pdo,
+                // Über die Sitzung der Person, die absagt (E17). Ist sie
+                // abgelaufen, bleibt die Absage stehen – die Antwort sagt
+                // es, und nach der Neuanmeldung geht sie mit einem Klick raus.
+                $mitteilung = mit_einreihen_und_senden($pdo,
                     (int)$b['sprechtag_id'], (int)$b['eltern_user_id'],
                     'absage', $t['betreff'], $t['text'],
-                    $zugang['benutzer'] ?? null, $zugang['passwort'] ?? null,
-                    (int)$b['schueler_id']);
-            } catch (Throwable $e) {
+                    (int)$b['schueler_id'], (int)$b['lehrer_id'], wu_sitzung($cfg));
+            } catch (PDOException $e) {
                 error_log('sprechtag: Absage nicht vorgemerkt: ' . $e->getMessage());
             }
         }
@@ -1012,54 +996,46 @@ if (($seg[0] ?? '') === 'einladungen') {
                 substr((string)($body['hinweis'] ?? ''), 0, 190)]);
 
         // ---- Benachrichtigung der Eltern --------------------------------
-        // Elternkonten über den gemeinsamen Helfer ermitteln (WebUntis-
-        // Suche mit Rückfall auf frühere Buchungen). Dieselbe Logik nutzt
-        // auch die stellvertretende Buchung.
+        // EINE Mitteilung an alle Erziehungsberechtigten des Kindes über
+        // recipientOption PARENTS (E16, E17) – ohne Elternkonten zu suchen,
+        // über die Sitzung der einladenden Person. Ist sie abgelaufen, bleibt
+        // die Einladung gespeichert UND die Mitteilung steht in der
+        // Warteschlange; die Antwort sagt es.
         $mitteilung = null;
-        $aufl = mit_eltern_ids_ermitteln($cfg, $pdo, $kind);
-        $elternIds = $aufl['ids'];
-        $quelle    = $aufl['quelle'];
-        $kindName  = $aufl['kind_name'];
-        $zugang    = dk_lesen($cfg, $pdo);
+        try {
+            $stS = $pdo->prepare('SELECT name, datum FROM sprechtage WHERE id = ?');
+            $stS->execute([$sid]);
+            $sp = $stS->fetch() ?: ['name' => 'Elternsprechtag', 'datum' => ''];
 
-        if ($elternIds !== []) {
-            try {
-                $stS = $pdo->prepare('SELECT name, datum FROM sprechtage WHERE id = ?');
-                $stS->execute([$sid]);
-                $sp = $stS->fetch() ?: ['name' => 'Elternsprechtag', 'datum' => ''];
+            $stL = $pdo->prepare('SELECT kuerzel, name FROM lehrer WHERE id = ?');
+            $stL->execute([$lid]);
+            $le = $stL->fetch() ?: [];
+            $lehrkraft = (string)($le['name'] ?: ($le['kuerzel'] ?? 'die Lehrkraft'));
 
-                $stL = $pdo->prepare('SELECT kuerzel, name FROM lehrer WHERE id = ?');
-                $stL->execute([$lid]);
-                $le = $stL->fetch() ?: [];
-                $lehrkraft = (string)($le['name'] ?: ($le['kuerzel'] ?? 'die Lehrkraft'));
+            $stK = $pdo->prepare('SELECT vorname, nachname FROM schueler WHERE webuntis_id = ? LIMIT 1');
+            $stK->execute([$kind]);
+            $kd = $stK->fetch() ?: [];
+            $kindName = trim(((string)($kd['vorname'] ?? '')) . ' ' . ((string)($kd['nachname'] ?? '')));
 
-                $t = mit_text_einladung((string)$sp['name'], (string)$sp['datum'],
-                    $lehrkraft, $kindName,
-                    substr((string)($body['hinweis'] ?? ''), 0, 500));
-
-                foreach ($elternIds as $eid) {
-                    $mitteilung = mit_einreihen_und_senden($cfg, $pdo, $sid, (int)$eid,
-                        'einladung', $t['betreff'], $t['text'],
-                        $zugang['benutzer'] ?? null, $zugang['passwort'] ?? null,
-                        $kind);
-                }
-            } catch (Throwable $e) {
-                error_log('sprechtag: Einladungs-Mitteilung fehlgeschlagen: '
-                    . $e->getMessage());
-            }
+            $t = mit_text_einladung((string)$sp['name'], (string)$sp['datum'],
+                $lehrkraft, $kindName,
+                substr((string)($body['hinweis'] ?? ''), 0, 500));
+            $mitteilung = mit_einreihen_und_senden($pdo, $sid, 0, 'einladung',
+                $t['betreff'], $t['text'], $kind, $lid, wu_sitzung($cfg), 'eltern');
+        } catch (PDOException $e) {
+            error_log('sprechtag: Einladungs-Mitteilung nicht vorgemerkt: '
+                . $e->getMessage());
         }
 
         json_ok(['ok' => true,
             'mitteilung' => $mitteilung,
-            'eltern_bekannt' => $elternIds !== [],
-            'eltern_anzahl' => count($elternIds),
-            'quelle' => $quelle,
-            'hinweis' => $elternIds === []
-                ? 'Einladung angelegt. Eine automatische Benachrichtigung war '
-                    . 'nicht möglich, weil kein Elternkonto gefunden wurde – '
-                    . 'bitte die Eltern auf anderem Weg informieren.'
-                : 'Einladung angelegt, ' . count($elternIds)
-                    . ' Erziehungsberechtigte(r) benachrichtigt.'], 201);
+            'hinweis' => $mitteilung === null
+                ? 'Einladung angelegt. Die Mitteilung an die Eltern ließ sich nicht '
+                    . 'vormerken – bitte die Eltern auf anderem Weg informieren.'
+                : (($mitteilung['status'] ?? '') === 'gesendet'
+                    ? 'Einladung angelegt, die Erziehungsberechtigten wurden benachrichtigt.'
+                    : 'Einladung angelegt. Die Mitteilung ist gespeichert, aber noch '
+                        . 'nicht verschickt: ' . (string)($mitteilung['grund'] ?? ''))], 201);
     }
 
     if ($methode === 'DELETE' && isset($seg[1]) && ctype_digit($seg[1])) {

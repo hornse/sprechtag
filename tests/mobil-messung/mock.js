@@ -324,7 +324,7 @@
       z(306, 8, 'bestaetigung', 'Terminbestätigung Elternsprechtag am 22.10. um 15:50 Uhr (C3.07)', 'gesendet',
         null, '2026-10-06 21:10:00', '2026-10-06 21:10:02'),
       z(307, null, 'absage', 'Absage Ihres Termins am Elternsprechtag am 22.10. um 18:00 Uhr', 'offen',
-        'Kein Dienstkonto hinterlegt', '2026-10-09 09:01:00', null),
+        'Nicht versendet – WebUntis-Sitzung: abgelaufen (kein_token)', '2026-10-09 09:01:00', null),
       z(308, 27, 'einladung', 'Einladung zum Elternsprechtag', 'verworfen',
         null, '2026-10-02 10:10:10', null),
     ];
@@ -510,7 +510,11 @@
       case 'mitteilungen':
         if (!istLk) return fehlt(403, 'Nur für Lehrkräfte');
         if (methode === 'GET' && !seg[1]) return ok({ mitteilungen: mitteilungen() });
-        if (seg[1] === 'senden') return ok({ ok: true, gesendet: 0, grund: 'Erfundener Versandlauf.', variante: null, protokoll: [] });
+        // v0.9.72 (E17): Hinweis nach der Anmeldung; Versand bei abgelaufener
+        // Sitzung – so erscheinen Hinweis und Kasten auch in der Messung.
+        if (methode === 'GET' && seg[1] === 'offen-eigene') return ok({ anzahl: 2, ids: [305, 307] });
+        if (seg[1] === 'senden') return ok({ gesendet: 0, fehler: 0, ids: [305, 307], sitzung: 'abgelaufen',
+          grund: 'Ihre WebUntis-Anmeldung ist abgelaufen. Bitte melden Sie sich neu an.', variante: null, protokoll: [] });
         return ok({ ok: true });
       case 'schueler-gruppen':
         // Form wie GET /api/schueler-gruppen (v0.9.65); Gruppennamen aus der
@@ -529,17 +533,6 @@
             { id: 1, label: 'Admin', userRole: 16, userCount: 2, schueler: 0 },
             { id: 2, label: 'Lehrkräfte', userRole: 2, userCount: 90, schueler: 0 },
           ], auswahl_fehler: null });
-      case 'dienstkonto':
-        if (!istLk) return fehlt(403, 'Nur für Lehrkräfte');
-        if (methode === 'GET') {
-          if (istAdmin) {
-            return ok({ hinterlegt: true, benutzer: 'dienstkonto.erfunden', schluessel_ok: true,
-              verfahren: 'sodium (XSalsa20-Poly1305)', entschluesselbar: true });
-          }
-          // Lehrkraft sieht nur, OB eines nutzbar ist; hier: keins -> Felder sichtbar.
-          return ok({ hinterlegt: false, entschluesselbar: false });
-        }
-        return ok({ ok: true });
       case 'anzeige-einstellungen':
         if (!istAdmin) return fehlt(403, 'Nur für die Administration');
         if (methode === 'GET') return ok({ sortierung: 'raum', kacheln: 'auto', intervall: 10 });

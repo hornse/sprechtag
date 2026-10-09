@@ -63,8 +63,9 @@ pruefe('Zahl als Zeichenkette wird akzeptiert', $d['stand'] === 'gesendet');
 
 // ---- Fehlerstatus ----
 $d = erinnerung_antwort_deuten(['status' => 403, 'json' => null], 2);
-pruefe('403 -> fehler mit Hinweis aufs Dienstkonto',
-    $d['stand'] === 'fehler' && strpos($d['grund'], 'Dienstkonto') !== false);
+pruefe('403 -> fehler mit Hinweis auf das Recht des angemeldeten Kontos (kein Dienstkonto mehr, v0.9.72)',
+    $d['stand'] === 'fehler' && strpos($d['grund'], 'angemeldeten Kontos') !== false
+    && strpos($d['grund'], 'Dienstkonto') === false);
 
 $d = erinnerung_antwort_deuten(['status' => 500, 'json' => null], 2);
 pruefe('500 -> fehler', $d['stand'] === 'fehler');

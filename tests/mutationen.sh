@@ -264,13 +264,8 @@ MI=backend/api/mitteilungen.php
 MS=backend/api/messung_sitzung.php
 IX=backend/api/index.php
 
-echo "== Messung Sitzung (Frage 2): Grund aus mit_rest_aus_sitzung()"
-mut S1 $MI 's/\n\s*\$grund = .fehler: . \. get_class\(\$e\) \. .: . \. \$e->getMessage\(\);//' \
-  $S "Ausnahme: null, Grund nennt Klasse und Meldung"
-mut S2 $MI 's/\{ \$grund = .kein_token.; return null; \}/return null;/' \
-  $S "mit_rest_aus_sitzung(): unerreichbar ergibt ebenfalls kein_token"
-mut S3 $MI 's/\{ \$grund = .kein_cookie.; return null; \}/return null;/' \
-  $S "ohne Cookie: null und Grund kein_cookie"
+# S1–S3 und S12 (Gründe aus mit_rest_aus_sitzung) sind seit v0.9.72 die
+# Serie SZ unten: Die Funktion ist durch wu_sitzung() im Adapter ersetzt.
 
 echo "== Messung Sitzung: Deutung und Nachprobe"
 mut S4 $MS "s/\\\$status === 0 \? 'netz'/\\\$status === 0 ? 'anmeldeseite'/" \
@@ -287,14 +282,12 @@ mut S8 $MS "s/if \(\(\\\$u\['rolle'\] \?\? ''\) !== 'eltern'\) \{/if (false) {/"
 echo "== Messung Sitzung: Route"
 # S9 seit v0.9.68 verankert an „$probe“: dasselbe Muster steht jetzt auch in
 # der Route /api/schueler-gruppen (weiter oben) – ohne Anker traf es dort.
-mut S9 $IX 's/mit_rest_aus_sitzung\(\$cfg, \$grund\);(\n    \$probe)/mit_rest_aus_sitzung(\$cfg);$1/' \
-  $S "Route reicht den Grund aus mit_rest_aus_sitzung() durch"
+mut S9 $IX 's/\$grund = \$sitzung\[\x27grund\x27\];/\$grund = null;/' \
+  $S "Route reicht den Grund aus wu_sitzung() durch"
 mut S10 $IX "s/\\\$probe = \\\$grund === 'kein_token'/\\\$probe = \\\$grund === 'nie'/" \
   $S "Route fährt die Nachprobe genau bei kein_token"
-mut S11 $IX 's/\$u = auth_require\(\);\n    \$grund = null;/\$u = auth_user() ?? [];\n    \$grund = null;/' \
+mut S11 $IX 's/\$u = auth_require\(\);\n    \$sitzung = wu_sitzung\(\$cfg\);/\$u = auth_user() ?? [];\n    \$sitzung = wu_sitzung(\$cfg);/' \
   $S "Route verlangt eine Anmeldung"
-mut S12 $MI "s/\{ \\\$grund = 'kein_token'; return null; \}/{ \\\$grund = 'kein_token'; }/" \
-  tests/frontend_lehrersitzung_test.js "abgelaufene Sitzung gibt null"
 
 echo "== Messung Klassenleitung (Zug 3)"
 mut S13 $MS 's/fn\(\$i\) => isset\(\$ids\[\$i\]\)/fn(\$i) => false/' \
@@ -304,7 +297,7 @@ mut S14 $MS "s/'gefuellt'       => messung_format\(\\\$v\) !== 'leer',/'gefuellt
 mut S15 $MS "s/return 'Objekt\{' \. implode\(',', \\\$k\) \. '\}';/return json_encode(\\\$v);/" \
   $S "weder Kennung noch Name der Klassenleitung in der Antwort"
 mut S16 $IX 's/\$probe, \$lehrer, \$ferien\)\]\);/\$probe, [], \$ferien)]);/' \
-  $S "Route reicht den Grund aus mit_rest_aus_sitzung() durch"
+  $S "Route reicht den Grund aus wu_sitzung() durch"
 mut S17 $MS "s/\\\$nachId\[\(int\)\(\\\$k\['id'\] \?\? 0\)\] \?\? null/\\\$nachId[0] ?? null/" \
   $S "Kind 1: Klassenleitung gefüllt, Format Objekt{id,name}"
 mut S18 $MS "s/\(\\\$u\['rolle'\] \?\? ''\) === 'eltern' \? \(array\)\(\\\$u\['kinder'\] \?\? \[\]\) : null/null/" \
@@ -654,7 +647,7 @@ mut FSG3 $APP 's/\? \x27Ihr eigenes Konto trägt in WebUntis die Gruppe „\x27 
 mut FSG4 $APP 's/  if \(gewaehlt\.length === 0\) \{/  if (false) {/' \
   $FSG "leere Liste: Warnung"
 mut FSG5 $APP 's/\n  zeichneSchuelerGruppen\(ziel\);\n/\n/' \
-  $FSG "Aufrufstelle: „Dienstkonto & Schülerliste“"
+  $FSG "Aufrufstelle: „Schülerliste“"
 
 # v0.9.66 – Ladereihenfolge in index.php; geladener Zustand der Ansicht
 LR=tests/run_ladereihenfolge.php
@@ -690,7 +683,8 @@ mut AW1 $SLP 's/        return strcmp\(\(string\)\$a\[\x27label\x27\], \(string\
   $SG "Sortierung: Gruppen mit Schülern zuerst"
 mut AW2 backend/api/webuntis_adapter.php 's/\x27schueler\x27  => \(int\)\(\$je\[\x27STUDENT\x27\] \?\? 0\),/\x27schueler\x27  => (int)(\$e[\x27userCount\x27] ?? 0),/' \
   $SG "Sortierung: Gruppen mit Schülern zuerst"
-mut AW3 $IDX 's/json_ok\(\$auskunft\(\) \+ schueler_gruppen_auswahl\(function/json_ok(\$auskunft() + (fn(callable \$f): array => [])(function/' \
+# AW3 seit v0.9.72: die Sitzung kommt als fn() => wu_sitzung($cfg)
+mut AW3 $IDX 's/json_ok\(\$auskunft\(\) \+ schueler_gruppen_auswahl\(fn/json_ok(\$auskunft() + (fn(callable \$f): array => [])(fn/' \
   $SG "Route GET: Gruppen, eigene Gruppe UND Auswahl"
 mut AW4 backend/api/webuntis_adapter.php 's/\n    if \(\$status !== 200\) return \[\x27gruppen\x27 => null, \x27fehler\x27 => \x27Status \x27 \. \$status\];//' \
   $SG "… nicht lesbar: 403, keine Liste, Ausnahme"
@@ -711,7 +705,8 @@ mut FAW6 $APP 's/    if \(d\.auswahl_fehler\) \{/    if (false) {/' \
 MP=tests/run_messung_parents.php
 mut MP1 $MS 's/if \(\(\$eingabe\[\x27bestaetigt\x27\] \?\? null\) !== true\) \{/if (false) {/' \
   $MP "ohne Bestätigung, mit unbekanntem Pfad, ohne Kind-Kennung: KEIN Versand"
-mut MP2 $MS 's/\x27copyToStudent\x27       => false,/\x27copyToStudent\x27       => true,/' \
+# MP2 seit v0.9.72 im Betriebskörper (mit_parents_koerper) – eine Quelle.
+mut MP2 $MI 's/\x27copyToStudent\x27       => false,/\x27copyToStudent\x27       => true,/' \
   $MP "PARENTS, die Kennung des Kindes, ohne Kopie an das Kind"
 mut MP3 $MS 's/\$aus\[\x27ergebnis\x27\] = is_int\(\$n\) \? \(\$n >= 1 \? \x27erreicht\x27 : \x27niemand\x27\) : \x27unklar\x27;/\$aus[\x27ergebnis\x27] = \x27erreicht\x27;/' \
   $MP "200 mit 0: angenommen, niemand erreicht"
@@ -723,15 +718,14 @@ mut MP6 $MS 's/    \$antwort = \$s\[\x27rest\x27\]->postMultipart\(/    \$s[\x27
   $MP "Pfad users: genau EIN Versand"
 mut MP7 $MS 's/(    \x27messages\x27 => \x27\/WebUntis\/api\/rest\/view\/v2\/messages\x27,)/$1\n    \x27beides\x27 => \x27\/WebUntis\/api\/rest\/view\/v2\/messages\/users\x27,/' \
   $MP "ohne Bestätigung, mit unbekanntem Pfad, ohne Kind-Kennung: KEIN Versand"
-# v0.9.70 – über die Sitzung des Dienstkontos
-mut MP8 $MS 's/if \(\$welche === \x27dienstkonto\x27 && \$rolle !== \x27admin\x27\) \{/if (false) {/' \
-  $MP "über das Dienstkonto nur für die Verwaltung"
-mut MP9 $MS 's/\$s = \$welche === \x27dienstkonto\x27 \? \$sitzungDienstkonto\(\) : \$sitzungEigene\(\);/\$s = \$sitzungEigene();/' \
-  $MP "sitzung dienstkonto: der Versand geht über die Dienstkonto-Sitzung"
-mut MP10 $MS 's/    \} finally \{\n        if \(isset\(\$s\[\x27abmelden\x27\]\)\) \(\$s\[\x27abmelden\x27\]\)\(\);\n    \}/    } finally {\n    }/' \
-  $MP "… und die Dienstkonto-Sitzung wird danach abgemeldet"
-mut MP11 $MS 's/if \(!in_array\(\$welche, \[\x27eigene\x27, \x27dienstkonto\x27\], true\)\) \{/if (false) {/' \
-  $MP "unbekannte Sitzungsangabe: kein Versand"
+# v0.9.72 – nur noch die eigene Sitzung. MP8–MP11 der v0.9.70 entfallen mit
+# dem Dienstkonto; ihre Nummern werden nicht neu vergeben.
+mut MP12 $MS 's/if \(\$welche !== \x27eigene\x27\) \{/if (false) {/' \
+  $MP "sitzung dienstkonto: kein Versand"
+mut MP13 $MS 's/\$nw = \$namensweg\(\$kind, \$s\[\x27rest\x27\]\);/\$nw = \$namensweg(\$kind, null);/' \
+  $MP "der Namensweg sucht über DIESELBE Sitzung"
+mut MP14 $MS 's/    return mit_parents_koerper\(\$kind, /    return [\x27copyToStudent\x27 => true] + mit_parents_koerper(\$kind, /' \
+  $MP "eine Quelle: der Messkörper ist der Betriebskörper"
 
 # v0.9.71 – Messung Liste auflösen/senden über die eigene Sitzung (Testliste)
 ML=tests/run_messung_liste.php
@@ -747,6 +741,97 @@ mut ML5 $MS 's/(\x27seiten\x27 => \(int\)\$res\[\x27seiten\x27\])\];/$1, \x27ids
   $ML "keine Personenangaben: weder Kennungen noch Namen der Empfänger"
 mut ML6 $IDX 's/(\x27liste\x27\) \{\n    \$u = )auth_require_lehrkraft\(\);/$1auth_require();/' \
   $ML "Eltern können die Messung nicht auslösen"
+
+# ============================================================
+# v0.9.72 (E17) – Dienstkonto abgeschafft; die abgelaufene Sitzung
+# ============================================================
+AD=backend/api/webuntis_adapter.php
+ER=backend/api/erinnerungen.php
+SZ=tests/run_sitzungszugang.php
+SV=tests/run_sitzung_versand.php
+FS=tests/frontend_sitzung_abgelaufen_test.js
+
+echo "== Sitzungszugang: drei Ursachen (wu_sitzung)"
+mut SZ1 $AD 's/return \[\x27rest\x27 => null, \x27art\x27 => \x27abgelaufen\x27, \x27grund\x27 => \x27kein_cookie\x27\];/return [\x27rest\x27 => null, \x27art\x27 => null, \x27grund\x27 => \x27kein_cookie\x27];/' \
+  $SZ "kein Cookie: abgelaufen"
+mut SZ2 $AD 's/if \(\$status === 0 \|\| \$status >= 500\) \{/if (\$status >= 500) {/' \
+  $SZ "kein Token, Nachprobe Status 0: nicht_erreichbar"
+mut SZ3 $AD 's/\$status === 0 \|\| \$status >= 500/\$status === 0 || \$status > 500/' \
+  $SZ "Grenze: Status 500 ist nicht_erreichbar"
+mut SZ4 $AD 's/\$status === 0 \|\| \$status >= 500/\$status === 0 || \$status >= 499/' \
+  $SZ "Grenze: Status 499 ist noch abgelaufen"
+mut SZ5 $AD 's/if \(\$status === 200 && substr_count\(\$text/if (false && substr_count(\$text/' \
+  $SZ "kein Token, bei der Nachprobe schon: flüchtig"
+mut SZ6 $AD 's/\} catch \(Exception \$e\) \{\n        error_log\(\x27sprechtag: WebUntis über/} catch (Throwable \$e) {\n        error_log(\x27sprechtag: WebUntis über/' \
+  $SZ "TypeError im Konstruktor: kaputt"
+mut SZ7 $AD 's/(catch \(Error \$e\) \{\n[^\n]*\n        return \[\x27rest\x27 => null, \x27art\x27 => )\x27kaputt\x27/$1\x27abgelaufen\x27/' \
+  $SZ "Error im Abruf: kaputt"
+mut SZ8 $AD 's/        \$rest->tenantErmitteln\(\);\n        return \[\x27rest\x27 => \$rest/        return [\x27rest\x27 => \$rest/' \
+  $SZ "Token da: Client zurück"
+mut SZ9 $AD 's/Bitte melden Sie sich neu an\./Bitte erneut versuchen./' \
+  $SZ "abgelaufen sagt KLAR"
+mut SZ10 $MI 's/(function mit_einreihen\(PDO)/function sz_probe() { dk_lesen([], null); }\n$1/' \
+  $SZ "kein Aufruf einer dk_-Funktion mehr"
+mut SZ11 $MI 's/(function mit_einreihen\(PDO)/function sz_probe(\$r) { return \$r->tokenHolen(); }\n$1/' \
+  $SZ "Token-Abruf nur im Adapter"
+
+echo "== Versand ohne Dienstkonto: Warteschlange, PARENTS, Routen"
+mut SV1 $MI 's/return \[\x27ids\x27 => \$ids, \x27status\x27 => \x27offen\x27, /return [\x27ids\x27 => \$ids, \x27status\x27 => \x27fehler\x27, /' \
+  $SV "Status offen, Ursache abgelaufen"
+mut SV2 $MI 's/\x27sitzung\x27 => \$art, \x27grund\x27 => wu_sitzung_meldung\(\$art\)\]/\x27sitzung\x27 => null, \x27grund\x27 => wu_sitzung_meldung(\$art)]/' \
+  $SV "Status offen, Ursache abgelaufen"
+mut SV3 $MI 's/\$empfaengerArt, \$schuelerId, \$lehrerId, \$anlass/\$empfaengerArt, \$schuelerId, null, \$anlass/' \
+  $SV "der Text geht nicht verloren"
+mut SV4 $MI 's/const MIT_PARENTS_PFAD = \x27\/WebUntis\/api\/rest\/view\/v2\/messages\x27;/const MIT_PARENTS_PFAD = \x27\/WebUntis\/api\/rest\/view\/v2\/messages\/users\x27;/' \
+  $SV "genau ein Aufruf an /v2/messages mit PARENTS"
+mut SV5 $MI 's/if \(is_int\(\$n\) && \$n >= 1\)/if (is_int(\$n) && \$n >= 0)/' \
+  $SV "200 mit 0 Empfängern: NICHT gesendet"
+mut SV6 $MI 's/if \(is_int\(\$n\) && \$n >= 1\)/if (is_int(\$n) && \$n > 1)/' \
+  $SV "Grenze: 1 Empfänger ist erreicht"
+mut SV7 $MI 's/if \(\(string\)\(\$m\[\x27empfaenger_art\x27\] \?\? \x27konto\x27\) === \x27eltern\x27\) \{/if (false) {/' \
+  $SV "genau ein Aufruf an /v2/messages mit PARENTS"
+mut SV8 $IDX 's/AND \(m\.lehrer_id = \?/AND (m.lehrer_id = -?/' \
+  $SV "… die eigene Absage gehört zu „meinen Terminen“"
+mut SV9 $IDX 's/AND s\.datum >= \?";/AND (s.datum >= ? OR 1)";/' \
+  $SV "Hinweis: nur Sprechtage ab heute"
+mut SV10 $IDX 's/            \$sql \.= \x27 AND m\.lehrer_id = \?\x27;\n            \$werte\[\] = \(int\)\(\$u\[\x27lehrer_id\x27\] \?\? 0\);\n//' \
+  $SV "Hinweis nach der Anmeldung, Lehrkraft: nur die eigenen"
+mut SV11 $IDX 's/\x27sitzung\x27 => \$sitzung\[\x27art\x27\], \x27grund\x27 => wu_sitzung_meldung/\x27sitzung\x27 => null, \x27grund\x27 => wu_sitzung_meldung/' \
+  $SV "senden, Sitzung abgelaufen (kein Cookie)"
+mut SV12 $ER 's/(\x27vollstaendig\x27 => false, \x27sitzung\x27 => )\$sitzung\[\x27art\x27\] \?\? \x27kaputt\x27/$1null/' \
+  $SV "Versand bei abgelaufener Sitzung"
+mut SV13 $BUP 's/\n        if \(\$sz\[\x27rest\x27\] === null\) json_sitzung_fehlt\(\$sz\);\n        \$aufl/\n        \$aufl/' \
+  $SV "stellvertretend: ohne nutzbare Sitzung Abbruch"
+mut SV14 $BUP 's/(\$t\[\x27betreff\x27\], \$t\[\x27text\x27\], \$kind, \$lid, wu_sitzung\(\$cfg\)), \x27eltern\x27\)/$1)/' \
+  $SV "Einladung: über PARENTS"
+mut SV15 $BUP 's/\(int\)\$b\[\x27schueler_id\x27\], \(int\)\$b\[\x27lehrer_id\x27\], wu_sitzung/(int)\$b[\x27schueler_id\x27], null, wu_sitzung/' \
+  $SV "Absage: über die Sitzung der absagenden Person"
+mut SV16 $AD 's/\x27sitzung\x27 => \$art\], 409\);/\x27sitzung\x27 => \$art], 401);/' \
+  $SV "409 mit Meldung und Ursache"
+mut SV17 sql/21_dienstkonto_entfernen.sql 's/ADD COLUMN IF NOT EXISTS lehrer_id/ADD COLUMN lehrer_id/' \
+  $SV "legt lehrer_id und empfaenger_art an"
+
+echo "== Oberfläche: Kasten am Ort der Handlung, Hinweis nach der Anmeldung"
+mut FS1 $APP 's/    f\.sitzung = daten\.sitzung \|\| null;\n//' \
+  $FS "409 mit sitzung: Fehler trägt Meldung und Ursache"
+mut FS2 $APP 's/  if \(sitzung === \x27abgelaufen\x27\) \{\n    zeigeSitzungsKasten/  if (true) {\n    zeigeSitzungsKasten/' \
+  $FS "nicht erreichbar / kaputt: KEIN Kasten"
+mut FS3 $APP 's/(\x27noch NICHT verschickt: \x27 \+ m\.grund,\n        \{ knopf: \x27Anmelden und senden\x27, aktion: \(\) => sendeVorgemerkte\()m\.ids/${1}[]/' \
+  $FS "… nach der Anmeldung geht DIESELBE Mitteilung hinaus"
+mut FS4 $APP 's/aktion: \(\) => stellvertretendBuchen\(lehrerId, slot\)/aktion: async () => {}/' \
+  $FS "… nach der Anmeldung derselbe Auftrag"
+mut FS5 $APP 's/      los\.disabled = false;\n      meldung\(String\(f\.message\), \x27fehler\x27\);\n      return;/      los.disabled = false;\n      meldung(String(f.message), \x27fehler\x27);/' \
+  $FS "falsches Passwort: KEIN Auftrag"
+mut FS6 $APP 's/knopf\(\x27Jetzt senden\x27, null, \(\) => sendeVorgemerkte\(h\.ids\)\)/knopf(\x27Jetzt senden\x27, null, () => sendeVorgemerkte([]))/' \
+  $FS "„Jetzt senden“ schickt genau diese Kennungen"
+mut FS7 $APP 's/\n             && S\.ansicht !== \x27mitteilungen\x27\) \{/) {/' \
+  $FS "Hinweis nicht in „Mitteilungen“"
+mut FS8 $APP 's/      await ladeSprechtage\(\);\n      ladeOffenHinweis\(\);/      await ladeSprechtage();/' \
+  $FS "nach der Anmeldung wird der Hinweis geladen"
+mut FS9 $APP 's/aktion: \(\) => sendeVorgemerkte\(ids, text\)/aktion: () => sendeVorgemerkte([], text)/' \
+  $FS "… nach der Anmeldung derselbe Aufruf mit denselben Kennungen"
+mut FS10 $APP 's/S\.sitzungsKasten && S\.sitzungsKasten\.ansicht === S\.ansicht/S.sitzungsKasten/' \
+  $FS "der Kasten steht nur in der Ansicht"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi

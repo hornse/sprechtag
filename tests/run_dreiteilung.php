@@ -381,8 +381,8 @@ pruefe('Kachel-Route holt die Klassenleitung über kl_aus_sitzung() und kl_lehre
     preg_match('/kl_lehrer_ids\(\$pdo,\s*kl_aus_sitzung\(\$kind,/', $route) === 1);
 pruefe('… nur für Eltern und nur, wenn alle Teilnehmenden buchbar sind',
     preg_match("/if \(\\\$u\['rolle'\] === 'eltern'\s*&& slot_alle_teilnehmenden_buchbar\(/", $route) === 1);
-pruefe('… über die Sitzung der angemeldeten Person (mit_rest_aus_sitzung)',
-    str_contains($route, 'mit_rest_aus_sitzung($cfg,'));
+pruefe('… über die Sitzung der angemeldeten Person (wu_sitzung, seit v0.9.72)',
+    str_contains($route, 'wu_sitzung($cfg)') && str_contains($route, 'kl_aus_sitzung($kind, $holeSitzung)'));
 pruefe('… und reicht sie an bu_buchbare_lehrer() weiter',
     preg_match('/bu_buchbare_lehrer\(\$pdo, \$sid, \$kind,[^;]*\$klassenleitung\)/s', $route) === 1);
 $buch = $zwischen('$pruefung = slot_buchung_erlaubt(', ']);');

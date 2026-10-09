@@ -30,7 +30,10 @@ pruefe('paginiert defensiv', rst.includes('maxSeiten') && rst.includes('$gesehen
 pruefe('Empfaenger-Aufloesung', eri.includes('function erinnerung_empfaenger_ermitteln'));
 pruefe('Versand blockweise', eri.includes('function erinnerung_versenden')
   && eri.includes('array_chunk'));
-pruefe('nutzt Dienstkonto', eri.includes('dk_lesen'));
+// Seit v0.9.72 (E17) kein Dienstkonto: die Sitzung der Verwaltung kommt von
+// der Route; ausgeführt in run_sitzung_versand.php.
+pruefe('nutzt die übergebene Sitzung – kein Dienstkonto, keine eigene Anmeldung',
+  eri.includes("$sitzung['rest']") && !eri.includes('dk_lesen') && !eri.includes('->authenticate('));
 pruefe('Standardtext/Betreff', eri.includes('function erinnerung_standard_text')
   && eri.includes('function erinnerung_standard_betreff'));
 pruefe('Platzhalter im Text', eri.includes('platzhalter_ersetzen'));

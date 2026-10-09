@@ -32,28 +32,11 @@ function pruefe(string $name, bool $ok): void
 }
 
 // ------------------------------------------------------------
-echo "mit_rest_aus_sitzung() nennt den Grund\n";
-$_SESSION = [];
-$g = 'vorbelegt';
-$r = mit_rest_aus_sitzung(['webuntis' => ['base_url' => 'http://127.0.0.1:9', 'school' => 'x']], $g);
-pruefe('ohne Cookie: null und Grund kein_cookie', $r === null && $g === 'kein_cookie');
-$_SESSION = ['wu_cookie' => 'JSESSIONID=erfunden'];
-$g = null;
-// base_url null: Der Konstruktor wirft einen TypeError – ein Programmierfehler,
-// der bisher genau wie eine abgelaufene Sitzung aussah (E9).
-$r = mit_rest_aus_sitzung(['webuntis' => ['base_url' => null, 'school' => null]], $g);
-pruefe('Ausnahme: null, Grund nennt Klasse und Meldung',
-    $r === null && is_string($g) && str_starts_with($g, 'fehler: TypeError: '));
-pruefe('bisherige Aufrufer ohne Grund-Parameter: unverändert null',
-    mit_rest_aus_sitzung(['webuntis' => ['base_url' => null, 'school' => null]]) === null);
-
-echo "Netz weg sieht aus wie abgelaufen – die Nachprobe trennt es\n";
-// Port 9 auf 127.0.0.1 ist geschlossen: cURL scheitert sofort, Status 0.
+// Die Gründe der Sitzung selbst (kein_cookie / kein_token / Netz / Ausnahme)
+// prüft seit v0.9.72 tests/run_sitzungszugang.php an wu_sitzung(), dem
+// einzigen Sitzungszugang. Hier bleibt die Nachprobe der Messung.
+echo "Nachprobe der Messung: Netz weg ist nicht abgelaufen\n";
 $tot = ['webuntis' => ['base_url' => 'http://127.0.0.1:9', 'school' => 'x']];
-$g = null;
-$r = mit_rest_aus_sitzung($tot, $g);
-pruefe('mit_rest_aus_sitzung(): unerreichbar ergibt ebenfalls kein_token',
-    $r === null && $g === 'kein_token');
 $p = messung_token_probe($tot, 'JSESSIONID=erfunden');
 pruefe('Nachprobe: unerreichbar ist art netz, Status 0',
     ($p['art'] ?? null) === 'netz' && ($p['status'] ?? null) === 0);
@@ -450,8 +433,8 @@ $a = strpos($code, "=== 'messung' && (\$seg[1] ?? '') === 'sitzung'");
 // bis zum Ende der json_ok-Anweisung (erstes „]);“ danach)
 $route = $a === false ? '' : substr($code, $a,
     (int)strpos($code, ']);', (int)strpos($code, 'json_ok(', $a)) - $a + 3);
-pruefe('Route reicht den Grund aus mit_rest_aus_sitzung() durch',
-    $route !== '' && preg_match('/mit_rest_aus_sitzung\(\$cfg,\s*\$grund\)/', $route) === 1
+pruefe('Route reicht den Grund aus wu_sitzung() durch',
+    $route !== '' && preg_match('/\$sitzung = wu_sitzung\(\$cfg\);\s*\$rest = \$sitzung\[\'rest\'\];\s*\$grund = \$sitzung\[\'grund\'\];/', $route) === 1
     && preg_match('/messung_sitzung_bericht\(\$u,\s*\$rest,\s*\$grund,\s*null,\s*\$probe,\s*\$lehrer,\s*\$ferien\)/', $route) === 1);
 pruefe('Route fährt die Nachprobe genau bei kein_token',
     $route !== '' && preg_match("/\\\$probe = \\\$grund === 'kein_token'\s*\?\s*messung_token_probe\(/", $route) === 1);

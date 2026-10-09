@@ -5,7 +5,9 @@
 //
 // Sendet EINE allgemeine Erinnerung an eine benannte WebUntis-Empfängerliste
 // (z. B. „alle Eltern"), die über typ + referenceId angesprochen wird. Der
-// Versand nutzt das bestehende Dienstkonto und den messages/users-Endpunkt mit
+// Versand läuft seit v0.9.72 über die Sitzung der angemeldeten Verwaltung
+// (E17; gemessen 09.10.2026: Admin und Lehrkraft lösen die Testliste auf und
+// senden an sie) und den messages/users-Endpunkt mit
 // einem recipientUserIds-Array – blockweise, damit auch sehr große Listen
 // (mehrere tausend) robust durchlaufen.
 //
@@ -43,7 +45,7 @@ function erinnerung_standard_text(): string
  *
  * Rückgabe: ['ok'=>bool, 'anzahl'=>int, 'vollstaendig'=>bool, 'grund'=>string]
  */
-function erinnerung_empfaenger_ermitteln(array $cfg, PDO $pdo): array
+function erinnerung_empfaenger_ermitteln(PDO $pdo, array $sitzung): array
 {
     $typ = marke_wert($pdo, 'erinnerung_liste_typ', 'DYNAMIC');
     $id  = (int)marke_wert($pdo, 'erinnerung_liste_id', '0');
@@ -52,24 +54,14 @@ function erinnerung_empfaenger_ermitteln(array $cfg, PDO $pdo): array
                 'grund' => 'Es ist keine Empfängerliste konfiguriert. Bitte '
                     . 'Listen-Typ und Listen-ID im Admin eintragen.'];
     }
-    $zugang = dk_lesen($cfg, $pdo);
-    if ($zugang === null) {
+    $rest = $sitzung['rest'] ?? null;
+    if (!$rest instanceof WebUntisRest) {
         return ['ok' => false, 'anzahl' => 0, 'vollstaendig' => false,
-                'grund' => 'Kein Dienstkonto hinterlegt – Auflösung nicht möglich.'];
+                'sitzung' => $sitzung['art'] ?? 'kaputt',
+                'grund' => wu_sitzung_meldung($sitzung['art'] ?? 'kaputt')];
     }
 
-    $wcfg = $cfg['webuntis'];
-    $wu = new WebUntisAuth($wcfg['base_url'], $wcfg['school'], $wcfg['client']);
     try {
-        $wu->authenticate($zugang['benutzer'], $zugang['passwort']);
-        $rest = new WebUntisRest($wcfg['base_url'], $wcfg['school']);
-        $rest->mitSessionCookie((string)$wu->sessionCookie());
-        $rest->setzeTimeout(20);
-        if (!$rest->tokenHolen()) {
-            return ['ok' => false, 'anzahl' => 0, 'vollstaendig' => false,
-                    'grund' => 'Kein REST-Zugang (JWT) über das Dienstkonto.'];
-        }
-        $rest->tenantErmitteln();
         $res = $rest->listeAufloesen($typ, $id);
         $ids = erinnerung_ids_aus_users($res['users']);
         return ['ok' => $ids !== [], 'anzahl' => count($ids),
@@ -81,8 +73,6 @@ function erinnerung_empfaenger_ermitteln(array $cfg, PDO $pdo): array
         error_log('sprechtag: Erinnerungs-Auflösung fehlgeschlagen: ' . $e->getMessage());
         return ['ok' => false, 'anzahl' => 0, 'vollstaendig' => false,
                 'grund' => 'Auflösung fehlgeschlagen: ' . $e->getMessage()];
-    } finally {
-        $wu->logout();
     }
 }
 
@@ -127,7 +117,7 @@ function erinnerung_antwort_deuten(array $r, int $erwartet): array
     if ($status === 401 || $status === 403) {
         return ['stand' => 'fehler', 'erreicht' => 0,
                 'grund' => 'WebUntis hat den Zugang abgelehnt (HTTP ' . $status
-                    . ') – Dienstkonto prüfen.'];
+                    . ') – Recht „Mitteilungen senden“ des angemeldeten Kontos prüfen.'];
     }
     if ($status < 200 || $status >= 300) {
         return ['stand' => 'fehler', 'erreicht' => 0,
@@ -174,7 +164,7 @@ function erinnerung_ids_aus_users(array $users): array
  * Rückgabe: ['gesendet'=>int, 'empfaenger'=>int, 'bloecke'=>int,
  *            'vollstaendig'=>bool, 'grund'=>string]
  */
-function erinnerung_versenden(array $cfg, PDO $pdo, int $blockGroesse = 500): array
+function erinnerung_versenden(PDO $pdo, array $sitzung, int $blockGroesse = 500): array
 {
     $typ = marke_wert($pdo, 'erinnerung_liste_typ', 'DYNAMIC');
     $listeId = (int)marke_wert($pdo, 'erinnerung_liste_id', '0');
@@ -183,10 +173,11 @@ function erinnerung_versenden(array $cfg, PDO $pdo, int $blockGroesse = 500): ar
                 'vollstaendig' => false,
                 'grund' => 'Keine Empfängerliste konfiguriert.'];
     }
-    $zugang = dk_lesen($cfg, $pdo);
-    if ($zugang === null) {
+    $rest = $sitzung['rest'] ?? null;
+    if (!$rest instanceof WebUntisRest) {
         return ['gesendet' => 0, 'empfaenger' => 0, 'bloecke' => 0, 'unklar' => false,
-                'vollstaendig' => false, 'grund' => 'Kein Dienstkonto hinterlegt.'];
+                'vollstaendig' => false, 'sitzung' => $sitzung['art'] ?? 'kaputt',
+                'grund' => wu_sitzung_meldung($sitzung['art'] ?? 'kaputt')];
     }
 
     // Betreff und Text (mit Platzhaltern) bestimmen.
@@ -204,19 +195,8 @@ function erinnerung_versenden(array $cfg, PDO $pdo, int $blockGroesse = 500): ar
     if ($text === '') $text = erinnerung_standard_text();
     $text = platzhalter_ersetzen($text, $werte);
 
-    $wcfg = $cfg['webuntis'];
-    $wu = new WebUntisAuth($wcfg['base_url'], $wcfg['school'], $wcfg['client']);
     try {
-        $wu->authenticate($zugang['benutzer'], $zugang['passwort']);
-        $rest = new WebUntisRest($wcfg['base_url'], $wcfg['school']);
-        $rest->mitSessionCookie((string)$wu->sessionCookie());
         $rest->setzeTimeout(30);
-        if (!$rest->tokenHolen()) {
-            return ['gesendet' => 0, 'empfaenger' => 0, 'bloecke' => 0, 'unklar' => false,
-                    'vollstaendig' => false,
-                    'grund' => 'Kein REST-Zugang (JWT) über das Dienstkonto.'];
-        }
-        $rest->tenantErmitteln();
 
         // 1) Empfänger auflösen
         $res = $rest->listeAufloesen($typ, $listeId);
@@ -273,7 +253,5 @@ function erinnerung_versenden(array $cfg, PDO $pdo, int $blockGroesse = 500): ar
         return ['gesendet' => 0, 'empfaenger' => 0, 'bloecke' => 0, 'unklar' => false,
                 'vollstaendig' => false,
                 'grund' => 'Versand fehlgeschlagen: ' . $e->getMessage()];
-    } finally {
-        $wu->logout();
     }
 }
