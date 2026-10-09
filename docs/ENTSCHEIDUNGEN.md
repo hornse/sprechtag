@@ -963,3 +963,32 @@ Konto. Nur eine Person hat gebucht, und sie hat es gerade selbst getan.
 geht die Absage über PARENTS. Ohne Kind-Kennung geht sie an das gebuchte
 Konto, damit es nie eine Absage ohne Empfänger gibt; nach dem Schema hat jede
 Buchung eine Kennung.
+
+---
+
+## E18 — Der Einladungsstatus wird aus den Buchungen abgeleitet, nicht gespeichert
+
+**Eingetragen:** 09.10.2026 · **noch nicht gebaut** · **Befund:**
+`docs/BEFUND-2026-10-09-einladung-nach-absage.md`
+
+**Lage:** `einladungen.erledigt` wird beim Buchen gesetzt und nie
+zurückgesetzt. Nach einer Absage, und beim Krankheitsausfall für alle
+Einladungen einer Lehrkraft auf einmal, steht weiter „Termin gebucht“,
+obwohl der Slot frei ist.
+
+**Entschieden (Betreiber):** **Ableiten.** „Termin gebucht“, solange eine
+Buchung desselben Kindes bei derselben Lehrkraft am selben Sprechtag
+besteht, sonst „offen“. Kein eigener Status „Termin abgesagt“.
+
+**Warum:** Ableiten behebt die Art des Fehlers, nicht den Einzelfall. Ein
+gespeicherter Zustand, der von seiner Quelle abweichen kann, wird irgendwann
+abweichen. Mitführen bräuchte zwei neue Schreibstellen (Absage, Ausfall).
+Bei der nächsten Stelle, die Buchungen löscht, wären es drei, und eine davon
+vergisst jemand. Dazu braucht Ableiten keine Migration und keine
+Bereinigung: Die schon falschen Einträge stimmen von selbst.
+
+**Beim Bauen zu entscheiden:** ob `einladungen.erledigt` entfällt (Migration)
+oder stehen bleibt. Ein Feld, das niemand mehr liest, ist derselbe stille
+Zustand.
+
+**Zeitpunkt:** nach dem laufenden Strang (Abnahme der abgelaufenen Sitzung).

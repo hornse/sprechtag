@@ -3,6 +3,11 @@
 **Art:** Fehler, auf der Liste. **Nicht jetzt bauen**, erst wenn der
 laufende Strang durch ist (Betreiber).
 
+> **Der gewichtigere Teil (Nachtrag unten):** der **Krankheitsausfall**.
+> Er löscht ALLE Buchungen einer Lehrkraft, und alle zugehörigen Einladungen
+> bleiben auf „Termin gebucht“. Auf einen Schlag zeigt so eine ganze
+> Sprechtagsliste eine falsche Auskunft. **Entschieden:** ableiten (E18).
+
 ## Gemeldet aus dem Betrieb (v0.9.73)
 
 Eine Lehrkraft sagt einen Termin ab. Der Slot ist danach frei, unter
@@ -51,3 +56,23 @@ Absage.
   („Termin abgesagt“) wäre beim Bauen als Richtungsfrage zu melden.
 - **Prüfungen:** Buchen → „Termin gebucht“, Absage → „offen“, Ausfall →
   „offen“, und erneut buchen → „Termin gebucht“.
+
+## Nachtrag 09.10.2026 — entschieden (Betreiber), noch nicht gebaut
+
+- **Ableiten, nicht mitführen** (E18). Der Status kommt aus den Buchungen:
+  „Termin gebucht“, solange eine Buchung desselben Kindes bei derselben
+  Lehrkraft am selben Sprechtag besteht, sonst „offen“.
+- **Gewichtung:** Der Krankheitsausfall ist der schwerere Fall, nicht ein
+  Nebenfall. Er stellt auf einen Schlag alle Einladungen einer Lehrkraft
+  falsch; die einzelne Absage stellt nur eine falsch. Die Prüfung zum
+  Ausfall gehört deshalb ausdrücklich dazu, mit **mehreren** Einladungen
+  derselben Lehrkraft.
+- **Keine Migration, keine Bereinigung:** Die schon falschen Einträge stimmen
+  von selbst, sobald der Status abgeleitet wird.
+- **Fachlich:** „offen“. Kein eigener Status „Termin abgesagt“; die Lehrkraft
+  soll sehen, dass noch etwas aussteht, nicht warum.
+- **`einladungen.erledigt`** wird überflüssig. Ob das Feld entfällt oder
+  stehen bleibt, wird beim Bauen entschieden. Ein Feld, das niemand mehr
+  liest, ist derselbe stille Zustand.
+- **Zeitpunkt:** erst, wenn der laufende Strang durch ist. Vorher steht noch
+  die Abnahme der abgelaufenen Sitzung aus (rund 30 Minuten Wartezeit).
