@@ -118,10 +118,32 @@ const t = { tag: 'table', klasse: 'tabelle', kinder: [] };
 const r = (() => { try { return tabelleRahmen(t); } catch (e) { return null; } })();
 pruefe('tabelleRahmen() legt die Tabelle als einziges Kind in div.tabelle-rahmen',
   !!r && r.tag === 'div' && r.klasse === 'tabelle-rahmen' && r.kinder.length === 1 && r.kinder[0] === t);
-// Gezählt wird ohne die Definition – sie enthält selbst „appendChild(tab)“.
-const jsOhne = js.replace('function tabelleRahmen(tab) {' + rahmenRumpf + '}', '');
+// Gezählt wird ohne die Definitionen – tabelleRahmen() enthält selbst
+// „appendChild(tab)“, kartenTabelle() selbst „tabelleRahmen(tab)“.
+// Entfernt wird roh bis zur passenden Klammer (Zeichenketten und
+// Kommentare übersprungen), nicht über den kommentarfreien Rumpf.
+function ohneDefinition(text, kopf) {
+  const a = text.indexOf(kopf);
+  if (a < 0 || text.indexOf(kopf, a + 1) >= 0) return text;
+  let k = text.indexOf('{', a + kopf.length), tiefe = 0;
+  while (k < text.length) {
+    const c = text[k], n = text[k + 1];
+    if (c === '/' && n === '/') { k = text.indexOf('\n', k); continue; }
+    if (c === '/' && n === '*') { k = text.indexOf('*/', k + 2) + 2; continue; }
+    if (c === "'" || c === '"' || c === '`') {
+      let e = k + 1;
+      while (e < text.length && text[e] !== c) { if (text[e] === '\\') e++; e++; }
+      k = e + 1; continue;
+    }
+    if (c === '{') tiefe++;
+    if (c === '}' && --tiefe === 0) return text.slice(0, a) + text.slice(k + 1);
+    k++;
+  }
+  return text;
+}
+const jsOhne = ohneDefinition(ohneDefinition(js, 'function tabelleRahmen('), 'function kartenTabelle(');
 const nTabellen = (jsOhne.match(/el\('table'/g) || []).length;
-const nRahmen   = (jsOhne.match(/tabelleRahmen\(\w*tab\)/g) || []).length;
+const nRahmen   = (jsOhne.match(/(?:tabelleRahmen|kartenTabelle)\(\w*tab\)/g) || []).length;
 pruefe('jede Tabelle bekommt ihren Rahmen (' + nTabellen + ' Tabellen, ' + nRahmen + ' Rahmen)',
   nTabellen >= 6 && nRahmen === nTabellen);
 pruefe('keine Tabelle wird ohne Rahmen eingehängt (kein appendChild(tab) / return tab)',
@@ -140,6 +162,85 @@ pruefe('Inhalt wächst nicht mit der breitesten Tabelle mit (main: min-width 0)'
 console.log('2b. Grundbreite: kein Auswahlfeld macht die Seite breiter');
 pruefe('select schneidet seinen Inhalt ab (overflow: hidden in der Grundregel)',
   wert(regel('select'), 'overflow') === 'hidden');
+
+// ------------------------------------------------------------
+// v0.9.60: gemessen übergelaufen (WebKit, tests/mobil-messung). Die
+// Knopfzeile .aktionen ragte bei 390 px in „Aktiver Sprechtag“ und
+// „Sprechtage“ 262 px über – abgeschnitten vom Block (overflow: hidden),
+// deshalb nicht als Seitenbreite sichtbar –, im Login-Protokoll bei 320 px
+// über die Seite. Das Dateifeld bei 320 px, die Schülerliste bei 320 px
+// um 67 px (abgeschnitten).
+console.log('2c. Gemessene Überläufe');
+pruefe('Knopfzeile bricht um (.aktionen: flex-wrap: wrap)',
+  wert(regel('.aktionen'), 'flex-wrap') === 'wrap');
+pruefe('Dateifeld nie breiter als sein Platz (input[type=file]: max-width: 100%)',
+  wert(regel('input[type=file]'), 'max-width') === '100%');
+pruefe('Schülerliste: Spaltenmindestbreite nie über dem Platz (minmax(min(15rem, 100%), 1fr))',
+  (wert(regel('.schueler-liste'), 'grid-template-columns') || '').replace(/\s+/g, ' ')
+    === 'repeat(auto-fill, minmax(min(15rem, 100%), 1fr))');
+
+// ------------------------------------------------------------
+// v0.9.60 (Entscheidung Betreiber): Die vier zu breiten Tabellen werden auf
+// schmalem Bildschirm zu Karten – je Zeile ein Block, die Überschriften
+// als Beschriftung darin. Seitliches Rollen bleibt Rückfall für die übrigen.
+// Umgeschaltet wird an DERSELBEN Grenze wie die Telefonansicht (760 px),
+// allein im CSS: dieselbe Tabelle, eine Darstellung je Breite.
+console.log('2d. Karten statt Rollen');
+const kartenRumpf = rumpf('function kartenTabelle(');
+// Ersatz-DOM, nur so großzügig wie nötig: Attribute und Klassen werden
+// gespeichert, nichts wird selbst angelegt.
+function knoten(tag, kinder) {
+  const k = { tag, kinder: kinder || [], attr: {}, klassen: [],
+    setAttribute(n, v) { this.attr[n] = String(v); },
+    classList: { add: (...c) => { k.klassen.push(...c); } },
+    appendChild(x) { this.kinder.push(x); return x; },
+    get children() { return this.kinder; },
+    querySelectorAll(sel) { return sel === 'tr' ? this.kinder.filter((x) => x.tag === 'tr') : []; } };
+  return k;
+}
+const kTab = knoten('table', [
+  knoten('tr', [knoten('th'), knoten('th'), knoten('th')]),
+  knoten('tr', [knoten('td'), knoten('td'), knoten('td')]),
+  knoten('tr', [knoten('td'), knoten('td'), knoten('td')]),
+]);
+['Zeit', 'Lehrkraft', ''].forEach((t, i) => { kTab.kinder[0].kinder[i].textContent = t; });
+let kErg = null;
+try {
+  const el = (tag, klasse) => { const k = knoten(tag); k.klasse = klasse || ''; return k; };
+  const rahmen = (tab) => new Function('el', 'tab', rahmenRumpf)(el, tab);
+  kErg = new Function('el', 'tabelleRahmen', 'tab', kartenRumpf)(el, rahmen, kTab);
+} catch (e) { kErg = null; }
+const zeilen = kTab.kinder.slice(1);
+pruefe('kartenTabelle(): jede Zelle trägt die Überschrift ihrer Spalte als data-label',
+  kartenRumpf !== '' && zeilen.every((z) => z.kinder[0].attr['data-label'] === 'Zeit'
+    && z.kinder[1].attr['data-label'] === 'Lehrkraft'));
+pruefe('… die Spalte ohne Überschrift (Knöpfe) wird Fußzeile der Karte (karte-aktion)',
+  kartenRumpf !== '' && zeilen.every((z) => z.kinder[2].klassen.includes('karte-aktion')
+    && !z.kinder[0].klassen.includes('karte-aktion')));
+pruefe('… Kopfzeile gekennzeichnet, Tabelle als „karten“, im rollenden Rahmen (Rückfall)',
+  !!kErg && kErg.klasse === 'tabelle-rahmen' && kErg.kinder[0] === kTab
+  && kTab.klassen.includes('karten') && kTab.kinder[0].klassen.includes('kopfzeile'));
+const KARTEN_ANSICHTEN = ['function ansichtMeineTermine(', 'function ansichtEinladungen(',
+  'function ansichtAdminLoginLog(', 'function ansichtMitteilungen('];
+const jeAnsicht = KARTEN_ANSICHTEN.map((k) => (rumpf(k).match(/kartenTabelle\(\w*tab\)/g) || []).length);
+const kartenGesamt = (jsOhne.match(/kartenTabelle\(/g) || []).length;
+pruefe('Karten genau in Meine Termine, Einladungen, Login-Protokoll, Mitteilungen ('
+  + jeAnsicht.join('/') + ', gesamt ' + kartenGesamt + ')',
+  jeAnsicht.every((n) => n === 1) && kartenGesamt === 4);
+pruefe('schmal: jede Zeile ein Block (.tabelle.karten tr: display block)',
+  wert(regel('.tabelle.karten tr', MOBIL), 'display') === 'block');
+pruefe('schmal: Kopfzeile ausgeblendet (.tabelle.karten tr.kopfzeile: display none)',
+  wert(regel('.tabelle.karten tr.kopfzeile', MOBIL), 'display') === 'none');
+pruefe('schmal: Beschriftung aus data-label vor dem Wert',
+  wert(regel('.tabelle.karten td::before', MOBIL), 'content') === 'attr(data-label)'
+  && wert(regel('.tabelle.karten td.karte-aktion::before', MOBIL), 'content') === 'none');
+// Eine Schwelle: Außerhalb der Medienabfrage der Telefonansicht steht keine
+// Regel für .karten – sonst entschieden zwei Stellen dieselbe Frage.
+const kartenAussen = bloecke(css).filter((b) => norm(b.kopf) !== MOBIL)
+  .flatMap((b) => (b.kopf.startsWith('@') ? bloecke(b.inhalt).map((x) => b.kopf + ' ' + x.kopf) : [b.kopf]))
+  .filter((k) => /\.karten\b/.test(k));
+pruefe('Kartenregeln nur in der Medienabfrage der Telefonansicht (' + kartenAussen.length + ' außerhalb)',
+  kartenAussen.length === 0 && /\.karten\b/.test(css));
 
 // ------------------------------------------------------------
 console.log('3. Safari unten und Ränder im Querformat');

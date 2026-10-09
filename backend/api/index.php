@@ -51,7 +51,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.59', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.60', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -740,10 +740,13 @@ if (($seg[0] ?? '') === 'sprechtage') {
 
     // ---- Teilnehmende Lehrkräfte ----
     if ($sid > 0 && ($seg[2] ?? '') === 'lehrer') {
+        // l.halbtags: Die Lehrkraft-Tabelle der Verwaltung liest es (Häkchen
+        // „½“); ohne das Feld stand es immer leer (v0.9.60). Kein neuer
+        // Empfängerkreis – GET /api/stammdaten liefert es denselben Angemeldeten.
         if ($methode === 'GET') {
             auth_require();
             $st = $pdo->prepare(
-                'SELECT l.id AS lehrer_id, l.kuerzel, l.name,
+                'SELECT l.id AS lehrer_id, l.kuerzel, l.name, l.halbtags,
                         sl.id AS zuweisung_id, sl.anwesend_von, sl.anwesend_bis,
                         sl.raum_id, sl.teilnahme, sl.bemerkung,
                         r.kuerzel AS raum_kuerzel

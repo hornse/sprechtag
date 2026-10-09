@@ -26,7 +26,10 @@ const S = {
   lehrerListe: null,
   gewaehlteLehrkraft: null,
   raster: [],
-  meineBuchungen: [],
+  // null = nicht geladen. [] hieße „keine Termine“ – mit [] als Startwert
+  // stand nach Anmeldung oder Neuladen „noch keine gebucht“, obwohl es
+  // Termine gab, denn geladen wird nur bei null (v0.9.60).
+  meineBuchungen: null,
   einladungen: null,
   einlLaedt: false,                  // Auto-Load-Guard Einladungen
   mitteilungen: null,
@@ -197,6 +200,38 @@ function tabelleRahmen(tab) {
   const r = el('div', 'tabelle-rahmen');
   r.appendChild(tab);
   return r;
+}
+
+/**
+ * Tabelle, die auf schmalem Bildschirm zu Karten wird (v0.9.60, Entscheidung
+ * Betreiber): je Zeile ein Block, die Überschrift jeder Spalte als
+ * Beschriftung der Zelle (data-label; das CSS setzt sie davor). Die Spalte
+ * ohne Überschrift trägt die Knöpfe und wird zur Fußzeile der Karte.
+ * Umgeschaltet wird allein im CSS, an der Grenze der Telefonansicht –
+ * dieselbe Tabelle, eine Darstellung je Breite. Die Rollen erhalten die
+ * Tabellenbedeutung für Bildschirmleser, wenn display sie aufhebt (Safari).
+ * Der rollende Rahmen bleibt darum herum.
+ */
+function kartenTabelle(tab) {
+  tab.classList.add('karten');
+  tab.setAttribute('role', 'table');
+  const zeilen = [...tab.querySelectorAll('tr')];
+  const kopf = zeilen[0];
+  const titel = [...kopf.children].map((th) => th.textContent);
+  kopf.classList.add('kopfzeile');
+  for (const tr of zeilen) {
+    tr.setAttribute('role', 'row');
+    if (tr === kopf) {
+      [...tr.children].forEach((th) => th.setAttribute('role', 'columnheader'));
+      continue;
+    }
+    [...tr.children].forEach((td, i) => {
+      td.setAttribute('role', 'cell');
+      if (titel[i]) td.setAttribute('data-label', titel[i]);
+      else td.classList.add('karte-aktion');
+    });
+  }
+  return tabelleRahmen(tab);
 }
 
 function sektion(titel, beschreibung) {
@@ -567,10 +602,11 @@ async function ladeStammdaten() {
 
 async function abmelden() {
   await api('/api/auth/logout', { method: 'POST' });
-  S.user = null; S.ansicht = 'login'; S.aktiverSprechtag = null;
-  // Hash leeren, damit ein Neuladen nach dem Abmelden auf dem Login bleibt.
-  if (location.hash) { hashIntern = true; location.hash = ''; setTimeout(() => { hashIntern = false; }, 0); }
-  zeichne();
+  // Neu laden statt neu zeichnen: Sonst lebte der Zustand des Kontos
+  // weiter (Termine, Kind, persönlicher Kalender-Link), und wer sich danach
+  // im selben Browser anmeldete, sah ihn (v0.9.60). Ohne Hash, damit die
+  // Seite auf der Anmeldung beginnt.
+  location.replace(location.pathname);
 }
 
 // Mobiles Menü: Hamburger öffnet, Overlay schließt.
@@ -856,6 +892,9 @@ function sprechtagWaehler(ziel, beiWechsel) {
   w.querySelector('select').addEventListener('change', (e) => {
     S.aktiverSprechtag = S.sprechtage.find((s) => String(s.id) === e.target.value);
     S.lehrerListe = null; S.gewaehlteLehrkraft = null; S.raster = [];
+    // Die eigenen Termine gehören zum Sprechtag – sonst zeigte die
+    // Übersicht auf der Buchungsseite die des vorigen (v0.9.60).
+    S.meineBuchungen = null; S.meineLaedt = false;
     if (beiWechsel) beiWechsel();
     zeichne();
   });
@@ -1437,7 +1476,7 @@ async function buchen(lehrerId, slot, kommentar) {
 // ============================================================
 function ansichtMeineTermine(ziel) {
   ziel.appendChild(el('h2', null, 'Meine Termine'));
-  if (!sprechtagWaehler(ziel, () => ladeMeineBuchungen())) return;
+  if (!sprechtagWaehler(ziel)) return;
 
   if (S.meineBuchungen === null) {
     // Automatisch laden, sobald die Ansicht sichtbar ist. Der Guard verhindert
@@ -1492,7 +1531,7 @@ function ansichtMeineTermine(ziel) {
     tr.appendChild(td);
     tab.appendChild(tr);
   }
-  ziel.appendChild(tabelleRahmen(tab));
+  ziel.appendChild(kartenTabelle(tab));
   ziel.appendChild(knopf('Aktualisieren', 'klein', () => ladeMeineBuchungen()));
 
   // ---- Kalender abonnieren -------------------------------------------
@@ -1536,8 +1575,12 @@ function ansichtMeineTermine(ziel) {
 }
 
 async function ladeMeineBuchungen() {
+  const sid = S.aktiverSprechtag.id;
   try {
-    const d = await api('/api/buchungen?sprechtag=' + S.aktiverSprechtag.id);
+    const d = await api('/api/buchungen?sprechtag=' + sid);
+    // Inzwischen anderer Sprechtag gewählt: Diese Antwort gehört nicht
+    // mehr hierher; das Laden für den neuen läuft schon.
+    if (!S.aktiverSprechtag || S.aktiverSprechtag.id !== sid) return;
     S.meineBuchungen = d.buchungen || [];
     S.meineLaedt = false;
     meldung(null);
@@ -2175,7 +2218,7 @@ function ansichtEinladungen(ziel) {
     tr.appendChild(td);
     tab.appendChild(tr);
   }
-  ziel.appendChild(tabelleRahmen(tab));
+  ziel.appendChild(kartenTabelle(tab));
 }
 
 async function ladeSchueler() {
@@ -3409,7 +3452,7 @@ function ansichtAdminLoginLog(ziel) {
     tr.appendChild(el('td', null, e.grund || ''));
     tab.appendChild(tr);
   }
-  box.appendChild(tabelleRahmen(tab));
+  box.appendChild(kartenTabelle(tab));
 }
 
 // ============================================================
@@ -3883,7 +3926,7 @@ function ansichtMitteilungen(ziel) {
     tr.appendChild(tdA);
     tab.appendChild(tr);
   }
-  ziel.appendChild(tabelleRahmen(tab));
+  ziel.appendChild(kartenTabelle(tab));
   ziel.appendChild(knopf('Aktualisieren', 'klein', async () => {
     await ladeMitteilungen();
     const o = (S.mitteilungen || []).filter((m) => m.status === 'offen').length;

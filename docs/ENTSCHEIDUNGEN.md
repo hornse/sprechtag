@@ -602,3 +602,37 @@ Tabellen und Kacheln, Eingabefelder –, relativ statt fest. Nicht
 umgestellt wird, was nicht mitwachsen soll: Rahmenstärken, kleine
 Abstände, Symbolgrößen. Umgestellt wird nach Liste und einzeln, nicht in
 einem Umbau; die Liste steht im CHANGELOG zu v0.9.59.
+
+## E13 — Karten statt seitlichem Rollen; Abmelden lädt die Seite neu
+
+**Stand 09.10.2026, v0.9.60.**
+
+**Karten (Entscheidung des Betreibers).** Die vier Tabellen, die auf dem
+Telefon zu breit sind – Meine Termine, Einladungen, Login-Protokoll,
+Mitteilungen –, werden auf schmalem Bildschirm zu Karten: je Zeile ein
+Block, die Spaltenüberschriften als Beschriftung darin, nur senkrecht
+rollen. Begründung des Betreibers: Seitliches Wischen ist eine Geste, die
+man kennen muss, und eine halb sichtbare Tabelle sieht aus wie ein Fehler.
+Ein Muster für alle vier, auch für die langen Listen der Verwaltung. Der
+rollende Rahmen (E11) bleibt Rückfall für die übrigen Tabellen.
+
+Zwei Festlegungen der Entwicklung:
+- **Schwelle:** dieselbe wie die Telefonansicht (760 px), in derselben
+  Medienabfrage. Keine zweite Grenze – zwei Schwellen für dieselbe Frage
+  wären zwei Wahrheiten. Folge: Im Querformat (über 760 px, Rechneransicht
+  mit Seitenleiste) bleiben die Tabellen Tabellen und rollen, wo sie nicht
+  passen (gemessen: drei der vier). Ob das so bleibt, ist offen.
+- **Knöpfe:** Die Spalte ohne Überschrift („Verwerfen“, „Absagen“,
+  „Löschen“) wird die Fußzeile der Karte, ohne Beschriftung; leer entfällt
+  sie.
+
+Umgeschaltet wird allein im CSS: `kartenTabelle()` versieht die Zellen mit
+der Überschrift ihrer Spalte (`data-label`) und gibt der Tabelle Rollen,
+damit Bildschirmleser sie als Tabelle erkennen, wenn `display` die
+Bedeutung aufhebt. Eine Tabelle, eine Darstellung je Breite.
+
+**Abmelden lädt die Seite neu.** Bisher zeichnete Abmelden nur neu; der
+Zustand des Kontos lebte weiter – eigene Termine, gewähltes Kind,
+persönlicher Kalender-Link –, und wer sich danach im selben Browser
+anmeldete, bekam ihn zu sehen. Eine Liste der zurückzusetzenden Felder
+würde mit jedem neuen Feld veralten; ein Neuladen setzt alle zurück.

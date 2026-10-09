@@ -437,7 +437,9 @@ mut MO7 $APP "s/\\\$\('#menue-overlay'\)\?\.addEventListener\('click', \(\) => m
   $MO "Tippen auf den Schleier ruft menueSchliessen()"
 mut MO8 $APP 's/  r\.appendChild\(tab\);\n  return r;/  return tab;/' \
   $MO "tabelleRahmen() legt die Tabelle als einziges Kind in div.tabelle-rahmen"
-mut MO9 $APP 's/box\.appendChild\(tabelleRahmen\(tab\)\);/box.appendChild(tab);/' \
+# MO9 seit v0.9.60 auf die Sonderlehrkräfte-Tabelle: Die bisherige Stelle
+# (Login-Protokoll) geht jetzt durch kartenTabelle(); MO35 deckt sie ab.
+mut MO9 $APP 's/neu\.appendChild\(tabelleRahmen\(tab\)\);/neu.appendChild(tab);/' \
   $MO "jede Tabelle bekommt ihren Rahmen"
 mut MO10 $APP 's/    return tabelleRahmen\(tab\);/    tabelleRahmen(tab);\n    return tab;/' \
   $MO "keine Tabelle wird ohne Rahmen eingehängt"
@@ -469,6 +471,61 @@ mut MO22 $CSS 's/\n         overflow: hidden; \}/ \/* overflow: hidden; *\/ }/' 
   $MO "select schneidet seinen Inhalt ab"
 mut MO23 $CSS 's/\n         overflow: hidden; \}\nselect\.konflikt \{ border-width: 2px; \}/ }\nselect.konflikt { border-width: 2px; overflow: hidden; }/' \
   $MO "select schneidet seinen Inhalt ab"
+
+# v0.9.60 – Meine Termine gibt keine falsche Auskunft (C1)
+MT=tests/frontend_meine_termine_test.js
+mut MT1 $APP 's/  meineBuchungen: null,\n/  meineBuchungen: [],\n/' \
+  $MT "Startwert der eigenen Termine ist „nicht geladen“"
+mut MT2 $APP 's/(function zeichneTermineKompakt\(ziel\) \{\n(?:  \/\/[^\n]*\n)*)  if \(S\.meineBuchungen === null\) \{/$1  if (false) {/' \
+  $MT "Startzustand: Übersicht lädt die Termine"
+mut MT3 $APP 's/    S\.meineBuchungen = null; S\.meineLaedt = false;\n    if \(beiWechsel\)/    if (beiWechsel)/' \
+  $MT "Wechsel des Sprechtags verwirft die Termine des vorigen"
+mut MT4 $APP 's/if \(!S\.aktiverSprechtag \|\| S\.aktiverSprechtag\.id !== sid\) return;/if (false) return;/' \
+  $MT "Antwort für einen inzwischen abgewählten Sprechtag wird verworfen"
+mut MT5 $APP 's/  location\.replace\(location\.pathname\);/  S.user = null; S.ansicht = \x27login\x27;\n  zeichne();/' \
+  $MT "Abmelden lädt die Seite ohne Hash neu"
+mut MT6 $APP 's/  location\.replace\(location\.pathname\);/  location.replace(location.pathname + location.hash);/' \
+  $MT "Abmelden lädt die Seite ohne Hash neu"
+
+# v0.9.60 – halbtags in GET /api/sprechtage/{id}/lehrer (C2). Der Kommentar
+# im Zweig nennt „l.halbtags“ weiter: SL1 belegt, dass er nicht zählt.
+# Verankert an sl.id AS zuweisung_id: „l.name, l.halbtags,“ steht auch in
+# der Abfrage von /api/anzeige – ohne Anker traf die Ersetzung DORT (erster
+# Lauf: SL1/SL2 nicht angeschlagen, weil die Route unverändert war).
+SL=tests/run_sprechtag_lehrer.php
+IDX=backend/api/index.php
+mut SL1 $IDX 's/l\.name, l\.halbtags,(\n\s+sl\.id AS zuweisung_id)/l.name,$1/' \
+  $SL "jede Zeile führt halbtags"
+mut SL2 $IDX 's/l\.name, l\.halbtags,(\n\s+sl\.id AS zuweisung_id)/l.name, 0 AS halbtags,$1/' \
+  $SL "Halbtagskraft 1, andere 0"
+
+# v0.9.60 – gemessene Überläufe (Teil B)
+mut MO24 $CSS 's/;\n            flex-wrap: wrap; \}/; }/' \
+  $MO "Knopfzeile bricht um"
+mut MO25 $CSS 's/\n  max-width: 100%;   \/\* sonst bei 320 px[^\n]*//' \
+  $MO "Dateifeld nie breiter als sein Platz"
+mut MO26 $CSS 's/minmax\(min\(15rem, 100%\), 1fr\)/minmax(15rem, 1fr)/' \
+  $MO "Schülerliste: Spaltenmindestbreite nie über dem Platz"
+
+# v0.9.60 – Karten statt Rollen (Teil A)
+mut MO27 $APP 's/if \(titel\[i\]\) td\.setAttribute\(\x27data-label\x27, titel\[i\]\);/if (titel[i]) td.title = titel[i];/' \
+  $MO "kartenTabelle(): jede Zelle trägt die Überschrift ihrer Spalte als data-label"
+mut MO28 $APP 's/\n      else td\.classList\.add\(\x27karte-aktion\x27\);//' \
+  $MO "… die Spalte ohne Überschrift (Knöpfe) wird Fußzeile der Karte"
+mut MO29 $APP 's/\n  return tabelleRahmen\(tab\);\n\}/\n  return tab;\n}/' \
+  $MO "… Kopfzeile gekennzeichnet, Tabelle als „karten“, im rollenden Rahmen"
+mut MO30 $APP 's/ziel\.appendChild\(kartenTabelle\(tab\)\);/ziel.appendChild(tabelleRahmen(tab));/' \
+  $MO "Karten genau in Meine Termine, Einladungen, Login-Protokoll, Mitteilungen"
+mut MO31 $CSS 's/\.tabelle\.karten tr \{ display: block;/.tabelle.karten tr { display: table-row;/' \
+  $MO "schmal: jede Zeile ein Block"
+mut MO32 $CSS 's/\.tabelle\.karten tr\.kopfzeile \{ display: none; \}/.tabelle.karten tr.kopfzeile { }/' \
+  $MO "schmal: Kopfzeile ausgeblendet"
+mut MO33 $CSS 's/content: attr\(data-label\);/content: "";/' \
+  $MO "schmal: Beschriftung aus data-label vor dem Wert"
+mut MO35 $APP 's/box\.appendChild\(kartenTabelle\(tab\)\);/box.appendChild(tab);/' \
+  $MO "keine Tabelle wird ohne Rahmen eingehängt"
+mut MO34 $CSS 's/\z/\n.tabelle.karten tr { display: block; }\n/' \
+  $MO "Kartenregeln nur in der Medienabfrage der Telefonansicht"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi

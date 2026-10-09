@@ -1,5 +1,101 @@
 # Changelog - sprechtag
 
+## v0.9.60 (Oktober 2026) – Mobile Ansicht, dritter Durchgang: Karten statt Rollen; zwei Altfunde
+
+Bestätigt am Gerät (v0.9.59): Die Seite lässt sich im Hochformat nicht mehr
+schieben, das Menü schließt beim Tippen auf die Kopfleiste, die
+Sprechtag-Namen stehen in der Liste ganz da, das Querformat passt.
+
+### Teil C1 – „Meine Termine: noch keine gebucht“, obwohl Termine bestehen
+**Jetzt gemessen, nicht mehr nur aus dem Code geschlossen:** Unter v0.9.59
+zeigt die Übersicht auf der Buchungsseite „noch keine gebucht“, während
+die Ersatz-API 5 Termine liefert (WebKit, tests/mobil-messung); unter
+v0.9.60 „5 Termine“. Ursache: Die Liste startete als `[]` („keine“) statt
+`null` („nicht geladen“), und geladen wird nur bei `null`. Im selben Weg
+lagen drei weitere Ursachen derselben falschen Auskunft, mitbehoben (alle
+drei aus dem Code geschlossen, im Browser nicht nachgestellt; die
+Prüfungen führen die Funktionen aus):
+- Ein Wechsel des Sprechtags ließ die Termine des vorigen stehen (der
+  Wechsel setzt sie jetzt für jede Ansicht zurück).
+- Eine späte Antwort für einen inzwischen abgewählten Sprechtag
+  überschrieb die richtige (wird jetzt verworfen).
+- **Nach dem Abmelden lebte der Zustand des Kontos weiter.** Wer sich
+  danach im selben Browser anmeldete, sah die Termine des vorigen Kontos
+  und dessen persönlichen Kalender-Abo-Link. Abmelden lädt die Seite jetzt neu (E13).
+
+### Teil C2 – Halbtags-Häkchen lud immer leer
+`GET /api/sprechtage/{id}/lehrer` liefert jetzt `l.halbtags`. Geprüft wird
+die Abfrage selbst, aus `index.php` gelesen und gegen SQLite ausgeführt.
+Kein neuer Empfängerkreis: `GET /api/stammdaten` liefert das Feld schon
+denselben Angemeldeten. **Im Betrieb nicht gesehen** – das Häkchen zeigt
+erst ein Blick in „Aktiver Sprechtag“.
+
+### Teil B – gemessene Überläufe (WebKit)
+Das Werkzeug misst jetzt auch knappe Stellen, die die Seite nicht
+verbreitern, weil ein Block (`overflow: hidden`) sie abschneidet. Das
+fand mehr als bekannt:
+
+| Stelle | v0.9.59 | v0.9.60 |
+|---|---|---|
+| Knopfzeile `.aktionen`, „Aktiver Sprechtag“/„Sprechtage“, **390 px** | 262 px abgeschnitten | 0 |
+| dieselbe, Login-Protokoll, 320 px | Seite 346 | 320 |
+| Dateifeld „Logo hochladen“, 320 px | Seite 351 | 320 |
+| Schülerliste (Einladungen), 320 px | 67 px abgeschnitten (nicht 2 – „rechnerisch“ war falsch) | 0 |
+
+Behebung: `.aktionen` bricht um, `input[type=file]` höchstens 100 %,
+Schülerliste `minmax(min(15rem, 100%), 1fr)`.
+
+Gemessen und belassen (Grundsatz: was passt, bleibt): Raumspalte (15rem,
+Feld 14rem) – macht die Tabelle in „Aktiver Sprechtag“ 702 px breit, die
+im Rahmen rollt, die Seite bleibt bei 320 und 390 px; Zeilen-Labels (16rem)
+überall 0; Kurzmeldung (22rem) mit langer Fehlermeldung bei 320 px 0 –
+sie hängt rechts und schrumpft auf den Platz. Die Kurzmeldung wird im
+Werkzeug so gesetzt, wie `toast()` es tut (Text und Klasse); die Funktion
+selbst liegt in der IIFE.
+
+### Teil A – Karten statt seitlichem Rollen (E13)
+Meine Termine, Einladungen, Login-Protokoll und Mitteilungen werden bis
+760 px zu Karten: je Zeile ein Block, die Spaltenüberschrift links als
+Beschriftung, der Wert daneben. Die Spalte ohne Überschrift („Verwerfen“,
+„Absagen“, „Löschen“) ist die Fußzeile der Karte. Eine Funktion
+(`kartenTabelle()`), umgeschaltet allein im CSS an der Grenze der
+Telefonansicht. Gemessen (WebKit): bei 390 und 320 px sind alle vier
+Tabellen so breit wie ihr Rahmen. **Im Querformat (844 px, Rechneransicht)
+rollen Meine Termine, Mitteilungen und Login-Protokoll weiter** – dort
+gilt die Grenze nicht.
+
+### Neue Funde, nicht behoben
+- `GET /api/sprechtage/{id}/lehrer` verlangt nur eine Anmeldung, keine
+  Rolle: Jedes angemeldete Konto, auch Eltern, kann für alle aktiven
+  Lehrkräfte Teilnahme, Anwesenheit, Raum und Bemerkung abrufen. Aus dem
+  Code geschlossen.
+- `GET /api/anzeige` (öffentlich, ohne Anmeldung) liefert `halbtags` je
+  Lehrkraft; die Anzeige benutzt das Feld nicht. Der Kommentar dort sagt
+  „ohne persönliche Daten“. Aus dem Code geschlossen.
+
+### Abnahme auf dem iPhone
+- Mitteilungen, Meine Termine, Einladungen, Login-Protokoll: Karten statt
+  Tabelle, nur senkrecht?
+- „Verwerfen“/„Absagen“ unten in der Karte erreichbar?
+- Buchungsseite direkt nach Anmeldung: stimmt „Meine Termine: N Termine“?
+- Verwaltung „Aktiver Sprechtag“: Knopfzeile vollständig, Häkchen „½“
+  bei Halbtagskräften gesetzt?
+- Abmelden: Seite beginnt auf der Anmeldung.
+
+### Prüfungen
+- 979 → 1000 Prüfzeilen in 52 Suiten (vorher 50), alle grün;
+  `tests-sprechtag.sh` 29. Neu: `frontend_meine_termine_test.js` (6,
+  ausgeführt), `run_sprechtag_lehrer.php` (4, Abfrage gegen SQLite);
+  `frontend_mobil_test.js` 21 → 32. `frontend_navigation_test.js`: die
+  Prüfung „Abmelden leert den Hash“ prüft jetzt das Neuladen ohne Hash.
+- Mutationen 136 → 156 Ergebniszeilen, alle angeschlagen, H4 grün,
+  Rücknahme gegen Prüfsummen belegt. Im ersten Lauf drei nicht
+  angeschlagen, alle drei Werkzeugfehler: SL1/SL2 trafen dasselbe Muster
+  in der Abfrage von `/api/anzeige` statt in der Route (jetzt verankert);
+  MO9 zielte auf die Login-Protokoll-Tabelle, die jetzt durch
+  `kartenTabelle()` geht (umgestellt auf die Sonderlehrkräfte, neu MO35
+  für die alte Stelle).
+
 ## v0.9.59 (Oktober 2026) – Mobile Ansicht, zweiter Durchgang: die Seite selbst war zu breit
 
 ### Befund vom Gerät und warum die Messung ihn nicht sah

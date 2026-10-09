@@ -40,7 +40,7 @@ pruefe('View-Hashes mit /-Präfix (keine Kollision mit Sprungmarken)',
   js.includes("'#/' + ziel") && js.includes("startsWith('#/')"));
 pruefe('hashchange-Listener (Vor/Zurück)', js.includes("addEventListener('hashchange'"));
 pruefe('Rollenprüfung für Ansichten', js.includes('function ansichtErlaubt'));
-pruefe('Abmelden leert den Hash', js.includes("location.hash = ''"));
+pruefe('Abmelden lädt ohne Hash neu (leert den Hash)', js.includes('location.replace(location.pathname);'));
 
 console.log(fehler === 0 ? '\nALLE TESTS GRÜN' : '\n' + fehler + ' FEHLER');
 process.exit(fehler === 0 ? 0 : 1);

@@ -331,8 +331,9 @@
   }
 
   // ---------- Admin: Lehrkräfte je Sprechtag --------------------------------
-  // Spalten exakt wie GET /api/sprechtage/{id}/lehrer – OHNE halbtags (das
-  // Backend liefert es dort nicht).
+  // Spalten exakt wie GET /api/sprechtage/{id}/lehrer. halbtags seit
+  // v0.9.60 (vorher lieferte das Backend es dort nicht); Werte wie in den
+  // Stammdaten unten (n = 1 und 5).
   function sprechtagLehrer() {
     const aus = [];
     for (let n = 1; n <= 15; n++) {
@@ -342,6 +343,7 @@
       const r = n <= 8 ? RAEUME[n - 1] : (n === 9 ? RAEUME[0] : (n === 10 ? RAEUME[2] : null));
       aus.push({
         lehrer_id: lid(n), kuerzel: kuerzel(n), name: lehrerName(n),
+        halbtags: n === 1 || n === 5 ? '1' : '0',
         zuweisung_id: ohneZuweisung ? null : String(4000 + n),
         anwesend_von: n === 5 ? '15:00:00' : (n === 7 ? '17:00:00' : null),
         anwesend_bis: n === 5 ? '16:40:00' : null,

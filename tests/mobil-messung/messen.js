@@ -22,7 +22,7 @@ const { webkit, devices } = require(process.env.PLAYWRIGHT_CORE);
 const GERAET = process.env.GERAET || 'iPhone 13';
 const L = [
   'login gast login',
-  'buchen eltern buchen kachel,suche',
+  'buchen eltern buchen kachel,suche,toast',
   'meine eltern buchen meine',
   'hilfe eltern hilfe',
   'lehrkraft lehrkraft lehrkraft unten',
@@ -69,7 +69,10 @@ const L = [
       }
       zeile(id, e.map((x) => x.stufe + ': Seite ' + x.seitenbreite + (x.seitenbreite > x.viewport ? ' > ' + x.viewport : '')
         + (x.verursacher.length ? ' VERURSACHER ' + x.verursacher.map((v) => v.el).join(', ') : '')
-        + (x.tabellen.length ? ', Tabellen ' + x.tabellen.join(' ') : '')).join(' | '));
+        + (x.tabellen.length ? ', Tabellen ' + x.tabellen.join(' ') : '')
+        + (Object.keys(x.knapp).length ? ', knapp ' + Object.entries(x.knapp)
+          .map(([k, v]) => k + ' ' + v.n + '× ' + (v.ueber > 0 ? 'ÜBER ' + v.ueber : v.ueber)).join('; ') : '')
+        + (x.uebersicht ? ', Übersicht „' + x.uebersicht.titel + '“ (Ersatz-API: ' + x.uebersicht.mock + ')' : '')).join(' | '));
     } catch (err) {
       zeile(id, 'KEIN ERGEBNIS (' + String(err.message).split('\n')[0] + ')'); fehlt++;
     } finally { await p.close(); }

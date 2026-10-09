@@ -2,7 +2,7 @@
 // tests/mobil-messung/stub.js – ersetzt fetch für /api/* durch mock.js
 // und misst nach dem Laden (Aufruf über messen.sh → messen.js).
 //   ?rolle=eltern|lehrkraft|admin|gast  #/ansicht
-//   &aktion=kachel,suche,meine,offen,oben,unten (nacheinander)
+//   &aktion=kachel,suche,meine,offen,oben,unten,toast (nacheinander)
 // Das Ergebnis steht danach in window.__messung (messen.js liest es).
 // Übergänge werden abgeschaltet, damit der Endzustand gemessen wird.
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -69,6 +69,48 @@
     return gefunden;
   }
 
+  // Knappe Stellen (v0.9.60): Was rechnerisch knapp ist, wird gemessen,
+  // auch wo es die Seite nicht verbreitert – in einem Block mit
+  // overflow: hidden wird Überstand abgeschnitten statt geschoben, und eine
+  // feste Meldung ragt links aus dem Bild, ohne dass sich etwas rollen lässt.
+  // Je Selektor: Anzahl sichtbarer Elemente und der größte Überstand in px
+  // (Inhalt über den eigenen Kasten, Kasten über den Inhaltsbereich des
+  // Elternelements bzw. bei position: fixed über den Viewport). > 0 = über.
+  const KNAPP = ['.schueler-liste', '.zeile > label', '#toast', '.aktionen',
+    'input[type=file]', '.raum-zelle'];
+  function knapp() {
+    const vw = document.documentElement.clientWidth;
+    const aus = {};
+    for (const sel of KNAPP) {
+      let n = 0, ueber = -Infinity;
+      for (const e of document.querySelectorAll(sel)) {
+        const cs = getComputedStyle(e);
+        const r = e.getBoundingClientRect();
+        if (cs.display === 'none' || (r.width === 0 && r.height === 0)) continue;
+        n++;
+        let links = 0, rechts = vw;
+        if (cs.position !== 'fixed' && e.parentElement) {
+          const p = e.parentElement, pr = p.getBoundingClientRect(), pc = getComputedStyle(p);
+          links = pr.left + parseFloat(pc.borderLeftWidth) + parseFloat(pc.paddingLeft);
+          rechts = pr.right - parseFloat(pc.borderRightWidth) - parseFloat(pc.paddingRight);
+        }
+        ueber = Math.max(ueber, e.scrollWidth - e.clientWidth, r.right - rechts, links - r.left);
+      }
+      if (n) aus[sel] = { n, ueber: Math.round(ueber) };
+    }
+    return aus;
+  }
+  // Auskunft der Terminübersicht (v0.9.60): Titel gegen die Zahl der
+  // Termine, die die Ersatz-API für den gewählten Sprechtag liefert.
+  function uebersicht() {
+    const s = [...document.querySelectorAll('#ansicht details.block > summary')]
+      .find((x) => /^Meine Termine/.test(x.textContent.trim()));
+    if (!s) return null;
+    const w = document.querySelector('#sprechtag-wahl');
+    const r = w ? window.mockAntwort(rolle, '/api/buchungen?sprechtag=' + w.value, 'GET') : null;
+    return { titel: s.textContent.trim(), mock: r && r.json.buchungen ? r.json.buchungen.length : null };
+  }
+
   function messen(stufe) {
     const vw = document.documentElement.clientWidth;
     // Voraussetzung: App und Stilvorlage sind geladen. Ohne sie misst das
@@ -83,6 +125,7 @@
     return { stufe, app, css, skriptfehler: skriptfehler.slice(0, 3), viewport: vw, innerWidth,
       seitenbreite, seitenhoehe: document.documentElement.scrollHeight,
       verursacher: seitenbreite > vw ? verursacher() : [],
+      knapp: knapp(), uebersicht: uebersicht(),
       tabellen: [...document.querySelectorAll('table')].map((t) => t.className + ':' + Math.round(t.getBoundingClientRect().width)
         + '/' + Math.round(t.parentElement.getBoundingClientRect().width)) };
   }
@@ -101,6 +144,12 @@
         if (b) b.click(); await warte(800); }
       if (a === 'oben') { window.scrollTo(0, 0); await warte(100); }
       if (a === 'unten') { window.scrollTo(0, document.documentElement.scrollHeight); await warte(300); }
+      // Kurzmeldung: dasselbe, was toast() in app.js tut (Text und Klasse
+      // setzen) – toast() selbst liegt in der IIFE und ist nicht erreichbar.
+      // Text erfunden, so lang wie eine Fehlermeldung des Servers sein kann.
+      if (a === 'toast') { const t = document.querySelector('#toast');
+        if (t) { t.textContent = 'Dieser Termin ist leider gerade vergeben worden. Bitte wählen Sie einen anderen.';
+          t.className = 'toast fehler'; } await warte(100); }
       if (a === 'offen') { document.querySelectorAll('details').forEach((d) => { d.open = true; }); await warte(300); }
       erg.push(messen('nach ' + a));
     }
