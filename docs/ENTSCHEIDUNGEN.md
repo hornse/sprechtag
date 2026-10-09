@@ -577,3 +577,28 @@ Tabelle geht durch `tabelleRahmen()`; eine Prüfung zählt Tabellen gegen
 Rahmen. Ob einzelne Tabellen auf dem Telefon besser als Karten
 erscheinen (etwa „Meine Termine“ für Eltern), entscheidet ein späterer
 Durchgang anhand der Screenshots.
+
+## E12 — Mobile Ansicht: WebKit statt Chrome als Hilfsmessung; relativ statt fest, wo Breite den Platz bestimmt
+
+**Stand 09.10.2026, v0.9.59.** Ergänzt E11, hebt nichts davon auf.
+
+**Anlass.** Auf dem iPhone ließ sich unter v0.9.58 die ganze Seite seitlich
+verschieben (Screenshot des Betreibers), während die Hilfsmessung aus E11
+für dieselben Ansichten „390 px, passt“ meldete. Sie maß in Chrome, und
+Chrome zeigt den Fehler nicht.
+
+**Die Hilfsmessung läuft deshalb in WebKit mit iPhone-Nachbildung**
+(Playwright, Viewport-Meta gilt, Touch), nicht mehr in Chrome. Unter
+v0.9.58 zeigt sie den Fehler: 7 von 16 Ansichten 590 statt 390 px. Sie
+misst die Seitenbreite gegen den Viewport und benennt das verursachende
+Element durch Ausblenden, nicht durch die Lage von Kästen – der gefundene
+Verursacher lag mit seinem Kasten ganz im Bild. Es bleibt eine
+Hilfsmessung: WebKit auf dem Mac ist nicht Safari auf iOS, die Daten sind
+erfunden. Messinstrument bleibt das Gerät (E11).
+
+**Grundsatz (Entscheidung des Betreibers):** Wo eine Breite den Platz
+bestimmt – Seitenleiste, Spaltenzahl der Kacheln, Mindestbreiten von
+Tabellen und Kacheln, Eingabefelder –, relativ statt fest. Nicht
+umgestellt wird, was nicht mitwachsen soll: Rahmenstärken, kleine
+Abstände, Symbolgrößen. Umgestellt wird nach Liste und einzeln, nicht in
+einem Umbau; die Liste steht im CHANGELOG zu v0.9.59.

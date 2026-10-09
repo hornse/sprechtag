@@ -610,8 +610,13 @@ button.gefahr { background: var(--rot); }
 
 label.inline { display: inline-flex; align-items: center; font-weight: 400; margin-right: 1rem; }
 .gruppen-zeile { margin: .6rem 0; }
+/* overflow: hidden – in WebKit (Safari) zählt der Text der längsten Option
+   zur Inhaltsbreite des Felds, auch wenn es selbst schmal ist. Über die
+   Mindestbreite seines Behälters machte das die ganze Seite am iPhone
+   590 statt 390 px breit (v0.9.59, gemessen mit tests/mobil-messung). */
 select { display: block; width: 100%; margin-top: .25rem; padding: .5rem .6rem;
-         font: inherit; font-weight: 400; border: 1px solid var(--rand); border-radius: 6px; }
+         font: inherit; font-weight: 400; border: 1px solid var(--rand); border-radius: 6px;
+         overflow: hidden; }
 select.konflikt { border-width: 2px; }
 .zeit-feld { width: 5.5rem; }
 

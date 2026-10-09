@@ -1,6 +1,6 @@
 // ============================================================
 // tests/frontend_mobil_test.js
-// Prüft v0.9.58 (Zug 3b): mobile Ansicht, schmaler Bildschirm.
+// Prüft v0.9.58 (Zug 3b) und v0.9.59: mobile Ansicht, schmaler Bildschirm.
 //
 //   1. Seitenmenü überlagert und schließt beim Tippen daneben
 //   2. Tabellen laufen nicht über den Rand, sie rollen in einem Rahmen
@@ -129,6 +129,17 @@ pruefe('keine Tabelle wird ohne Rahmen eingehängt (kein appendChild(tab) / retu
 pruefe('Rahmen rollt waagrecht', wert(regel('.tabelle-rahmen'), 'overflow-x') === 'auto');
 pruefe('Inhalt wächst nicht mit der breitesten Tabelle mit (main: min-width 0)',
   wert(regel('main'), 'min-width') === '0');
+
+// ------------------------------------------------------------
+// v0.9.59: In WebKit zählt der Text der längsten Option eines <select> zur
+// Breite seines Inhalts, auch wenn das Feld selbst schmal ist; über die
+// Mindestbreite seines Flex-Elterns (label in .zeile) machte er die ganze
+// Seite 590 px breit (gemessen, WebKit iPhone 13, tests/mobil-messung).
+// Die Regel steht am select selbst – eine Stelle für jedes Auswahlfeld,
+// gleich in welchem Behälter.
+console.log('2b. Grundbreite: kein Auswahlfeld macht die Seite breiter');
+pruefe('select schneidet seinen Inhalt ab (overflow: hidden in der Grundregel)',
+  wert(regel('select'), 'overflow') === 'hidden');
 
 // ------------------------------------------------------------
 console.log('3. Safari unten und Ränder im Querformat');

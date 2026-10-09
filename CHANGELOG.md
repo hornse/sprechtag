@@ -1,5 +1,115 @@
 # Changelog - sprechtag
 
+## v0.9.59 (Oktober 2026) – Mobile Ansicht, zweiter Durchgang: die Seite selbst war zu breit
+
+### Befund vom Gerät und warum die Messung ihn nicht sah
+Auf dem iPhone ließ sich unter v0.9.58 die ganze Seite seitlich verschieben;
+die Kopfleiste endete mittendrin. Die Hilfsmessung aus v0.9.58 meldete für
+dieselben Ansichten „390 px“. **Die Tabelle im Eintrag zu v0.9.58 ist
+deshalb für die Spalte v0.9.58 falsch:** Sie maß in Chrome, und Chrome
+zeigt den Fehler nicht.
+
+### Messwerkzeug: WebKit mit iPhone-Nachbildung (E12)
+`tests/mobil-messung/messen.sh` fährt die Ansichten jetzt in WebKit
+(Playwright, Gerät „iPhone 13“, Viewport-Meta gilt, Touch) statt in
+Chrome. Je Ansicht misst es die Seitenbreite (`scrollWidth`) gegen den
+Viewport und benennt bei Überbreite **den Verursacher**: Es blendet je
+Ebene jedes Kind aus, das die Seitenbreite senkt, und steigt bis zum
+tiefsten ab. Kästen jenseits des Rands zu suchen hätte nichts gefunden –
+der Verursacher lag mit seinem Kasten ganz im Bild. Das Menü wird mit
+echtem Tippen geprüft (oben auf Höhe der Kopfleiste, in der Mitte).
+`GERAET`, `BREITE`, `HOEHE` stellen andere Geräte ein; Playwright muss
+mit WebKit vorhanden sein (sonst hält das Skript an und sagt es).
+**Es bleibt WebKit auf dem Mac mit erfundenen Daten, nicht Safari auf
+dem Gerät.**
+
+Gegenprobe am Werkzeug: Auf v0.9.58 meldet es 590 px und den
+Verursacher, auf dem Arbeitsstand 390 px. Ein erster Abstieg nannte nur
+das erste Kind, dessen Ausblenden half – im Querformat die Seitenleiste,
+nicht das Feld daneben; behoben, beide werden genannt.
+
+### Verursacher: das Auswahlfeld „Sprechtag“ (gemessen, WebKit)
+In WebKit zählt der Text der längsten Option eines `<select>` zur
+Inhaltsbreite des Felds, auch wenn das Feld selbst schmal ist (308 px,
+Inhalt 549 px). Über die Mindestbreite seines Behälters (`label` in
+`.zeile`, Flex-Element mit `min-width: auto`) machte das die ganze Seite
+590 px breit – in jeder Ansicht mit Sprechtag-Auswahl. Rechts entstand
+leere Fläche, genau wie auf dem Screenshot.
+
+**Behebung:** `select { overflow: hidden; }` in der Grundregel – eine
+Stelle für jedes Auswahlfeld, gleich in welchem Behälter. Ebenfalls
+gemessen wirksam wäre `min-width: 0` am `label` gewesen; das hilft nur in
+`.zeile`. Lange Sprechtag-Namen werden im geschlossenen Feld
+abgeschnitten; die Liste beim Antippen zeigt sie ganz (iOS-eigene Liste,
+**nicht gemessen**).
+
+| Ansicht (WebKit, iPhone 13, 390 px) | v0.9.58 | v0.9.59 |
+|---|---|---|
+| Buchen, Meine Termine, Lehrkraft-Raster, Einladungen, Mitteilungen (Lehrkraft, Verwaltung) | 590 | 390 |
+| übrige 10 Ansichten | 390 | 390 |
+| Querformat 844 px (Rechneransicht mit Seitenleiste), dieselben 6 | 850 | 844 |
+
+Das erklärt die drei Beobachtungen vom Gerät, **aus der Messung
+geschlossen, auf dem Gerät nicht gesehen:** Die Kopfleiste ist 390 px
+breit, die Seite war 590 – nach dem Verschieben stand sie nicht mehr
+dort, wo getippt wurde. Im Querformat passt es mit eingeklappter Leiste
+(844 − 58 px reichen für 549 px), mit ausgeklappter nicht. Die
+Seitenleiste ist im Hochformat **nicht** fester Platz: Sie liegt
+`position: fixed` außerhalb des Bilds, und ihr Ausblenden ändert dort
+nichts an der Breite (gemessen).
+
+### Feste Breiten in der Stilvorlage – Liste, nicht umgestellt
+Grundsatz des Betreibers (E12): relativ, wo Breite den Platz bestimmt.
+Umgestellt wurde in diesem Zug **nur** das Auswahlfeld. Die übrigen
+Fundstellen:
+
+Bestimmen Platz – Kandidaten:
+
+| Zeile | Regel | Wert | Befund |
+|---|---|---|---|
+| 117 | `.seitenleiste` (Rechner) | `width: 240px` | Querformat 844 px passt jetzt; gemessen |
+| 302 | `.buchen-gitter` | `minmax(11rem, 1fr)` | ergibt bei 390 px eine Spalte; bei Behälter < 11rem liefe es über (`min(11rem, 100%)`) |
+| 646 | `.raster-breit` | `minmax(9rem, 1fr)` | wie oben; bei 320 px nicht übergelaufen |
+| 692 | `.schueler-liste` | `minmax(15rem, 1fr)` | bei 320 px rechnerisch ~2 px zu breit; Ansicht nicht in der Messung |
+| 335 | `.raum-zelle` | `min-width: 15rem` | in Tabelle, rollt im Rahmen |
+| 336 | `.raum-zelle select` | `max-width: 14rem` | dito |
+| 465 | `.zeile label` | `flex: 1 1 16rem` | schrumpft; `min-width: auto` war der Weg des Fehlers |
+| 225 | `.toast` | `max-width: 22rem` | 352 px > 320 px; nicht gemessen (Meldung im Lauf nicht sichtbar) |
+| 155, 387 | `.marke-logo`, `.marke-logo-vorschau` | `max-width: 180px / 200px` | Logo in Leiste bzw. Vorschau |
+
+Ohne feste Breite, aber bei 320 px (iPhone SE) gemessen übergelaufen:
+
+| Stelle | Seite bei 320 px | vermutete Abhilfe |
+|---|---|---|
+| `.aktionen` (Login-Protokoll, drei Knöpfe) | 346 | `flex-wrap: wrap` |
+| `input[type=file]` (Logo hochladen) | 351 | `max-width: 100%` |
+
+Bleiben fest (sollen nicht mitwachsen): `.sr-only` 1px, Symbole
+(`1rem`, `1.15rem`, Hamburger 22px), Knöpfe (`1.7rem`, `1.9rem`, `2rem`,
+`2.4rem`), eingeklappte Leiste `58px` (an der Symbolgröße), Zeitfeld
+`5.5rem` und Farbfeld `4rem` (an ihrem Inhalt), `.termin-zeit`
+`min-width: 3.2rem`, Raster `minmax(5rem, 1fr)`, Obergrenze `main`
+`max-width: 100rem`, Schwelle `760px`. Schon relativ:
+`.anzeige-gitter` (`18vw`).
+
+### Abnahme auf dem iPhone
+- Hochformat, Buchen, Lehrkraft-Raster, Mitteilungen: Lässt sich die
+  Seite noch seitlich verschieben?
+- Menü öffnen, oben auf die Kopfleiste rechts daneben tippen: schließt es?
+- Sprechtag-Auswahl antippen: Erscheinen die Namen in der Liste ganz?
+- Querformat mit ausgeklappter Seitenleiste: passt es ohne Schieben?
+- Weiter offen aus v0.9.58: Tabellen rollen mit dem Finger; letzter
+  Termin im Raster über Safaris Leiste.
+
+### Prüfungen
+- `frontend_mobil_test.js` 20 → 21: das Auswahlfeld schneidet seinen
+  Inhalt ab (regelweise in der Grundregel `select`).
+- Gesamt 978 → 979 Prüfzeilen in 50 Suiten, alle grün; `tests-sprechtag.sh` 29.
+- Mutationen 133 → 136 Ergebniszeilen (MO21 entfernt, MO22 nur noch im
+  Kommentar, MO23 in eine andere Regel verschoben), alle angeschlagen,
+  H4 grün, Rücknahme gegen Prüfsummen belegt.
+- Das Messwerkzeug läuft nicht in `deploy.sh` mit (braucht Playwright).
+
 ## v0.9.58 (Oktober 2026) – Zug 3b: Nachbesserung Buchungsseite, mobile Ansicht (erster Durchgang)
 
 ### Teil A – Buchungsseite (Entscheidung Betreiber, E10-Nachtrag)

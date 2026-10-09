@@ -461,6 +461,14 @@ mut MO19 $CSS 's/\n         padding-bottom: 3rem;//' \
   $MO "jede env()-Deklaration hat davor einen Rückfall ohne env()"
 mut MO20 $CSS 's/\@media \(max-width: 760px\) \{\n  \/\* Querformat/\@media (max-width: 761px) {\n  \/* Querformat/' \
   $MO "Voraussetzung: Medienabfrage für schmale Bildschirme gefunden"
+# v0.9.59: Grundbreite – das Auswahlfeld schneidet seinen Inhalt ab.
+# Entfernt; nur noch im Kommentar; in eine andere Regel verschoben.
+mut MO21 $CSS 's/ border-radius: 6px;\n         overflow: hidden; \}/ border-radius: 6px; }/' \
+  $MO "select schneidet seinen Inhalt ab"
+mut MO22 $CSS 's/\n         overflow: hidden; \}/ \/* overflow: hidden; *\/ }/' \
+  $MO "select schneidet seinen Inhalt ab"
+mut MO23 $CSS 's/\n         overflow: hidden; \}\nselect\.konflikt \{ border-width: 2px; \}/ }\nselect.konflikt { border-width: 2px; overflow: hidden; }/' \
+  $MO "select schneidet seinen Inhalt ab"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
