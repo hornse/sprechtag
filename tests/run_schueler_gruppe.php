@@ -48,6 +48,10 @@ require __DIR__ . '/../backend/helfer.php';
 require __DIR__ . '/../backend/api/auth.php';
 require __DIR__ . '/../backend/api/einstellungen.php';
 require __DIR__ . '/../backend/api/slots.php';
+// mitteilungen.php lädt index.php ganz oben (mit_rest_aus_sitzung() für die
+// Auswahlliste, v0.9.68); die Ladereihenfolge selbst prüft
+// run_ladereihenfolge.php.
+require __DIR__ . '/../backend/api/mitteilungen.php';
 require __DIR__ . '/../backend/api/buchungen.php';
 
 $fehlt = array_filter(['gruppe_normalisieren', 'gruppen_liste', 'bu_buchen_gesperrt', 'bu_sperre_text',
@@ -228,6 +232,70 @@ lauf($zRoute, 'POST', ['schueler-gruppen'], [], ['gruppen' => 'SuS über 18'], $
 $k3 = lauf($zKachel, 'GET', ['buchbare-lehrer'], $get, [], $schueler('SuS über 18 mit Atte'));
 pruefe('die gespeicherte Liste wirkt: Gruppe entfernt → Kacheln gesperrt',
     $k3[0] === 'antwort' && ($k3[2]['buchen_gesperrt'] ?? null) === 'gruppe_nicht_zugelassen');
+
+// ------------------------------------------------------------
+// v0.9.68: Auswahlliste aus /WebUntis/api/userrole/config (nur Verwaltung).
+// Belegt (Messung 09.10.2026, über unsere Sitzung): Admin 200, alle anderen
+// 403; 21 Gruppen; Felder id, label, userCount, userRole (Zahlen bzw. Text),
+// userCountByUserRole als OBJEKT; vier Gruppen mit Schülern: „Student“ 1755,
+// „SuS über 18“ 185, „SuS über 18 mit Atte“ 13, „I-Helfer*in“ 1. Die Form
+// des Objekts ({ROLLE: Zahl}) ist aus der Messung „Objekt“ geschlossen, der
+// Schlüssel STUDENT aus dem Mitschnitt des Betreibers. Übrige Zahlen erfunden.
+echo "Auswahlliste aus userrole/config (v0.9.68)\n";
+$fehltA = array_filter(['wu_benutzergruppen', 'gruppen_auswahl_sortieren', 'schueler_gruppen_auswahl'],
+    fn($f) => !function_exists($f));
+pruefe('Voraussetzung: Funktionen vorhanden', $fehltA === []);
+if ($fehltA !== []) { echo '    (fehlen: ' . implode(', ', $fehltA) . ")\n\n$fehler ROT\n"; exit(1); }
+$URC = '/WebUntis/api/userrole/config';
+final class ErsatzRestPfad
+{
+    public array $aufrufe = [];
+    public function __construct(private array $antworten) {}
+    public function get(string $pfad, array $query = []): array
+    {
+        $this->aufrufe[] = $pfad;
+        $a = $this->antworten[$pfad] ?? ['status' => 404, 'json' => null];
+        if ($a instanceof Throwable) throw $a;
+        return $a;
+    }
+}
+$ug = fn(int $id, string $label, int $rolle, array $je) => ['id' => $id, 'label' => $label,
+    'userCount' => array_sum($je), 'userRole' => $rolle, 'userCountByUserRole' => $je];
+$konfig = ['data' => ['userGroups' => [
+    $ug(1, 'Admin', 16, ['ADMINISTRATOR' => 2]),
+    $ug(45, 'SuS über 18 mit Atte', -1, ['STUDENT' => 13]),
+    $ug(3, 'Student', 5, ['STUDENT' => 1755]),
+    $ug(61, '01_Eltern Attest', -1, ['LEGAL_GUARDIAN' => 7]),
+    $ug(70, 'I-Helfer*in', -1, ['STUDENT' => 1, 'TEACHER' => 4]),
+    $ug(25, 'SuS über 18', -1, ['STUDENT' => 185]),
+    $ug(80, 'Beratung', -1, []),
+]]];
+$wg = wu_benutzergruppen(new ErsatzRestPfad([$URC => ['status' => 200, 'json' => $konfig]]));
+pruefe('userrole/config gelesen: 7 Gruppen mit id, label, userRole und Schüleranzahl',
+    array_key_exists('fehler', $wg) && $wg['fehler'] === null && count($wg['gruppen'] ?? []) === 7
+    && ($wg['gruppen'][5] ?? null) === ['id' => 25, 'label' => 'SuS über 18', 'userRole' => -1, 'userCount' => 185, 'schueler' => 185]);
+pruefe('… nicht lesbar: 403, keine Liste, Ausnahme – je ein Grund, keine Liste',
+    wu_benutzergruppen(new ErsatzRestPfad([$URC => ['status' => 403, 'json' => null]]))['fehler'] === 'Status 403'
+    && wu_benutzergruppen(new ErsatzRestPfad([$URC => ['status' => 200, 'json' => ['data' => []]]]))['fehler'] === 'keine Gruppenliste in der Antwort'
+    && str_starts_with((string)@wu_benutzergruppen(new ErsatzRestPfad([$URC => new RuntimeException('weg')]))['fehler'], 'Ausnahme')
+    && wu_benutzergruppen(new ErsatzRestPfad([$URC => ['status' => 403, 'json' => null]]))['gruppen'] === null);
+$sort = array_column(gruppen_auswahl_sortieren($wg['gruppen']), 'label');
+pruefe('Sortierung: Gruppen mit Schülern zuerst nach Anzahl, dann die übrigen nach Namen – keine entfällt',
+    $sort === ['Student', 'SuS über 18', 'SuS über 18 mit Atte', 'I-Helfer*in', '01_Eltern Attest', 'Admin', 'Beratung']);
+$aus1 = schueler_gruppen_auswahl(fn() => ['rest' => new ErsatzRestPfad([$URC => ['status' => 200, 'json' => $konfig]]), 'grund' => null]);
+pruefe('schueler_gruppen_auswahl(): sortierte Liste, kein Fehler',
+    array_key_exists('auswahl_fehler', $aus1) && $aus1['auswahl_fehler'] === null && ($aus1['auswahl'][0]['label'] ?? null) === 'Student');
+$aus2 = schueler_gruppen_auswahl(fn() => ['rest' => null, 'grund' => 'kein_token']);
+$aus3 = schueler_gruppen_auswahl(fn() => ['rest' => new ErsatzRestPfad([$URC => ['status' => 403, 'json' => null]]), 'grund' => null]);
+pruefe('… ohne nutzbare Sitzung bzw. bei 403: keine Liste, Grund benannt (Rückfall: Eintippen)',
+    $aus2['auswahl'] === null && str_contains((string)$aus2['auswahl_fehler'], 'abgelaufen')
+    && $aus3['auswahl'] === null && str_contains((string)$aus3['auswahl_fehler'], '403'));
+// Die Route in dieser Prüfumgebung: Sitzung OHNE WebUntis-Cookie – der
+// echte Weg über mit_rest_aus_sitzung() endet bei „kein_cookie“, ohne Netz.
+$r3 = lauf($zRoute, 'GET', ['schueler-gruppen'], [], [], $admin);
+pruefe('Route GET: Gruppen, eigene Gruppe UND Auswahl bzw. deren Grund – stürzt nicht ab',
+    $r3[0] === 'antwort' && $r3[1] === 200 && array_key_exists('auswahl', $r3[2])
+    && $r3[2]['auswahl'] === null && str_contains((string)($r3[2]['auswahl_fehler'] ?? ''), 'Sitzung'));
 
 echo "\n" . ($fehler === 0 ? "ALLE TESTS GRÜN\n" : "$fehler ROT\n");
 exit($fehler === 0 ? 0 : 1);

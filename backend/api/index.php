@@ -51,7 +51,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.67', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.68', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -223,7 +223,9 @@ if (($seg[0] ?? '') === 'auth') {
 
 // ============================================================
 // VOLLJÄHRIGE SCHÜLER: zugelassene Benutzergruppen (E15, v0.9.65)
-//   GET  /api/schueler-gruppen  → {gruppen, eigene_gruppe, laenge}
+//   GET  /api/schueler-gruppen  → {gruppen, eigene_gruppe, laenge,
+//                                   auswahl|null, auswahl_fehler|null}
+//        auswahl: Gruppen aus userrole/config (v0.9.68), über die Sitzung.
 //   POST /api/schueler-gruppen  {gruppen: Text, eine je Zeile}
 // Gespeichert wird, was verglichen wird: gekürzt auf 20 Zeichen wie in
 // WebUntis. Die Antwort nennt, was dabei gekürzt wurde, und die Gruppe des
@@ -237,7 +239,13 @@ if (($seg[0] ?? '') === 'schueler-gruppen') {
         'eigene_gruppe' => $u['wu_gruppe'] ?? null,
         'laenge'        => 20,
     ];
-    if ($methode === 'GET') json_ok($auskunft());
+    if ($methode === 'GET') {
+        json_ok($auskunft() + schueler_gruppen_auswahl(function () use ($cfg): array {
+            $grund = null;
+            $rest = mit_rest_aus_sitzung($cfg, $grund);
+            return ['rest' => $rest, 'grund' => $grund];
+        }));
+    }
     if ($methode === 'POST') {
         $roh = (string)($body['gruppen'] ?? '');
         $gekuerzt = [];

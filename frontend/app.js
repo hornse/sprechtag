@@ -2639,31 +2639,94 @@ function zeichneSchuelerGruppen(ziel) {
     ? 'Ihr eigenes Konto trägt in WebUntis die Gruppe „' + d.eigene_gruppe + '“ – '
       + 'so, wie WebUntis sie liefert.'
     : 'Für Ihr eigenes Konto wurde keine Gruppe ermittelt (erneut anmelden).'));
+  // Drei Darstellungen desselben Namens (Betreiber, 09.10.2026): Liste,
+  // Anmeldung und Mitteilungs-Filter kürzen auf 20 Zeichen, nur der
+  // persönliche Bereich in WebUntis zeigt den vollen Namen.
   b.appendChild(el('p', 'hinweis', 'WebUntis kürzt Gruppennamen auf ' + d.laenge
-    + ' Zeichen. Verglichen wird deshalb nur bis zum ' + d.laenge + '. Zeichen – '
-    + 'wer den vollen Namen einträgt, trifft trotzdem.'));
-  const ta = el('textarea');
-  ta.id = 'sg-text';
-  ta.rows = 4;
-  ta.value = (d.gruppen || []).join('\n');
-  const lab = el('label', null, 'Zugelassene Gruppen (eine je Zeile)');
-  lab.appendChild(ta);
-  b.appendChild(lab);
-  if ((d.gruppen || []).length === 0) {
+    + ' Zeichen – so stehen sie hier und so werden sie bei der Anmeldung '
+    + 'verglichen. Im persönlichen Bereich zeigt WebUntis den vollständigen Namen '
+    + '(etwa „… mit Attest“ statt „… mit Atte“); es ist dieselbe Gruppe.'));
+
+  const gewaehlt = d.gruppen || [];
+  const auswahl = Array.isArray(d.auswahl) ? d.auswahl : null;
+  const kaesten = [];   // [Kästchen, Gruppenname] – in Anzeigereihenfolge
+  let ta = null;
+  if (auswahl) {
+    // Auswahl aus userrole/config (v0.9.68): Gruppen mit Schülern zuerst,
+    // mit Anzahl; die übrigen dahinter, nicht ausgeblendet.
+    const kaestchen = (ziel2, name, text) => {
+      const zeile = el('label', 'check-zeile');
+      const cb = el('input');
+      cb.type = 'checkbox';
+      cb.checked = gewaehlt.includes(name);
+      zeile.appendChild(cb);
+      zeile.appendChild(el('span', null, text));
+      ziel2.appendChild(zeile);
+      kaesten.push([cb, name]);
+    };
+    const mit = auswahl.filter((g) => g.schueler > 0);
+    const ohne = auswahl.filter((g) => !(g.schueler > 0));
+    b.appendChild(el('h4', null, 'Gruppen mit Schülerinnen und Schülern'));
+    for (const g of mit) {
+      kaestchen(b, g.label, g.label + ' — ' + g.schueler + ' Schüler');
+    }
+    if (ohne.length > 0) {
+      const w = block('sg-weitere', 'Weitere Gruppen, heute ohne Schüler (' + ohne.length + ')');
+      for (const g of ohne) kaestchen(w, g.label, g.label + ' — keine Schüler');
+      b.appendChild(w);
+    }
+    for (const name of gewaehlt.filter((n) => !auswahl.some((g) => g.label === n))) {
+      kaestchen(b, name, name + ' — nicht in der Liste von WebUntis');
+    }
+  } else {
+    if (d.auswahl_fehler) {
+      b.appendChild(el('p', 'hinweis-wichtig', 'Die Gruppenliste aus WebUntis ließ sich '
+        + 'nicht abrufen: ' + d.auswahl_fehler + '. Gruppen bitte eintippen, eine je Zeile.'));
+    }
+    ta = el('textarea');
+    ta.id = 'sg-text';
+    ta.rows = 4;
+    ta.value = gewaehlt.join('\n');
+    const lab = el('label', null, 'Zugelassene Gruppen (eine je Zeile)');
+    lab.appendChild(ta);
+    b.appendChild(lab);
+  }
+
+  // Was verglichen wird – damit ein Fehlgriff auffällt, statt still zu wirken.
+  if (gewaehlt.length === 0) {
     b.appendChild(el('p', 'hinweis-wichtig',
       'Keine Gruppe eingetragen – derzeit kann keine Schülerin und kein Schüler selbst buchen.'));
   } else {
     const p = el('p', 'hinweis', 'So wird verglichen: ');
-    d.gruppen.forEach((g, i) => {
+    gewaehlt.forEach((g, i) => {
       if (i > 0) p.appendChild(el('span', null, ', '));
       p.appendChild(el('code', null, g));
     });
     b.appendChild(p);
+    for (const name of gewaehlt) {
+      const g = auswahl ? auswahl.find((x) => x.label === name) : null;
+      if (auswahl && !g) {
+        b.appendChild(el('p', 'hinweis-wichtig', '„' + name + '“ steht nicht in der Liste von '
+          + 'WebUntis – Name prüfen; so trifft der Vergleich womöglich niemanden.'));
+      } else if (g && g.userRole !== -1) {
+        // Gemessen 09.10.2026: Bei systemeigenen Gruppen lieferte die Liste
+        // „Admin“, die Anmeldung „Administration“ – der Abgleich ist dort
+        // nicht gesichert. Bei schuleigenen (userRole −1) nicht gemessen.
+        b.appendChild(el('p', 'hinweis-wichtig', '„' + name + '“ ist eine systemeigene Gruppe '
+          + 'von WebUntis. Bei solchen Gruppen kann der Name bei der Anmeldung anders lauten '
+          + '(gemessen: „Admin“ hier, „Administration“ bei der Anmeldung) – dann trifft der '
+          + 'Vergleich nicht.'));
+      }
+    }
   }
+
   b.appendChild(knopf('Speichern', null, async () => {
+    const text = ta ? ta.value
+      : kaesten.filter(([cb]) => cb.checked).map(([, name]) => name).join('\n');
     try {
-      const r = await api('/api/schueler-gruppen', { method: 'POST', body: { gruppen: ta.value } });
-      S.sgDaten = r;
+      const r = await api('/api/schueler-gruppen', { method: 'POST', body: { gruppen: text } });
+      // Die Auswahl bleibt; die Antwort trägt nur die gespeicherten Gruppen.
+      S.sgDaten = Object.assign({}, S.sgDaten, r);
       toast((r.gekuerzt || []).length ? gruppenGekuerztText(r.gekuerzt) : 'Gespeichert.',
         (r.gekuerzt || []).length ? 'info' : 'ok');
       zeichne();

@@ -285,7 +285,9 @@ mut S8 $MS "s/if \(\(\\\$u\['rolle'\] \?\? ''\) !== 'eltern'\) \{/if (false) {/"
   $S "Lehrkraft: Stundenplan entfällt, kein Abruf"
 
 echo "== Messung Sitzung: Route"
-mut S9 $IX 's/mit_rest_aus_sitzung\(\$cfg, \$grund\);/mit_rest_aus_sitzung(\$cfg);/' \
+# S9 seit v0.9.68 verankert an „$probe“: dasselbe Muster steht jetzt auch in
+# der Route /api/schueler-gruppen (weiter oben) – ohne Anker traf es dort.
+mut S9 $IX 's/mit_rest_aus_sitzung\(\$cfg, \$grund\);(\n    \$probe)/mit_rest_aus_sitzung(\$cfg);$1/' \
   $S "Route reicht den Grund aus mit_rest_aus_sitzung() durch"
 mut S10 $IX "s/\\\$probe = \\\$grund === 'kein_token'/\\\$probe = \\\$grund === 'nie'/" \
   $S "Route fährt die Nachprobe genau bei kein_token"
@@ -649,7 +651,7 @@ mut FSG2 $APP 's/\} else if \(S\.lehrerListe\.buchen_gesperrt\) \{\n      meldun
   $FSG "Laden bei Sperre"
 mut FSG3 $APP 's/\? \x27Ihr eigenes Konto trägt in WebUntis die Gruppe „\x27 \+ d\.eigene_gruppe \+ \x27“ – \x27/? \x27Ihr eigenes Konto trägt eine Gruppe – \x27/' \
   $FSG "nennt die Gruppe des eigenen Kontos"
-mut FSG4 $APP 's/  if \(\(d\.gruppen \|\| \[\]\)\.length === 0\) \{/  if (false) {/' \
+mut FSG4 $APP 's/  if \(gewaehlt\.length === 0\) \{/  if (false) {/' \
   $FSG "leere Liste: Warnung"
 mut FSG5 $APP 's/\n  zeichneSchuelerGruppen\(ziel\);\n/\n/' \
   $FSG "Aufrufstelle: „Dienstkonto & Schülerliste“"
@@ -682,6 +684,28 @@ mut UG6 $MS 's/(\x27schueler\x27  => \(int\)\(\$zahlen\[\x27STUDENT\x27\] \?\? 0
   $S "keine Personenangaben (Mitglieder einer Gruppe erscheinen nicht)"
 mut UG7 $MS 's/: \x27Status 200, aber kein data\.userGroups – Antwortform prüfen\. KEIN Befund\.\x27\);/: \x27Status 200 – kein Zugriff über diese Sitzung.\x27);/' \
   $S "keine Liste: KEIN Befund"
+
+# v0.9.68 – Auswahlliste aus userrole/config
+mut AW1 $SLP 's/        return strcmp\(\(string\)\$a\[\x27label\x27\], \(string\)\$b\[\x27label\x27\]\);/        return 0;/' \
+  $SG "Sortierung: Gruppen mit Schülern zuerst"
+mut AW2 backend/api/webuntis_adapter.php 's/\x27schueler\x27  => \(int\)\(\$je\[\x27STUDENT\x27\] \?\? 0\),/\x27schueler\x27  => (int)(\$e[\x27userCount\x27] ?? 0),/' \
+  $SG "Sortierung: Gruppen mit Schülern zuerst"
+mut AW3 $IDX 's/json_ok\(\$auskunft\(\) \+ schueler_gruppen_auswahl\(function/json_ok(\$auskunft() + (fn(callable \$f): array => [])(function/' \
+  $SG "Route GET: Gruppen, eigene Gruppe UND Auswahl"
+mut AW4 backend/api/webuntis_adapter.php 's/\n    if \(\$status !== 200\) return \[\x27gruppen\x27 => null, \x27fehler\x27 => \x27Status \x27 \. \$status\];//' \
+  $SG "… nicht lesbar: 403, keine Liste, Ausnahme"
+mut FAW1 $APP 's/kaestchen\(b, g\.label, g\.label \+ \x27 — \x27 \+ g\.schueler \+ \x27 Schüler\x27\);/kaestchen(b, g.label, g.label);/' \
+  $FSG "Gruppen mit Schülern zuerst, mit Anzahl"
+mut FAW2 $APP 's/for \(const name of gewaehlt\.filter\(\(n\) => !auswahl\.some\(\(g\) => g\.label === n\)\)\) \{/for (const name of []) {/' \
+  $FSG "Auswahl statt Textfeld: je Gruppe ein Kästchen, keine ausgeblendet"
+mut FAW3 $APP 's/\} else if \(g && g\.userRole !== -1\) \{/} else if (false) {/' \
+  $FSG "systemeigene Gruppe gewählt"
+mut FAW4 $APP 's/: kaesten\.filter\(\(\[cb\]\) => cb\.checked\)\.map/: kaesten.map/' \
+  $FSG "Speichern schickt die angehakten Namen"
+mut FAW5 $APP 's/Im persönlichen Bereich zeigt WebUntis den vollständigen Namen \x27/Im persönlichen Bereich zeigt WebUntis den Namen \x27/' \
+  $FSG "Hinweis: WebUntis zeigt im persönlichen Bereich den vollständigen Namen"
+mut FAW6 $APP 's/    if \(d\.auswahl_fehler\) \{/    if (false) {/' \
+  $FSG "Abruf gescheitert: Grund steht da"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi

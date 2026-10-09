@@ -41,6 +41,67 @@ function wu_profil_gruppe(object $rest): ?string
 }
 
 /**
+ * Benutzergruppen der Schule aus /WebUntis/api/userrole/config (v0.9.68) –
+ * Auswahlliste für die zugelassenen Gruppen (E15). Gemessen 09.10.2026 über
+ * unsere Sitzung: nur die Verwaltung darf (Admin 200, sonst 403); Einträge
+ * mit id, label (wie profile/general auf 20 Zeichen gekürzt), userRole
+ * (−1 = schuleigen), userCount und userCountByUserRole (Objekt; Schüler unter
+ * STUDENT). Rückgabe ['gruppen' => [...]|null, 'fehler' => Grund|null]; je
+ * Gruppe nur id, label, userRole, userCount, schueler – keine Personen.
+ */
+function wu_benutzergruppen(object $rest): array
+{
+    try {
+        $r = $rest->get('/WebUntis/api/userrole/config');
+    } catch (Exception $e) {
+        error_log('sprechtag: Benutzergruppen nicht lesbar: ' . $e->getMessage());
+        return ['gruppen' => null, 'fehler' => 'Ausnahme: ' . $e->getMessage()];
+    }
+    $status = (int)($r['status'] ?? 0);
+    if ($status !== 200) return ['gruppen' => null, 'fehler' => 'Status ' . $status];
+    $liste = $r['json']['data']['userGroups'] ?? null;
+    if (!is_array($liste) || !array_is_list($liste)) {
+        return ['gruppen' => null, 'fehler' => 'keine Gruppenliste in der Antwort'];
+    }
+    $aus = [];
+    foreach ($liste as $e) {
+        if (!is_array($e) || !is_string($e['label'] ?? null) || trim($e['label']) === '') continue;
+        $je = is_array($e['userCountByUserRole'] ?? null) ? $e['userCountByUserRole'] : [];
+        $aus[] = [
+            'id'        => is_int($e['id'] ?? null) ? $e['id'] : null,
+            'label'     => trim($e['label']),
+            'userRole'  => is_int($e['userRole'] ?? null) ? $e['userRole'] : null,
+            'userCount' => is_int($e['userCount'] ?? null) ? $e['userCount'] : null,
+            'schueler'  => (int)($je['STUDENT'] ?? 0),
+        ];
+    }
+    return ['gruppen' => $aus, 'fehler' => null];
+}
+
+/**
+ * Auswahlliste für die Verwaltungsseite: über die WebUntis-Sitzung der
+ * angemeldeten Person ($sitzung liefert ['rest' => ?Client, 'grund' => ?string]
+ * wie mit_rest_aus_sitzung()). Scheitert es, kommt keine Liste, sondern ein
+ * lesbarer Grund – die Seite fällt dann aufs Eintippen zurück.
+ */
+function schueler_gruppen_auswahl(callable $sitzung): array
+{
+    $s = $sitzung();
+    if (($s['rest'] ?? null) === null) {
+        $grund = (string)($s['grund'] ?? '');
+        return ['auswahl' => null, 'auswahl_fehler' => $grund === 'kein_cookie'
+            ? 'keine WebUntis-Sitzung festgehalten – bitte abmelden und neu anmelden'
+            : ($grund === 'kein_token' ? 'WebUntis-Sitzung abgelaufen – bitte abmelden und neu anmelden'
+            : 'WebUntis-Sitzung nicht nutzbar')];
+    }
+    $g = wu_benutzergruppen($s['rest']);
+    if ($g['gruppen'] === null) {
+        return ['auswahl' => null, 'auswahl_fehler' => 'Gruppenliste aus WebUntis nicht abrufbar (' . $g['fehler'] . ')'];
+    }
+    return ['auswahl' => gruppen_auswahl_sortieren($g['gruppen']), 'auswahl_fehler' => null];
+}
+
+/**
  * Meldet ein Konto an und ermittelt Rolle und Kontext.
  *
  * Rückgabe:

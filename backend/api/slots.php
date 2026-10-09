@@ -230,6 +230,23 @@ function bu_zugelassene_gruppen(PDO $pdo): array
     return gruppen_liste(marke_wert($pdo, 'schueler_buchen_gruppen', ''));
 }
 
+/**
+ * Reihenfolge der Auswahlliste (v0.9.68): Gruppen mit Schülern zuerst, nach
+ * Anzahl absteigend; dann die übrigen nach Namen. Keine entfällt – auch eine
+ * Gruppe, in der heute zufällig kein Schüler ist, bleibt wählbar.
+ */
+function gruppen_auswahl_sortieren(array $gruppen): array
+{
+    usort($gruppen, function (array $a, array $b): int {
+        // Absteigend nach Schülerzahl stellt Gruppen mit Schülern von selbst
+        // vor die ohne; bei Gleichstand (auch null) nach Namen.
+        $sa = (int)($a['schueler'] ?? 0); $sb = (int)($b['schueler'] ?? 0);
+        if ($sa !== $sb) return $sb <=> $sa;
+        return strcmp((string)$a['label'], (string)$b['label']);
+    });
+    return $gruppen;
+}
+
 /** Erklärung zur Sperre – Anmeldung bleibt möglich, nur Buchen nicht (E15). */
 function bu_sperre_text(string $grund): string
 {

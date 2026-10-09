@@ -1,5 +1,42 @@
 # Changelog - sprechtag
 
+## v0.9.68 (Oktober 2026) – Auswahlliste der Gruppen statt Eintippen (E15-Nachtrag)
+
+### Was gebaut ist
+- `GET /api/schueler-gruppen` liefert zusätzlich `auswahl`: die Gruppen aus
+  `/WebUntis/api/userrole/config`, über die Sitzung der angemeldeten
+  Verwaltung (`wu_benutzergruppen()`, `schueler_gruppen_auswahl()`), sortiert:
+  absteigend nach Schülerzahl, bei Gleichstand nach Namen – keine entfällt.
+  Scheitert der Abruf (Sitzung abgelaufen, Status, Ausnahme), kommt statt der
+  Liste `auswahl_fehler` mit lesbarem Grund.
+- Die Seite bietet Kästchen an: „Gruppen mit Schülerinnen und Schülern“
+  („SuS über 18 — 185 Schüler“), dahinter eingeklappt „Weitere Gruppen,
+  heute ohne Schüler“. Gespeichert wird das `label` – genau der Text, der bei
+  der Anmeldung verglichen wird.
+- **Was verglichen wird, steht da:** die gespeicherten Namen; Warnung bei
+  systemeigenen Gruppen (gemessen: „Admin“ in der Liste, „Administration“ bei
+  der Anmeldung) und bei gespeicherten Gruppen, die nicht in der Liste stehen.
+- **Hinweis zu den drei Darstellungen:** WebUntis kürzt auf 20 Zeichen, nur
+  der persönliche Bereich zeigt den vollen Namen – dieselbe Gruppe.
+- **Rückfall:** Scheitert der Abruf, Eintippen wie bisher, mit Grund und
+  Kürzungshinweis; kein Hängen bei „Wird geladen …“.
+
+### Prüfungen
+- 1102 → 1117 Prüfzeilen in 57 Suiten, alle grün; `tests-sprechtag.sh` 29.
+  `run_schueler_gruppe.php` +7 (Lesen, Sortierung, Gründe, Route ohne
+  WebUntis-Sitzung), `frontend_schueler_gruppe_test.js` +8 (Auswahl
+  ausgeführt: Reihenfolge, Häkchen, Warnungen, Speichern, Rückfall).
+- Die Prüfumgebung lud `mitteilungen.php` zu spät (weniger als der Betrieb,
+  der es ganz oben lädt) – angeglichen. Ein Prüfausdruck schrieb
+  `($x['fehler'] ?? 'x') === null`, was nie wahr wird (FALLSTRICKE 3) –
+  berichtigt, bevor er etwas belegte.
+- Mutationen 219 → 229, alle angeschlagen, H4 grün, Rücknahme belegt. Im
+  ersten Lauf drei ohne Beleg: S9 traf dasselbe Muster jetzt in der neuen Route
+  weiter oben (verankert); FSG4 kam nicht an (Code umgebaut, Muster
+  nachgezogen); AW1 zeigte eine **überflüssige Zeile** in der Sortierung – die
+  absteigende Schülerzahl stellt Gruppen mit Schülern von selbst nach vorn. Die
+  Zeile ist entfernt, AW1 prüft jetzt den Gleichstand nach Namen.
+
 ## v0.9.67 (Oktober 2026) – Messung: Benutzergruppen der Schule (userrole/config)
 
 Gebaut wird die Auswahlliste erst nach dem Befund; dieser Zug misst nur.

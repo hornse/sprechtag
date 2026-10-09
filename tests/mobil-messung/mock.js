@@ -516,7 +516,19 @@
         // Form wie GET /api/schueler-gruppen (v0.9.65); Gruppennamen aus der
         // Messung vom 09.10.2026, von der Schule vergeben.
         if (!istAdmin) return fehlt(403, 'nur Verwaltung');
-        return ok({ gruppen: ['SuS über 18', 'SuS über 18 mit Atte'], eigene_gruppe: 'Lehrkräfte', laenge: 20 });
+        // auswahl seit v0.9.68 (userrole/config, sortiert): die vier Gruppen
+        // mit Schülern und ihre Anzahlen aus der Messung vom 09.10.2026; die
+        // übrigen Gruppen und alle Kennungen außer 25/45 erfunden.
+        return ok({ gruppen: ['SuS über 18', 'SuS über 18 mit Atte'], eigene_gruppe: 'Administration', laenge: 20,
+          auswahl: [
+            { id: 3, label: 'Student', userRole: 5, userCount: 1755, schueler: 1755 },
+            { id: 25, label: 'SuS über 18', userRole: -1, userCount: 185, schueler: 185 },
+            { id: 45, label: 'SuS über 18 mit Atte', userRole: -1, userCount: 13, schueler: 13 },
+            { id: 70, label: 'I-Helfer*in', userRole: -1, userCount: 5, schueler: 1 },
+            { id: 61, label: '01_Eltern Attest', userRole: -1, userCount: 7, schueler: 0 },
+            { id: 1, label: 'Admin', userRole: 16, userCount: 2, schueler: 0 },
+            { id: 2, label: 'Lehrkräfte', userRole: 2, userCount: 90, schueler: 0 },
+          ], auswahl_fehler: null });
       case 'dienstkonto':
         if (!istLk) return fehlt(403, 'Nur für Lehrkräfte');
         if (methode === 'GET') {

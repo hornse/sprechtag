@@ -595,3 +595,24 @@ Format), Gruppen mit Schülern, und ob das `label` der eigenen Gruppe
 Form von `userCountByUserRole` (Objekt oder Liste) – die Messung erkennt
 beides und nennt das Format.
 
+### Nachtrag 09.10.2026: Messung über unsere Sitzung (v0.9.67, Betreiber)
+
+- `/api/userrole/config` antwortet **nur der Verwaltung**: Admin 200,
+  Lehrkraft 403, Eltern 403, Schülerin 403.
+- 21 Gruppen; Felder `id` (Zahl), `label` (Text), `userCount` (Zahl),
+  `userRole` (Zahl), `userCountByUserRole` (**Objekt**).
+- Vier Gruppen tragen Schüler: „Student“ (1755), „SuS über 18“ (185),
+  „SuS über 18 mit Atte“ (13), „I-Helfer*in“ (1).
+- Abgleich der eigenen Gruppe: **„nein“** – das Admin-Konto trägt in
+  `profile/general` „Administration“, in der Liste heißt die Gruppe „Admin“.
+  Vermutung (nicht gemessen): systemeigene Gruppen (`userRole` ≠ −1) kommen in
+  der Liste mit dem englischen Schlüsselnamen, in `profile/general`
+  übersetzt; schuleigene (−1) haben keine Übersetzung. Für die
+  Volljährigen-Gruppen (schuleigen) ist der Abgleich **nicht gemessen** –
+  ein Schülerkonto darf die Liste nicht abrufen.
+- Drei Darstellungen desselben Namens (Auskunft Betreiber): `userrole/config`,
+  `profile/general` und der Mitteilungs-Filter kürzen auf 20 Zeichen; nur der
+  persönliche Bereich einer Person in WebUntis zeigt den vollen Namen.
+
+Umgesetzt in v0.9.68 (E15-Nachtrag).
+

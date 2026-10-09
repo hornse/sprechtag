@@ -81,8 +81,8 @@ const ladeRumpf = rumpf('async function ladeLehrerListe(');
     const sektion = (t, b) => { const s = el('section', 'sektion'); s.appendChild(el('h3', 'sektion-titel', t));
       if (b) s.appendChild(el('p', 'hinweis', b)); return s; };
     try {
-      new Function('S', 'el', 'sektion', 'knopf', 'api', 'toast', 'zeichne', 'ziel', sgRumpf)(
-        S3, el, sektion, (t) => el('button', null, t), async () => ({}), () => {}, () => {}, z);
+      new Function('S', 'el', 'sektion', 'block', 'knopf', 'api', 'toast', 'zeichne', 'ziel', sgRumpf)(
+        S3, el, sektion, () => el('details', 'block'), (t) => el('button', null, t), async () => ({}), () => {}, () => {}, z);
     } catch (e) { z.appendChild(el('p', 'AUSNAHME', e.message)); }
     return z;
   };
@@ -119,8 +119,8 @@ const ladeRumpf = rumpf('async function ladeLehrerListe(');
     const zeichnen = () => {
       z = el('div');
       try {
-        new Function('S', 'el', 'sektion', 'knopf', 'api', 'toast', 'zeichne', 'ziel', sgRumpf)(
-          S4, el, sektion, (t) => el('button', null, t),
+        new Function('S', 'el', 'sektion', 'block', 'knopf', 'api', 'toast', 'zeichne', 'ziel', sgRumpf)(
+          S4, el, sektion, () => el('details', 'block'), (t) => el('button', null, t),
           () => { abrufe++; return antwort(); }, () => {}, () => {}, z);
       } catch (e) { z.appendChild(el('p', 'AUSNAHME', e.message)); }
     };
@@ -137,6 +137,64 @@ const ladeRumpf = rumpf('async function ladeLehrerListe(');
   const gut = await ladeLauf(() => Promise.resolve({ gruppen: ['SuS über 18'], eigene_gruppe: null, laenge: 20 }));
   pruefe('Abruf gelingt: geladener Zustand mit Eingabefeld, ein Abruf',
     gut.abrufe === 1 && !/Wird geladen/.test(gut.text) && gut.text.includes('SuS über 18'));
+
+  // ----------------------------------------------------------
+  // v0.9.68: Auswahlliste aus userrole/config statt Eintippen. Belegt
+  // (Messung 09.10.2026): vier Gruppen mit Schülern (Student 1755, SuS über
+  // 18 185, SuS über 18 mit Atte 13, I-Helfer*in 1); bei systemeigenen
+  // Gruppen stimmte der Name nicht mit profile/general überein („Admin“
+  // gegen „Administration“). Übrige Werte erfunden.
+  console.log('4. Auswahlliste');
+  function sgMit(daten) {
+    const z = el('div');
+    const S5 = { sgDaten: daten, sgLaedt: false, sgFehler: null };
+    const knoepfe = {}; const posts = [];
+    const sektion = (t, b) => { const x = el('section', 'sektion'); x.appendChild(el('h3', 'sektion-titel', t));
+      if (b) x.appendChild(el('p', 'hinweis', b)); return x; };
+    const block = (k, t) => { const d = el('details', 'block'); d.appendChild(el('summary', null, t)); return d; };
+    try {
+      new Function('S', 'el', 'sektion', 'block', 'knopf', 'api', 'toast', 'zeichne', 'ziel', sgRumpf)(
+        S5, el, sektion, block, (t, k, f) => { knoepfe[t] = f; return el('button', null, t); },
+        async (pfad, o) => { posts.push(o && o.body); return { gruppen: [], eigene_gruppe: null, laenge: 20 }; },
+        () => {}, () => {}, z);
+    } catch (e) { z.appendChild(el('p', 'AUSNAHME', e.message)); }
+    return { z, knoepfe, posts };
+  }
+  const AUSWAHL = [
+    { id: 3, label: 'Student', userRole: 5, userCount: 1755, schueler: 1755 },
+    { id: 25, label: 'SuS über 18', userRole: -1, userCount: 185, schueler: 185 },
+    { id: 45, label: 'SuS über 18 mit Atte', userRole: -1, userCount: 13, schueler: 13 },
+    { id: 70, label: 'I-Helfer*in', userRole: -1, userCount: 5, schueler: 1 },
+    { id: 1, label: 'Admin', userRole: 16, userCount: 2, schueler: 0 },
+    { id: 80, label: 'Beratung', userRole: -1, userCount: 0, schueler: 0 },
+  ];
+  const m = sgMit({ gruppen: ['SuS über 18', 'Altname'], eigene_gruppe: 'Administration', laenge: 20,
+    auswahl: AUSWAHL, auswahl_fehler: null });
+  const kaesten = alle(m.z).filter((x) => x.tag === 'input' && x.type === 'checkbox');
+  const beschr = (cb) => { const zeile = alle(m.z).find((x) => x.kinder.includes(cb)); return zeile ? texte(zeile) : ''; };
+  pruefe('Auswahl statt Textfeld: je Gruppe ein Kästchen, keine ausgeblendet (6 + 1 nicht in der Liste)',
+    sgRumpf !== '' && kaesten.length === 7 && !alle(m.z).some((x) => x.tag === 'textarea'));
+  pruefe('Gruppen mit Schülern zuerst, mit Anzahl („SuS über 18 — 185 Schüler“)',
+    /Student — 1755 Schüler/.test(beschr(kaesten[0])) && /SuS über 18 — 185 Schüler/.test(beschr(kaesten[1]))
+    && /I-Helfer\*in — 1 Schüler/.test(beschr(kaesten[3])));
+  pruefe('angehakt sind genau die gespeicherten Gruppen',
+    kaesten.filter((k) => k.checked).length === 2 && kaesten[1].checked && !kaesten[0].checked);
+  pruefe('eine gespeicherte Gruppe, die WebUntis nicht kennt, steht da – mit Warnung',
+    /Altname/.test(texte(m.z)) && alle(m.z).some((x) => x.klasse === 'hinweis-wichtig' && /Altname/.test(x.text) && /nicht in der Liste/.test(x.text)));
+  pruefe('Hinweis: WebUntis zeigt im persönlichen Bereich den vollständigen Namen – dieselbe Gruppe',
+    /vollständigen Namen/.test(texte(m.z)) && /20 Zeichen/.test(texte(m.z)));
+  const sys = sgMit({ gruppen: ['Student'], eigene_gruppe: null, laenge: 20, auswahl: AUSWAHL, auswahl_fehler: null });
+  pruefe('systemeigene Gruppe gewählt: Warnung, dass der Name bei der Anmeldung anders lauten kann',
+    alle(sys.z).some((x) => x.klasse === 'hinweis-wichtig' && /systemeigen/.test(x.text) && /Student/.test(x.text)));
+  if (kaesten[2]) kaesten[2].checked = true;
+  try { await m.knoepfe['Speichern'](); } catch (e) { m.posts.push('AUSNAHME ' + e.message); }
+  pruefe('Speichern schickt die angehakten Namen – so, wie WebUntis sie liefert',
+    m.posts.length === 1 && m.posts[0] && m.posts[0].gruppen === 'SuS über 18\nSuS über 18 mit Atte\nAltname');
+  const rf = sgMit({ gruppen: ['SuS über 18'], eigene_gruppe: null, laenge: 20, auswahl: null,
+    auswahl_fehler: 'WebUntis-Sitzung abgelaufen – bitte abmelden und neu anmelden' });
+  pruefe('Abruf gescheitert: Grund steht da, Rückfall Eintippen mit Kürzungshinweis, kein „Wird geladen“',
+    /abgelaufen/.test(texte(rf.z)) && alle(rf.z).some((x) => x.tag === 'textarea') && /20 Zeichen/.test(texte(rf.z))
+    && !/Wird geladen/.test(texte(rf.z)));
 
   const datenRumpf = rumpf('function ansichtAdminDaten(');
   pruefe('Aufrufstelle: „Dienstkonto & Schülerliste“ zeichnet den Abschnitt',

@@ -743,3 +743,19 @@ mit eigener Erklärung gesperrt („bitte erneut anmelden“).
 
 **Kachel und Buchungsrecht** fragen dieselbe Funktion
 (`bu_buchen_gesperrt()`), jeweils vor allem anderen.
+
+**Nachtrag zu E15, 09.10.2026 (v0.9.68): Auswahlliste statt Eintippen.**
+Die Verwaltungsseite holt die Gruppen über `/WebUntis/api/userrole/config`
+(gemessen: nur die Verwaltung darf, Admin 200, sonst 403) und bietet sie als
+Kästchen an – Gruppen mit Schülern zuerst, mit Anzahl; die übrigen bleiben
+wählbar, eingeklappt dahinter. Gespeichert wird das `label`, also genau der
+Text, der gegen `profile.userGroup` verglichen wird. Eintippen bleibt
+Rückfall, wenn der Abruf scheitert (Grund steht da).
+
+Gemessen ist eine Einschränkung: Bei **systemeigenen** Gruppen lieferte die
+Liste „Admin“, die Anmeldung „Administration“ – der Vergleich träfe dort
+nicht. Bei schuleigenen Gruppen (die Volljährigen-Gruppen) ist der Abgleich
+**nicht gemessen** (ein Schülerkonto darf die Liste nicht abrufen); nach
+Augenschein stimmen die gekürzten Fassungen überein. Deshalb zeigt die Seite
+bei den gewählten Gruppen, was verglichen wird, und warnt bei systemeigenen
+Gruppen und bei Gruppen, die nicht in der Liste stehen.
