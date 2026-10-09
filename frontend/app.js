@@ -1395,7 +1395,8 @@ function zeichneWeitereLehrkraefte(ziel, weitere) {
   const b = block('buchen-weitere', 'Weitere Lehrkräfte suchen (' + weitere.length + ')');
   b.appendChild(el('p', 'hinweis', 'Auch bei Lehrkräften, die Ihr Kind nicht '
     + 'unterrichten, können Sie einen Termin buchen.'));
-  const gitter = el('div', 'buchen-gitter');
+  // suchtreffer: Treffer gehören zum Suchfeld – kleinerer Abstand (E14).
+  const gitter = el('div', 'buchen-gitter suchtreffer');
   const suche = feld('Name, Kürzel oder Raum', 'buchen-weitere-suche', 'text',
     S.weitereSuche || '');
   suche.querySelector('input').addEventListener('input', (e) => {
@@ -1849,7 +1850,8 @@ function zeichneStellvertreterKopf(ziel, lehrerId) {
     z.appendChild(f);
     kopf.appendChild(z);
 
-    const treffer = el('div', 'sv-treffer');
+    // suchtreffer: Treffer gehören zum Suchfeld – kleinerer Abstand (E14).
+    const treffer = el('div', 'sv-treffer suchtreffer');
     treffer.id = 'sv-treffer';
     kopf.appendChild(treffer);
     setTimeout(zeichneSvTreffer, 0);   // Erstbefüllung nach dem Anhängen

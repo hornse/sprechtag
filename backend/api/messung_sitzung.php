@@ -4,6 +4,13 @@
 //
 //   GET /api/messung/sitzung   (jede angemeldete Person, nur Zahlen)
 //
+// Seit v0.9.64 zusätzlich: /WebUntis/api/profile/general – trägt das Profil
+// der angemeldeten Person ihre Benutzergruppe (userGroup), bei jeder Rolle,
+// eindeutig, und mit Kennung? Zweck: volljährige Schüler erkennen (die
+// Schule pflegt Volljährigkeit als Gruppe). Gruppen- und Rollennamen und
+// -kennungen vergibt die Schule – sie gehen in die Antwort; Angaben zur
+// Person nicht (nur die Schlüsselnamen des Profils).
+//
 // Seit v0.9.56 zusätzlich: timetable/filter?resourceType=CLASS (Klassen-
 // leitung als Objekt mit id und shortName), Doppelabgleich gegen lehrer,
 // Schulzeit gegen einen ANGEGEBENEN Ferienzeitraum (?ferien_von/_bis).
@@ -306,6 +313,80 @@ function messung_zeitraum_vergleich(array $sigA, array $sigB): array
     ];
 }
 
+/**
+ * Gruppen- und Rollenfelder eines Profils (v0.9.64): Jeder Pfad, in dem
+ * „group“ oder „role“ vorkommt, mit Format. Einen Wert bekommen nur das
+ * Gruppen-/Rollenfeld selbst und seine direkten Angaben (z. B. id und name
+ * einer Gruppe) – tiefer Liegendes, etwa Mitglieder, nur mit Format.
+ * Personenfelder (Namen, E-Mail, Geburtsdatum, Anschrift, Telefon) werden
+ * übersprungen; „name“ direkt an einer Gruppe ist der Gruppenname.
+ * Listen: höchstens 10 Einträge.
+ */
+function messung_gruppenfelder($v, string $pfad, bool $imGruppenpfad, array &$aus): void
+{
+    if (!is_array($v)) {
+        if (!$imGruppenpfad) return;
+        $eltern = (string)substr($pfad, 0, (int)strrpos($pfad, '.'));
+        $mitWert = messung_ist_gruppe($pfad) || messung_ist_gruppe($eltern);
+        $aus[] = ['pfad' => $pfad, 'format' => messung_format($v)]
+            + ($mitWert ? ['wert' => is_scalar($v) ? $v : null] : []);
+        return;
+    }
+    if ($imGruppenpfad) $aus[] = ['pfad' => $pfad, 'format' => messung_format($v)];
+    $n = 0;
+    foreach ($v as $k => $w) {
+        if (is_int($k) && ++$n > 10) break;
+        $k = (string)$k;
+        $gruppenschluessel = preg_match('/group|role/i', $k) === 1;
+        $person = preg_match('/name|first|last|display|mail|birth|geburt|phone|telefon|street|strasse|address|adresse/i', $k) === 1;
+        if ($person && !$gruppenschluessel && !($k === 'name' && messung_ist_gruppe($pfad))) continue;
+        messung_gruppenfelder($w, $pfad . '.' . $k, $imGruppenpfad || $gruppenschluessel, $aus);
+    }
+}
+
+/** Ist der Pfad eine Gruppe selbst (…group…, …groups.N), nicht etwas darin? */
+function messung_ist_gruppe(string $pfad): bool
+{
+    $teile = explode('.', $pfad);
+    $letzt = end($teile);
+    if (preg_match('/group|role/i', (string)$letzt)) return true;
+    $vor = $teile[count($teile) - 2] ?? '';
+    return ctype_digit((string)$letzt) && preg_match('/group|role/i', $vor) === 1;
+}
+
+/**
+ * /WebUntis/api/profile/general auswerten (v0.9.64). Nur Schlüsselnamen des
+ * Profils, Zustand von userGroup und die Gruppen-/Rollenfelder.
+ */
+function messung_profil(array $r): array
+{
+    $p = $r['json']['data']['profile'] ?? null;
+    $aus = ['status' => $r['status'], 'fehler' => $r['fehler'], 'profil_vorhanden' => is_array($p)];
+    if (!is_array($p)) {
+        $aus['deutung'] = $r['fehler'] !== null ? 'Abruf mit Ausnahme – kein Befund.'
+            : ($r['status'] !== 200 ? 'Status ' . $r['status'] . ' – kein Zugriff über diese Sitzung.'
+            : 'Status 200, aber kein data.profile – Antwortform prüfen (z. B. Anmeldeseite). KEIN Befund.');
+        return $aus;
+    }
+    $schluessel = array_map('strval', array_keys($p));
+    sort($schluessel);
+    $aus['schluessel'] = $schluessel;
+    $ug = $p['userGroup'] ?? null;
+    $aus['userGroup'] = [
+        'vorhanden' => array_key_exists('userGroup', $p),
+        'gefuellt'  => $ug !== null && $ug !== '' && $ug !== [],
+        'format'    => messung_format($ug),
+    ];
+    $felder = [];
+    messung_gruppenfelder($p, 'profile', false, $felder);
+    $aus['gruppenfelder'] = $felder;
+    $aus['deutung'] = $aus['userGroup']['gefuellt']
+        ? 'Profil gelesen, userGroup gefüllt.'
+        : ($aus['userGroup']['vorhanden'] ? 'Profil gelesen, userGroup vorhanden, aber leer.'
+            : 'Profil gelesen, kein Feld userGroup.');
+    return $aus;
+}
+
 /** Ein Abruf, der nie wirft: Fehler werden mit Klasse und Meldung berichtet. */
 function messung_abruf(object $rest, string $pfad, array $query): array
 {
@@ -354,6 +435,10 @@ function messung_sitzung_bericht(array $u, ?object $rest, ?string $grund,
         return $bericht;
     }
     $bericht['sitzung'] = ['nutzbar' => true, 'grund' => null];
+
+    // ---- 0. profile/general: Gruppe der angemeldeten Person (v0.9.64) ----
+    // Für JEDE Rolle – deshalb vor allem, was für Nicht-Eltern früh endet.
+    $bericht['profil'] = messung_profil(messung_abruf($rest, '/WebUntis/api/profile/general', []));
 
     // ---- 1. pageconfig?type=5 ------------------------------------------
     $pc = messung_abruf($rest, '/WebUntis/api/public/timetable/weekly/pageconfig', ['type' => 5]);

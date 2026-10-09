@@ -302,6 +302,76 @@ pruefe('keine Kennung (Klasse, Lehrkraft, Kind) und kein Name in der Antwort',
     !str_contains($tf, '4242') && !str_contains($tf, '7777') && !str_contains($tf, '90001')
     && !str_contains($tf, 'Geheimlehrer') && !str_contains($tf, '"Gh"'));
 
+// ------------------------------------------------------------
+// v0.9.64: /WebUntis/api/profile/general – Benutzergruppe der angemeldeten
+// Person (Frage: volljährige Schüler erkennen). Belegt ist aus einem
+// Mitschnitt des Betreibers (Browser, Schülerkonto) nur: data.profile trägt
+// userGroup als Text („SuS über 18“) und userRoleId (5). Alle anderen
+// Felder hier sind ERFUNDEN – auch die Listenform für mehrere Gruppen, die
+// nicht belegt ist; sie prüft, dass die Messung sie erkennen würde.
+echo "profile/general – Gruppe der angemeldeten Person (v0.9.64)\n";
+$PR = '/WebUntis/api/profile/general';
+pruefe('Voraussetzung: messung_profil() vorhanden', function_exists('messung_profil'));
+if (!function_exists('messung_profil')) { echo "\n$fehler ROT\n"; exit(1); }
+$profil = ['data' => ['profile' => [
+    'userGroup' => 'SuS über 18', 'userRoleId' => 5,
+    'displayName' => 'Erfunden Person', 'email' => 'erfunden@beispiel.invalid',
+    'personId' => 4712, 'id' => 4711,
+]]];
+$m = messung_profil(['status' => 200, 'json' => $profil, 'fehler' => null]);
+pruefe('Profil gelesen: Status 200, data.profile vorhanden, Schlüssel genannt',
+    $m['status'] === 200 && $m['profil_vorhanden'] === true
+    && in_array('userGroup', $m['schluessel'] ?? [], true) && in_array('userRoleId', $m['schluessel'] ?? [], true));
+pruefe('userGroup: vorhanden, gefüllt, Format Text',
+    ($m['userGroup']['vorhanden'] ?? null) === true && ($m['userGroup']['gefuellt'] ?? null) === true
+    && ($m['userGroup']['format'] ?? null) === 'Text');
+$gf = [];
+foreach ($m['gruppenfelder'] ?? [] as $f) $gf[$f['pfad']] = $f;
+pruefe('Gruppen- und Rollenfelder mit Wert (von der Schule vergeben): userGroup und userRoleId',
+    ($gf['profile.userGroup']['wert'] ?? null) === 'SuS über 18' && ($gf['profile.userRoleId']['wert'] ?? null) === 5);
+$tp = json_encode($m, JSON_UNESCAPED_UNICODE);
+pruefe('keine Personenangaben: weder Name, E-Mail noch Kennungen der Person',
+    !str_contains($tp, 'Erfunden Person') && !str_contains($tp, 'erfunden@') && !str_contains($tp, '4711')
+    && !str_contains($tp, '4712'));
+$mehr = messung_profil(['status' => 200, 'fehler' => null, 'json' => ['data' => ['profile' => [
+    'userGroups' => [['id' => 25, 'name' => 'SuS über 18'], ['id' => 26, 'name' => 'SuSüber18 mit Attest',
+        'mitglieder' => [['id' => 98765, 'firstName' => 'Erfunden', 'lastName' => 'Geheim']]]]]]]]);
+$gm = [];
+foreach ($mehr['gruppenfelder'] ?? [] as $f) $gm[$f['pfad']] = $f;
+pruefe('mehrere Gruppen (Listenform, erfunden): Format Liste, je Gruppe Kennung und Name',
+    ($gm['profile.userGroups']['format'] ?? null) === 'Liste[2] von Objekt{id,name}'
+    && ($gm['profile.userGroups.0.id']['wert'] ?? null) === 25
+    && ($gm['profile.userGroups.1.name']['wert'] ?? null) === 'SuSüber18 mit Attest');
+pruefe('… auch in einer Gruppe keine Personennamen und keine Kennung eines Mitglieds',
+    !str_contains(json_encode($mehr, JSON_UNESCAPED_UNICODE), 'Geheim')
+    && !str_contains(json_encode($mehr, JSON_UNESCAPED_UNICODE), '98765'));
+$leer = messung_profil(['status' => 200, 'fehler' => null, 'json' => ['data' => ['profile' => ['userGroup' => '']]]]);
+// Zwei Stufen schützen: Personenfelder werden übersprungen, und Werte gibt es
+// nur an der Gruppe selbst. Hier steht die Personenangabe DIREKT an der
+// Gruppe – nur die erste Stufe hält sie zurück (die Mitglieder oben prüfen
+// die zweite).
+$direkt = messung_profil(['status' => 200, 'fehler' => null, 'json' => ['data' => ['profile' => [
+    'userGroup' => ['id' => 25, 'name' => 'SuS über 18', 'leitungDisplayName' => 'Erfunden Leitung',
+                    'kontaktMail' => 'leitung@beispiel.invalid']]]]]);
+$td = json_encode($direkt, JSON_UNESCAPED_UNICODE);
+pruefe('Personenangabe direkt an einer Gruppe: übersprungen (Gruppenname bleibt)',
+    !str_contains($td, 'Erfunden Leitung') && !str_contains($td, 'leitung@') && str_contains($td, 'SuS über 18'));
+pruefe('leere userGroup: vorhanden, aber nicht gefüllt',
+    ($leer['userGroup']['vorhanden'] ?? null) === true && ($leer['userGroup']['gefuellt'] ?? null) === false);
+$ohne = messung_profil(['status' => 200, 'fehler' => null, 'json' => null]);
+$verb = messung_profil(['status' => 403, 'fehler' => null, 'json' => null]);
+$ausn = messung_profil(['status' => null, 'fehler' => 'RuntimeException: weg', 'json' => null]);
+pruefe('ohne data.profile: KEIN Befund; 403: kein Zugriff; Ausnahme: kein Befund – drei Deutungen',
+    $ohne['profil_vorhanden'] === false && str_contains($ohne['deutung'], 'KEIN Befund')
+    && str_contains($verb['deutung'], 'kein Zugriff') && str_contains($ausn['deutung'], 'Ausnahme')
+    && count(array_unique([$ohne['deutung'], $verb['deutung'], $ausn['deutung']])) === 3);
+$restP = new ErsatzRest([$PR => ['status' => 200, 'json' => $profil],
+                         $PC => ['status' => 200, 'json' => ['data' => [['id' => 1]]]]]);
+$bp = messung_sitzung_bericht(['rolle' => 'lehrkraft'], $restP, null, '2026-10-08');
+pruefe('Bericht: Profil für jede Rolle gemessen (hier Lehrkraft, deren Bericht früh endet)',
+    ($bp['profil']['userGroup']['gefuellt'] ?? null) === true
+    && in_array($PR, array_column($restP->aufrufe, 0), true));
+
 echo "Aufrufstelle in index.php (ohne Kommentare)\n";
 $code = '';
 foreach (token_get_all((string)file_get_contents(__DIR__ . '/../backend/api/index.php')) as $t) {

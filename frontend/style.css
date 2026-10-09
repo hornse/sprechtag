@@ -499,12 +499,12 @@ select.konflikt.kf-g, select.konflikt.kf-h {
 
 .zeile { display: flex; gap: 1rem; flex-wrap: wrap; }
 .zeile label { flex: 1 1 16rem; }
-/* Ein Label in der Eingabezeile endet ohne Außenabstand unten: Die Zeile ist
-   ein Flex-Behälter, der Abstand verschmölze nicht mit dem nächsten und
-   stünde zusätzlich zu den Abständen der Regel „Abstände zwischen
-   Abschnitten“ (gemessen 42 statt 32 px, v0.9.63). Oben bleibt er – wie
-   bei jedem Label. */
-.zeile > label { margin-bottom: 0; }
+/* Ein Label in der Eingabezeile trägt keinen eigenen Außenabstand: Die
+   Zeile ist ein Flex-Behälter, Abstände darin verschmelzen nicht mit den
+   Nachbarn und stünden zusätzlich da (gemessen 42 statt 32 px vor einem
+   Abschnitt, v0.9.63). Den Abstand zum Nachbarfeld setzt die Regel „Feld
+   nach Feld“ an der Zeile selbst (v0.9.64). */
+.zeile > label { margin: 0; }
 
 label { display: block; font-size: .85rem; font-weight: 600; margin: .6rem 0; }
 input[type=text], input[type=password], input[type=date], textarea {
@@ -670,6 +670,19 @@ a.knopf:hover { filter: brightness(1.1); }
   margin-top: var(--abstand-innen);
 }
 .block + .block { margin-top: var(--abstand-innen); }
+/* Treffer gehören zu ihrem Suchfeld (v0.9.64, Entscheidung Betreiber): der
+   kleinere Wert, an jeder Stelle gleich – auch wo die Treffer ein
+   Kachelgitter und damit sonst ein Abschnitt sind. */
+:where(#ansicht, .sektion, details.block, form) > .suchtreffer:not(:first-child) {
+  margin-top: var(--abstand-innen);
+}
+/* Feld nach Feld (v0.9.64): Zwei Eingaben sind zwei Angaben innerhalb eines
+   Abschnitts – der kleinere Wert, für jedes Feld gleich. Vorher 10 px
+   zwischen Labels, aber 19 px nach einer Eingabezeile (zufällig: in der
+   Flex-Zeile verschmolzen die Abstände nicht). */
+:where(#ansicht, .sektion, details.block, form) > :where(label, .zeile):not(:first-child) {
+  margin-top: var(--abstand-innen);
+}
 /* Ein frei stehender Knopf ist ein eigener Abschnitt und steht als Block:
    inline-block verschmölze seinen Abstand nicht mit dem unteren Rand des
    Vorgängers (Absatz, Label) – gemessen 42–46 statt 32 px. Breite nach
@@ -739,7 +752,6 @@ input.zeit-feld { display: inline-block; width: 4.5rem; margin-top: 0;
                     padding: 0 .3rem; border-radius: 3px; text-decoration: none; }
 
 /* Kind-Suche für die stellvertretende Buchung */
-.sv-treffer { margin: .3rem 0 .6rem; }
 .sv-treffer-liste { display: flex; flex-direction: column; gap: .2rem;
                     max-height: 14rem; overflow-y: auto; border: 1px solid var(--rand);
                     border-radius: 5px; padding: .3rem; }

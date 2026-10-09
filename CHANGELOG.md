@@ -1,5 +1,92 @@
 # Changelog - sprechtag
 
+## v0.9.64 (Oktober 2026) – Abstandsregel nachjustiert; Messung profile/general; Dokumente gesichtet
+
+### Teil A – Abstandsregel (E14-Nachtrag, Entscheidung Betreiber)
+- Treffer unter einem Suchfeld: der kleinere Wert, an beiden Stellen
+  (`.suchtreffer`). `.sv-treffer` trägt keinen eigenen Abstand mehr.
+- Feld nach Feld: der kleinere Wert für jedes Feld (`label`, `.zeile` in
+  den Behältern); Labels in der Eingabezeile ohne eigenen Abstand.
+- „Anmelden“ bleibt bei 32 px.
+
+Gemessen (WebKit, 390 px), gegen v0.9.63:
+
+| Paar | v0.9.63 | v0.9.64 |
+|---|---|---|
+| Suchfeld → Treffer („Weitere Lehrkräfte“) | 32 | 13 |
+| Suchfeld → Treffer (stellvertretende Buchung) | 12 | 13 |
+| Eingabezeile → nächstes Feld („Sprechtag“ → „Kind“) | 10 | 13 |
+| Label → Label | 10 | 13 |
+| Häkchen-Zeile → Häkchen-Zeile (Login-Protokoll) | 8 | 13 |
+| Eingabezeile → Abschnitt (Knopf, Tabelle, Sektion) | 32 | 32 |
+| Hinweis → Eingabezeile | 24 | 14 |
+
+Keine der 40–46-px-Stellen aus v0.9.63 ist zurück. Ob 13 px zwischen
+zwei Feldern genügen, zeigt das Gerät – reicht es nicht, ist der kleinere
+Wert selbst zu klein, und das beträfe alle Innenabstände.
+
+### Teil B – Messung: `/WebUntis/api/profile/general` (nicht gebaut wird die Gruppenprüfung)
+`GET /api/messung/sitzung` misst jetzt für **jede** Rolle (vor dem Teil,
+der nur für Eltern läuft) über den Sitzungscookie unseres Clients (Cookie
+plus daraus geholtes JWT, wie der Mitteilungsversand):
+- Status und ob `data.profile` kommt – drei verschiedene Deutungen für
+  „kein Profil“, „kein Zugriff“, „Ausnahme“;
+- die **Schlüsselnamen** des Profils (keine Werte);
+- `userGroup`: vorhanden, gefüllt, Format (Text oder Liste – Frage
+  „eindeutig?“);
+- alle Felder, deren Pfad „group“ oder „role“ enthält, mit Format und –
+  am Gruppen-/Rollenfeld selbst und seinen direkten Angaben – Wert
+  (Gruppenname, Gruppenkennung: von der Schule vergeben). Frage
+  „Kennung?“.
+
+Personenangaben gehen nicht in die Antwort: Personenfelder werden auch
+innerhalb einer Gruppe übersprungen (Stufe 1), und Werte gibt es nur an der
+Gruppe selbst, nicht tiefer (Stufe 2) – beide einzeln mit Gegenprobe
+belegt. Belegt ist aus dem Mitschnitt des Betreibers nur `userGroup`
+(Text) und `userRoleId`; die Listenform in den Prüfdaten ist erfunden.
+
+### Teil C – ältere Dokumente: überholt (nur gesichtet, nicht umgeschrieben)
+- `SCHUELERLISTE.md` (Stand 30.07.): „`getStudents` liefert keine
+  Klasse“ und der Ausblick über `getKlassen` sind durch den Befund vom
+  07.10. überholt (`pageconfig?type=5` trägt Klasse und `externKey`).
+  Der Schild-Import ist noch im Code (Zug 4); im CSV-Beispiel fehlt die
+  fünfte Spalte (Austrittsdatum), die Oberfläche verlangt sie.
+- `BEDIENUNG.md` (Stand 23.07.): kennt die Gliederung der Kacheln nicht
+  (heute vier Teile), nennt einen Knopf „Lehrkräfte anzeigen“, den es
+  nicht mehr gibt (lädt selbst), Einladungen „über Schüler-ID“ (heute
+  Klassenliste), stellvertretendes Buchen „mit Benutzer-ID der Eltern“
+  (heute Kind-Suche). Es fehlen: Mitteilungen, Kalender-Abo, Anzeige,
+  Erinnerungen, Login-Protokoll, Texte, Halbtags/Zeitfenster, Karten am
+  Telefon. Datenschutz: das Login-Protokoll speichert Benutzernamen – dort
+  steht „nur die Benutzer-ID“.
+- `DIENSTKONTO.md` (Stand 24.07.): „Gruppe ‚SuS über 18‘ ist über die API
+  nicht sichtbar“ ist durch den Mitschnitt von `profile/general`
+  überholt (Messung läuft). „Ohne Klausuren“ – heute zählen
+  Klausurtermine je Sprechtag einstellbar mit (`klausuren_werten`,
+  Vorgabe an; Kachel „nur Klausurtermin“). „Grenzen“ zu `getKlassen`
+  und `getStudents` wie bei der Schülerliste überholt.
+- `MITTEILUNGEN.md` (Stand 24.07.): Anlass „Einladung“ fehlt in der
+  Tabelle. „Versand auslösen“ kennt nur die Administration mit
+  Passworteingabe; die Ansicht „Mitteilungen“ gibt es inzwischen auch für
+  Lehrkräfte, und mit hinterlegtem Dienstkonto entfällt die Eingabe
+  (aus dem Code; wer dort versenden darf, nicht nachgesehen). Die Beispiele tragen Namen und Kennungen ohne Herkunftsangabe
+  („belegt am 24.07.“ steht darüber) – **ob erfunden oder echt, ist nicht
+  gekennzeichnet**; zu prüfen.
+- `SONDIERUNG.md`, `VERSANDWEG_ERMITTELN.md` (Juli): Werkzeug- und
+  Ermittlungsanleitungen aus der Anfangszeit; der Versandweg ist seit
+  24.07. belegt, die Anleitung zum Ermitteln damit Rückfall, nicht Weg.
+- Aktuell: `ENTSCHEIDUNGEN.md`, die beiden `BEFUND-*`,
+  `signage-wiederverwenden.md` (07.10.).
+
+### Prüfungen
+- 1029 → 1044 Prüfzeilen in 54 Suiten, alle grün; `tests-sprechtag.sh`
+  29. `frontend_abstaende_test.js` +4, `run_messung_sitzung.php` +11.
+- Mutationen 180 → 192 Ergebniszeilen, alle angeschlagen, H4 grün,
+  Rücknahme gegen Prüfsummen belegt. Im ersten Lauf schlug PF3
+  (Personenfilter abgeschaltet) nicht an: Zwei Stufen schützten dieselben
+  Testdaten, die Prüfung maß die Redundanz. Ein Fall, in dem nur der
+  Filter schützt, ist ergänzt; von Hand und in der Serie belegt.
+
 ## v0.9.63 (Oktober 2026) – Abstände zwischen Abschnitten: zwei Werte, eine Regel (E14)
 
 Entscheidung des Betreibers zu den Richtungsfragen aus v0.9.62: Ein Knopf

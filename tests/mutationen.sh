@@ -589,6 +589,35 @@ mut AB8 $CSS 's/           padding: 1\.1rem 1\.3rem; \}/           padding: 1.1r
 mut AB9 $CSS 's/\z/\n.buchen-sonderrollen { margin-top: 2rem; }\n/' \
   $AB "keine Sonderregel mehr für die Sonderrollen"
 
+# v0.9.64 – Treffer gehören zum Suchfeld; Feld nach Feld (Abstandsregel)
+mut AB10 $CSS 's/\n:where\(#ansicht, \.sektion, details\.block, form\) > \.suchtreffer:not\(:first-child\) \{\n  margin-top: var\(--abstand-innen\);\n\}//' \
+  $AB "Treffer unter dem Suchfeld: der kleinere Wert"
+mut AB11 $APP 's/el\(\x27div\x27, \x27sv-treffer suchtreffer\x27\)/el(\x27div\x27, \x27sv-treffer\x27)/' \
+  $AB "… an beiden Stellen gekennzeichnet"
+mut AB12 $CSS 's/> :where\(label, \.zeile\):not\(:first-child\) \{/> :where(label, .zeile) {/' \
+  $AB "Feld nach Feld: der kleinere Wert"
+mut AB13 $CSS 's/\.zeile > label \{ margin: 0; \}/.zeile > label { margin-bottom: 0; }/' \
+  $AB "… in der Eingabezeile tragen Labels keinen eigenen Abstand"
+mut AB14 $CSS 's/\.sv-treffer-liste \{/.sv-treffer { margin: .3rem 0 .6rem; }\n.sv-treffer-liste {/' \
+  $AB "keine Bausteine mit eigenem Außenabstand"
+
+# v0.9.64 – Messung profile/general (Gruppe der angemeldeten Person)
+# Suite und Datei wie oben: $S, $MS.
+mut PF1 $MS 's/\n    \$bericht\[\x27profil\x27\] = messung_profil\([^\n]*\n/\n/' \
+  $S "Bericht: Profil für jede Rolle gemessen"
+mut PF2 $MS 's/    \$bericht\[\x27profil\x27\] = messung_profil\(/    if ((\$u[\x27rolle\x27] ?? \x27\x27) === \x27eltern\x27) \$bericht[\x27profil\x27] = messung_profil(/' \
+  $S "Bericht: Profil für jede Rolle gemessen"
+mut PF3 $MS 's/if \(\$person && !\$gruppenschluessel && [^\n]*\) continue;/if (false) continue;/' \
+  $S "Personenangabe direkt an einer Gruppe: übersprungen"
+mut PF4 $MS 's/\$mitWert = messung_ist_gruppe\(\$pfad\) \|\| messung_ist_gruppe\(\$eltern\);/\$mitWert = true;/' \
+  $S "… auch in einer Gruppe keine Personennamen und keine Kennung eines Mitglieds"
+mut PF5 $MS 's/\$aus\[\x27schluessel\x27\] = \$schluessel;/\$aus[\x27schluessel\x27] = \$p;/' \
+  $S "keine Personenangaben"
+mut PF6 $MS 's/\x27Status 200, aber kein data\.profile – Antwortform prüfen \(z\. B\. Anmeldeseite\)\. KEIN Befund\.\x27/\x27Status 200 – kein Zugriff über diese Sitzung.\x27/' \
+  $S "ohne data.profile: KEIN Befund"
+mut PF7 $MS 's/\x27gefuellt\x27  => \$ug !== null && \$ug !== \x27\x27 && \$ug !== \[\],/\x27gefuellt\x27  => \$ug !== null,/' \
+  $S "leere userGroup: vorhanden, aber nicht gefüllt"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1

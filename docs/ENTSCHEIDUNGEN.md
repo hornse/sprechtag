@@ -687,3 +687,16 @@ inneren Abstand unten mitbrachte, der nicht verschmilzt (Label in der
 Eingabezeile, letzte Karte im Rollrahmen, frei stehender Knopf als
 `inline-block`), ist er entfernt bzw. der Knopf steht als Block – sonst
 stünden statt 32 bis zu 46 px da (gemessen).
+
+**Nachtrag zu E14, 09.10.2026 (v0.9.64, Entscheidung Betreiber):**
+- **Treffer unter einem Suchfeld gehören zum Suchfeld:** der kleinere
+  Wert, an jeder Stelle gleich (Kennzeichnung `.suchtreffer` – „Weitere
+  Lehrkräfte“ und stellvertretende Buchung; vorher 32 gegen 12 px).
+- **Feld nach Feld: der kleinere Wert**, für jedes Feld gleich. Zwei
+  Eingaben sind zwei Angaben innerhalb eines Abschnitts. Vorher standen
+  10 px zwischen Labels, aber 19 px nach einer Eingabezeile – zufällig,
+  weil Abstände in der Flex-Zeile nicht verschmolzen. Labels in der
+  Eingabezeile tragen keinen eigenen Abstand mehr; den setzt die Regel an
+  der Zeile.
+- **„Anmelden“ mit 32 px bleibt:** Ein Knopf, der eine Handlung auslöst,
+  steht abgesetzt – wie „Aktualisieren“.

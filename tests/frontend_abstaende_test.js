@@ -99,12 +99,40 @@ pruefe('gleichartige Blöcke bleiben eine Liste (.block + .block: --abstand-inne
 // Keine verteilten Einzelwerte: Die Grundregeln der Bausteine tragen
 // keinen eigenen Außenabstand mehr (außer 0), die Sonderregel der
 // Sonderrollen ist entfallen.
-const BAUSTEINE = ['.block', '.sektion', '.buchen-gitter', '.tabelle-rahmen', '.tabelle', '.aktionen', '.raster'];
+const BAUSTEINE = ['.block', '.sektion', '.buchen-gitter', '.tabelle-rahmen', '.tabelle', '.aktionen', '.raster',
+  '.sv-treffer'];
 const mitRand = BAUSTEINE.filter((b) => R.some((r) => r.kopf === b
   && ['margin', 'margin-top', 'margin-bottom'].some((e) => { const v = wert(r.inhalt, e); return v !== null && !/^0(\s+0)*$/.test(v); })));
 pruefe('keine Bausteine mit eigenem Außenabstand (' + (mitRand.join(', ') || 'keine') + ')', mitRand.length === 0);
 pruefe('keine Sonderregel mehr für die Sonderrollen (.buchen-sonderrollen)',
   !R.some((r) => r.kopf === '.buchen-sonderrollen'));
+
+// ------------------------------------------------------------
+// v0.9.64 (Entscheidung Betreiber): Treffer gehören zu ihrem Suchfeld –
+// kleinerer Wert, an beiden Stellen gleich (vorher 32 px unter „Weitere
+// Lehrkräfte“, 12 px bei der stellvertretenden Buchung). Eine Kennzeichnung
+// für beide: .suchtreffer.
+const js = fs.readFileSync(path.join(__dirname, '..', 'frontend', 'app.js'), 'utf8');
+const rumpf = (k) => require('./rumpf.js').rumpf(js, k);
+const treffer = R.find((r) => /\.suchtreffer/.test(r.kopf) && /var\(--abstand-innen\)/.test(r.inhalt));
+pruefe('Treffer unter dem Suchfeld: der kleinere Wert (.suchtreffer, --abstand-innen, :not(:first-child))',
+  !!treffer && wert(treffer.inhalt, 'margin-top') === 'var(--abstand-innen)'
+  && /:not\(:first-child\)/.test(treffer.kopf) && R.indexOf(treffer) > iA);
+pruefe('… an beiden Stellen gekennzeichnet (Weitere Lehrkräfte, stellvertretende Buchung)',
+  /el\('div', 'buchen-gitter suchtreffer'\)/.test(rumpf('function zeichneWeitereLehrkraefte('))
+  && /el\('div', 'sv-treffer suchtreffer'\)/.test(rumpf('function zeichneStellvertreterKopf('))
+  && (js.match(/suchtreffer'\)/g) || []).length === 2);
+
+// v0.9.64: Zwei Eingabefelder sind zwei Angaben – innerhalb eines
+// Abschnitts, also der kleinere Wert, für jedes Feld gleich (vorher 10 px
+// zwischen Labels, 19 px nach einer Eingabezeile – zufällig, weil Abstände
+// in der Flex-Zeile nicht verschmolzen).
+const felder = R.find((r) => /:where\(label, \.zeile\)/.test(r.kopf) && /var\(--abstand-innen\)/.test(r.inhalt));
+pruefe('Feld nach Feld: der kleinere Wert (label, .zeile in den Behältern)',
+  !!felder && wert(felder.inhalt, 'margin-top') === 'var(--abstand-innen)' && /:not\(:first-child\)/.test(felder.kopf));
+const zeileLabel = R.find((r) => r.kopf === '.zeile > label');
+pruefe('… in der Eingabezeile tragen Labels keinen eigenen Abstand (.zeile > label: margin 0)',
+  !!zeileLabel && wert(zeileLabel.inhalt, 'margin') === '0');
 
 console.log(fehler === 0 ? '\nALLE TESTS GRÜN' : '\n' + fehler + ' FEHLER');
 process.exit(fehler === 0 ? 0 : 1);
