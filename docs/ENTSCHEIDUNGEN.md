@@ -1187,6 +1187,12 @@ danach wird gebaut.
     ist von einem Schüler ohne Klasse nicht zu unterscheiden, solange
     ungemessen ist, ob pageconfig die eigene Person führt.
 
+**Nachtrag 10.10.2026 — Schritt 2 abgenommen (Betreiber, Betrieb):** Eine
+neue Buchung trägt Name und Klasse. Ältere haben die Klasse leer, wie die
+Migration es vorsah. Das Kalender-Abo und die Tischvorlage zeigen Termine
+mit Name und Klasse richtig.
+
+
 ## E21 — Das Kalender-Abo liefert nur kommende Sprechtage
 
 **Datum:** 10.10.2026 · **Version:** 0.9.77 · **Anlass:** Fehler aus dem
@@ -1286,4 +1292,32 @@ Gemeint ist die Array-Form; die Aufteilung ist die Sicherung dahinter.
 **Folge der Auslieferung:** Wer in `config.php` in irgendeiner Schreibweise
 oder in einem Komma-Eintrag steht, ist ab v0.9.78 Admin. Bisher galt das
 still nicht.
+
+## E23 — Die Verwaltung arbeitet über ein Lehrerkonto mit admin_kuerzel
+
+**Datum:** 10.10.2026 · **Version:** keine Codeänderung (Stand v0.9.79) ·
+**betrifft:** E16, E17, E22 · **Befund:**
+`docs/BEFUND-2026-10-10-verwaltung-parents.md`
+
+**Anlass:** Mit dem echten WebUntis-Admin-Konto (personType 16) blieb eine
+Absage offen: „PARENTS: Keine Berechtigung zum Versenden von Mitteilungen
+(HTTP 403)“. Dem Admin-Konto fehlt die Empfängerart PARENTS. Absagen,
+Ausfälle, Einladungen und die stellvertretende Bestätigung laufen aber über
+PARENTS (v0.9.72/73), und auch die Verwaltung löst sie aus. Das ist eine
+Lücke im Entwurf von E16/E17.
+
+**Entschieden (Betreiber):** Die Verwaltungsansicht wird über ein
+**Lehrerkonto mit `admin_kuerzel`** erreicht, nicht über das echte
+Admin-Konto. Seit v0.9.78 (E22) funktioniert das, im Betrieb bestätigt. Die
+Lehrkraft-Sitzung trägt PARENTS (gemessen).
+
+**Offen, zu entscheiden (Betreiber):** Was geschieht mit dem echten
+Admin-Konto? Es bekäme weiterhin die Verwaltung über personType 16. Die
+Möglichkeiten:
+1. **keine Verwaltung mehr** für personType 16;
+2. **Verwaltung mit Warnung**;
+3. **unverändert, nur dokumentiert.**
+
+Folgen je Möglichkeit: siehe die Antwort an den Betreiber vom 10.10.2026,
+sobald entschieden, hier als Nachtrag.
 
