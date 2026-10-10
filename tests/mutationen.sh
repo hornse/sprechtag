@@ -995,6 +995,35 @@ mut EA8 $APP 's/aktion: \(\) => buchen\(lehrerId, slot, kommentar\)/aktion: () =
 mut EA9 $APP 's/buchen\(lehrerId, slot, kommentar\),\n        spaeter: \x27Nicht gebucht\. Der Termin ist nicht eingetragen\.\x27 \}/buchen(lehrerId, slot, kommentar) }/' \
   $FS "„Später“ sagt: nicht gebucht"
 
+# v0.9.77: Das Kalender-Abo liefert nur kommende Sprechtage (E21).
+RKA=tests/run_kalender_abo.php
+mut KO1 $KAL 's/    if \(\$abDatum !== null\) \{ \$sql \.= \x27 AND sp\.datum >= \?\x27; \$args\[\] = \$abDatum; \}\n//' \
+  $RKA "vergangener Sprechtag (27.07.) fehlt"
+mut KO2 $KAL 's/(\$args\[\] = \$sprechtagId; \}\n)    if \(\$abDatum !== null\) \{ \$sql \.= \x27 AND sp\.datum >= \?\x27; \$args\[\] = \$abDatum; \}\n/$1/' \
+  $RKA "gestern und Juli fehlen, auch die Kindnamen von dort"
+mut KO3 $KAL 's/AND sp\.datum >= \?/AND sp.datum > ?/' \
+  $RKA "heute und die zwei künftigen Sprechtage drin"
+mut KO4 $KAL 's/kal_buchungen_laden\(\$pdo, \(int\)\$uid, null, \$heute\)/kal_buchungen_laden(\$pdo, (int)\$uid, null, null)/' \
+  $RKA "vergangener Sprechtag (27.07.) fehlt"
+mut KO5 $KAL 's/kal_lehrer_buchungen\(\$pdo, \$lehrerId, null, \$heute\)/kal_lehrer_buchungen(\$pdo, \$lehrerId, null, null)/' \
+  $RKA "gestern und Juli fehlen, auch die Kindnamen von dort"
+mut KO6 $IX 's/kal_abo_ics\(\$pdo, \(string\)\$token, date\(\x27Y-m-d\x27\)\)/kal_abo_ics(\$pdo, (string)\$token, \x271970-01-01\x27)/' \
+  $RKA "Abo-Route ruft kal_abo_ics mit dem heutigen Datum"
+mut KO7 $IX 's/(    \$abo = kal_abo_ics\()/    \$alle = kal_buchungen_laden(\$pdo, 0);\n$1/' \
+  $RKA "Abo-Route lädt keine Buchungen an kal_abo_ics vorbei"
+mut KO8 $IX 's/            \$pdo->prepare\(\x27DELETE FROM buchungen WHERE sprechtag_id = \?\x27\)->execute\(\[\$sid\]\);\n//' \
+  $RKA "nach dem Archivieren des Sprechtags vom 12.11."
+mut KO9 $APP 's/liegt an der App\./entfernt sie ebenfalls./' \
+  $DS "Kalender-Abo: verspricht nicht, dass die App sie löscht"
+mut KO10 $APP 's/sie bleibt dort, bis man sie selbst löscht/sie verschwindet mit dem Abo/' \
+  $DS "Grenze genannt: ein einzeln übernommener Termin"
+mut KO11 $APP 's/Mit diesem persönlichen Link erscheinen Ihre kommenden Sprechtag-Termine/Mit diesem persönlichen Link erscheinen alle Ihre Sprechtag-Termine/' \
+  $DS "Eltern: „Meine Termine“ und FAQ sagen „kommende“"
+mut KO12 $APP 's/Abo-Link, mit dem Ihre kommenden Termine/Abo-Link, mit dem Ihre Termine/' \
+  $DS "Lehrkraft: der Hinweis zum Abo-Link"
+mut KO13 $APP 's/am Tag nach dem Sprechtag fallen sie/nach dem Archivieren fallen sie/' \
+  $DS "Kalender-Abo: nur Termine kommender Sprechtage"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1

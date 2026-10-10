@@ -1259,7 +1259,7 @@ function ansichtHilfe(ziel) {
     ['Kann ich die Termine in meinen Kalender übernehmen?',
      'Ja. Unter „Meine Termine" gibt es bei jedem Termin „📅 hinzufügen" für '
      + 'den einzelnen Eintrag und darunter einen persönlichen Abo-Link, mit '
-     + 'dem alle Termine automatisch in Google-, Apple-, Outlook- oder '
+     + 'dem die Termine kommender Sprechtage automatisch in Google-, Apple-, Outlook- oder '
      + 'WebUntis-Kalender erscheinen und sich bei Änderungen selbst '
      + 'aktualisieren. Der Link ist privat und sollte nicht weitergegeben '
      + 'werden.'],
@@ -1295,6 +1295,11 @@ function datenschutzAbsaetze() {
       + 'Sprechtag archiviert, und wird dann gelöscht. Dafür gibt es keine '
       + 'automatische Frist. Erhalten bleibt nur die Struktur für den '
       + 'nächsten Sprechtag: Lehrkräfte, Räume und Zeiten.',
+    'Der persönliche Kalender-Link liefert nur die Termine kommender Sprechtage; '
+      + 'am Tag nach dem Sprechtag fallen sie aus dem Abo heraus. Ob die '
+      + 'Kalender-App sie dann auch bei sich entfernt, liegt an der App. Ein '
+      + 'einzeln über „📅 hinzufügen“ übernommener Termin ist eine Kopie in der '
+      + 'Kalender-App; sie bleibt dort, bis man sie selbst löscht.',
     'Unabhängig vom Archivieren bleibt Folgendes gespeichert:',
     'Die Schülerliste mit Namen und Klassen, aus der Lehrkräfte für '
       + 'Einladungen auswählen. Sie bleibt, bis die Schule sie löscht.',
@@ -1762,7 +1767,7 @@ function ansichtMeineTermine(ziel) {
   // ---- Kalender abonnieren -------------------------------------------
   const abo = block('kalender-abo', 'Termine im Kalender abonnieren');
   abo.appendChild(el('p', 'hinweis',
-    'Mit diesem persönlichen Link erscheinen alle Ihre Sprechtag-Termine '
+    'Mit diesem persönlichen Link erscheinen Ihre kommenden Sprechtag-Termine '
     + 'automatisch in Ihrem Kalender (Google, Apple, Outlook – oder in '
     + 'WebUntis als externer Kalender). Absagen und neue Buchungen '
     + 'aktualisieren sich von selbst. Der Link ist privat – bitte nicht '
@@ -1976,7 +1981,7 @@ function zeichneLehrkraftRaster(ziel, lehrerId) {
     const exp = block('lehrer-export', 'Terminliste exportieren');
     exp.appendChild(el('p', 'hinweis',
       'Für den Sprechtag: eine druckbare Tischvorlage, die Tagesliste als '
-      + 'Kalenderdatei, oder ein persönlicher Abo-Link, mit dem Ihre Termine '
+      + 'Kalenderdatei, oder ein persönlicher Abo-Link, mit dem Ihre kommenden Termine '
       + 'automatisch im eigenen Kalender (auch WebUntis) erscheinen.'));
     const z = el('div', 'zeile');
     const vorlage = el('a', 'knopf', 'Druckbare Tischvorlage');

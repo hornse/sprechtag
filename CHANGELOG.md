@@ -1,5 +1,50 @@
 # Changelog - sprechtag
 
+## v0.9.77 (Oktober 2026) – Das Kalender-Abo liefert nur kommende Sprechtage (Fehler aus dem Betrieb, E21)
+
+- **Fehler:** Das Abo (`/api/kalender/{token}.ics`) lieferte die Termine
+  aller Sprechtage, auch vergangener. Gemeldet war ein Termin vom
+  27.07.2026 in der Kalender-App. Der Kommentar versprach „zukünftige“
+  Buchungen, gefiltert wurde nicht. Betroffen waren das Eltern- und das
+  Lehrkraft-Abo.
+- **Jetzt:** Beide liefern nur Sprechtage ab heute. Der Sprechtag gilt bis
+  zum Ende seines Tages; mehrere künftige sind alle drin. Die eine Stelle
+  ist `kal_abo_ics()` in `kalender.php`; die Route übergibt das heutige
+  Datum. Die Einzeldatei und die Tagesliste der Lehrkraft sind keine Abos
+  und bleiben, wie sie sind.
+- **Archivieren:** Es leert den Inhalt der Abos für diesen Sprechtag; das
+  ist jetzt ausgeführt belegt. Ein zweiter Fund ergab sich nicht.
+- **Hilfe:**
+  - Der Datenschutz-Absatz nennt, dass der Kalender-Link nur kommende
+    Sprechtage liefert.
+  - Ob die Kalender-App den Termin danach entfernt, liegt an der App.
+  - Ein einzeln übernommener Termin bleibt als Kopie.
+  - „Meine Termine“, FAQ und der Export der Lehrkraft sagen „kommende“
+    statt „alle“.
+- Befund „Daten neben dem Archiv“: D6 nachgetragen; D1 (Eintrag ohne
+  Frist) bleibt offen.
+
+### Prüfungen
+- 1382 → 1403 Prüfzeilen in 64 Suiten (vorher 63), alle grün;
+  `tests-sprechtag.sh` 29.
+  - **Neu `run_kalender_abo.php` (16), ausgeführt gegen eine Datenbank:**
+    - Eltern- und Lehrkraft-Abo: heute und zwei künftige drin; gestern
+      (Grenze) und Juli nicht; der Stichtag wirkt.
+    - Nur die eigenen Termine.
+    - Archivieren (Zweig aus `index.php` ausgeführt) leert beide Abos für
+      diesen Sprechtag.
+    - Quelltext: Die Route ruft `kal_abo_ics()` mit dem heutigen Datum.
+    - Zuerst rot. Eine Probe mit den alten Abfragen stellte den Fehler
+      nach: 9 rot, das Archivieren dabei schon grün.
+  - `frontend_datenschutz_test.js` 22 → 27, zuerst 5-mal rot.
+    - Das Merkmal für `kalender_abo` sucht jetzt den Eintragsabsatz selbst,
+      nicht nur das Wort „Kalender-Link“. Den nennt seit diesem Stand auch
+      der neue Absatz, und DS5 schlug deshalb nicht mehr an.
+  - `frontend_lehrer_export_test.js`: Die Prüfung „Feed erkennt
+    Lehrkraft-Token“ liest jetzt `kalender.php`, gleiche Zahl.
+- Mutationen 350 → 363 (KO1–KO13), alle angeschlagen, H4 grün, Rücknahme
+  belegt. DS5 nach dem neuen Merkmal wieder angeschlagen.
+
 ## v0.9.76 (Oktober 2026) – Zug 4, Schritt 2: Kindname und Klasse am Vorgang – benötigt Migration `sql/22_kindname.sql`
 
 Grundlage: die Messung aus Schritt 1 (Befund pageconfig-Schülerliste,

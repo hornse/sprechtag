@@ -128,10 +128,14 @@ function kal_kalender(string $vevents, string $name): string
 }
 
 /**
- * Lädt die (zukünftigen) Buchungen eines Elternkontos für den iCal-Export.
+ * Lädt die Buchungen eines Elternkontos für den iCal-Export.
  * $nurBuchung: optionale einzelne Buchungs-ID (für die Einzeldatei).
+ * $abDatum: nur Sprechtage ab diesem Tag (YYYY-MM-DD) – das Abo (v0.9.77).
+ * Bis v0.9.76 versprach dieser Kommentar „zukünftige“ Buchungen, gefiltert
+ * wurde aber nicht.
  */
-function kal_buchungen_laden(PDO $pdo, int $elternUserId, ?int $nurBuchung = null): array
+function kal_buchungen_laden(PDO $pdo, int $elternUserId, ?int $nurBuchung = null,
+                             ?string $abDatum = null): array
 {
     $sql =
         'SELECT b.id, b.slot_beginn, sp.datum, sp.slot_minuten, sp.name AS sprechtag_name,
@@ -149,10 +153,40 @@ function kal_buchungen_laden(PDO $pdo, int $elternUserId, ?int $nurBuchung = nul
         $sql .= ' AND b.id = ?';
         $args[] = $nurBuchung;
     }
+    if ($abDatum !== null) { $sql .= ' AND sp.datum >= ?'; $args[] = $abDatum; }
     $sql .= ' ORDER BY sp.datum, b.slot_beginn';
     $st = $pdo->prepare($sql);
     $st->execute($args);
     return $st->fetchAll();
+}
+
+/**
+ * Inhalt des Kalender-Abos zu einem Token (v0.9.77, E21): Eltern- oder
+ * Lehrkraft-Feed, NUR Sprechtage ab $heute. Was vorbei ist, liefert das Abo
+ * nicht mehr – sonst wanderten vergangene Termine samt Kindnamen dauerhaft
+ * in fremde Kalender-Apps. Ein Sprechtag gilt bis zum Ende seines Tages.
+ * Die Einzeldatei (/api/buchung/{id}.ics) und die Tagesliste der Lehrkraft
+ * (/api/lehrer-termine/{id}.ics) sind keine Abos und filtern nicht.
+ * Unbekannter Token: null.
+ */
+function kal_abo_ics(PDO $pdo, string $token, string $heute): ?array
+{
+    $marke = $pdo->query("SELECT wert FROM einstellungen
+                          WHERE schluessel = 'marke_titel'")->fetchColumn();
+    // Lehrkraft-Feed? (Token gehört zu einer Lehrkraft -> Kind-zentrierte Events)
+    $lehrerId = kal_lehrer_aus_token($pdo, $token);
+    if ($lehrerId !== null) {
+        return ['ics' => kal_kalender(kal_vevents_lehrer(kal_lehrer_buchungen($pdo, $lehrerId, null, $heute)),
+                    ($marke ?: 'Sprechtag') . ' – meine Termine'),
+                'datei' => 'sprechtag-lehrkraft.ics'];
+    }
+    $st = $pdo->prepare('SELECT eltern_user_id FROM kalender_abo WHERE token = ?');
+    $st->execute([$token]);
+    $uid = $st->fetchColumn();
+    if ($uid === false) return null;
+    return ['ics' => kal_kalender(kal_vevents(kal_buchungen_laden($pdo, (int)$uid, null, $heute)),
+                ($marke ?: 'Sprechtag')),
+            'datei' => 'sprechtag.ics'];
 }
 
 /** Sendet eine .ics-Datei und beendet das Skript. */
@@ -169,7 +203,8 @@ function kal_ausliefern(string $ics, string $dateiname): never
  * Lädt die Buchungen EINER Lehrkraft für einen Sprechtag – für Export/Tischvorlage.
  * Anders als der Eltern-Feed: hier IST der Kindname die zentrale Information.
  */
-function kal_lehrer_buchungen(PDO $pdo, int $lehrerId, ?int $sprechtagId = null): array
+function kal_lehrer_buchungen(PDO $pdo, int $lehrerId, ?int $sprechtagId = null,
+                              ?string $abDatum = null): array
 {
     $sql =
         'SELECT b.id, b.slot_beginn, sp.datum, sp.slot_minuten, sp.name AS sprechtag_name,
@@ -185,6 +220,7 @@ function kal_lehrer_buchungen(PDO $pdo, int $lehrerId, ?int $sprechtagId = null)
          WHERE b.lehrer_id = ?';
     $args = [$lehrerId];
     if ($sprechtagId !== null) { $sql .= ' AND b.sprechtag_id = ?'; $args[] = $sprechtagId; }
+    if ($abDatum !== null) { $sql .= ' AND sp.datum >= ?'; $args[] = $abDatum; }
     $sql .= ' ORDER BY sp.datum, b.slot_beginn';
     $st = $pdo->prepare($sql);
     $st->execute($args);

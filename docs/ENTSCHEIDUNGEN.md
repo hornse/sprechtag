@@ -1142,3 +1142,58 @@ danach wird gebaut.
     still leer, wenn pageconfig beim Login scheiterte. Ein solcher Fall
     ist von einem Schüler ohne Klasse nicht zu unterscheiden, solange
     ungemessen ist, ob pageconfig die eigene Person führt.
+
+## E21 — Das Kalender-Abo liefert nur kommende Sprechtage
+
+**Datum:** 10.10.2026 · **Version:** 0.9.77 · **Anlass:** Fehler aus dem
+Betrieb, gemeldet vom Betreiber
+
+**Fund:** `GET /api/kalender/{token}.ics` lieferte die Termine **aller**
+Sprechtage, auch vergangener. Gemeldet war ein Termin vom 27.07.2026, der
+noch in der Kalender-App stand. Der Kommentar über `kal_buchungen_laden()`
+versprach „zukünftige“ Buchungen, gefiltert wurde aber nicht. Das betraf
+das Eltern- und das Lehrkraft-Abo; das Lehrkraft-Abo trägt dabei Name und
+Klasse jedes gebuchten Kindes.
+
+**Warum es zählt:** Vergangene Termine wanderten so dauerhaft in fremde
+Kalender-Apps, nicht nur bis zum Archivieren in die eigene Datenbank. Der
+Datenschutztext (v0.9.74) sagte das nicht. Es gehört zum Komplex D1 (Befund
+„Daten neben dem Archiv“); dort ist es als **D6** nachgetragen.
+
+**Entscheidung (Betreiber):** Das Abo liefert nur noch den aktuellen
+Sprechtag. Begründung: Ein Kalender zeigt, was kommt.
+
+**Beim Bauen entschieden:**
+- **„Aktuell“ heißt: Datum heute oder später.** Ein Sprechtag gilt bis zum
+  Ende seines Tages und fällt am Tag danach heraus. Die Phase spielt keine
+  Rolle. Ein künftiger, geschlossener Sprechtag hat gültige Termine und
+  bleibt drin. Ein archivierter hat keine Buchungen mehr, denn das
+  Archivieren löscht sie. Ein zweiter Filter auf „nicht archiviert“ hätte
+  dieselbe Gefahr ein zweites Mal abgewehrt, ohne einzeln prüfbar zu sein.
+- **Mehrere Sprechtage:** Alle künftigen sind drin.
+- **Beide Abos:** Eltern und Lehrkraft. Die Entscheidung nennt „das Abo“,
+  und das Lehrkraft-Abo trägt mehr Namen als das der Eltern.
+- **Nicht betroffen sind die Einzeldatei** (`/api/buchung/{id}.ics`, „📅
+  hinzufügen“) **und die Tagesliste der Lehrkraft**
+  (`/api/lehrer-termine/{id}.ics`). Beide sind ausdrückliche Downloads,
+  keine Abos. Was dort heruntergeladen wird, ist eine Kopie in der
+  Kalender-App, und das nennt jetzt der Datenschutztext.
+- **Die eine Stelle** ist `kal_abo_ics()` in `kalender.php`. Die Route
+  übergibt `date('Y-m-d')` und lädt keine Buchungen an ihr vorbei.
+
+**Grenzen (nicht gemessen):**
+- **Ob eine Kalender-App einen Eintrag entfernt, der aus dem Abo
+  verschwindet, entscheidet die App.** Die gängigen gleichen ein
+  abonniertes Kalenderabo beim nächsten Abruf vollständig ab. Das ist
+  Allgemeinwissen, hier nicht gemessen. Der Hilfetext verspricht es
+  deshalb nicht („liegt an der App“). Belegen ließe es sich am Gerät: Das
+  Abo nach dem Deploy aktualisieren und nachsehen, ob der Termin vom
+  27.07. verschwindet.
+- **Die Zeitzone des PHP-Dienstes auf dem Server ist nicht gemessen.**
+  Läuft er auf UTC, bleibt ein Sprechtag bis zu zwei Stunden über
+  Mitternacht hinaus im Abo. Kürzer wird es nie.
+- **Das Archivieren leert den Inhalt des Abos.** Das ist jetzt ausgeführt
+  belegt (`run_kalender_abo.php`). Vor dem Umbau ergab eine Probe mit
+  nachgebauter Routenlogik dasselbe; die Nachbildung ist dabei die
+  Schwachstelle der Probe, nicht der Befund.
+

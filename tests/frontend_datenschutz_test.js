@@ -70,7 +70,9 @@ const pers = [...persBlock.matchAll(/'(\w+)'\s*=>\s*'personenbezogen'/g)].map((m
 const merkmal = {
   login_log: /Anmeldeversuche/,
   schueler: /Schülerliste/,
-  kalender_abo: /Kalender-Link/,
+  // Der Eintrag selbst, nicht nur das Wort: Seit v0.9.77 nennt ein zweiter
+  // Absatz den Kalender-Link (was das Abo liefert) – DS5 blieb sonst grün.
+  kalender_abo: /Für den persönlichen Kalender-Link eine Kennnummer/,
 };
 pruefe('Voraussetzung: personenbezogene Tabellen aus run_archivieren.php gelesen (mind. 3)',
   pers.length >= 3);
@@ -98,6 +100,24 @@ pruefe('Kalender: Kennnummer des Kontos, kein Name, keine Frist',
   /Kalender-Link[^\n]*Kennnummer[^\n]*kein Name/.test(text) && /derzeit keine Frist/.test(text));
 pruefe('Kalender: entsteht beim Öffnen von „Meine Termine“',
   /sobald „Meine Termine“ geöffnet wird/.test(text));
+
+// ---- das Abo liefert nur kommende Sprechtage (v0.9.77, E21) ----
+// Was das Abo liefert, prüft run_kalender_abo.php am ausgeführten Code;
+// hier der Text, der es den Eltern sagt, und seine Grenze.
+pruefe('Kalender-Abo: nur Termine kommender Sprechtage, am Tag danach heraus',
+  /Kalender-Link liefert nur die Termine kommender Sprechtage/.test(text)
+  && /am Tag nach dem Sprechtag/.test(text));
+pruefe('Kalender-Abo: verspricht nicht, dass die App sie löscht',
+  /liegt an der App/.test(text) && !/werden (auch )?aus (Ihrem|dem) Kalender gelöscht/.test(text));
+pruefe('Grenze genannt: ein einzeln übernommener Termin ist eine Kopie und bleibt',
+  /einzeln[^\n]*Kopie[^\n]*bleibt dort/.test(text));
+const meine = rumpf('function ansichtMeineTermine(');
+const hilfeR = rumpf('function ansichtHilfe(');
+pruefe('Eltern: „Meine Termine“ und FAQ sagen „kommende“, nicht mehr „alle“',
+  /Ihre kommenden Sprechtag-Termine/.test(meine) && /die Termine kommender Sprechtage automatisch/.test(hilfeR)
+  && !/alle Ihre Sprechtag-Termine/.test(js) && !/dem alle Termine automatisch/.test(js));
+pruefe('Lehrkraft: der Hinweis zum Abo-Link sagt „kommenden Termine“',
+  /Abo-Link, mit dem Ihre kommenden Termine/.test(js));
 
 console.log(fehler === 0 ? '\nALLE TESTS GRÜN' : '\n' + fehler + ' FEHLER');
 process.exit(fehler === 0 ? 0 : 1);

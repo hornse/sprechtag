@@ -101,3 +101,24 @@ die Verwaltung. Nicht geändert.
 - **PHP-Sitzung:** Sie hält während der Anmeldung den WebUntis-Cookie und
   die Benutzergruppe. Das ist Laufzeit und entspricht dem Hilfesatz „nur zur
   Laufzeit aus der aktuellen Sitzung“.
+
+## D6 — Nachtrag 10.10.2026: Der Inhalt des Abos kannte keine zeitliche Grenze
+
+Neben dem Eintrag (D1) hatte auch der **Inhalt** des Kalender-Abos keine
+Grenze. `GET /api/kalender/{token}.ics` lieferte die Termine aller
+Sprechtage, auch vergangener. Gemeldet hat das der Betreiber: Ein Termin
+vom 27.07.2026 stand noch in der Kalender-App. So lagen vergangene
+Termine samt Kindnamen auch in fremden Kalender-Apps.
+
+**Behoben in v0.9.77 (E21):** Beide Abos, Eltern und Lehrkraft, liefern
+nur noch Sprechtage ab heute. Der Datenschutztext nennt das und seine
+Grenze: Ob die App einen Eintrag entfernt, liegt an ihr, und ein einzeln
+übernommener Termin bleibt dort als Kopie.
+
+**Das Archivieren leert den Inhalt:** Es löscht die Buchungen des
+Sprechtags, und das Abo liest nur Buchungen. Das ist ausgeführt belegt
+(`tests/run_kalender_abo.php`).
+
+**D1 bleibt offen:** Der Eintrag in `kalender_abo` hat weiterhin keine
+Frist und keinen Löschweg.
+

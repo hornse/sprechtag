@@ -35,8 +35,9 @@ pruefe('Tischvorlage enthält freie Slots + Pause',
   kal.includes('function kal_tischvorlage_html'));
 pruefe('Token-Namespace trennt Lehrkraft von Eltern',
   kal.includes('1000000000') && kal.includes('function kal_lehrer_aus_token'));
+// Seit v0.9.77 in kal_abo_ics() (kalender.php), ausgeführt in run_kalender_abo.php.
 pruefe('öffentlicher Feed erkennt Lehrkraft-Token',
-  idx.includes('kal_lehrer_aus_token($pdo, $token)'));
+  kal.includes('kal_lehrer_aus_token($pdo, $token)') && idx.includes('kal_abo_ics($pdo, (string)$token'));
 
 // ---- Frontend ----
 pruefe('Export-Bereich in der Lehrkraft-Ansicht',

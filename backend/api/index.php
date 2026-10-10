@@ -50,7 +50,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.76', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.77', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -124,30 +124,15 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'kalender' && isset($seg[1])) {
         exit;
     }
     $pdo = db($cfg);
-    // Lehrkraft-Feed? (Token gehört zu einer Lehrkraft -> Kind-zentrierte Events)
-    $lehrerId = kal_lehrer_aus_token($pdo, $token);
-    if ($lehrerId !== null) {
-        $buchungen = kal_lehrer_buchungen($pdo, $lehrerId);
-        $marke = $pdo->query("SELECT wert FROM einstellungen
-                              WHERE schluessel = 'marke_titel'")->fetchColumn();
-        $ics = kal_kalender(kal_vevents_lehrer($buchungen),
-            ($marke ?: 'Sprechtag') . ' – meine Termine');
-        kal_ausliefern($ics, 'sprechtag-lehrkraft.ics');
-    }
-    $st = $pdo->prepare('SELECT eltern_user_id FROM kalender_abo WHERE token = ?');
-    $st->execute([$token]);
-    $uid = $st->fetchColumn();
-    if ($uid === false) {
+    // Nur kommende Sprechtage (v0.9.77, E21) – kal_abo_ics() in kalender.php.
+    $abo = kal_abo_ics($pdo, (string)$token, date('Y-m-d'));
+    if ($abo === null) {
         http_response_code(404);
         header('Content-Type: text/plain; charset=utf-8');
         echo 'Nicht gefunden.';
         exit;
     }
-    $buchungen = kal_buchungen_laden($pdo, (int)$uid);
-    $marke = $pdo->query("SELECT wert FROM einstellungen
-                          WHERE schluessel = 'marke_titel'")->fetchColumn();
-    $ics = kal_kalender(kal_vevents($buchungen), ($marke ?: 'Sprechtag'));
-    kal_ausliefern($ics, 'sprechtag.ics');
+    kal_ausliefern($abo['ics'], $abo['datei']);
 }
 
 // ---- /api/einstellungen (Branding) -------------------------
