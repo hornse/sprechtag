@@ -48,6 +48,8 @@ const R = {
   kasten: rumpf('function sitzungsKastenElement('),
   senden: rumpf('async function sendeVorgemerkte('),
   hinweis: rumpf('function offenHinweisElement('),
+  einladen: rumpf('async function einladenAusfuehren('),
+  buchen: rumpf('async function buchen('),
 };
 for (const [n, r] of Object.entries(R)) pruefe('Voraussetzung: Rumpf ' + n + ' gefunden', r !== '');
 
@@ -223,6 +225,109 @@ for (const [n, r] of Object.entries(R)) pruefe('Voraussetzung: Rumpf ' + n + ' g
   const login = rumpf('function ansichtLogin(');
   const pL = login.indexOf("api('/api/auth/login'"), pH = login.indexOf('ladeOffenHinweis()');
   pruefe('nach der Anmeldung wird der Hinweis geladen (Reihenfolge im Quelltext)', pL > 0 && pH > pL);
+
+  // ----------------------------------------------------------
+  console.log('8. Einladen ohne Sitzung (Zug 4, E20 C): nicht eingeladen, danach die übrigen');
+  zuruecksetzen();
+  const posts = [];
+  let abgelaufenAb = 2;       // das zweite Kind trifft auf die abgelaufene Sitzung
+  const apiE = async (p, o) => {
+    posts.push(o.body.schueler_id);
+    if (posts.length >= abgelaufenAb && abgelaufenAb > 0) {
+      abgelaufenAb = 0;       // nur einmal – nach der Anmeldung gelingt es
+      const f = new Error('Ihre WebUntis-Anmeldung ist abgelaufen. Bitte melden Sie sich neu an.');
+      f.sitzung = 'abgelaufen';
+      throw f;
+    }
+    return { mitteilung: { status: 'gesendet', ids: [] } };
+  };
+  const einladen = new Function('S', 'api', 'meldung', 'ladeEinladungen', 'sitzungAuswerten', 'sendeVorgemerkte',
+    'return async function einladenAusfuehren(ids, hinweis) {' + R.einladen + '};')(
+    { aktiverSprechtag: { id: 1 } }, apiE, meldung, async () => {}, auswerten, async () => {});
+  await einladen([601, 602, 603], 'Bitte kommen');
+  const k8 = lauf.kasten[0] || {};
+  pruefe('hält beim ersten Kind ohne Sitzung an: 603 wird nicht mehr versucht',
+    JSON.stringify(posts) === '[601,602]');
+  pruefe('Kasten: „1 Einladung(en) angelegt. 2 noch NICHT eingeladen“, Knopf „Anmelden und einladen“',
+    /1 Einladung\(en\) angelegt\. 2 noch NICHT eingeladen/.test(k8.text || '') && k8.knopf === 'Anmelden und einladen');
+  pruefe('„Später“ sagt: nicht eingeladen (nicht „Mitteilung gespeichert“)',
+    /^Nicht eingeladen\./.test(k8.spaeter || ''));
+  if (k8.aktion) await k8.aktion();
+  pruefe('… nach der Anmeldung genau die übrigen (602, 603), 601 nicht doppelt',
+    JSON.stringify(posts) === '[601,602,602,603]');
+  zuruecksetzen();
+  const postsN = [];
+  const einladenN = new Function('S', 'api', 'meldung', 'ladeEinladungen', 'sitzungAuswerten', 'sendeVorgemerkte',
+    'return async function einladenAusfuehren(ids, hinweis) {' + R.einladen + '};')(
+    { aktiverSprechtag: { id: 1 } }, async (p, o) => { postsN.push(o.body.schueler_id);
+      const f = new Error('WebUntis ist gerade nicht erreichbar.'); f.sitzung = 'nicht_erreichbar'; throw f; },
+    meldung, async () => {}, auswerten, async () => {});
+  await einladenN([601, 602], '');
+  pruefe('nicht erreichbar: kein Kasten, Fehlermeldung, kein weiterer Versuch',
+    lauf.kasten.length === 0 && JSON.stringify(postsN) === '[601]'
+    && lauf.meldungen.some(([t, a]) => a === 'fehler' && /NICHT eingeladen/.test(t)));
+  zuruecksetzen();
+  const einladenF = new Function('S', 'api', 'meldung', 'ladeEinladungen', 'sitzungAuswerten', 'sendeVorgemerkte',
+    'return async function einladenAusfuehren(ids, hinweis) {' + R.einladen + '};')(
+    { aktiverSprechtag: { id: 1 } }, async () => { throw new Error('Dieses Kind steht nicht in der Klassenliste aus WebUntis.'); },
+    meldung, async () => {}, auswerten, async () => {});
+  await einladenF([601], '');
+  pruefe('anderer Fehler (404): kein Kasten, der Grund steht in der Meldung',
+    lauf.kasten.length === 0 && lauf.meldungen.some(([t, a]) => a === 'fehler' && /Klassenliste/.test(t)));
+  const ui = rumpf('function ansichtEinladungen(');
+  pruefe('Knopf „Ausgewählte einladen“ ruft einladenAusfuehren (Aufrufstelle)',
+    ui !== '' && /await einladenAusfuehren\(ids, hinweis\);/.test(ui));
+
+  console.log('9. „Später“ sagt, was geschehen ist');
+  zuruecksetzen();
+  const S9 = { sitzungsKasten: { ansicht: 'x' }, benutzername: '', user: null };
+  const box9 = baueKasten(S9, async () => ({}), { text: 'T', knopf: 'K', spaeter: 'Nicht gebucht. Der Termin ist nicht eingetragen.' }).box;
+  const sp9 = alle(box9).find((x) => x.tag === 'button' && x.text === 'Später');
+  if (sp9) sp9.hoerer.click();
+  pruefe('Kasten mit eigenem „Später“-Text: genau dieser', lauf.meldungen.length === 1
+    && lauf.meldungen[0][0] === 'Nicht gebucht. Der Termin ist nicht eingetragen.');
+  zuruecksetzen();
+  const box9b = baueKasten({ sitzungsKasten: {}, benutzername: '' }, async () => ({}), { text: 'T', knopf: 'K' }).box;
+  const sp9b = alle(box9b).find((x) => x.tag === 'button' && x.text === 'Später');
+  if (sp9b) sp9b.hoerer.click();
+  pruefe('ohne eigenen Text: wie bisher „Die Mitteilung bleibt gespeichert“ (Absage, Abnahmetest)',
+    lauf.meldungen.length === 1 && /Die Mitteilung bleibt gespeichert/.test(lauf.meldungen[0][0]));
+  pruefe('stellvertretend gibt „Nicht gebucht“ als „Später“-Text mit (Quelltext)',
+    /spaeter: 'Nicht gebucht\. Der Termin ist nicht eingetragen\.'/.test(R.sv));
+
+  console.log('10. Elternbuchung ohne Kinddaten und ohne Sitzung (v0.9.76): nicht gebucht, Kasten, derselbe Klick');
+  zuruecksetzen();
+  const posts10 = []; const toasts10 = [];
+  let ab10 = true;
+  const api10 = async (p, o) => {
+    posts10.push([p, o.body.lehrer_id, o.body.slot_beginn, o.body.kommentar]);
+    if (ab10) {
+      ab10 = false;
+      const f = new Error('Ihre WebUntis-Anmeldung ist abgelaufen. Bitte melden Sie sich neu an.');
+      f.sitzung = 'abgelaufen';
+      throw f;
+    }
+    return { id: 1 };
+  };
+  const baueBuchen = (apiX) => new Function('S', 'api', 'ladeRaster', 'toast', 'sitzungAuswerten',
+    'return async function buchen(lehrerId, slot, kommentar) {' + R.buchen + '};')(
+    { aktiverSprechtag: { id: 1 }, kind: 601 }, apiX, async () => {}, (t, a) => toasts10.push([t, a]), auswerten);
+  await baueBuchen(api10)(7, '16:10', ' Frage ');
+  const k10 = lauf.kasten[0] || {};
+  pruefe('abgelaufen: kein „gebucht“, Kasten „Anmelden und buchen“, Text sagt NICHT eingetragen',
+    !toasts10.some(([, a]) => a === 'ok') && k10.knopf === 'Anmelden und buchen'
+    && /NICHT eingetragen/.test(k10.text || ''));
+  pruefe('„Später“ sagt: nicht gebucht', /^Nicht gebucht\./.test(k10.spaeter || ''));
+  if (k10.aktion) await k10.aktion();
+  pruefe('… nach der Anmeldung derselbe Termin (Lehrkraft, Uhrzeit, Hinweis), dann „gebucht“',
+    posts10.length === 2 && JSON.stringify(posts10[1]) === JSON.stringify(['/api/buchungen', 7, '16:10', 'Frage'])
+    && toasts10.some(([t, a]) => a === 'ok' && /16:10/.test(t)));
+  zuruecksetzen(); toasts10.length = 0;
+  await baueBuchen(async () => { const f = new Error('WebUntis ist gerade nicht erreichbar.');
+    f.sitzung = 'nicht_erreichbar'; throw f; })(7, '16:10', '');
+  pruefe('nicht erreichbar: kein Kasten, Fehlermeldung, kein „gebucht“',
+    lauf.kasten.length === 0 && !toasts10.some(([, a]) => a === 'ok')
+    && (lauf.meldungen.some(([, a]) => a === 'fehler') || toasts10.some(([, a]) => a === 'fehler')));
 
   console.log(fehler === 0 ? '\nALLE TESTS GRÜN' : '\n' + fehler + ' ROT');
   process.exit(fehler === 0 ? 0 : 1);

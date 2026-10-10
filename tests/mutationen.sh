@@ -802,7 +802,7 @@ mut SV12 $ER 's/(\x27vollstaendig\x27 => false, \x27sitzung\x27 => )\$sitzung\[\
   $SV "Versand bei abgelaufener Sitzung"
 mut SV13 $BUP 's/\n        if \(\$sz\[\x27rest\x27\] === null\) json_sitzung_fehlt\(\$sz\);\n        \$aufl/\n        \$aufl/' \
   $SV "stellvertretend: ohne nutzbare Sitzung Abbruch"
-mut SV14 $BUP 's/(\$t\[\x27betreff\x27\], \$t\[\x27text\x27\], \$kind, \$lid, wu_sitzung\(\$cfg\)), \x27eltern\x27\)/$1)/' \
+mut SV14 $BUP 's/(\$t\[\x27betreff\x27\], \$t\[\x27text\x27\], \$kind, \$lid, \$sz), \x27eltern\x27,(\n\s+kd_name)/$1, \x27konto\x27,$2/' \
   $SV "Einladung: über PARENTS"
 mut SV15 $BUP 's/\(int\)\$b\[\x27schueler_id\x27\], \(int\)\$b\[\x27lehrer_id\x27\], wu_sitzung/(int)\$b[\x27schueler_id\x27], null, wu_sitzung/' \
   $SV "Absage: über die Sitzung der absagenden Person"
@@ -840,11 +840,11 @@ mut SV19 $MI 's/return \$schuelerId > 0 \? /return \$schuelerId > 1 ? /' \
   $SV "mit_absage_art: mit Kind-Kennung an die Eltern"
 mut SV20 $MI 's/return \$schuelerId > 0 \? /return \$schuelerId >= 0 ? /' \
   $SV "mit_absage_art: ohne Kind-Kennung (0)"
-mut SV21 $BUP 's/wu_sitzung\(\$cfg\),\n                    mit_absage_art\(\(int\)\$b\[\x27schueler_id\x27\]\)\);/wu_sitzung(\$cfg));/' \
+mut SV21 $BUP 's/wu_sitzung\(\$cfg\),\n                    mit_absage_art\(\(int\)\$b\[\x27schueler_id\x27\]\),/wu_sitzung(\$cfg), \x27konto\x27,/' \
   $SV "Absage: über die Sitzung der absagenden Person, mit der Lehrkraft der Buchung, an alle"
-mut SV22 $IDX 's/\$lid,\n                        mit_absage_art\(\(int\)\$b\[\x27schueler_id\x27\]\)\);/\$lid);/' \
+mut SV22 $IDX 's/\$lid,\n                        mit_absage_art\(\(int\)\$b\[\x27schueler_id\x27\]\),/\$lid, \x27konto\x27,/' \
   $SV "Ausfall: jede Absage an alle Erziehungsberechtigten"
-mut SV23 $BUP 's/(\$kind, null,\n                wu_sitzung\(\$cfg\))\);/$1, \x27eltern\x27);/' \
+mut SV23 $BUP 's/(\$kind, null,\n                wu_sitzung\(\$cfg\)), \x27konto\x27,/$1, \x27eltern\x27,/' \
   $SV "Bestätigung nach Elternbuchung bleibt am buchenden Konto"
 
 echo "== v0.9.74: Archivieren und Datenschutz-Absatz der Hilfe (H9)"
@@ -908,6 +908,92 @@ mut SU9 $MSZ 's/(\$aus = \[\x27eintraege\x27 => \$eintraege,)/${1} \x27probe\x27
   $RMS "Antwort ohne Namen, Kennungen und externKey"
 mut SU10 $MSZ 's/if \(\$name === \x27schulzeit\x27\) \$klassenSchulzeit = \$r\[\x27json\x27\];/if (\$name === \x27schulzeit\x27) \$klassenSchulzeit = null;/' \
   $RMS "Lehrkraft: schuelerliste gemessen"
+
+echo "== v0.9.76: Zug 4, Schritt 2 – Kindname und Klasse am Vorgang"
+KLP=backend/api/klassenleitung.php
+ADP=backend/api/webuntis_adapter.php
+AUP=backend/api/auth.php
+KAL=backend/api/kalender.php
+RKN=tests/run_kindname.php
+mut KN1 $KLP 's/\$klasse = trim\(\(string\)\(\$k\[\x27class\x27\]\[\x27displayName\x27\] \?\? \x27\x27\)\);/\$klasse = trim((string)(\$k[\x27class\x27][\x27longName\x27] ?? \x27\x27));/' \
+  $RKN "Klasse aus displayName"
+mut KN2 $KLP 's/\x27nachname\x27  => trim\(\(string\)\(\$e\[\x27longName\x27\] \?\? \x27\x27\)\),/\x27nachname\x27  => trim((string)(\$e[\x27name\x27] ?? \x27\x27)),/' \
+  $RKN "Nachname aus longName, Vorname aus forename"
+mut KN3 $KLP 's/: \$n \. \x27, \x27 \. \$v\);/: \$v . \x27 \x27 . \$n);/' \
+  $RKN "kd_name: „Nachname, Vorname“"
+mut KN4 $KLP 's/(return \[\x27kinder\x27 => \$kinder, \x27grund\x27 => null\];\n    \} catch \()Exception/${1}Throwable/' \
+  $RKN "Programmfehler (Error) geht weiter"
+mut KN5 $KLP 's/        if \(\$mitKlasse !== \[\]\) \{\n            \$bis = \$heute/        if (true) {\n            \$bis = \$heute/' \
+  $RKN "kein Kind mit Klasse: nur pageconfig"
+mut KN6 $ADP 's/\$aus\[\$id\] = \[\x27name\x27 => \$eigenerName,/\$aus[\$id] = [\x27name\x27 => \$kd !== null ? kd_name(\$kd) : \$eigenerName,/' \
+  $RKN "Schüler: Name aus der Anmeldung"
+mut KN7 $AUP 's/    \$_SESSION\[\x27kind_daten\x27\] = \[\];\n//' \
+  $RKN "erneute Anmeldung ohne Daten"
+mut KN8 $AUP 's/    auth_kind_daten_merken\(\$daten\[\x27kind_daten\x27\] \?\? \[\]\);\n//' \
+  $RKN "auth_login_speichern merkt sie"
+mut KN9 $KAL 's/r\.kuerzel AS raum_kuerzel, b\.kind_name, b\.kind_klasse/r.kuerzel AS raum_kuerzel, "" AS kind_name, "" AS kind_klasse/' \
+  $RKN "Kalender der Lehrkraft: Name und Klasse aus der Buchung"
+mut KN10 $KAL 's/r\.kuerzel AS raum_kuerzel, b\.kind_name\n/r.kuerzel AS raum_kuerzel, "" AS kind_name\n/' \
+  $RKN "Kalender der Eltern: Name aus der Buchung"
+mut KN11 $BUP 's/        if \(\$sz\[\x27rest\x27\] === null\) json_sitzung_fehlt\(\$sz\);\n        \$ermittelt = /        \$ermittelt = /' \
+  $RKN "Einladung: ohne Sitzung Abbruch"
+mut KN12 $BUP 's/\|\| \$kd\[\x27klasse_id\x27\] <= 0\)/|| \$kd[\x27klasse_id\x27] < 0)/' \
+  $RKN "Einladung: Kind ohne Klasse oder nicht in der Liste"
+mut KN13 $MI 's/kuerze\(\$kindName, 170\), kuerze\(\$kindKlasse, 30\)/\x27\x27, kuerze(\$kindKlasse, 30)/' \
+  $RKN "mit_einreihen speichert Name und Klasse"
+mut KN14 $BUP 's/\(string\)\$b\[\x27kind_name\x27\], \(string\)\$b\[\x27kind_klasse\x27\]\);/\x27\x27, \x27\x27);/' \
+  $RKN "Absage und Ausfall übernehmen Name und Klasse"
+mut KN15 $MI 's/\$suche = \$kd\[\x27nachname\x27\] !== \x27\x27 \? \$kd\[\x27nachname\x27\] : \$kindName;/\$suche = \$kindName;/' \
+  $RKN "sucht mit dem Nachnamen aus pageconfig"
+mut KN16 $BUP 's/\$kd = wu_kind_daten_buchung\(\$cfg, \$kind, \$rolle, \(string\)\$u\[\x27name\x27\]\);/\$kd = [\x27name\x27 => \x27\x27, \x27klasse\x27 => \x27\x27];/' \
+  $RKN "Elternbuchung: Name und Klasse über wu_kind_daten_buchung"
+mut KN17 sql/22_kindname.sql 's/(UPDATE mitteilungen x .*?)\n WHERE x\.kind_name = \x27\x27;/$1;/s' \
+  $RKN "übernimmt Namen vorhandener Zeilen"
+mut KN18 $IDX 's/SELECT b\.slot_beginn, b\.kommentar, b\.kind_name, b\.kind_klasse/SELECT b.slot_beginn, b.kommentar, "" AS kind_name, b.kind_klasse/' \
+  $RKN "Anzeigen: Tischvorlage"
+mut KN19 $BUP 's/(b\.gebucht_von, b\.kommentar, b\.kind_name, b\.kind_klasse AS klasse\n         FROM buchungen b\n)/${1}         LEFT JOIN schueler s ON s.webuntis_id = b.schueler_id\n/' \
+  $RKN "keine Datei verbindet mit der Tabelle schueler"
+mut KN20 $ADP 's/wu_kind_daten_login\(\$restOk \? \$rest : null,/wu_kind_daten_login(null,/' \
+  $RKN "wu_login hält die Kinddaten fest"
+mut EA1 $APP 's/const uebrig = ids\.slice\(i\);/const uebrig = ids.slice(i + 1);/' \
+  $FS "… nach der Anmeldung genau die übrigen"
+mut EA2 $APP 's/(\x27erneut auswählen\.\x27 \}\)\)) return;/${1} {}/' \
+  $FS "hält beim ersten Kind ohne Sitzung an"
+mut EA3 $APP 's/,\n          spaeter: \x27Nicht eingeladen\. Bitte die Kinder nach der nächsten Anmeldung \x27\n            \+ \x27erneut auswählen\.\x27 \}/ }/' \
+  $FS "„Später“ sagt: nicht eingeladen"
+mut EA4 $APP 's/meldung\(k\.spaeter \|\| \(/meldung((/' \
+  $FS "Kasten mit eigenem „Später“-Text"
+mut EA5 $APP 's/await einladenAusfuehren\(ids, hinweis\);/await einladenAusfuehren([], hinweis);/' \
+  $FS "Knopf „Ausgewählte einladen“ ruft einladenAusfuehren"
+mut EA6 $APP 's/stellvertretendBuchen\(lehrerId, slot\),\n        spaeter: \x27Nicht gebucht\. Der Termin ist nicht eingetragen\.\x27 \}/stellvertretendBuchen(lehrerId, slot) }/' \
+  $FS "stellvertretend gibt „Nicht gebucht“"
+mut DS9 $APP 's/die Termine mit Name und Klasse des \x27\n      \+ \x27Kindes und den Hinweisen/die Termine mit den \x27\n      + \x27Hinweisen/' \
+  $DS "… genannt: Name und Klasse des Kindes am Termin"
+
+# v0.9.76 Nachtrag: Elternbuchung ohne Kinddaten in der Sitzung – nachholen
+# oder nicht buchen, nie still leer (Rückfrage des Betreibers vor dem Deploy).
+mut KN21 $ADP 's/if \(\$kd\[\x27name\x27\] !== \x27\x27\) return \$kd;/if (false) return \$kd;/' \
+  $RKN "Name in der Sitzung: genau der, kein WebUntis-Abruf"
+mut KN22 $ADP 's/    auth_kind_daten_ergaenzen\(\$kindId, \$neu\[\$kindId\]\);\n//' \
+  $RKN "… in die Sitzung ergänzt, samt Klassenleitung"
+mut KN23 $AUP 's/(function auth_kind_daten_ergaenzen\(int \$kindId, array \$d\): void\n\{\n)/$1    \$_SESSION[\x27kind_daten\x27] = [];\n/' \
+  $RKN "… die anderen Kinder der Sitzung bleiben stehen"
+mut KN24 $ADP 's/if \(\(string\)\(\$neu\[\$kindId\]\[\x27name\x27\] \?\? \x27\x27\) === \x27\x27\) \{/if (!isset(\$neu[\$kindId])) {/' \
+  $RKN "Schüler ohne eigenen Namen: Grund, nicht leer gebucht"
+mut KN25 $ADP 's/    if \(\$sz\[\x27rest\x27\] === null\) return \[\x27sitzung\x27 => \$sz\];\n    \$neu = wu_kind_daten_login/    \$neu = wu_kind_daten_login/' \
+  $RKN "ohne WebUntis-Sitzung: „abgelaufen“ (Kasten)"
+mut KN26 $BU 's/        if \(isset\(\$kd\[\x27sitzung\x27\]\)\) json_sitzung_fehlt\(\$kd\[\x27sitzung\x27\]\);\n//' \
+  $RKN "Elternbuchung: ohne Sitzung Kasten, ohne Name 502"
+mut KN27 $BU 's/if \(!isset\(\$kd\[\x27name\x27\]\)\) json_err\(/if (false) json_err(/' \
+  $RKN "Elternbuchung: ohne Sitzung Kasten, ohne Name 502"
+mut KN28 $BU 's/\$kd = wu_kind_daten_buchung\(\$cfg, \$kind, \$rolle, \(string\)\$u\[\x27name\x27\]\);/\$kd = auth_kind_daten(\$kind);/' \
+  $RKN "Elternbuchung: nicht mehr unmittelbar aus der Sitzung"
+mut EA7 $APP 's/if \(sitzungAuswerten\(f\.sitzung, \x27Der Termin ist NICHT eingetragen: \x27/if (false && sitzungAuswerten(f.sitzung, \x27Der Termin ist NICHT eingetragen: \x27/' \
+  $FS "abgelaufen: kein „gebucht“, Kasten „Anmelden und buchen“"
+mut EA8 $APP 's/aktion: \(\) => buchen\(lehrerId, slot, kommentar\)/aktion: () => buchen(lehrerId, slot, \x27\x27)/' \
+  $FS "… nach der Anmeldung derselbe Termin"
+mut EA9 $APP 's/buchen\(lehrerId, slot, kommentar\),\n        spaeter: \x27Nicht gebucht\. Der Termin ist nicht eingetragen\.\x27 \}/buchen(lehrerId, slot, kommentar) }/' \
+  $FS "„Später“ sagt: nicht gebucht"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi

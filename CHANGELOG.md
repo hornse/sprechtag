@@ -1,5 +1,103 @@
 # Changelog - sprechtag
 
+## v0.9.76 (Oktober 2026) – Zug 4, Schritt 2: Kindname und Klasse am Vorgang – benötigt Migration `sql/22_kindname.sql`
+
+Grundlage: die Messung aus Schritt 1 (Befund pageconfig-Schülerliste,
+Abschnitt 20). Der Nachname kommt aus `longName`, der Vorname aus
+`forename`, die Klasse aus `timetable/filter` `displayName`. Entscheidungen:
+E20 samt Nachtrag.
+
+- **Eine Lesestelle:** `kd_aus_listen()`, `kd_name()` und `kd_ermitteln()` in
+  `klassenleitung.php`. Name und Klasse kommen aus den beiden Antworten,
+  Betriebsfehler werden zum Grund, Programmfehler gehen weiter.
+- **Festgehalten am Vorgang:** Buchung, Einladung und Mitteilung tragen
+  `kind_name` („Nachname, Vorname“) und `kind_klasse`. Das Archivieren
+  löscht sie mit.
+  - Elternbuchung: aus der Anmeldung. Bei der Anmeldung werden die
+    eigenen Kinder einmal ermittelt (`wu_kind_daten_login()`).
+  - Volljährige Schüler: der eigene Name aus der Anmeldung (ungemessen),
+    die Klasse aus pageconfig.
+  - Stellvertretend: aus der Empfängersuche über die Sitzung der
+    Lehrkraft. `mit_eltern_ids_ermitteln()` nimmt den Namen jetzt aus
+    pageconfig, nicht mehr aus der Tabelle.
+  - Absage und Ausfall: aus der Buchung, bevor sie gelöscht wird.
+- **Die Anzeigen lesen den gespeicherten Namen:** Kalender (Eltern und
+  Lehrkraft), Raster, Terminliste der Lehrkraft, Einladungsliste,
+  Tischvorlage, Mitteilungsliste. Keine Datei verbindet mehr mit der
+  Tabelle `schueler`.
+- **Einladen braucht die Sitzung (E20 C):**
+  - Ohne Sitzung wird nicht eingeladen. Der Lauf hält an, und der Kasten
+    „Anmelden und einladen“ lädt danach genau die übrigen Kinder ein.
+  - Ein Kind, das pageconfig nicht oder ohne Klasse führt, wird mit 404
+    abgewiesen (E20 E).
+  - Die Prüfung gegen die alte Tabelle entfällt.
+- **„Später“ im Kasten sagt, was geschehen ist.** Bisher hieß es immer „Die
+  Mitteilung bleibt gespeichert“. Beim stellvertretenden Buchen war das
+  schon vorher falsch, denn dort ist nichts gespeichert; jetzt heißt es
+  „Nicht gebucht“ bzw. „Nicht eingeladen“.
+- **Hilfe:** Der Datenschutz-Absatz nennt „Termine mit Name und Klasse des
+  Kindes“.
+- **Kein still leerer Name bei der Elternbuchung** (Rückfrage des
+  Betreibers vor der Auslieferung). Name und Klasse fehlen in der Sitzung,
+  wenn die Anmeldung vor v0.9.76 lag oder WebUntis sie beim Login nicht
+  hergab. Dann holt `wu_kind_daten_buchung()` sie über die Sitzung nach
+  und ergänzt sie dort.
+  - Ohne nutzbare Sitzung wird nicht gebucht. Der Kasten „Anmelden und
+    buchen“ bucht danach denselben Termin.
+  - Ist die Liste nicht lesbar oder das Kind nicht darin, wird ebenfalls
+    nicht gebucht, mit 502 und einer Meldung.
+  - Eine leere Klasse bleibt zulässig, denn Kinder ohne Klasse gibt es.
+- **Gefunden, nicht entfernt:** Der Zweig „Lehrkraft/Verwaltung mit
+  Eltern-Benutzer-ID“ in `POST /api/buchungen` wird von der Oberfläche
+  nirgends aufgerufen, ist also ein toter Weg. Er bekommt keinen Namen und
+  bucht deshalb nicht mehr; vorher hätte er still einen leeren Namen
+  geschrieben.
+- **Migration `sql/22_kindname.sql`:**
+  - Je zwei Spalten in `buchungen`, `einladungen` und `mitteilungen`.
+  - Vorhandene Zeilen bekommen den Namen aus der alten Tabelle, nur wo
+    noch keiner steht; die Datei ist zweimal einspielbar.
+  - Die Tabelle `schueler` bleibt bis Schritt 4.
+  - **Vor der Auslieferung einspielen**, denn der Code schreibt die
+    Spalten.
+
+### Prüfungen
+- 1289 → 1382 Prüfzeilen in 63 Suiten (vorher 62), alle grün;
+  `tests-sprechtag.sh` 29.
+  - Neu `run_kindname.php` (76). Die Lesestelle wird mit erfundenen Werten
+    in der belegten Form ausgeführt, darunter eine „Klasse“ ohne Schüler
+    (Veranst1) und `longName` ≠ `displayName`.
+  - Die Anmeldung je Rolle, Fehler- und Programmfehlerfall.
+  - Die Kalender laufen gegen eine Datenbank **ohne** Tabelle `schueler`.
+  - Engstelle: kein `JOIN schueler` in einer Anwendungsdatei.
+  - Die Schreibstellen, die Migration.
+  - Zuerst rot (fehlende Funktionen), dann grün.
+  - Davon 13 für das Nachholen beim Buchen (Nachtrag): Name in der
+    Sitzung ohne Abruf; nachgeholt und ergänzt, ohne die anderen Kinder
+    zu ersetzen; ohne Sitzung, abgelaufen, Liste nicht lesbar, Kind
+    nicht darin; Schüler mit und ohne eigenen Namen; der tote
+    Lehrkraft-Zweig. Dazu die Aufrufstelle und die Reihenfolge vor dem
+    Speichern (Route nicht ausführbar). Zuerst rot, dann grün.
+  - `frontend_sitzung_abgelaufen_test.js` 33 → 49: Einladen ohne Sitzung
+    (Halt, Kasten, die übrigen danach; nicht erreichbar; 404) und der
+    „Später“-Text. **Diese Prüfung entstand nach dem Code.** Gegen das
+    ausgelieferte `app.js` war sie 10-mal rot; die Rücknahme ist mit einer
+    Prüfsumme belegt.
+    Dazu 5 für die Elternbuchung ohne Sitzung (Kasten, derselbe Termin
+    danach, „Später“, nicht erreichbar); zuerst 3-mal rot.
+  - `frontend_datenschutz_test.js` 21 → 22 (zuerst rot).
+  - Angepasst, mit gleicher Zahl:
+    - `run_sitzung_versand.php`: fünf Muster auf die neuen Aufrufformen;
+      die Bestätigung nach Elternbuchung prüft jetzt ausdrücklich
+      `'konto'`; dazu das Testschema.
+    - `run_warteschlange.php`: Testschema wie die Migration.
+    - `run_schueler_gruppe.php`: Aufrufstelle mit `$restOk`.
+- Mutationen 312 → 350 Ergebniszeilen (KN1–KN28, EA1–EA9, DS9), alle
+  angeschlagen, H4 grün, Rücknahme belegt. SV14 und SV21–SV23 kamen nach
+  dem Umbau nicht mehr an; ihre Suchmuster sind nachgezogen. Nach dem
+  Nachtrag ebenso KN16 (Muster auf die neue Aufrufzeile) und EA6. EA6 ist
+  jetzt an `stellvertretendBuchen` verankert, weil derselbe „Später“-Text
+  nun auch in `buchen()` steht.
+
 ## v0.9.75 (Oktober 2026) – Zug 4, Schritt 1: welches Feld trägt den Namen (Messung)
 
 Zug 4 („Schülerliste aus WebUntis, Schild entfällt“) ist entschieden

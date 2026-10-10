@@ -669,8 +669,11 @@ function sitzungsKastenElement(k) {
   aktionen.appendChild(los);
   aktionen.appendChild(knopf('Später', 'klein', () => {
     S.sitzungsKasten = null;
-    meldung('Nicht verschickt. Die Mitteilung bleibt gespeichert und erscheint nach '
-      + 'der nächsten Anmeldung als Hinweis.', 'info');
+    // Was „Später“ bedeutet, sagt der Auftrag (v0.9.76): Eine Mitteilung
+    // bleibt gespeichert, eine Buchung oder Einladung ist dagegen gar nicht
+    // erst entstanden.
+    meldung(k.spaeter || ('Nicht verschickt. Die Mitteilung bleibt gespeichert und '
+      + 'erscheint nach der nächsten Anmeldung als Hinweis.'), 'info');
   }));
   form.appendChild(aktionen);
   form.addEventListener('submit', async (ev) => {
@@ -1285,8 +1288,9 @@ function datenschutzAbsaetze() {
     'Es werden so wenige personenbezogene Daten wie möglich gespeichert. '
       + 'Namen von Erziehungsberechtigten werden nur zur Laufzeit aus der '
       + 'aktuellen Sitzung verwendet.',
-    'Was zu einem Sprechtag gehört – die Termine samt Hinweisen an die '
-      + 'Lehrkraft, die Einladungen, die Benachrichtigungen und die für das '
+    'Was zu einem Sprechtag gehört – die Termine mit Name und Klasse des '
+      + 'Kindes und den Hinweisen an die Lehrkraft, die Einladungen, die '
+      + 'Benachrichtigungen und die für das '
       + 'Kind ermittelten Lehrkräfte – bleibt gespeichert, bis die Schule den '
       + 'Sprechtag archiviert, und wird dann gelöscht. Dafür gibt es keine '
       + 'automatische Frist. Erhalten bleibt nur die Struktur für den '
@@ -1681,7 +1685,15 @@ async function buchen(lehrerId, slot, kommentar) {
     S.meineBuchungen = null; S.meineLaedt = false;
     await ladeRaster(lehrerId);
     toast('Termin um ' + slot + ' Uhr gebucht.', 'ok');
-  } catch (f) { toast(String(f.message), 'fehler'); }
+  } catch (f) {
+    // Abgelaufen (v0.9.76): Fehlten die Kinddaten in der Sitzung und ließen
+    // sie sich nicht nachholen, ist NICHT gebucht – nach der Anmeldung
+    // derselbe Termin.
+    if (sitzungAuswerten(f.sitzung, 'Der Termin ist NICHT eingetragen: ' + f.message,
+      { knopf: 'Anmelden und buchen', aktion: () => buchen(lehrerId, slot, kommentar),
+        spaeter: 'Nicht gebucht. Der Termin ist nicht eingetragen.' })) return;
+    toast(String(f.message), 'fehler');
+  }
 }
 
 // ============================================================
@@ -2219,7 +2231,8 @@ async function stellvertretendBuchen(lehrerId, slot) {
     S.svLaeuft = false;
     // Abgelaufen: Es wurde NICHT gebucht – nach der Anmeldung derselbe Klick.
     if (sitzungAuswerten(f.sitzung, 'Der Termin ist noch NICHT eingetragen: ' + f.message,
-      { knopf: 'Anmelden und buchen', aktion: () => stellvertretendBuchen(lehrerId, slot) })) return;
+      { knopf: 'Anmelden und buchen', aktion: () => stellvertretendBuchen(lehrerId, slot),
+        spaeter: 'Nicht gebucht. Der Termin ist nicht eingetragen.' })) return;
     meldung(String(f.message), 'fehler');
   }
 }
@@ -2348,50 +2361,7 @@ function ansichtEinladungen(ziel) {
         meldung('Bitte mindestens ein Kind auswählen.', 'fehler');
         return;
       }
-      meldung(ids.length + ' Einladung(en) werden angelegt …', 'info');
-      let ok = 0; let benachrichtigt = 0;
-      const probleme = [];
-      const liegen = [];      // gespeichert, aber nicht verschickt (Kennungen)
-      let ursache = null;     // abgelaufen / nicht_erreichbar / kaputt
-      let liegenGrund = '';
-      for (const id of ids) {
-        try {
-          const d = await api('/api/einladungen', { method: 'POST', body: {
-            sprechtag_id: S.aktiverSprechtag.id, schueler_id: id,
-            hinweis } });
-          ok++;
-          const m = d.mitteilung;
-          if (m && m.status === 'gesendet') benachrichtigt++;
-          else if (m) {
-            liegen.push(...(m.ids || []));
-            ursache = ursache || m.sitzung;
-            liegenGrund = liegenGrund || m.grund;
-          }
-        } catch (f) {
-          // Fehler NICHT verschlucken – sonst bleibt unklar, warum
-          // nichts passiert ist.
-          probleme.push(String(f.message));
-        }
-      }
-      await ladeEinladungen();
-      if (probleme.length === 0) {
-        let text = ok + ' Einladung(en) angelegt';
-        if (benachrichtigt > 0) {
-          text += ', bei ' + benachrichtigt + ' die Erziehungsberechtigten benachrichtigt';
-        }
-        text += '.';
-        if (liegen.length > 0) {
-          text += ' ' + liegen.length + ' Mitteilung(en) sind gespeichert, aber noch '
-            + 'NICHT verschickt: ' + liegenGrund;
-          if (sitzungAuswerten(ursache, text, { knopf: 'Anmelden und senden',
-            aktion: () => sendeVorgemerkte(liegen) })) return;
-        }
-        meldung(text, liegen.length > 0 ? 'fehler' : 'ok');
-      } else {
-        const einmalig = [...new Set(probleme)];
-        meldung(ok + ' angelegt, ' + probleme.length + ' fehlgeschlagen: '
-          + einmalig.slice(0, 2).join(' | '), 'fehler');
-      }
+      await einladenAusfuehren(ids, hinweis);
     }));
   }
   ziel.appendChild(aus);
@@ -2626,6 +2596,68 @@ function dateiAlsBase64(datei) {
     r.onerror = () => fehler(new Error('Datei konnte nicht gelesen werden.'));
     r.readAsDataURL(datei);
   });
+}
+
+// Lädt die gewählten Kinder nacheinander ein. Seit v0.9.76 (Zug 4, E20 C)
+// braucht jede Einladung die WebUntis-Sitzung – Name und Klasse kommen von
+// dort. Ist sie nicht nutzbar, wird NICHT eingeladen: Der Lauf hält beim
+// ersten solchen Kind an; bei abgelaufener Sitzung bietet der Kasten
+// „Anmelden und einladen“ an und lädt danach genau die übrigen ein.
+async function einladenAusfuehren(ids, hinweis) {
+  meldung(ids.length + ' Einladung(en) werden angelegt …', 'info');
+  let ok = 0; let benachrichtigt = 0;
+  const probleme = [];
+  const liegen = [];      // gespeichert, aber nicht verschickt (Kennungen)
+  let ursache = null;     // abgelaufen / nicht_erreichbar / kaputt
+  let liegenGrund = '';
+  for (let i = 0; i < ids.length; i++) {
+    try {
+      const d = await api('/api/einladungen', { method: 'POST', body: {
+        sprechtag_id: S.aktiverSprechtag.id, schueler_id: ids[i],
+        hinweis } });
+      ok++;
+      const m = d.mitteilung;
+      if (m && m.status === 'gesendet') benachrichtigt++;
+      else if (m) {
+        liegen.push(...(m.ids || []));
+        ursache = ursache || m.sitzung;
+        liegenGrund = liegenGrund || m.grund;
+      }
+    } catch (f) {
+      if (f.sitzung) {
+        const uebrig = ids.slice(i);
+        await ladeEinladungen();
+        const text = (ok > 0 ? ok + ' Einladung(en) angelegt. ' : '')
+          + uebrig.length + ' noch NICHT eingeladen: ' + f.message;
+        if (sitzungAuswerten(f.sitzung, text, { knopf: 'Anmelden und einladen',
+          aktion: () => einladenAusfuehren(uebrig, hinweis),
+          spaeter: 'Nicht eingeladen. Bitte die Kinder nach der nächsten Anmeldung '
+            + 'erneut auswählen.' })) return;
+      }
+      // Fehler NICHT verschlucken – sonst bleibt unklar, warum
+      // nichts passiert ist.
+      probleme.push(String(f.message));
+    }
+  }
+  await ladeEinladungen();
+  if (probleme.length === 0) {
+    let text = ok + ' Einladung(en) angelegt';
+    if (benachrichtigt > 0) {
+      text += ', bei ' + benachrichtigt + ' die Erziehungsberechtigten benachrichtigt';
+    }
+    text += '.';
+    if (liegen.length > 0) {
+      text += ' ' + liegen.length + ' Mitteilung(en) sind gespeichert, aber noch '
+        + 'NICHT verschickt: ' + liegenGrund;
+      if (sitzungAuswerten(ursache, text, { knopf: 'Anmelden und senden',
+        aktion: () => sendeVorgemerkte(liegen) })) return;
+    }
+    meldung(text, liegen.length > 0 ? 'fehler' : 'ok');
+  } else {
+    const einmalig = [...new Set(probleme)];
+    meldung(ok + ' angelegt, ' + probleme.length + ' fehlgeschlagen: '
+      + einmalig.slice(0, 2).join(' | '), 'fehler');
+  }
 }
 
 // Admin-Unterseiten – die Sidebar ruft sie direkt über S.ansicht auf.

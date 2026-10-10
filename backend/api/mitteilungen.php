@@ -297,18 +297,23 @@ function mit_eltern_zu_kind(array $users, string $kindName): array
  * $rest null (Sitzung nicht nutzbar): nur Weg 2. Der Aufrufer prüft die
  * Sitzung vorher und bucht bei abgelaufener nicht (E17).
  *
- * @return array{ids:int[], quelle:?string, kind_name:string}
+ * @return array{ids:int[], quelle:?string, kind_name:string, kind:?array}
+ *         kind: Kinddaten aus kd_ermitteln() (Name, Klasse) oder null
  *         quelle: 'webuntis' | 'buchung' | null (nichts gefunden)
  */
 function mit_eltern_ids_ermitteln(PDO $pdo, int $schuelerId, ?WebUntisRest $rest): array
 {
-    // Kindnamen aus der Schülerliste (für Suche und exakten Namensabgleich)
-    $stK = $pdo->prepare(
-        'SELECT vorname, nachname FROM schueler WHERE webuntis_id = ? LIMIT 1');
-    $stK->execute([$schuelerId]);
-    $kd = $stK->fetch() ?: [];
-    $kindName = trim(((string)($kd['vorname'] ?? '')) . ' '
-        . ((string)($kd['nachname'] ?? '')));
+    // Kindname aus pageconfig über dieselbe Sitzung (Zug 4, E20) – nicht
+    // mehr aus der Tabelle schueler. Für Suche und exakten Namensabgleich.
+    $kd = null;
+    if ($rest !== null) {
+        $e = kd_ermitteln($rest, [$schuelerId]);
+        if ($e['grund'] !== null) {
+            error_log('sprechtag: Kinddaten für die Empfängersuche nicht lesbar: ' . $e['grund']);
+        }
+        $kd = $e['kinder'][$schuelerId] ?? null;
+    }
+    $kindName = $kd === null ? '' : trim($kd['vorname'] . ' ' . $kd['nachname']);
 
     $ids = [];
     $quelle = null;
@@ -316,7 +321,7 @@ function mit_eltern_ids_ermitteln(PDO $pdo, int $schuelerId, ?WebUntisRest $rest
     // ---- Weg 1: WebUntis-Empfängersuche über die eigene Sitzung ------------
     if ($kindName !== '' && $rest !== null) {
         try {
-            $suche = (string)($kd['nachname'] ?? $kindName);
+            $suche = $kd['nachname'] !== '' ? $kd['nachname'] : $kindName;
             $treffer = $rest->empfaengerSuchen($suche);
             $zuord = mit_eltern_zu_kind($treffer['users'], $kindName);
             $ids = array_map('intval', array_column($zuord['konten'], 'id'));
@@ -337,7 +342,7 @@ function mit_eltern_ids_ermitteln(PDO $pdo, int $schuelerId, ?WebUntisRest $rest
         if ($ids !== []) $quelle = 'buchung';
     }
 
-    return ['ids' => $ids, 'quelle' => $quelle, 'kind_name' => $kindName];
+    return ['ids' => $ids, 'quelle' => $quelle, 'kind_name' => $kindName, 'kind' => $kd];
 }
 
 /**
@@ -439,7 +444,8 @@ function mit_datum_deutsch(string $iso): string
 function mit_einreihen(PDO $pdo, int $sprechtagId, int $empfaengerUserId,
                        string $anlass, string $betreff, string $text,
                        ?int $schuelerId = null, ?int $lehrerId = null,
-                       string $empfaengerArt = 'konto'): int
+                       string $empfaengerArt = 'konto',
+                       string $kindName = '', string $kindKlasse = ''): int
 {
     if (!in_array($empfaengerArt, ['konto', 'eltern'], true)) {
         throw new InvalidArgumentException('Unbekannte Empfängerart: ' . $empfaengerArt);
@@ -447,12 +453,15 @@ function mit_einreihen(PDO $pdo, int $sprechtagId, int $empfaengerUserId,
     if ($empfaengerArt === 'eltern' && ($schuelerId === null || $schuelerId <= 0)) {
         throw new InvalidArgumentException('An die Eltern (PARENTS) nur mit der Kennung des Kindes.');
     }
+    // kind_name/kind_klasse (Zug 4, E20): für die Mitteilungsliste der
+    // Lehrkraft festgehalten, nicht aus einer Schülerliste nachgeschlagen.
     $pdo->prepare('INSERT INTO mitteilungen
         (sprechtag_id, empfaenger_user_id, empfaenger_art, schueler_id, lehrer_id,
-         anlass, betreff, text, status, grund)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, "offen", "")')
+         anlass, betreff, text, status, grund, kind_name, kind_klasse)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, "offen", "", ?, ?)')
         ->execute([$sprechtagId, $empfaengerArt === 'eltern' ? 0 : $empfaengerUserId,
-            $empfaengerArt, $schuelerId, $lehrerId, $anlass, kuerze($betreff, 190), $text]);
+            $empfaengerArt, $schuelerId, $lehrerId, $anlass, kuerze($betreff, 190), $text,
+            kuerze($kindName, 170), kuerze($kindKlasse, 30)]);
     return (int)$pdo->lastInsertId();
 }
 
@@ -516,10 +525,11 @@ function mit_absage_art(int $schuelerId): string
 function mit_einreihen_und_senden(PDO $pdo, int $sprechtagId, int $empfaengerUserId,
                                   string $anlass, string $betreff, string $text,
                                   ?int $schuelerId, ?int $lehrerId, array $sitzung,
-                                  string $empfaengerArt = 'konto'): array
+                                  string $empfaengerArt = 'konto',
+                                  string $kindName = '', string $kindKlasse = ''): array
 {
     $id = mit_einreihen($pdo, $sprechtagId, $empfaengerUserId, $anlass, $betreff, $text,
-        $schuelerId, $lehrerId, $empfaengerArt);
+        $schuelerId, $lehrerId, $empfaengerArt, $kindName, $kindKlasse);
     return mit_senden_oder_vormerken($pdo, [$id], $sitzung);
 }
 

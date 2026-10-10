@@ -198,7 +198,8 @@ foreach (token_get_all((string)file_get_contents(__DIR__ . '/../backend/api/webu
     $code .= is_array($t) ? $t[1] : $t;
 }
 $iLogin = strpos($code, 'function wu_login(');
-$iToken = $iLogin === false ? false : strpos($code, 'if ($rest->tokenHolen()) {', $iLogin);
+$iToken = $iLogin === false ? false : strpos($code, '$restOk = $rest->tokenHolen();
+        if ($restOk) {', $iLogin);   // seit v0.9.76 mit $restOk (Kinddaten)
 $iAufruf = $iLogin === false ? false : strpos($code, "\$ergebnis['wu_gruppe'] = wu_profil_gruppe(\$rest);", $iLogin);
 $iRolle = $iLogin === false ? false : strpos($code, 'if ($personType === 2)', $iLogin);
 pruefe('wu_login() liest die Gruppe im Zweig mit gültigem Token (Aufrufstelle)',

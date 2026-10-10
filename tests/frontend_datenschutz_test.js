@@ -58,6 +58,8 @@ pruefe('Sprechtag-Daten: bleiben bis zum Archivieren, dann gelöscht',
 pruefe('… genannt: Termine mit Hinweisen an die Lehrkraft, Einladungen, Benachrichtigungen',
   /Termine/.test(text) && /Hinweise[n]? an die Lehrkraft/.test(text)
   && /Einladungen/.test(text) && /Benachrichtigungen/.test(text));
+pruefe('… genannt: Name und Klasse des Kindes am Termin (v0.9.76, Zug 4)',
+  /Termine mit Name und Klasse des Kindes/.test(text));
 pruefe('… genannt: die für das Kind ermittelten Lehrkräfte (kind_lehrer_cache)',
   /für das Kind ermittelten Lehrkräfte/.test(text));
 pruefe('… ohne automatische Frist', /keine automatische Frist/.test(text));

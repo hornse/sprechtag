@@ -3,6 +3,8 @@
 // kalender.php – iCal-Export (Abo-Link + Einzeldatei)
 //
 // Datenschutz:
+//  - Name und Klasse des Kindes stehen an der Buchung (Zug 4, E20): Der
+//    Abo-Abruf hat keine Sitzung, eine Schülerliste gibt es nicht mehr.
 //  - Der Abo-Link nutzt einen zufälligen Token statt der WebUntis user.id.
 //  - Im Kalendereintrag stehen nur: Lehrkraft, Raum, betroffenes Kind.
 //    Keine Elternnamen, keine fremden Buchungen.
@@ -134,17 +136,13 @@ function kal_buchungen_laden(PDO $pdo, int $elternUserId, ?int $nurBuchung = nul
     $sql =
         'SELECT b.id, b.slot_beginn, sp.datum, sp.slot_minuten, sp.name AS sprechtag_name,
                 l.name AS lehrer_name, l.kuerzel AS lehrer_kuerzel,
-                r.kuerzel AS raum_kuerzel,
-                TRIM(CONCAT(COALESCE(s.nachname,""),
-                     IF(s.vorname IS NULL OR s.vorname = "", "",
-                        CONCAT(", ", s.vorname)))) AS kind_name
+                r.kuerzel AS raum_kuerzel, b.kind_name
          FROM buchungen b
          JOIN sprechtage sp ON sp.id = b.sprechtag_id
          JOIN lehrer l ON l.id = b.lehrer_id
          LEFT JOIN sprechtag_lehrer sl
                 ON sl.sprechtag_id = b.sprechtag_id AND sl.lehrer_id = b.lehrer_id
          LEFT JOIN raeume r ON r.id = sl.raum_id
-         LEFT JOIN schueler s ON s.webuntis_id = b.schueler_id
          WHERE b.eltern_user_id = ?';
     $args = [$elternUserId];
     if ($nurBuchung !== null) {
@@ -177,18 +175,13 @@ function kal_lehrer_buchungen(PDO $pdo, int $lehrerId, ?int $sprechtagId = null)
         'SELECT b.id, b.slot_beginn, sp.datum, sp.slot_minuten, sp.name AS sprechtag_name,
                 sp.beginn AS tag_beginn, sp.ende AS tag_ende,
                 l.name AS lehrer_name, l.kuerzel AS lehrer_kuerzel,
-                r.kuerzel AS raum_kuerzel,
-                TRIM(CONCAT(COALESCE(s.nachname,""),
-                     IF(s.vorname IS NULL OR s.vorname = "", "",
-                        CONCAT(", ", s.vorname)))) AS kind_name,
-                s.klasse AS kind_klasse
+                r.kuerzel AS raum_kuerzel, b.kind_name, b.kind_klasse
          FROM buchungen b
          JOIN sprechtage sp ON sp.id = b.sprechtag_id
          JOIN lehrer l ON l.id = b.lehrer_id
          LEFT JOIN sprechtag_lehrer sl
                 ON sl.sprechtag_id = b.sprechtag_id AND sl.lehrer_id = b.lehrer_id
          LEFT JOIN raeume r ON r.id = sl.raum_id
-         LEFT JOIN schueler s ON s.webuntis_id = b.schueler_id
          WHERE b.lehrer_id = ?';
     $args = [$lehrerId];
     if ($sprechtagId !== null) { $sql .= ' AND b.sprechtag_id = ?'; $args[] = $sprechtagId; }

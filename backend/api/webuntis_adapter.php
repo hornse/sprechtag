@@ -19,6 +19,7 @@ require_once __DIR__ . '/../helfer.php';
 require_once __DIR__ . '/../auth/WebUntisAuth.php';
 require_once __DIR__ . '/../auth/WebUntisRest.php';
 require_once __DIR__ . '/../auth/extractors.php';
+require_once __DIR__ . '/klassenleitung.php';
 
 // ---- Sitzungszugang (v0.9.72, E17) ----------------------------------------
 
@@ -236,7 +237,8 @@ function wu_login(array $cfg, PDO $pdo, string $benutzer, string $passwort): arr
         $rest = new WebUntisRest($wcfg['base_url'], $wcfg['school']);
         $rest->mitSessionCookie((string)$wu->sessionCookie());
         $rest->setzeTimeout(10);
-        if ($rest->tokenHolen()) {
+        $restOk = $rest->tokenHolen();
+        if ($restOk) {
             $rest->tenantErmitteln();
             $app = $rest->get('/WebUntis/api/rest/view/v1/app/data');
             if ($app['json'] !== null) {
@@ -274,6 +276,13 @@ function wu_login(array $cfg, PDO $pdo, string $benutzer, string $passwort): arr
         } else {
             $ergebnis['rolle'] = 'eltern';   // personType 12 = LEGAL_GUARDIAN
         }
+
+        // ---- Name und Klasse der eigenen Kinder (Zug 4, E20) -------------
+        // Einmal bei der Anmeldung, solange die WebUntis-Sitzung frisch ist;
+        // gebucht wird später ohne WebUntis (Entscheidung Betreiber,
+        // 09.10.2026). Nur Eltern und volljährige Schüler.
+        $ergebnis['kind_daten'] = wu_kind_daten_login($restOk ? $rest : null, $ergebnis['rolle'],
+            $ergebnis['kinder'], $ergebnis['name']);
     } catch (Throwable $e) {
         // Bei einem Fehler die WebUntis-Sitzung freigeben und weiterwerfen.
         try { $wu->logout(); } catch (Throwable $e2) { /* egal */ }
@@ -440,4 +449,67 @@ function wu_referenzzeitraum(string $sprechtagDatum): array
     $ende  = strtotime($sprechtagDatum . ' -7 days');
     $start = strtotime('-27 days', $ende);
     return ['von' => date('Y-m-d', $start), 'bis' => date('Y-m-d', $ende)];
+}
+
+/**
+ * Name und Klasse der EIGENEN Kinder bei der Anmeldung (Zug 4, E20) – über
+ * kd_ermitteln(), die eine Lesestelle. Eltern: nur Kinder, die pageconfig
+ * führt; ein fehlendes bekommt keinen geratenen Namen. Volljährige Schüler:
+ * der Name aus der Anmeldung (person.displayName; ob pageconfig in einer
+ * Schülersitzung den eigenen Eintrag führt, ist NICHT gemessen –
+ * Entscheidung Betreiber, 09.10.2026), die Klasse aus pageconfig, falls
+ * vorhanden. Scheitert der Abruf, steht der Grund im Protokoll.
+ *
+ * @return array<int, array{name:string, klasse:string, leitung:int[]}>
+ */
+function wu_kind_daten_login(?object $rest, string $rolle, array $kinder, string $eigenerName): array
+{
+    if (!in_array($rolle, ['eltern', 'schueler'], true)) return [];
+    $ids = array_values(array_filter(array_map(fn($k) => (int)($k['id'] ?? 0), $kinder),
+        fn(int $i) => $i > 0));
+    if ($ids === []) return [];
+    $e = $rest !== null ? kd_ermitteln($rest, $ids) : ['kinder' => [], 'grund' => 'keine Sitzung'];
+    if ($e['grund'] !== null) {
+        error_log('sprechtag: Kinddaten bei der Anmeldung nicht ermittelt: ' . $e['grund']);
+    }
+    $aus = [];
+    foreach ($ids as $id) {
+        $kd = $e['kinder'][$id] ?? null;
+        if ($rolle === 'schueler') {
+            $aus[$id] = ['name' => $eigenerName, 'klasse' => (string)($kd['klasse'] ?? ''),
+                         'leitung' => $kd['leitung'] ?? []];
+        } elseif ($kd !== null) {
+            $aus[$id] = ['name' => kd_name($kd), 'klasse' => $kd['klasse'], 'leitung' => $kd['leitung']];
+        }
+    }
+    return $aus;
+}
+
+/**
+ * Name und Klasse eines eigenen Kindes für die Elternbuchung (v0.9.76).
+ * Sie stehen seit der Anmeldung in der Sitzung. Fehlt der Name – Anmeldung
+ * vor v0.9.76, oder WebUntis gab ihn beim Login nicht her –, wird er über
+ * die WebUntis-Sitzung nachgeholt und in die Sitzung ergänzt. Gelingt das
+ * nicht, kommt KEIN Name: Die Route bucht dann nicht, statt still einen
+ * leeren Namen ins Kalender-Abo zu schreiben.
+ *
+ * Liefert ['name','klasse'], ['sitzung' => wu_sitzung()-Ergebnis] (keine
+ * nutzbare Sitzung) oder ['grund' => …] (Liste nicht lesbar, Kind nicht
+ * darin, kein eigener Name). Die Klasse darf leer sein: Kinder ohne Klasse
+ * gibt es (Befund pageconfig, Abschnitt 10).
+ */
+function wu_kind_daten_buchung(array $cfg, int $kindId, string $rolle, string $eigenerName,
+                               ?callable $client = null): array
+{
+    $kd = auth_kind_daten($kindId);
+    if ($kd['name'] !== '') return $kd;
+    $sz = wu_sitzung($cfg, $client);
+    if ($sz['rest'] === null) return ['sitzung' => $sz];
+    $neu = wu_kind_daten_login($sz['rest'], $rolle, [['id' => $kindId]], $eigenerName);
+    if ((string)($neu[$kindId]['name'] ?? '') === '') {
+        error_log('sprechtag: Kinddaten beim Buchen nicht nachgeholt (Rolle ' . $rolle . ')');
+        return ['grund' => 'nicht_ermittelt'];
+    }
+    auth_kind_daten_ergaenzen($kindId, $neu[$kindId]);
+    return auth_kind_daten($kindId);
 }

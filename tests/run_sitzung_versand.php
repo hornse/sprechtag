@@ -56,7 +56,8 @@ function neue_db(): PDO
       sprechtag_id INT, empfaenger_user_id INT NOT NULL, empfaenger_art TEXT NOT NULL DEFAULT "konto",
       schueler_id INT, lehrer_id INT, anlass TEXT, betreff TEXT, text TEXT,
       status TEXT DEFAULT "offen", grund TEXT DEFAULT "", versuche INT DEFAULT 0,
-      angelegt_am TEXT DEFAULT CURRENT_TIMESTAMP, gesendet_am TEXT)');
+      angelegt_am TEXT DEFAULT CURRENT_TIMESTAMP, gesendet_am TEXT,
+      kind_name TEXT NOT NULL DEFAULT "", kind_klasse TEXT NOT NULL DEFAULT "")');  // sql/22 (v0.9.76)
     $pdo->exec('CREATE TABLE einstellungen (schluessel TEXT PRIMARY KEY, wert TEXT)');
     $pdo->exec('CREATE TABLE buchungen (id INTEGER PRIMARY KEY, sprechtag_id INT, lehrer_id INT,
       eltern_user_id INT, schueler_id INT, slot_beginn TEXT)');
@@ -268,26 +269,26 @@ $p3 = strpos($sv, 'INSERT INTO buchungen');
 pruefe('stellvertretend: ohne nutzbare Sitzung Abbruch VOR der Suche und VOR der Buchung (Reihenfolge)',
     $p1 !== false && $p2 !== false && $p3 !== false && $p1 < $p2 && $p2 < $p3);
 pruefe('stellvertretend: Bestätigung über PARENTS an alle', (bool)preg_match(
-    "/mit_einreihen_und_senden\(\\\$pdo, \\\$sid, 0, 'bestaetigung',[^;]*\\\$sz, 'eltern'\)/s", $sv));
+    "/mit_einreihen_und_senden\(\\\$pdo, \\\$sid, 0, 'bestaetigung',[^;]*\\\$sz, 'eltern',/s", $sv));   // v0.9.76: dahinter Name und Klasse
 $ei = $ausschnitt("=== 'einladungen')", "if (\$methode === 'DELETE' && isset(\$seg[1])");
 pruefe('Voraussetzung: Ausschnitt Einladung gefunden', $ei !== '');
 pruefe('Einladung: über PARENTS, ohne Elternkonten zu suchen', (bool)preg_match(
-    "/mit_einreihen_und_senden\(\\\$pdo, \\\$sid, 0, 'einladung',[^;]*wu_sitzung\(\\\$cfg\), 'eltern'\)/s", $ei)
+    "/mit_einreihen_und_senden\(\\\$pdo, \\\$sid, 0, 'einladung',[^;]*\\\$sz, 'eltern',/s", $ei)   // v0.9.76: Sitzung aus der Prüfung davor
     && !str_contains($ei, 'mit_eltern_ids_ermitteln'));
 // v0.9.73 (Betreiber): Absagen gehen über PARENTS an ALLE Erziehungsberechtigten
 // – Stelle 3 (Absage) und Stelle 5 (Ausfall). Eine Entscheidung, eine Stelle:
 // mit_absage_art(); die Bestätigung nach einer Elternbuchung bleibt am Konto.
 pruefe('Absage: über die Sitzung der absagenden Person, mit der Lehrkraft der Buchung, an alle (mit_absage_art)',
-    (bool)preg_match("/'absage', \\\$t\['betreff'\], \\\$t\['text'\],\s*\(int\)\\\$b\['schueler_id'\], \(int\)\\\$b\['lehrer_id'\], wu_sitzung\(\\\$cfg\),\s*mit_absage_art\(\(int\)\\\$b\['schueler_id'\]\)\)/", $code));
+    (bool)preg_match("/'absage', \\\$t\['betreff'\], \\\$t\['text'\],\s*\(int\)\\\$b\['schueler_id'\], \(int\)\\\$b\['lehrer_id'\], wu_sitzung\(\\\$cfg\),\s*mit_absage_art\(\(int\)\\\$b\['schueler_id'\]\),/", $code));
 $ixCode = '';
 foreach (token_get_all((string)file_get_contents(__DIR__ . '/../backend/api/index.php')) as $t) {
     if (is_array($t) && in_array($t[0], [T_COMMENT, T_DOC_COMMENT], true)) continue;
     $ixCode .= is_array($t) ? $t[1] : $t;
 }
 pruefe('Ausfall: jede Absage an alle Erziehungsberechtigten (mit_absage_art)', (bool)preg_match(
-    "/mit_einreihen\(\\\$pdo, \\\$sid, \(int\)\\\$b\['eltern_user_id'\], 'absage',[^;]*\(int\)\\\$b\['schueler_id'\], \\\$lid,\s*mit_absage_art\(\(int\)\\\$b\['schueler_id'\]\)\)/s", $ixCode));
+    "/mit_einreihen\(\\\$pdo, \\\$sid, \(int\)\\\$b\['eltern_user_id'\], 'absage',[^;]*\(int\)\\\$b\['schueler_id'\], \\\$lid,\s*mit_absage_art\(\(int\)\\\$b\['schueler_id'\]\),/s", $ixCode));
 pruefe('Bestätigung nach Elternbuchung bleibt am buchenden Konto (kein PARENTS)', (bool)preg_match(
-    "/mit_einreihen_und_senden\(\\\$pdo, \\\$sid, \(int\)\\\$elternUserId,\s*'bestaetigung',[^;]*wu_sitzung\(\\\$cfg\)\);/s", $code));
+    "/mit_einreihen_und_senden\(\\\$pdo, \\\$sid, \(int\)\\\$elternUserId,\s*'bestaetigung',[^;]*wu_sitzung\(\\\$cfg\), 'konto',/s", $code));
 
 // ------------------------------------------------------------
 echo "Migration sql/21\n";

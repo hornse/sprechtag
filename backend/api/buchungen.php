@@ -426,13 +426,8 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'raster') {
 
     $st = $pdo->prepare(
         'SELECT b.id, b.slot_beginn, b.eltern_user_id, b.schueler_id, b.phase,
-                b.gebucht_von, b.kommentar,
-                TRIM(CONCAT(COALESCE(s.nachname,""),
-                     IF(s.vorname IS NULL OR s.vorname = "", "",
-                        CONCAT(", ", s.vorname)))) AS kind_name,
-                s.klasse
+                b.gebucht_von, b.kommentar, b.kind_name, b.kind_klasse AS klasse
          FROM buchungen b
-         LEFT JOIN schueler s ON s.webuntis_id = b.schueler_id
          WHERE b.sprechtag_id = ? AND b.lehrer_id = ?');
     $st->execute([$sid, $lid]);
     $belegt = [];
@@ -503,13 +498,8 @@ if (($seg[0] ?? '') === 'buchungen') {
                 ? (int)$_GET['lehrer'] : (int)($u['lehrer_id'] ?? 0);
             $st = $pdo->prepare(
                 'SELECT b.id, b.slot_beginn, b.schueler_id, b.phase, b.gebucht_von,
-                        b.gebucht_am,
-                        TRIM(CONCAT(COALESCE(s.nachname,""),
-                             IF(s.vorname IS NULL OR s.vorname = "", "",
-                                CONCAT(", ", s.vorname)))) AS kind_name,
-                        s.klasse
+                        b.gebucht_am, b.kind_name, b.kind_klasse AS klasse
                  FROM buchungen b
-                 LEFT JOIN schueler s ON s.webuntis_id = b.schueler_id
                  WHERE b.sprechtag_id = ? AND b.lehrer_id = ?
                  ORDER BY b.slot_beginn');
             $st->execute([$sid, $lid]);
@@ -582,6 +572,10 @@ if (($seg[0] ?? '') === 'buchungen') {
         $elternIds    = $aufl['ids'];
         $elternUserId = (int)$elternIds[0];
         $kindName     = $aufl['kind_name'];
+        // Name und Klasse aus derselben Abfrage über die Sitzung, festgehalten
+        // an der Buchung (Zug 4, E20) – die Kalender haben keine Sitzung.
+        $kindDaten = ['name' => $aufl['kind'] !== null ? kd_name($aufl['kind']) : '',
+                      'klasse' => (string)($aufl['kind']['klasse'] ?? '')];
 
         // Der Slot muss zum Raster der Lehrkraft gehören und frei sein.
         $fenster = bu_lehrer_fenster($pdo, $sid, $lid);
@@ -652,11 +646,11 @@ if (($seg[0] ?? '') === 'buchungen') {
             // Schreiben – der UNIQUE KEY sperrt den Slot zusätzlich ab.
             $pdo->prepare('INSERT INTO buchungen
                 (sprechtag_id, lehrer_id, slot_beginn, eltern_user_id, schueler_id,
-                 kommentar, phase, gebucht_von)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+                 kommentar, phase, gebucht_von, kind_name, kind_klasse)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
                 ->execute([$sid, $lid, $slot . ':00', $elternUserId, $kind, $kommentar,
                     (string)$s['phase'] === 'phase1' ? 'phase1' : 'phase2',
-                    $u['rolle']]);
+                    $u['rolle'], $kindDaten['name'], $kindDaten['klasse']]);
             $neueId = (int)$pdo->lastInsertId();
             $pdo->commit();
         } catch (PDOException $e) {
@@ -692,7 +686,8 @@ if (($seg[0] ?? '') === 'buchungen') {
             // EINE Mitteilung an alle Erziehungsberechtigten des Kindes
             // (PARENTS, E17) – über dieselbe Sitzung wie die Ermittlung.
             $mitteilung = mit_einreihen_und_senden($pdo, $sid, 0, 'bestaetigung',
-                $t['betreff'], $t['text'], $kind, $lid, $sz, 'eltern');
+                $t['betreff'], $t['text'], $kind, $lid, $sz, 'eltern',
+                $kindDaten['name'], $kindDaten['klasse']);
         } catch (PDOException $e) {
             error_log('sprechtag: Bestätigung (stellvertretend) nicht vorgemerkt: '
                 . $e->getMessage());
@@ -798,6 +793,18 @@ if (($seg[0] ?? '') === 'buchungen') {
         ]);
         if (!$pruefung['ok']) json_err($pruefung['grund'], 409);
 
+        // Name und Klasse aus der Anmeldung (Zug 4, E20: einmal beim Login
+        // festgehalten) – gebucht wird dann ohne WebUntis. Fehlen sie
+        // (Anmeldung vor v0.9.76, oder WebUntis gab sie beim Login nicht her),
+        // werden sie über die Sitzung nachgeholt; geht das nicht, wird NICHT
+        // gebucht, statt still einen leeren Namen zu schreiben. Der Zweig für
+        // Lehrkraft/Verwaltung oben (Eltern-Benutzer-ID) bekommt so nie einen
+        // Namen und bucht nicht; die Oberfläche ruft ihn nicht auf.
+        $kd = wu_kind_daten_buchung($cfg, $kind, $rolle, (string)$u['name']);
+        if (isset($kd['sitzung'])) json_sitzung_fehlt($kd['sitzung']);
+        if (!isset($kd['name'])) json_err('Der Name des Kindes ließ sich nicht aus WebUntis lesen. '
+            . 'Der Termin ist NICHT gebucht. Bitte in einigen Minuten erneut versuchen.', 502);
+
         // Schreiben – der UNIQUE KEY entscheidet bei gleichzeitigen Anfragen.
         // Zusätzlich prüfen wir in derselben Transaktion, ob dieses Elternteil
         // zur selben Uhrzeit schon bei einer ANDEREN Lehrkraft gebucht ist –
@@ -822,10 +829,11 @@ if (($seg[0] ?? '') === 'buchungen') {
 
             $pdo->prepare('INSERT INTO buchungen
                 (sprechtag_id, lehrer_id, slot_beginn, eltern_user_id, schueler_id,
-                 kommentar, phase, gebucht_von)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+                 kommentar, phase, gebucht_von, kind_name, kind_klasse)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
                 ->execute([$sid, $lid, $slot . ':00', $elternUserId, $kind, $kommentar,
-                    (string)$s['phase'] === 'phase1' ? 'phase1' : 'phase2', $rolle]);
+                    (string)$s['phase'] === 'phase1' ? 'phase1' : 'phase2', $rolle,
+                    $kd['name'], $kd['klasse']]);
             // ID sofort sichern: nachfolgende Statements überschreiben lastInsertId()
             $neueId = (int)$pdo->lastInsertId();
             $pdo->commit();
@@ -872,7 +880,7 @@ if (($seg[0] ?? '') === 'buchungen') {
             // Verwaltung.
             mit_einreihen_und_senden($pdo, $sid, (int)$elternUserId,
                 'bestaetigung', $t['betreff'], $t['text'], $kind, null,
-                wu_sitzung($cfg));
+                wu_sitzung($cfg), 'konto', $kd['name'], $kd['klasse']);
         } catch (Throwable $e) {
             error_log('sprechtag: Bestaetigung nicht vorgemerkt: ' . $e->getMessage());
         }
@@ -921,7 +929,8 @@ if (($seg[0] ?? '') === 'buchungen') {
                     (int)$b['sprechtag_id'], (int)$b['eltern_user_id'],
                     'absage', $t['betreff'], $t['text'],
                     (int)$b['schueler_id'], (int)$b['lehrer_id'], wu_sitzung($cfg),
-                    mit_absage_art((int)$b['schueler_id']));
+                    mit_absage_art((int)$b['schueler_id']),
+                    (string)$b['kind_name'], (string)$b['kind_klasse']);
             } catch (PDOException $e) {
                 error_log('sprechtag: Absage nicht vorgemerkt: ' . $e->getMessage());
             }
@@ -946,14 +955,10 @@ if (($seg[0] ?? '') === 'einladungen') {
                 ? (int)$_GET['lehrer'] : (int)($u['lehrer_id'] ?? 0);
             $st = $pdo->prepare(
                 'SELECT e.id, e.schueler_id, e.hinweis, e.erledigt, e.angelegt_am,
-                        TRIM(CONCAT(COALESCE(s.nachname,""),
-                             IF(s.vorname IS NULL OR s.vorname = "", "",
-                                CONCAT(", ", s.vorname)))) AS kind_name,
-                        s.klasse
+                        e.kind_name, e.kind_klasse AS klasse
                  FROM einladungen e
-                 LEFT JOIN schueler s ON s.webuntis_id = e.schueler_id
                  WHERE e.sprechtag_id = ? AND e.lehrer_id = ?
-                 ORDER BY s.klasse, s.nachname, e.angelegt_am DESC');
+                 ORDER BY e.kind_klasse, e.kind_name, e.angelegt_am DESC');
             $st->execute([$sid, $lid]);
             json_ok(['einladungen' => $st->fetchAll()]);
         }
@@ -978,24 +983,30 @@ if (($seg[0] ?? '') === 'einladungen') {
         $kind = (int)req($body, 'schueler_id');
         if ($kind <= 0) json_err('Ungültige Schüler-ID');
 
-        // Ist die ID plausibel? Wenn eine Schülerliste gepflegt ist,
-        // muss die ID darin vorkommen – sonst entstehen Einladungen für
-        // Kinder, die nie buchen können (z. B. Tippfehler wie "7").
-        $st = $pdo->query('SELECT COUNT(*) FROM schueler WHERE webuntis_id IS NOT NULL');
-        if ((int)$st->fetchColumn() > 0) {
-            $st = $pdo->prepare('SELECT COUNT(*) FROM schueler WHERE webuntis_id = ?');
-            $st->execute([$kind]);
-            if ((int)$st->fetchColumn() === 0) {
-                json_err('Zu dieser Schüler-ID gibt es keinen Eintrag in der '
-                    . 'Schülerliste. Bitte über die Klassenauswahl einladen '
-                    . 'oder die Liste aktualisieren.', 404);
-            }
+        // Name und Klasse aus WebUntis über die Sitzung der einladenden Person
+        // (Zug 4, E20). Ohne nutzbare Sitzung wird NICHT eingeladen – die
+        // Oberfläche bietet „Anmelden und einladen“ an (E20 C). Ein Kind, das
+        // pageconfig nicht oder ohne Klasse führt, ist nicht einzuladen (E20 E:
+        // dieselbe Regel wie die Auswahl).
+        $sz = wu_sitzung($cfg);
+        if ($sz['rest'] === null) json_sitzung_fehlt($sz);
+        $ermittelt = kd_ermitteln($sz['rest'], [$kind]);
+        if ($ermittelt['grund'] !== null) {
+            error_log('sprechtag: Einladung – Kinddaten nicht lesbar: ' . $ermittelt['grund']);
+            json_err('Die Klassenliste aus WebUntis ließ sich gerade nicht lesen. '
+                . 'Es wurde nicht eingeladen – bitte erneut versuchen.', 502);
+        }
+        $kd = $ermittelt['kinder'][$kind] ?? null;
+        if ($kd === null || $kd['klasse_id'] <= 0) {
+            json_err('Dieses Kind steht nicht in der Klassenliste aus WebUntis. '
+                . 'Es wurde nicht eingeladen.', 404);
         }
 
         $pdo->prepare('INSERT IGNORE INTO einladungen
-            (sprechtag_id, lehrer_id, schueler_id, hinweis) VALUES (?, ?, ?, ?)')
+            (sprechtag_id, lehrer_id, schueler_id, hinweis, kind_name, kind_klasse)
+            VALUES (?, ?, ?, ?, ?, ?)')
             ->execute([$sid, $lid, $kind,
-                substr((string)($body['hinweis'] ?? ''), 0, 190)]);
+                substr((string)($body['hinweis'] ?? ''), 0, 190), kd_name($kd), $kd['klasse']]);
 
         // ---- Benachrichtigung der Eltern --------------------------------
         // EINE Mitteilung an alle Erziehungsberechtigten des Kindes über
@@ -1014,16 +1025,14 @@ if (($seg[0] ?? '') === 'einladungen') {
             $le = $stL->fetch() ?: [];
             $lehrkraft = (string)($le['name'] ?: ($le['kuerzel'] ?? 'die Lehrkraft'));
 
-            $stK = $pdo->prepare('SELECT vorname, nachname FROM schueler WHERE webuntis_id = ? LIMIT 1');
-            $stK->execute([$kind]);
-            $kd = $stK->fetch() ?: [];
-            $kindName = trim(((string)($kd['vorname'] ?? '')) . ' ' . ((string)($kd['nachname'] ?? '')));
+            $kindName = trim($kd['vorname'] . ' ' . $kd['nachname']);
 
             $t = mit_text_einladung((string)$sp['name'], (string)$sp['datum'],
                 $lehrkraft, $kindName,
                 substr((string)($body['hinweis'] ?? ''), 0, 500));
             $mitteilung = mit_einreihen_und_senden($pdo, $sid, 0, 'einladung',
-                $t['betreff'], $t['text'], $kind, $lid, wu_sitzung($cfg), 'eltern');
+                $t['betreff'], $t['text'], $kind, $lid, $sz, 'eltern',
+                kd_name($kd), $kd['klasse']);
         } catch (PDOException $e) {
             error_log('sprechtag: Einladungs-Mitteilung nicht vorgemerkt: '
                 . $e->getMessage());

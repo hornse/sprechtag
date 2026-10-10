@@ -131,3 +131,106 @@ function kl_aus_sitzung(int $kindId, callable $restHolen): array
     $_SESSION['klassenleitung'][$kindId] = $e['kennungen'];
     return $e['kennungen'];
 }
+
+// ============================================================
+// Kinddaten: Name und Klasse (Zug 4, v0.9.76, E20)
+//
+// Die EINE Stelle, die Name und Klasse eines Kindes aus WebUntis liest.
+// Gemessen (Befund pageconfig-Schülerliste, Abschnitt 20): Nachname aus
+// pageconfig.longName (1314/1314), Vorname aus forename (1313/1314); die
+// Klasse aus timetable/filter classes[].class.displayName (40/40) – NICHT
+// longName (34/40). pageconfig.name ist keine Namensform.
+//
+// Festgehalten wird das Ergebnis am Vorgang (Buchung, Einladung,
+// Mitteilung), nicht in einer Liste: Die Kalender-Abos haben keine Sitzung
+// (E8-Nachtrag).
+// ============================================================
+
+/**
+ * Name, Klasse und Klassenleitung eines Kindes aus den beiden Antworten.
+ * null, wenn pageconfig das Kind nicht führt. Ohne Klasse: klasse_id 0.
+ * Reine Funktion.
+ *
+ * @return ?array{nachname:string, vorname:string, klasse_id:int, klasse:string, leitung:int[]}
+ */
+function kd_aus_listen($pageconfig, $filter, int $kindId): ?array
+{
+    $liste = is_array($pageconfig) ? ($pageconfig['data']['elements'] ?? $pageconfig['data'] ?? null) : null;
+    if (!is_array($liste) || $kindId <= 0) return null;
+    foreach ($liste as $e) {
+        if (!is_array($e) || (int)($e['id'] ?? 0) !== $kindId) continue;
+        $klasseId = max(0, (int)($e['klasseId'] ?? 0));
+        $klasse = '';
+        $klassen = is_array($filter) ? ($filter['classes'] ?? $filter['data']['classes'] ?? null) : null;
+        if ($klasseId > 0 && is_array($klassen)) {
+            foreach ($klassen as $k) {
+                if (is_array($k) && (int)($k['class']['id'] ?? 0) === $klasseId) {
+                    $klasse = trim((string)($k['class']['displayName'] ?? ''));
+                    break;
+                }
+            }
+        }
+        return [
+            'nachname'  => trim((string)($e['longName'] ?? '')),
+            'vorname'   => trim((string)($e['forename'] ?? '')),
+            'klasse_id' => $klasseId,
+            'klasse'    => $klasse,
+            'leitung'   => kl_leitung_kennungen($filter, $klasseId),
+        ];
+    }
+    return null;
+}
+
+/** „Nachname, Vorname“ – die Form, in der die Anzeigen Kinder nennen. */
+function kd_name(array $kd): string
+{
+    $n = trim((string)($kd['nachname'] ?? ''));
+    $v = trim((string)($kd['vorname'] ?? ''));
+    return $v === '' ? $n : ($n === '' ? $v : $n . ', ' . $v);
+}
+
+/**
+ * Kinddaten für mehrere Kinder über die Sitzung: pageconfig, und nur wenn
+ * eines davon eine Klasse hat, timetable/filter (Zeitraum wie kl_ermitteln,
+ * gemessen gleichgültig). Betriebsfehler (Exception) werden zum Grund,
+ * Programmfehler (Error) gehen weiter (FALLSTRICKE 3).
+ *
+ * @return array{kinder: array<int, ?array>, grund: ?string}
+ */
+function kd_ermitteln(object $rest, array $kindIds, ?string $heute = null): array
+{
+    $nein = fn(string $g) => ['kinder' => [], 'grund' => $g];
+    try {
+        $pc = $rest->get('/WebUntis/api/public/timetable/weekly/pageconfig', ['type' => 5]);
+        if ((int)($pc['status'] ?? 0) !== 200) {
+            return $nein('pageconfig: Status ' . (int)($pc['status'] ?? 0));
+        }
+        $json = $pc['json'] ?? null;
+        if (!is_array($json['data']['elements'] ?? $json['data'] ?? null)) {
+            return $nein('pageconfig: keine Liste in der Antwort');
+        }
+        $tj = null;
+        $mitKlasse = array_filter(array_map('intval', $kindIds),
+            fn($id) => kl_klasse_des_kindes($json, $id) > 0);
+        if ($mitKlasse !== []) {
+            $bis = $heute ?? date('Y-m-d');
+            $von = date('Y-m-d', strtotime($bis . ' -27 days'));
+            $tf = $rest->get('/WebUntis/api/rest/view/v1/timetable/filter', [
+                'resourceType' => 'CLASS', 'timetableType' => 'STANDARD',
+                'start' => $von, 'end' => $bis,
+            ]);
+            if ((int)($tf['status'] ?? 0) !== 200) {
+                return $nein('timetable/filter: Status ' . (int)($tf['status'] ?? 0));
+            }
+            $tj = $tf['json'] ?? null;
+            if (!is_array($tj['classes'] ?? $tj['data']['classes'] ?? null)) {
+                return $nein('timetable/filter: kein classes[] in der Antwort');
+            }
+        }
+        $kinder = [];
+        foreach ($kindIds as $id) $kinder[(int)$id] = kd_aus_listen($json, $tj, (int)$id);
+        return ['kinder' => $kinder, 'grund' => null];
+    } catch (Exception $e) {
+        return $nein('Ausnahme ' . get_class($e));
+    }
+}

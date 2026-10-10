@@ -50,7 +50,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.75', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.76', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -427,11 +427,8 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'lehrer-tischvorlage' && isset($se
     }
     // Buchungen (Kindname/Klasse) je Slot.
     $st = $pdo->prepare(
-        'SELECT b.slot_beginn, b.kommentar,
-                TRIM(CONCAT(COALESCE(s.nachname,""),
-                     IF(s.vorname IS NULL OR s.vorname = "", "",
-                        CONCAT(", ", s.vorname)))) AS kind_name, s.klasse AS kind_klasse
-         FROM buchungen b LEFT JOIN schueler s ON s.webuntis_id = b.schueler_id
+        'SELECT b.slot_beginn, b.kommentar, b.kind_name, b.kind_klasse
+         FROM buchungen b
          WHERE b.sprechtag_id = ? AND b.lehrer_id = ?');
     $st->execute([$sid, $lid]);
     $belegt = [];
@@ -925,7 +922,7 @@ if (($seg[0] ?? '') === 'sprechtage') {
 
             // Betroffene Buchungen einsammeln, dann freigeben.
             $stB = $pdo->prepare(
-                'SELECT id, slot_beginn, eltern_user_id, schueler_id
+                'SELECT id, slot_beginn, eltern_user_id, schueler_id, kind_name, kind_klasse
                  FROM buchungen WHERE sprechtag_id = ? AND lehrer_id = ?');
             $stB->execute([$sid, $lid]);
             $buchungen = $stB->fetchAll();
@@ -951,7 +948,8 @@ if (($seg[0] ?? '') === 'sprechtage') {
                         (string)$b['slot_beginn'], $lehrkraft, $grund);
                     $ids[] = mit_einreihen($pdo, $sid, (int)$b['eltern_user_id'], 'absage',
                         $t['betreff'], $t['text'], (int)$b['schueler_id'], $lid,
-                        mit_absage_art((int)$b['schueler_id']));
+                        mit_absage_art((int)$b['schueler_id']),
+                        (string)$b['kind_name'], (string)$b['kind_klasse']);
                 } catch (PDOException $e) {
                     error_log('sprechtag: Ausfall-Absage nicht vorgemerkt: '
                         . $e->getMessage());
@@ -1130,13 +1128,8 @@ if (($seg[0] ?? '') === 'mitteilungen') {
         $sid = (int)($_GET['sprechtag'] ?? 0);
         $sql = 'SELECT m.id, m.empfaenger_user_id, m.empfaenger_art, m.schueler_id, m.anlass,
                        m.betreff, m.status, m.grund, m.versuche,
-                       m.angelegt_am, m.gesendet_am,
-                       TRIM(CONCAT(COALESCE(s.nachname,""),
-                            IF(s.vorname IS NULL OR s.vorname = "", "",
-                               CONCAT(", ", s.vorname)))) AS kind_name,
-                       s.klasse
+                       m.angelegt_am, m.gesendet_am, m.kind_name, m.kind_klasse AS klasse
                 FROM mitteilungen m
-                LEFT JOIN schueler s ON s.webuntis_id = m.schueler_id
                 WHERE m.sprechtag_id = ?';
         $werte = [$sid];
         if (($_GET['status'] ?? '') !== '') {

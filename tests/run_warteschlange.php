@@ -17,7 +17,8 @@ $pdo->exec('CREATE TABLE mitteilungen (id INTEGER PRIMARY KEY AUTOINCREMENT,
   schueler_id INT, lehrer_id INT, anlass TEXT,
   betreff TEXT, text TEXT,
   status TEXT DEFAULT "offen", grund TEXT DEFAULT "", versuche INT DEFAULT 0,
-  angelegt_am TEXT DEFAULT CURRENT_TIMESTAMP, gesendet_am TEXT)');
+  angelegt_am TEXT DEFAULT CURRENT_TIMESTAMP, gesendet_am TEXT,
+      kind_name TEXT NOT NULL DEFAULT "", kind_klasse TEXT NOT NULL DEFAULT "")');  // sql/22 (v0.9.76)
 $pdo->exec('CREATE TABLE einstellungen (schluessel TEXT PRIMARY KEY, wert TEXT)');
 
 echo "Warteschlange\n";

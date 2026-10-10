@@ -51,6 +51,42 @@ function auth_login_speichern(array $daten): void
     // handelnden Person, ohne ihr Passwort zu speichern. Steht BEWUSST NICHT
     // in auth_user(), damit er nicht versehentlich ans Frontend gelangt.
     $_SESSION['wu_cookie'] = (string)($daten['wu_cookie'] ?? '');
+    auth_kind_daten_merken($daten['kind_daten'] ?? []);
+}
+
+/**
+ * Merkt Name und Klasse der eigenen Kinder für diese Anmeldung (Zug 4, E20)
+ * und belegt die Klassenleitung aus derselben Antwort vor – kl_aus_sitzung()
+ * findet sie dann, ohne WebUntis erneut zu fragen. Beides wird bei jeder
+ * Anmeldung ERSETZT, nicht ergänzt.
+ */
+function auth_kind_daten_merken(array $kindDaten): void
+{
+    $_SESSION['kind_daten'] = [];
+    $_SESSION['klassenleitung'] = [];
+    foreach ($kindDaten as $id => $d) {
+        $_SESSION['kind_daten'][(int)$id] = ['name' => (string)($d['name'] ?? ''),
+                                             'klasse' => (string)($d['klasse'] ?? '')];
+        $_SESSION['klassenleitung'][(int)$id] = array_map('intval', (array)($d['leitung'] ?? []));
+    }
+}
+
+/**
+ * Ergänzt die Kinddaten EINES Kindes, ohne die übrigen zu ersetzen – für das
+ * Nachholen beim Buchen (wu_kind_daten_buchung, v0.9.76).
+ */
+function auth_kind_daten_ergaenzen(int $kindId, array $d): void
+{
+    $_SESSION['kind_daten'][$kindId] = ['name' => (string)($d['name'] ?? ''),
+                                        'klasse' => (string)($d['klasse'] ?? '')];
+    $_SESSION['klassenleitung'][$kindId] = array_map('intval', (array)($d['leitung'] ?? []));
+}
+
+/** Name und Klasse eines eigenen Kindes aus der Anmeldung; unbekannt: leer. */
+function auth_kind_daten(int $kindId): array
+{
+    $d = $_SESSION['kind_daten'][$kindId] ?? null;
+    return ['name' => (string)($d['name'] ?? ''), 'klasse' => (string)($d['klasse'] ?? '')];
 }
 
 /**

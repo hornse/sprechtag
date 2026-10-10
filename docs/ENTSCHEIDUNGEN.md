@@ -1107,3 +1107,38 @@ danach wird gebaut.
 3. Einladungsauswahl und Kind-Suche aus `pageconfig`.
 4. Abbau von CSV, Sync, Austrittsdatum, Admin-Teil und Suiten. Migration
    mit Übernahme der Namen vorhandener Buchungen und Wegfall der Tabelle.
+
+**Nachtrag 09.10.2026 — Schritt 2 (v0.9.76): woher der Name beim Buchen kommt (Betreiber):**
+- **Elternbuchung:** Name und Klasse der **eigenen** Kinder werden **bei
+  der Anmeldung** einmal ermittelt, solange die WebUntis-Sitzung frisch
+  ist (pageconfig und timetable/filter, `wu_kind_daten_login()`). Sie
+  stehen in der PHP-Sitzung, solange die Anmeldung gilt, und gebucht wird
+  ohne WebUntis. Die Klassenleitung (E10) wird aus derselben Antwort
+  vorbelegt, ein zweiter Abruf entsteht nicht. Verworfen wurden ein
+  Rückfall auf `students[].displayName`: zwei Quellen, und die Form ist
+  nicht gemessen. Ebenso verworfen: eine Sitzungspflicht beim Buchen, an
+  die Eltern nach 30 Minuten stießen.
+- **Volljährige Schüler:** Der Name kommt aus der Anmeldung
+  (`person.displayName`), die Klasse aus pageconfig, falls vorhanden. **Nicht
+  gemessen** ist, ob pageconfig in einer Schülersitzung den eigenen
+  Eintrag führt; das vorhandene Testkonto hat keine Klasse. Die Form von
+  `displayName` ist ebenfalls nicht gemessen. Bei Schülern kann der Name
+  deshalb anders geschrieben sein als „Nachname, Vorname“.
+- **Stellvertretend und Einladen:** Name und Klasse kommen über die Sitzung
+  der Lehrkraft, je Vorgang einmal (`kd_ermitteln()`). Die Klassenliste
+  wird bewusst **nicht** in der Sitzung zwischengespeichert, denn das wären
+  wieder 1314 Namen auf Vorrat (A). Der Preis: zwei Abrufe je Einladung.
+- **Fehlen die Kinddaten beim Buchen, wird nachgeholt oder nicht
+  gebucht** (Rückfrage des Betreibers vor der Auslieferung, entschieden
+  beim Bauen auf seinen Auftrag „du entscheidest“).
+  - **Wann sie fehlen:** wenn die Anmeldung vor v0.9.76 lag oder WebUntis
+    sie beim Login nicht hergab.
+  - **Was geschieht:** `wu_kind_daten_buchung()` holt sie dann über die
+    WebUntis-Sitzung nach und ergänzt sie in der Sitzung.
+  - **Wenn es nicht geht:** Ohne Sitzung kommt der Kasten „Anmelden und
+    buchen“, sonst 502. Ein leerer Name wird nie still geschrieben.
+  - **Was offen bleibt:** Die Klasse darf leer sein, weil es Kinder ohne
+    Klasse gibt. Bei volljährigen Schülern bleibt die Klasse deshalb
+    still leer, wenn pageconfig beim Login scheiterte. Ein solcher Fall
+    ist von einem Schüler ohne Klasse nicht zu unterscheiden, solange
+    ungemessen ist, ob pageconfig die eigene Person führt.
