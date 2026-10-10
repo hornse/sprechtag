@@ -331,8 +331,10 @@ $p2 = strpos($ei, 'kd_ermitteln($sz[\'rest\'], [$kind])');
 $p3 = strpos($ei, 'INSERT IGNORE INTO einladungen');
 pruefe('Einladung: ohne Sitzung Abbruch (Kasten), VOR dem Abruf und VOR dem Speichern (Reihenfolge; Route nicht ausführbar)',
     $p1 !== false && $p2 !== false && $p3 !== false && $p1 < $p2 && $p2 < $p3);
-pruefe('Einladung: Kind ohne Klasse oder nicht in der Liste → 404, nichts gespeichert',
-    preg_match("/if \(\\\$kd === null \|\| \\\$kd\['klasse_id'\] <= 0\) \{\s*json_err\([^;]*404\);/s", $ei) === 1);
+// Seit v0.9.81 entscheidet kd_vorgang_pruefen (ausgeführt in run_kind_suche.php);
+// hier die Aufrufstelle vor dem Speichern.
+pruefe('Einladung: Kind ohne Klasse oder nicht in der Liste → Abbruch über kd_vorgang_pruefen, nichts gespeichert',
+    preg_match("/kd_vorgang_pruefen\(\\\$ermittelt, \\\$kind, 'eingeladen'\);\s*if \(\\\$einwand !== null\) \{.*?json_err\(\\\$einwand\['text'\], \\\$einwand\['status'\]\);\s*\}/s", $ei) === 1);
 pruefe('Einladung: keine Prüfung mehr gegen die alte Tabelle', !str_contains($ei, 'schueler WHERE'));
 pruefe('Einladung: speichert Name und Klasse',
     str_contains($ei, '(sprechtag_id, lehrer_id, schueler_id, hinweis, kind_name, kind_klasse)'));

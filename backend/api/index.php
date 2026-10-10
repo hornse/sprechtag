@@ -50,7 +50,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.80', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.81', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -1224,7 +1224,29 @@ if (($seg[0] ?? '') === 'mitteilungen') {
 }
 
 // ============================================================
-// SCHÜLERLISTE (für die Einladungsauswahl)
+// KIND-SUCHE für Einladungsauswahl und stellvertretendes Buchen
+// (Zug 4, Schritt 3, v0.9.81; E20 A/D/E)
+//   GET /api/kinder?suche=…  → {kinder: [{id, name, klasse}], anzahl, grenze}
+// Über die Sitzung der Lehrkraft, je Suche zwei Abrufe, kein
+// Zwischenspeicher. Ohne Suchbegriff: leer, ohne WebUntis (R1). Ist die
+// Liste nicht lesbar, sagt die Antwort es – nie still leer.
+// ============================================================
+if (($seg[0] ?? '') === 'kinder') {
+    auth_require_lehrkraft();
+    if ($methode === 'GET') {
+        $e = kd_suche((string)($_GET['suche'] ?? ''), fn(): array => wu_sitzung($cfg));
+        if (isset($e['sitzung'])) json_sitzung_fehlt($e['sitzung']);
+        if (isset($e['grund'])) {
+            error_log('sprechtag: Kind-Suche – Liste nicht lesbar: ' . $e['grund']);
+            json_err(KD_SATZ_LISTE_NICHT_LESBAR . ' Bitte erneut suchen.', 502);
+        }
+        json_ok($e);
+    }
+    json_err('Methode nicht unterstützt.', 405);
+}
+
+// ============================================================
+// SCHÜLERLISTE (bis Schritt 4; die Auswahl liest seit v0.9.81 /api/kinder)
 //   GET    /api/schueler[?suche=...]   nach Klassen gruppiert
 //   POST   /api/schueler/csv           {csv}          (Admin)
 //   POST   /api/schueler/sync          {benutzername, passwort} (Admin) –

@@ -1,5 +1,52 @@
 # Changelog - sprechtag
 
+## v0.9.81 (Oktober 2026) – Einladungsauswahl und Kind-Suche aus pageconfig (Zug 4, Schritt 3, E20)
+
+- **Eine Quelle für beide Auswahlen:** `GET /api/kinder?suche=…` liest
+  pageconfig und timetable/filter über die Sitzung der Lehrkraft, je Suche
+  zwei Abrufe, ohne Zwischenspeicher. Die Einladungsauswahl und die
+  Kind-Suche beim stellvertretenden Buchen benutzen sie beide. Die heutige
+  Auswahl „(ohne Klasse) (2000)“ verschwindet.
+- **Ohne Suchbegriff wird nichts geladen (R1).** Gesucht wird ein
+  Teilstring ohne Groß/Klein in Nachname, Vorname und Klasse, höchstens 60
+  Treffer (R2). Gesucht wird über Knopf und Eingabetaste, nicht je
+  Tastendruck (R3).
+- **Kinder ohne Klasse erscheinen nicht (E20 E).** Der Server lehnt sie
+  beim Einladen **und** beim stellvertretenden Buchen ab, mit einer Regel
+  an einer Stelle (`kd_vorgang_pruefen`, R4). Ist die Liste beim
+  stellvertretenden Buchen nicht lesbar, wird nicht gebucht (502), statt
+  mit leerem Namen über frühere Buchungen (E20-Nachtrag).
+- **Nie still leer:** Eine nicht erreichbare Liste nennt den Grund.
+  Abgelaufene Sitzung: Kasten „Anmelden und suchen“, danach dieselbe
+  Suche.
+- **Die freie Eingabe einer Schüler-ID entfällt (E20 D).**
+- Die Meldung beim stellvertretenden Buchen fragt nicht mehr „Steht das
+  Kind in der Schülerliste?“. Datenschutz-Absatz und Admin-Seite sagen,
+  dass die alte Liste nicht mehr benutzt wird. Sie bleibt bis Schritt 4.
+- Lesen der pageconfig-Felder und die beiden Abrufe stehen je an einer
+  Stelle (`kd_eintrag`, `kd_pageconfig_lesen`, `kd_klassen_lesen`).
+
+### Prüfungen
+- 1454 → 1534 Prüfzeilen in 71 Suiten (vorher 69), alle grün;
+  `tests-sprechtag.sh` 29.
+  - Neu `run_kind_suche.php` (48): Suche, Abrufe und die Regel
+    ausgeführt, Grenze 60/61, die Aufrufstellen im Quelltext.
+  - Neu `frontend_kind_suche_test.js` (33): Suche, Statusanzeige und
+    Kasten für beide Ansichten ausgeführt, Formular, Wegfall der
+    ID-Eingabe, Texte.
+  - Fünf Prüfungen, die die abgeschaffte Fassung verlangten, sind nach
+    Rückfrage auf die neue ausgerichtet (`frontend_lehrkraft_raster` 4,
+    darunter „entprellt“ umgekehrt; `frontend_sitzung_abgelaufen` 1).
+    Dazu eine in `run_kindname`, ohne vorherige Rückfrage umgestellt und
+    nachträglich bestätigt. Die Anzahl ist jeweils gleich.
+  - `frontend_vollstaendig` 35 → 34: Die Suite zählt je
+    `lade…`-Funktion, und `ladeSchueler` entfällt.
+- Mutationen 399 → 427 (KS1–KS29), alle angeschlagen, H4 grün, Rücknahme
+  belegt.
+  - KN12 entfällt, weil der mutierte Code fort ist; KS1 hebelt
+    `kd_vorgang_pruefen` aus und ersetzt sie.
+  - KN1 und KN5 sind an die neue Stelle nachgezogen.
+
 ## v0.9.80 (Oktober 2026) – Warnung für das echte WebUntis-Admin-Konto (E23)
 
 - **Anlass (Fund 2):** Dem echten Admin-Konto (personType 16) fehlt die

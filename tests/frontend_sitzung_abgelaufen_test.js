@@ -274,7 +274,7 @@ for (const [n, r] of Object.entries(R)) pruefe('Voraussetzung: Rumpf ' + n + ' g
   await einladenF([601], '');
   pruefe('anderer Fehler (404): kein Kasten, der Grund steht in der Meldung',
     lauf.kasten.length === 0 && lauf.meldungen.some(([t, a]) => a === 'fehler' && /Klassenliste/.test(t)));
-  const ui = rumpf('function ansichtEinladungen(');
+  const ui = rumpf('function einlTrefferZeichnen(');   // seit v0.9.81 dort
   pruefe('Knopf „Ausgewählte einladen“ ruft einladenAusfuehren (Aufrufstelle)',
     ui !== '' && /await einladenAusfuehren\(ids, hinweis\);/.test(ui));
 

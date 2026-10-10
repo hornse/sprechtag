@@ -65,7 +65,8 @@ const S = {
   erinnerungLaedt: false,     // Guard
   erinnerungVorschau: null,   // Ergebnis der Empfänger-Prüfung
   gewaehlteLehrkraftAnsicht: null,   // Admin: wessen Termine werden gezeigt
-  schuelerListe: null,               // Klassenliste für Einladungen
+  einlTreffer: null,                 // Kind-Suche der Einladung: null | {laeuft} | {fehler} | {kinder, anzahl, grenze}
+  einlSuche: '',                     // Suchbegriff der Einladungsauswahl
   svRaster: null,                    // Zeitraster der Lehrkraft (frei + belegt)
   svLehrer: null,                    // halbtags + Fenster der gezeigten Lehrkraft
   svSprechtag: null,                 // beginn/ende für die Hälften-Berechnung
@@ -74,10 +75,8 @@ const S = {
   svKind: null,                      // gewähltes Kind für stellvertretende Buchung
   svKindName: '',                    // Anzeigename des gewählten Kindes
   svKindSuche: '',                   // Suchbegriff im Kind-Suchfeld
-  svTreffer: null,                   // Suchergebnisse der Fremdbuchung (eigene Abfrage)
-  svSucheLaeuft: false,              // Suchabfrage im Gange
+  svTreffer: null,                   // Kind-Suche stellvertretend: wie einlTreffer
   svLaeuft: false,                   // Buchung im Gange (Doppelklick-Schutz)
-  schuelerSuche: '',
   schuelerAnzahl: null,
   versandProtokoll: null,
   schuelerKlassen: 0,
@@ -1324,8 +1323,9 @@ function datenschutzAbsaetze() {
       + 'einzeln über „📅 hinzufügen“ übernommener Termin ist eine Kopie in der '
       + 'Kalender-App; sie bleibt dort, bis man sie selbst löscht.',
     'Unabhängig vom Archivieren bleibt Folgendes gespeichert:',
-    'Die Schülerliste mit Namen und Klassen, aus der Lehrkräfte für '
-      + 'Einladungen auswählen. Sie bleibt, bis die Schule sie löscht.',
+    'Die Schülerliste mit Namen und Klassen aus einem früheren Abgleich. Die '
+      + 'Auswahl für Einladungen benutzt sie nicht mehr, sie liest die Kinder '
+      + 'bei jeder Suche aus WebUntis. Die Liste bleibt, bis die Schule sie löscht.',
     'Fehlgeschlagene Anmeldeversuche mit dem eingegebenen '
       + 'WebUntis-Benutzernamen und der IP-Adresse, zum Schutz vor dem '
       + 'Durchprobieren von Passwörtern. '
@@ -2071,20 +2071,25 @@ function zeichneStellvertreterKopf(ziel, lehrerId) {
     }));
     kopf.appendChild(z);
   } else {
-    // Suchfeld mit EIGENER Backend-Abfrage (/api/schueler?suche=…). Bewusst
-    // NICHT über die geteilte S.schuelerListe gefiltert: die kann durch die
-    // Einladungsansicht auf einen Teilbestand eingeschränkt sein, wodurch
-    // hier Treffer fehlten (z. B. "Paulowski"). Die eigene Abfrage sucht
-    // immer die volle Datenbank – dieselbe Quelle wie die Einladung.
-    const z = el('div', 'zeile');
+    // Kind-Suche über /api/kinder (pageconfig über die Sitzung, v0.9.81,
+    // E20). Gesucht wird über Knopf und Eingabetaste, nicht je Tastendruck:
+    // Jede Suche kostet zwei WebUntis-Abrufe (R3).
+    const form = document.createElement('form');
+    form.className = 'zeile';
     const f = feld('Kind suchen (Name oder Klasse)', 'sv-suche', 'text',
       S.svKindSuche || '');
     f.querySelector('input').addEventListener('input', (e) => {
       S.svKindSuche = e.target.value;
-      svSucheAnstossen();       // entprellt die Backend-Abfrage
     });
-    z.appendChild(f);
-    kopf.appendChild(z);
+    form.appendChild(f);
+    const los = el('button', 'klein', 'Suchen');
+    los.type = 'submit';
+    form.appendChild(los);
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      svKindSuchen(wert('sv-suche'));
+    });
+    kopf.appendChild(form);
 
     // suchtreffer: Treffer gehören zum Suchfeld – kleinerer Abstand (E14).
     const treffer = el('div', 'sv-treffer suchtreffer');
@@ -2140,83 +2145,41 @@ function zeichneHaelfteWahl(ziel, lehrerId) {
   ziel.appendChild(k);
 }
 
-// Stößt die Kind-Suche entprellt an: erst 250 ms nach dem letzten
-// Tastendruck wird das Backend gefragt – so entsteht nicht pro Zeichen
-// eine Abfrage, das Feld bleibt flüssig.
-let svSucheTimer = null;
-function svSucheAnstossen() {
-  if (svSucheTimer) clearTimeout(svSucheTimer);
-  const q = (S.svKindSuche || '').trim();
-  if (q === '') { S.svTreffer = null; zeichneSvTreffer(); return; }
-  // Sofort einen "sucht …"-Zustand zeigen, dann verzögert abfragen.
-  zeichneSvTreffer();
-  svSucheTimer = setTimeout(() => svKindSuchen(q), 250);
-}
-
+// Kind-Suche der stellvertretenden Buchung. Treffer, Fehler oder „sucht“
+// stehen in S.svTreffer; abgelaufen: Kasten „Anmelden und suchen“.
 async function svKindSuchen(q) {
-  S.svSucheLaeuft = true;
+  S.svKindSuche = q;
+  S.svTreffer = { laeuft: true };
   zeichneSvTreffer();
   try {
-    const d = await api('/api/schueler?suche=' + encodeURIComponent(q));
-    // Backend liefert nach Klassen gruppiert – flach klopfen und nur
-    // Kinder mit WebUntis-Zuordnung übernehmen (nur die sind buchbar).
-    const flach = [];
-    for (const [klasse, ks] of Object.entries(d.klassen || {})) {
-      for (const k of ks) {
-        if (!k.webuntis_id) continue;
-        flach.push({ id: k.webuntis_id,
-          name: k.nachname + (k.vorname ? ', ' + k.vorname : ''),
-          klasse: klasse });
-      }
-    }
-    // Nur übernehmen, wenn der Suchbegriff noch aktuell ist (der Nutzer
-    // könnte inzwischen weitergetippt haben).
-    if ((S.svKindSuche || '').trim() === q) S.svTreffer = flach;
+    S.svTreffer = await kinderSuchen(q);
   } catch (f) {
     S.svTreffer = { fehler: String(f.message) };
-  } finally {
-    S.svSucheLaeuft = false;
-    zeichneSvTreffer();
+    if (f.sitzung) {
+      sitzungAuswerten(f.sitzung, String(f.message), { knopf: 'Anmelden und suchen',
+        aktion: () => svKindSuchen(q),
+        spaeter: 'Nicht gesucht. Die Kind-Suche braucht die WebUntis-Anmeldung.' });
+    }
   }
+  zeichneSvTreffer();
 }
 
 // Füllt die Trefferliste (#sv-treffer), ohne die ganze Ansicht neu zu
-// zeichnen – so behält das Suchfeld den Fokus. Quelle ist S.svTreffer,
-// das aus der Backend-Abfrage stammt (volle Datenbank).
+// zeichnen – so behält das Suchfeld den Fokus.
 function zeichneSvTreffer() {
   const ziel = $('#sv-treffer');
   if (!ziel) return;
   ziel.textContent = '';
-  const q = (S.svKindSuche || '').trim();
+  const status = kinderStatusElement(S.svTreffer);
+  if (status) { ziel.appendChild(status); return; }
 
-  if (q === '') {
-    ziel.appendChild(el('p', 'hinweis-klein',
-      'Zum Suchen tippen – Name oder Klasse.'));
-    return;
-  }
-  if (S.svSucheLaeuft) {
-    ziel.appendChild(el('p', 'hinweis-klein', 'Sucht …'));
-    return;
-  }
-  if (S.svTreffer && S.svTreffer.fehler) {
-    ziel.appendChild(el('p', 'meldung fehler', S.svTreffer.fehler));
-    return;
-  }
-  const treffer = Array.isArray(S.svTreffer) ? S.svTreffer : [];
-  if (treffer.length === 0) {
-    ziel.appendChild(el('p', 'hinweis-klein',
-      'Keine Treffer. (Nur Kinder mit WebUntis-Zuordnung sind buchbar.)'));
-    return;
-  }
-
-  const grenze = 40;
   const liste = el('div', 'sv-treffer-liste');
-  for (const k of treffer.slice(0, grenze)) {
-    const b = el('button', 'sv-treffer-zeile', k.name + '  ·  ' + k.klasse);
+  for (const k of S.svTreffer.kinder) {
+    const b = el('button', 'sv-treffer-zeile', k.name + '  ·  ' + (k.klasse || '(Klassenname fehlt)'));
     b.type = 'button';
     b.addEventListener('click', () => {
       S.svKind = parseInt(k.id, 10);
-      S.svKindName = k.name + ' (' + k.klasse + ')';
+      S.svKindName = k.name + (k.klasse ? ' (' + k.klasse + ')' : '');
       S.svKindSuche = '';
       S.svTreffer = null;
       zeichne();
@@ -2224,11 +2187,48 @@ function zeichneSvTreffer() {
     liste.appendChild(b);
   }
   ziel.appendChild(liste);
-  if (treffer.length > grenze) {
-    ziel.appendChild(el('p', 'hinweis-klein',
-      treffer.length + ' Treffer – die ersten ' + grenze
-      + ' werden gezeigt. Suche verfeinern.'));
+  const hinweis = kinderTrefferHinweis(S.svTreffer);
+  if (hinweis) ziel.appendChild(el('p', 'hinweis-klein', hinweis));
+}
+
+// ---- Kind-Suche: eine Quelle für Einladung und stellvertretend ----------
+// /api/kinder liest pageconfig über die Sitzung der Lehrkraft (v0.9.81,
+// E20 A). Ohne Suchbegriff wird nichts abgefragt (R1).
+async function kinderSuchen(q) {
+  const begriff = String(q || '').trim();
+  if (begriff === '') return { kinder: [], anzahl: 0, grenze: 60, leer: true };
+  return api('/api/kinder?suche=' + encodeURIComponent(begriff));
+}
+
+// Treffer nach Klasse, in der gelieferten Reihenfolge (der Server sortiert).
+// Eine Liste statt eines Objekts: Objektschlüssel wie „10“ zöge JavaScript vor.
+function kinderNachKlasse(kinder) {
+  const gruppen = [];
+  for (const k of kinder) {
+    const name = k.klasse || '(Klassenname fehlt)';
+    const letzte = gruppen[gruppen.length - 1];
+    if (letzte && letzte[0] === name) letzte[1].push(k);
+    else gruppen.push([name, [k]]);
   }
+  return gruppen;
+}
+
+function kinderTrefferHinweis(d) {
+  if (!d || !Array.isArray(d.kinder) || !(d.anzahl > d.kinder.length)) return '';
+  return d.anzahl + ' Treffer – die ersten ' + d.grenze + ' werden gezeigt. Suche verfeinern.';
+}
+
+// Was statt der Treffer dasteht: Aufforderung, „sucht“, der Grund eines
+// Fehlers oder „keine Treffer“. null, wenn es Treffer gibt. Eine nicht
+// erreichbare Liste erscheint so nie still leer.
+function kinderStatusElement(t) {
+  if (!t || t.leer) return el('p', 'hinweis-klein', 'Name oder Klasse eingeben, dann „Suchen“.');
+  if (t.laeuft) return el('p', 'hinweis-klein', 'Sucht …');
+  if (t.fehler) return el('p', 'meldung fehler', t.fehler);
+  if (!Array.isArray(t.kinder) || t.kinder.length === 0) {
+    return el('p', 'hinweis-klein', 'Keine Treffer. Kinder ohne Klasse erscheinen nicht.');
+  }
+  return null;
 }
 
 async function stellvertretendBuchen(lehrerId, slot) {
@@ -2338,86 +2338,24 @@ function ansichtEinladungen(ziel) {
       + 'Anlegen versendet.'));
   }
 
-  // ---- Auswahl über Klassenliste ---------------------------------------
+  // ---- Auswahl über die Kind-Suche (v0.9.81, E20) ------------------------
+  // Quelle ist pageconfig über die Sitzung (/api/kinder). Ohne Suchbegriff
+  // wird nichts geladen (R1); die Suche nach einer Klasse liefert die
+  // ganze Klasse. Die freie Eingabe einer Schüler-ID entfällt (E20 D).
   const aus = sektion('Kinder auswählen');
-  const suchZeile = el('div', 'zeile');
-  suchZeile.appendChild(feld('Suche (Name oder Klasse)', 'einl-suche', 'text',
-    S.schuelerSuche || ''));
-  aus.appendChild(suchZeile);
-  aus.appendChild(knopf('Suchen', 'klein', () => {
-    S.schuelerSuche = wert('einl-suche');
-    S.schuelerListe = null;
-    ladeSchueler();
-  }));
-
-  if (S.schuelerListe === null) {
-    aus.appendChild(el('p', 'hinweis', 'Liste wird geladen …'));
-    ladeSchueler();
-  } else if (Object.keys(S.schuelerListe).length === 0) {
-    aus.appendChild(el('p', 'hinweis-wichtig',
-      'Keine Schülerliste vorhanden. Die Administration kann sie unter '
-      + '„Administration → Schülerliste" aus WebUntis übernehmen oder als '
-      + 'CSV aus Schild-NRW importieren. Ersatzweise ist unten die Eingabe '
-      + 'einer Schüler-ID möglich.'));
-  } else {
-    for (const [klasse, kinder] of Object.entries(S.schuelerListe)) {
-      const kBlock = block('kl-' + klasse, klasse + ' (' + kinder.length + ')');
-      const liste = el('div', 'schueler-liste');
-      for (const k of kinder) {
-        const zeile = el('label', 'schueler-zeile');
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.value = k.webuntis_id || '';
-        cb.className = 'einl-kind';
-        cb.disabled = !k.webuntis_id;
-        zeile.appendChild(cb);
-        zeile.appendChild(document.createTextNode(' '
-          + k.nachname + (k.vorname ? ', ' + k.vorname : '')
-          + (k.webuntis_id ? '' : ' (keine WebUntis-Zuordnung)')));
-        liste.appendChild(zeile);
-      }
-      kBlock.appendChild(liste);
-      aus.appendChild(kBlock);
-    }
-    aus.appendChild(feld('Hinweis an die Eltern (optional, gilt für alle)',
-      'einl-hinweis'));
-    aus.appendChild(knopf('Ausgewählte einladen', null, async () => {
-      const ids = Array.from(document.querySelectorAll('.einl-kind:checked'))
-        .map((e) => parseInt(e.value, 10)).filter((n) => n > 0);
-      const hinweis = wert('einl-hinweis');
-      if (ids.length === 0) {
-        meldung('Bitte mindestens ein Kind auswählen.', 'fehler');
-        return;
-      }
-      await einladenAusfuehren(ids, hinweis);
-    }));
-  }
+  const form = document.createElement('form');
+  form.className = 'zeile';
+  form.appendChild(feld('Suche (Name oder Klasse)', 'einl-suche', 'text', S.einlSuche || ''));
+  const los = el('button', 'klein', 'Suchen');
+  los.type = 'submit';
+  form.appendChild(los);
+  form.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    einlSuchen(wert('einl-suche'));
+  });
+  aus.appendChild(form);
+  einlTrefferZeichnen(aus);
   ziel.appendChild(aus);
-
-  // ---- Ersatzweise: Eingabe der Schüler-ID -----------------------------
-  const manuell = sektion('Ersatzweise: Schüler-ID eingeben');
-  manuell.appendChild(el('p', 'hinweis',
-    'Nur nötig, wenn die Schülerliste noch nicht eingerichtet ist. '
-    + 'Die ID steht in WebUntis im Schülerdatensatz.'));
-  const mz = el('div', 'zeile');
-  mz.appendChild(feld('Schüler-ID', 'einl-schueler'));
-  mz.appendChild(feld('Hinweis (optional)', 'einl-hinweis2'));
-  manuell.appendChild(mz);
-  manuell.appendChild(knopf('Einladung anlegen', 'klein', async () => {
-    const id = parseInt(wert('einl-schueler'), 10);
-    const hinweis = wert('einl-hinweis2');
-    if (!(id > 0)) {
-      meldung('Bitte eine gültige Schüler-ID eingeben.', 'fehler');
-      return;
-    }
-    try {
-      await api('/api/einladungen', { method: 'POST', body: {
-        sprechtag_id: S.aktiverSprechtag.id, schueler_id: id, hinweis } });
-      await ladeEinladungen();
-      meldung('Einladung angelegt.', 'ok');
-    } catch (f) { meldung(String(f.message), 'fehler'); }
-  }));
-  ziel.appendChild(manuell);
 
   // ---- Bestehende Einladungen ------------------------------------------
   ziel.appendChild(el('h3', null, 'Angelegte Einladungen'));
@@ -2455,16 +2393,58 @@ function ansichtEinladungen(ziel) {
   ziel.appendChild(kartenTabelle(tab));
 }
 
-async function ladeSchueler() {
+// Kind-Suche der Einladung. Treffer, Fehler oder „sucht“ stehen in
+// S.einlTreffer; abgelaufen: Kasten „Anmelden und suchen“.
+async function einlSuchen(q) {
+  S.einlSuche = q;
+  S.einlTreffer = { laeuft: true };
+  zeichne();
   try {
-    const d = await api('/api/schueler'
-      + (S.schuelerSuche ? '?suche=' + encodeURIComponent(S.schuelerSuche) : ''));
-    S.schuelerListe = d.klassen || {};
-    zeichne();
+    S.einlTreffer = await kinderSuchen(q);
   } catch (f) {
-    S.schuelerListe = {};
-    zeichne();
+    S.einlTreffer = { fehler: String(f.message) };
+    if (f.sitzung) {
+      sitzungAuswerten(f.sitzung, String(f.message), { knopf: 'Anmelden und suchen',
+        aktion: () => einlSuchen(q),
+        spaeter: 'Nicht gesucht. Die Auswahl braucht die WebUntis-Anmeldung.' });
+    }
   }
+  zeichne();
+}
+
+// Treffer der Einladung: nach Klasse gruppiert, je Kind ein Ankreuzfeld.
+function einlTrefferZeichnen(ziel) {
+  const status = kinderStatusElement(S.einlTreffer);
+  if (status) { ziel.appendChild(status); return; }
+  const t = S.einlTreffer;
+  for (const [klasse, kinder] of kinderNachKlasse(t.kinder)) {
+    ziel.appendChild(el('h4', null, klasse + ' (' + kinder.length + ')'));
+    const liste = el('div', 'schueler-liste');
+    for (const k of kinder) {
+      const zeile = el('label', 'schueler-zeile');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = String(k.id);
+      cb.className = 'einl-kind';
+      zeile.appendChild(cb);
+      zeile.appendChild(document.createTextNode(' ' + k.name));
+      liste.appendChild(zeile);
+    }
+    ziel.appendChild(liste);
+  }
+  const mehr = kinderTrefferHinweis(t);
+  if (mehr) ziel.appendChild(el('p', 'hinweis-klein', mehr));
+  ziel.appendChild(feld('Hinweis an die Eltern (optional, gilt für alle)', 'einl-hinweis'));
+  ziel.appendChild(knopf('Ausgewählte einladen', null, async () => {
+    const ids = Array.from(document.querySelectorAll('.einl-kind:checked'))
+      .map((e) => parseInt(e.value, 10)).filter((n) => n > 0);
+    const hinweis = wert('einl-hinweis');
+    if (ids.length === 0) {
+      meldung('Bitte mindestens ein Kind auswählen.', 'fehler');
+      return;
+    }
+    await einladenAusfuehren(ids, hinweis);
+  }));
 }
 
 async function ladeEinladungen() {
@@ -2701,17 +2681,15 @@ function ansichtAdminDaten(ziel) {
   ziel.appendChild(el('h2', null, 'Schülerliste'));
 
   // ---- Schülerliste ------------------------------------------------------
-  const sl = sektion('Schülerliste für die Einladungsauswahl');
+  const sl = sektion('Schülerliste (alter Abgleich)');
   sl.appendChild(el('p', 'hinweis',
-    'Damit Lehrkräfte Eltern über eine Klassenliste einladen können statt '
-    + 'über die Eingabe einer Schüler-ID. Zwei Quellen, die sich ergänzen: '
-    + 'WebUntis liefert die IDs und Namen, aber keine Klassen – die kommen '
-    + 'aus dem Schild-Export.'));
+    'Die Einladungsauswahl und die Kind-Suche beim stellvertretenden Buchen '
+    + 'benutzen diese Liste nicht mehr: Sie lesen die Kinder bei jeder Suche '
+    + 'über die WebUntis-Anmeldung der Lehrkraft. Die Liste und diese Seite '
+    + 'entfallen mit dem nächsten Umbau.'));
   sl.appendChild(el('p', 'hinweis-wichtig',
-    'Diese Liste enthält Namen und ist die einzige Stelle im System mit '
-    + 'personenbezogenen Schülerdaten. Sie lässt sich jederzeit vollständig '
-    + 'löschen; das Tool funktioniert dann weiter, nur die Auswahl erfolgt '
-    + 'wieder über Schüler-IDs.'));
+    'Diese Liste enthält Namen von Schülerinnen und Schülern. Sie lässt sich '
+    + 'jederzeit vollständig löschen; das Tool funktioniert danach unverändert.'));
 
   const slStatus = el('div');
   sl.appendChild(slStatus);
@@ -2792,12 +2770,11 @@ function ansichtAdminDaten(ziel) {
   }));
 
   slAktionen.appendChild(knopf('Gesamte Schülerliste löschen', 'klein gefahr', async () => {
-    if (!confirm('Alle Schülerdaten aus dem Tool löschen? Die Einladungsauswahl '
-      + 'erfolgt danach wieder über Schüler-IDs.')) return;
+    if (!confirm('Die alte Schülerliste löschen? Die Einladungsauswahl '
+      + 'benutzt sie nicht mehr.')) return;
     try {
       await api('/api/schueler', { method: 'DELETE' });
       S.schuelerAnzahl = null;
-      S.schuelerListe = null;
       meldung('Schülerliste gelöscht.', 'ok');
     } catch (f) { meldung(String(f.message), 'fehler'); }
   }));

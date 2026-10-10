@@ -564,10 +564,18 @@ if (($seg[0] ?? '') === 'buchungen') {
         $sz = wu_sitzung($cfg);
         if ($sz['rest'] === null) json_sitzung_fehlt($sz);
         $aufl = mit_eltern_ids_ermitteln($pdo, $kind, $sz['rest']);
+        // Kinder ohne Klasse werden nicht gebucht – dieselbe Regel und
+        // derselbe Satz wie beim Einladen (E20 E, R4 v0.9.81).
+        $einwand = kd_vorgang_pruefen($aufl['ermittelt'], $kind, 'gebucht');
+        if ($einwand !== null) {
+            if (isset($einwand['grund'])) {
+                error_log('sprechtag: stellvertretend – Kinddaten nicht lesbar: ' . $einwand['grund']);
+            }
+            json_err($einwand['text'], $einwand['status']);
+        }
         if ($aufl['ids'] === []) {
             json_err('Zu diesem Kind ließ sich kein Elternkonto ermitteln. '
-                . 'Steht das Kind in der Schülerliste? Ersatzweise bleibt die '
-                . 'Einladung, mit der die Eltern selbst buchen.', 409);
+                . 'Ersatzweise bleibt die Einladung, mit der die Eltern selbst buchen.', 409);
         }
         $elternIds    = $aufl['ids'];
         $elternUserId = (int)$elternIds[0];
@@ -964,16 +972,14 @@ if (($seg[0] ?? '') === 'einladungen') {
         $sz = wu_sitzung($cfg);
         if ($sz['rest'] === null) json_sitzung_fehlt($sz);
         $ermittelt = kd_ermitteln($sz['rest'], [$kind]);
-        if ($ermittelt['grund'] !== null) {
-            error_log('sprechtag: Einladung – Kinddaten nicht lesbar: ' . $ermittelt['grund']);
-            json_err('Die Klassenliste aus WebUntis ließ sich gerade nicht lesen. '
-                . 'Es wurde nicht eingeladen – bitte erneut versuchen.', 502);
+        $einwand = kd_vorgang_pruefen($ermittelt, $kind, 'eingeladen');
+        if ($einwand !== null) {
+            if (isset($einwand['grund'])) {
+                error_log('sprechtag: Einladung – Kinddaten nicht lesbar: ' . $einwand['grund']);
+            }
+            json_err($einwand['text'], $einwand['status']);
         }
-        $kd = $ermittelt['kinder'][$kind] ?? null;
-        if ($kd === null || $kd['klasse_id'] <= 0) {
-            json_err('Dieses Kind steht nicht in der Klassenliste aus WebUntis. '
-                . 'Es wurde nicht eingeladen.', 404);
-        }
+        $kd = $ermittelt['kinder'][$kind];
 
         $pdo->prepare('INSERT IGNORE INTO einladungen
             (sprechtag_id, lehrer_id, schueler_id, hinweis, kind_name, kind_klasse)

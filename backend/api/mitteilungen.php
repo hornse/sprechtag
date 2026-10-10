@@ -297,8 +297,11 @@ function mit_eltern_zu_kind(array $users, string $kindName): array
  * $rest null (Sitzung nicht nutzbar): nur Weg 2. Der Aufrufer prüft die
  * Sitzung vorher und bucht bei abgelaufener nicht (E17).
  *
- * @return array{ids:int[], quelle:?string, kind_name:string, kind:?array}
+ * @return array{ids:int[], quelle:?string, kind_name:string, kind:?array, ermittelt:array}
  *         kind: Kinddaten aus kd_ermitteln() (Name, Klasse) oder null
+ *         ermittelt: das ganze Ergebnis von kd_ermitteln() – für
+ *         kd_vorgang_pruefen() (v0.9.81, R4), das „nicht lesbar“ von
+ *         „steht nicht in der Liste“ unterscheiden muss
  *         quelle: 'webuntis' | 'buchung' | null (nichts gefunden)
  */
 function mit_eltern_ids_ermitteln(PDO $pdo, int $schuelerId, ?WebUntisRest $rest): array
@@ -306,6 +309,7 @@ function mit_eltern_ids_ermitteln(PDO $pdo, int $schuelerId, ?WebUntisRest $rest
     // Kindname aus pageconfig über dieselbe Sitzung (Zug 4, E20) – nicht
     // mehr aus der Tabelle schueler. Für Suche und exakten Namensabgleich.
     $kd = null;
+    $e = ['kinder' => [], 'grund' => 'keine Sitzung'];
     if ($rest !== null) {
         $e = kd_ermitteln($rest, [$schuelerId]);
         if ($e['grund'] !== null) {
@@ -342,7 +346,7 @@ function mit_eltern_ids_ermitteln(PDO $pdo, int $schuelerId, ?WebUntisRest $rest
         if ($ids !== []) $quelle = 'buchung';
     }
 
-    return ['ids' => $ids, 'quelle' => $quelle, 'kind_name' => $kindName, 'kind' => $kd];
+    return ['ids' => $ids, 'quelle' => $quelle, 'kind_name' => $kindName, 'kind' => $kd, 'ermittelt' => $e];
 }
 
 /**

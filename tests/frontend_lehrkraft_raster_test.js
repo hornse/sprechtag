@@ -51,16 +51,19 @@ pruefe('belegte Slots bieten Absage',
 pruefe('freie Slots lösen stellvertretende Buchung aus',
   raster.includes('stellvertretendBuchen'));
 const kopf = koerper('zeichneStellvertreterKopf');
+// v0.9.81 (E20 A, R3): Quelle /api/kinder, gesucht über Knopf und Eingabetaste.
 pruefe('Kind-Auswahl per Suchfeld statt Dropdown',
-  kopf.includes('sv-suche') && kopf.includes('svSucheAnstossen'));
-pruefe('Suche fragt das Backend ab (volle DB, nicht die geteilte Liste)',
-  src.includes('function svKindSuchen') && src.includes('/api/schueler?suche='));
-pruefe('Suche ist entprellt',
-  src.includes('svSucheTimer') && src.includes('setTimeout'));
+  kopf.includes('sv-suche') && kopf.includes('svKindSuchen('));
+const suche = koerper('svKindSuchen');
+pruefe('Suche fragt das Backend ab: svKindSuchen über kinderSuchen → /api/kinder',
+  suche.includes('await kinderSuchen(q)') && koerper('kinderSuchen').includes("'/api/kinder?suche='"));
+pruefe('kein Abruf je Tastendruck (R3; die alte Fassung war entprellt)',
+  kopf !== '' && !src.includes('svSucheTimer') && !src.includes('svSucheAnstossen')
+  && !/addEventListener\('input'[\s\S]*?svKindSuchen/.test(kopf.split("addEventListener('submit'")[0]));
 pruefe('Stellvertretend buchen nur im eigenen Raster',
   raster.includes('eigenesRaster') && raster.includes('S.user.lehrer_id'));
-pruefe('Trefferliste ist begrenzt (keine endlose Liste)',
-  treffer.includes('grenze') && treffer.includes('slice'));
+pruefe('Trefferliste ist begrenzt: Grenze auf dem Server (60), die Anzeige nennt den Rest',
+  treffer.includes('kinderTrefferHinweis(S.svTreffer)'));
 pruefe('Buchung nutzt den richtigen Endpunkt',
   buchen.includes('/api/buchungen/stellvertretend'));
 pruefe('vor der Buchung wird ein Kind verlangt',

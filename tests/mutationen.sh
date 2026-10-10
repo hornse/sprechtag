@@ -916,7 +916,9 @@ ADP=backend/api/webuntis_adapter.php
 AUP=backend/api/auth.php
 KAL=backend/api/kalender.php
 RKN=tests/run_kindname.php
-mut KN1 $KLP 's/\$klasse = trim\(\(string\)\(\$k\[\x27class\x27\]\[\x27displayName\x27\] \?\? \x27\x27\)\);/\$klasse = trim((string)(\$k[\x27class\x27][\x27longName\x27] ?? \x27\x27));/' \
+# KN1 und KN5 seit v0.9.81 an der neuen Stelle (kd_klassen_namen,
+# kd_ermitteln mit kd_klassen_lesen) – derselbe Eingriff, dieselbe Zeile.
+mut KN1 $KLP 's/\$namen\[\$id\] = trim\(\(string\)\(\$k\[\x27class\x27\]\[\x27displayName\x27\] \?\? \x27\x27\)\);/\$namen[\$id] = trim((string)(\$k[\x27class\x27][\x27longName\x27] ?? \x27\x27));/' \
   $RKN "Klasse aus displayName"
 mut KN2 $KLP 's/\x27nachname\x27  => trim\(\(string\)\(\$e\[\x27longName\x27\] \?\? \x27\x27\)\),/\x27nachname\x27  => trim((string)(\$e[\x27name\x27] ?? \x27\x27)),/' \
   $RKN "Nachname aus longName, Vorname aus forename"
@@ -924,7 +926,7 @@ mut KN3 $KLP 's/: \$n \. \x27, \x27 \. \$v\);/: \$v . \x27 \x27 . \$n);/' \
   $RKN "kd_name: „Nachname, Vorname“"
 mut KN4 $KLP 's/(return \[\x27kinder\x27 => \$kinder, \x27grund\x27 => null\];\n    \} catch \()Exception/${1}Throwable/' \
   $RKN "Programmfehler (Error) geht weiter"
-mut KN5 $KLP 's/        if \(\$mitKlasse !== \[\]\) \{\n            \$bis = \$heute/        if (true) {\n            \$bis = \$heute/' \
+mut KN5 $KLP 's/        if \(\$mitKlasse !== \[\]\) \{\n            \$tf = kd_klassen_lesen/        if (true) {\n            \$tf = kd_klassen_lesen/' \
   $RKN "kein Kind mit Klasse: nur pageconfig"
 mut KN6 $ADP 's/\$aus\[\$id\] = \[\x27name\x27 => \$eigenerName,/\$aus[\$id] = [\x27name\x27 => \$kd !== null ? kd_name(\$kd) : \$eigenerName,/' \
   $RKN "Schüler: Name aus der Anmeldung"
@@ -938,8 +940,10 @@ mut KN10 $KAL 's/r\.kuerzel AS raum_kuerzel, b\.kind_name\n/r.kuerzel AS raum_ku
   $RKN "Kalender der Eltern: Name aus der Buchung"
 mut KN11 $BUP 's/        if \(\$sz\[\x27rest\x27\] === null\) json_sitzung_fehlt\(\$sz\);\n        \$ermittelt = /        \$ermittelt = /' \
   $RKN "Einladung: ohne Sitzung Abbruch"
-mut KN12 $BUP 's/\|\| \$kd\[\x27klasse_id\x27\] <= 0\)/|| \$kd[\x27klasse_id\x27] < 0)/' \
-  $RKN "Einladung: Kind ohne Klasse oder nicht in der Liste"
+# KN12 entfällt mit v0.9.81: Die Klassenprüfung beim Einladen, die sie
+# mutierte, steht jetzt in kd_vorgang_pruefen (eine Regel für Einladen und
+# stellvertretend, R4). Die Nummer bleibt vergeben; die Regel decken KS-
+# Mutationen ab.
 mut KN13 $MI 's/kuerze\(\$kindName, 170\), kuerze\(\$kindKlasse, 30\)/\x27\x27, kuerze(\$kindKlasse, 30)/' \
   $RKN "mit_einreihen speichert Name und Klasse"
 mut KN14 $BUP 's/\(string\)\$b\[\x27kind_name\x27\], \(string\)\$b\[\x27kind_klasse\x27\]\);/\x27\x27, \x27\x27);/' \
@@ -1110,6 +1114,72 @@ mut AO11 $APP 's/(  const box = el\(\x27div\x27, \x27meldung info offen-hinweis\
   $FAO "genau eine Darstellung"
 mut AO12 $APP 's/if \(S\.user && S\.user\.admin_konto && S\.ansicht !== \x27login\x27\)/if (true || S.user \&\& S.user.admin_konto \&\& S.ansicht !== \x27login\x27)/' \
   $FAO "zeichne() zeigt sie nur mit admin_konto"
+
+
+# v0.9.81: Kind-Suche aus pageconfig (Zug 4, Schritt 3; E20 A/D/E, R1–R4).
+# KS1 ersetzt KN12: Sie hebelt die eine Regel für Einladen UND
+# stellvertretend aus (Betreiber, 10.10.2026).
+RKS=tests/run_kind_suche.php
+FKS=tests/frontend_kind_suche_test.js
+FLR=tests/frontend_lehrkraft_raster_test.js
+mut KS1 $KLP 's/(function kd_vorgang_pruefen\(array \$ermittelt, int \$kind, string \$vorgang\): \?array\n\{\n)/${1}    return null;\n/' \
+  $RKS "ohne Klasse, Einladen: 404 mit dem bisherigen Satz"
+mut KS2 $KLP 's/return \$kd !== null && \(int\)\(\$kd\[\x27klasse_id\x27\] \?\? 0\) > 0;/return \$kd !== null \&\& (int)(\$kd[\x27klasse_id\x27] ?? 0) >= 0;/' \
+  $RKS "kd_hat_klasse: null und klasse_id 0 nein"
+mut KS3 $KLP 's/if \(\$kd\[\x27id\x27\] <= 0 \|\| !kd_hat_klasse\(\$kd\)\) continue;/if (\$kd[\x27id\x27] <= 0) continue;/' \
+  $RKS "Kind ohne Klasse erscheint auch bei genauem Namen nicht"
+mut KS4 $KLP 's/const KD_SUCHE_GRENZE = 60;/const KD_SUCHE_GRENZE = 40;/' \
+  $RKS "Grenze ist 60"
+mut KS5 $KLP 's/array_slice\(\$treffer, 0, \$grenze\)/array_slice(\$treffer, 0, \$grenze + 1)/' \
+  $RKS "eins darüber (61)"
+mut KS6 $KLP 's/    if \(\$q === \x27\x27\) return \[\x27kinder\x27 => \[\], \x27anzahl\x27 => 0, \x27grenze\x27 => KD_SUCHE_GRENZE\];\n//' \
+  $RKS "ohne Suchbegriff: Sitzung nicht einmal gefragt"
+mut KS7 $KLP 's/if \(str_contains\(kd_klein\(\$kd\[\$f\]\), \$nadel\)\)/if (str_contains(\$kd[\$f], \$nadel))/' \
+  $RKS "Name trifft ohne Groß/Klein"
+mut KS8 $KLP 's/trim\(\(string\)\(\$k\[\x27class\x27\]\[\x27displayName\x27\] \?\? \x27\x27\)\)/trim((string)(\$k[\x27class\x27][\x27longName\x27] ?? \x27\x27))/' \
+  $RKS "Klasse aus displayName, nicht aus longName"
+mut KS9 $KLP 's/\} catch \(Exception \$e\) \{\n        return \[\x27grund\x27 => \x27Ausnahme \x27/} catch (Throwable \$e) {\n        return [\x27grund\x27 => \x27Ausnahme \x27/' \
+  $RKS "Programmfehler (Error) geht weiter"
+mut KS10 $KLP 's/(function kd_vorgang_pruefen.*?\n)    if \(\(\$ermittelt\[\x27grund\x27\] \?\? null\) !== null\) \{/${1}    if (false) {/s' \
+  $RKS "Liste nicht lesbar: 502 mit dem bisherigen Satz"
+mut KS11 $BUP 's/        \$einwand = kd_vorgang_pruefen\(\$aufl\[\x27ermittelt\x27\], \$kind, \x27gebucht\x27\);\n/        \$einwand = null;\n/' \
+  $RKS "stellvertretend: fragt kd_vorgang_pruefen"
+mut KS12 $BUP 's/if \(\$einwand !== null\) \{/if (false \&\& \$einwand !== null) {/' \
+  $RKS "stellvertretend: Einwand führt zum Abbruch"
+mut KS13 $BUP 's/\$einwand = kd_vorgang_pruefen\(\$ermittelt, \$kind, \x27eingeladen\x27\);/\$einwand = null;/' \
+  $RKS "Einladen: fragt kd_vorgang_pruefen vor dem Speichern"
+mut KS14 $IX 's/(if \(\(\$seg\[0\] \?\? \x27\x27\) === \x27kinder\x27\) \{\n)    auth_require_lehrkraft\(\);\n/${1}/' \
+  $RKS "Route: Lehrkraft/Verwaltung geprüft"
+mut KS15 $IX 's/json_err\(KD_SATZ_LISTE_NICHT_LESBAR \. \x27 Bitte erneut suchen\.\x27, 502\);/json_ok([\x27kinder\x27 => []]);/' \
+  $RKS "Route: nicht lesbar → 502"
+mut KS16 $MI 's/\x27kind\x27 => \$kd, \x27ermittelt\x27 => \$e\]/\x27kind\x27 => \$kd, \x27ermittelt\x27 => [\x27kinder\x27 => [], \x27grund\x27 => null]]/' \
+  $RKS "ermittelt: Grund, wenn die Liste nicht lesbar war"
+mut KS17 $APP 's/  if \(begriff === \x27\x27\) return \{ kinder: \[\], anzahl: 0, grenze: 60, leer: true \};\n//' \
+  $FKS "leerer Suchbegriff: kein Abruf"
+mut KS18 $APP 's/if \(t\.fehler\) return el\(\x27p\x27, \x27meldung fehler\x27, t\.fehler\);/if (t.fehler) return el(\x27p\x27, \x27hinweis-klein\x27, \x27Keine Treffer.\x27);/' \
+  $FKS "Liste nicht erreichbar: der Grund steht als Fehlermeldung da"
+mut KS19 $APP 's/aktion: \(\) => einlSuchen\(q\),/aktion: () => zeichne(),/' \
+  $FKS "Einladung: abgelaufen → Kasten „Anmelden und suchen“"
+mut KS20 $APP 's/(async function svKindSuchen\(q\) \{.*?)S\.svTreffer = \{ fehler: String\(f\.message\) \};/${1}S.svTreffer = { kinder: [], anzahl: 0, grenze: 60 };/s' \
+  $FKS "stellvertretend: abgelaufen → der Zustand trägt den Fehler"
+mut KS21 $APP 's/const status = kinderStatusElement\(S\.einlTreffer\);/const status = null;/' \
+  $FKS "beide Ansichten zeigen den Zustand über kinderStatusElement"
+mut KS22 $APP 's/!\(d\.anzahl > d\.kinder\.length\)/!(d.anzahl >= d.kinder.length)/' \
+  $FKS "genau auf der Grenze (60 von 60): kein Hinweis"
+mut KS23 $APP 's/(  aus\.appendChild\(form\);\n  einlTrefferZeichnen\(aus\);\n)/${1}  aus.appendChild(feld(\x27Schüler-ID\x27, \x27einl-schueler\x27));\n/' \
+  $FKS "freie Eingabe einer Schüler-ID entfällt"
+mut KS24 $APP 's/  const form = document\.createElement\(\x27form\x27\);\n  form\.className = \x27zeile\x27;\n  form\.appendChild\(feld\(\x27Suche/  const form = el(\x27div\x27, \x27zeile\x27);\n  form.appendChild(feld(\x27Suche/' \
+  $FKS "Einladung: Suche ist ein Formular"
+mut KS25 $APP 's/(      S\.svKindSuche = e\.target\.value;\n)(    \}\);)/${1}      svKindSuchen(e.target.value);\n${2}/' \
+  $FLR "kein Abruf je Tastendruck"
+mut KS26 $APP 's/return api\(\x27\/api\/kinder\?suche=\x27/return api(\x27\/api\/schueler?suche=\x27/' \
+  $FLR "Suche fragt das Backend ab"
+mut KS27 $APP 's/  const hinweis = kinderTrefferHinweis\(S\.svTreffer\);\n  if \(hinweis\) ziel\.appendChild\(el\(\x27p\x27, \x27hinweis-klein\x27, hinweis\)\);\n//' \
+  $FLR "Trefferliste ist begrenzt"
+mut KS28 $APP 's/(entfallen mit dem nächsten Umbau\.)/${1} Ohne sie erfolgt die Auswahl wieder über Schüler-IDs./' \
+  $FKS "Admin-Seite verspricht die Auswahl nicht mehr"
+mut KS29 $APP 's/Die Liste bleibt, bis die Schule sie löscht\./Die Liste, aus der Lehrkräfte für Einladungen auswählen, bleibt, bis die Schule sie löscht./' \
+  $FKS "Datenschutz: die Schülerliste ist nicht mehr die Quelle"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi

@@ -1192,6 +1192,46 @@ neue Buchung trägt Name und Klasse. Ältere haben die Klasse leer, wie die
 Migration es vorsah. Das Kalender-Abo und die Tischvorlage zeigen Termine
 mit Name und Klasse richtig.
 
+**Nachtrag 10.10.2026 — Schritt 3 (v0.9.81): Einladungsauswahl und
+Kind-Suche aus pageconfig.** Entschieden vom Betreiber auf die
+Richtungsfragen vor dem Bau:
+- **R1 — ohne Suchbegriff wird nichts geladen.** Kein WebUntis-Abruf und
+  keine Namen an den Browser, nur die Aufforderung, Name oder Klasse
+  einzugeben. Begründung: 1200 Namen von Minderjährigen an den Browser,
+  nur damit jemand vielleicht sucht, sind nicht zu rechtfertigen. Die
+  Suche nach einer Klasse liefert die ganze Klasse.
+- **R2 — die Suchregel bleibt:** Teilstring ohne Groß/Klein in Nachname,
+  Vorname und Klasse. Höchstens 60 Treffer, denn eine ganze Klasse muss
+  hineinpassen. Eine genauere Regel (Klasse nur exakt) wäre geraten, weil
+  die Klassennamen bewusst nicht ausgegeben sind.
+- **R3 — gesucht wird über Knopf und Eingabetaste**, nicht je
+  Tastendruck. Jede Suche kostet zwei WebUntis-Abrufe, und FALLSTRICKE
+  belegt, wohin ein Dutzend Abrufe in wenigen Sekunden führt. Länger zu
+  warten verschiebt das nur.
+- **R4 — der Server lehnt Kinder ohne Klasse auch beim stellvertretenden
+  Buchen ab**, mit demselben Satz wie beim Einladen. Eine Regel, die nur
+  in der Oberfläche steht, ist keine. Zwei Stellen mit einer Antwort auf
+  dieselbe Frage haben die Einladungs-Kachel gekostet. Umgesetzt als eine
+  Funktion für beide Vorgänge (`kd_vorgang_pruefen()`).
+- **Folge von R4, über ihren Wortlaut hinaus:** Ist die Klassenliste beim
+  stellvertretenden Buchen nicht lesbar, wird nicht mehr gebucht (502).
+  Bisher fand die Buchung das Elternkonto dann über frühere Buchungen
+  desselben Kindes und schrieb einen leeren Namen. Das schließt denselben
+  stillen Weg zu einem leeren Namen wie beim Buchen in Schritt 2.
+  Bestätigt vom Betreiber.
+- **Eine nicht erreichbare Liste erscheint nie still leer.** Sie zeigt
+  den Grund. Ohne Sitzung kommt der Kasten „Anmelden und suchen“, danach
+  läuft dieselbe Suche.
+- **Ohne Rückfrage, ohne Einspruch:** Der Satz „Steht das Kind in der
+  Schülerliste?“ ist aus der Meldung beim stellvertretenden Buchen fort.
+  Das Feld „Schüler-ID“ der Sondierung bleibt (Diagnosewerkzeug). Route
+  und Admin-Seite der alten Liste bleiben bis Schritt 4. Ihre Texte und
+  der Datenschutz-Absatz sagen jetzt, dass die Auswahl sie nicht mehr
+  benutzt.
+- **Ungemessen:** ob das echte Admin-Konto (personType 16) pageconfig
+  lesen darf. Nach E23 verschmerzbar; scheitert es, nennt die Liste den
+  Grund.
+
 
 ## E21 — Das Kalender-Abo liefert nur kommende Sprechtage
 
