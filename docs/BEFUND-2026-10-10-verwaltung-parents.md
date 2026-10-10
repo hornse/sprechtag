@@ -60,3 +60,11 @@ funktioniert das, im Betrieb bestätigt. Eine Lehrkraft-Sitzung trägt PARENTS
 Es bekommt weiterhin die Verwaltung über personType 16. Die Lücke bliebe,
 nur unbenutzt. Die drei Möglichkeiten des Betreibers stehen in E23,
 nicht entschieden.
+
+## Nachtrag 10.10.2026: entschieden und gebaut (v0.9.80, E23-Nachtrag)
+
+Option 2: Das echte Admin-Konto behält die Verwaltung, die Oberfläche warnt
+in jeder Ansicht. Die Warnung nennt, was nicht hinausgeht, dass die
+Nachrichten offen stehen bleiben, und den Weg über ein Lehrerkonto in
+`admin_kuerzel`.
+

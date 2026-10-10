@@ -21,6 +21,10 @@ sendet, kommt also ein zweites Mal an.
 
 ## Zwei mögliche Erklärungen (beide Vermutung)
 
+> **Berichtigt (Nachtrag unten):** Gemeint war „Einladung **an** ein
+> Elternteil“, nicht „ausgelöst **von** einem Elternteil“. Der Widerspruch
+> in Erklärung 1 entfällt damit; Erklärung 2 ist die plausiblere.
+
 1. **Die Konstellation von Stelle 1** (E17-Nachtrag): Der erste Versand
    scheiterte tatsächlich, und der Empfänger sah eine **andere**
    Mitteilung, nicht diese. Erst der zweite Versand wäre dann diese
@@ -52,3 +56,15 @@ beim nächsten Versuch überschrieben; danach ist er verloren.
 neuen Versuch überschrieben, statt erhalten zu bleiben. Das hat die Spur
 hier gelöscht. Eine Änderung (etwa: den ersten Grund aufbewahren) ist nicht
 beauftragt.
+
+## Nachtrag 10.10.2026: Berichtigung und Liste (Betreiber)
+
+- **Berichtigung:** Die Meldung meinte „Einladung **an** ein Elternteil“.
+  Ausgelöst hat eine Lehrkraft oder die Verwaltung, keine Eltern-Sitzung.
+  Der Widerspruch zum Code aus Erklärung 1 entfällt. Damit ist Erklärung 2
+  die plausiblere: Mit dem echten Admin-Konto scheitert PARENTS mit 403
+  (Fund 2). Gemessen ist das für diesen Fall weiterhin nicht.
+- **Auf der Liste, beim nächsten Anfassen der Mitteilungen (nicht jetzt):**
+  Ein neuer Versuch überschreibt den Grund des ersten Fehlschlags. Ein
+  **Protokoll der Versuche** statt eines einzigen Grundes würde reichen.
+

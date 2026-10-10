@@ -1083,6 +1083,34 @@ mut VS9 $APP 's/steht unter „Meine Termine" und im Kalender-Abo\./steht unter 
 mut VS10 $APP 's/Bestätigung per WebUntis-Nachricht kommt nur, wenn/Bestätigung per WebUntis-Nachricht kommt auch, wenn/' \
   $FB "FAQ: Bestätigung nur, wenn eine Lehrkraft gebucht hat"
 
+# v0.9.80: echtes Admin-Konto erkannt, Warnung in der Oberfläche (E23).
+RAO=tests/run_admin_konto.php
+FAO=tests/frontend_admin_konto_test.js
+mut AO1 $AUP 's/\(int\)\(\$daten\[\x27personType\x27\] \?\? 0\) === 16;/(int)(\$daten[\x27personType\x27] ?? 0) === 2;/' \
+  $RAO "personType 16: admin_konto wahr"
+mut AO2 $AUP 's/    \$_SESSION\[\x27wu_admin_konto\x27\] = \(int\)\(\$daten\[\x27personType\x27\] \?\? 0\) === 16;\n//' \
+  $RAO "personType 16: admin_konto wahr"
+mut AO3 $AUP 's/\(int\)\(\$daten\[\x27personType\x27\] \?\? 0\) === 16;/\$daten[\x27rolle\x27] === \x27admin\x27;/' \
+  $RAO "Lehrerkonto mit admin_kuerzel"
+mut AO4 $AUP 's/\x27admin_konto\x27 => \(\$_SESSION\[\x27wu_admin_konto\x27\] \?\? false\) === true,/\x27admin_konto\x27 => true,/' \
+  $RAO "Eltern und Lehrkraft: falsch"
+mut AO5 $AUP 's/    \$_SESSION\[\x27wu_admin_konto\x27\] = \(int\)\(\$daten\[\x27personType\x27\] \?\? 0\) === 16;/    if ((int)(\$daten[\x27personType\x27] ?? 0) === 16) \$_SESSION[\x27wu_admin_konto\x27] = true;/' \
+  $RAO "erneute Anmeldung mit anderem Konto"
+mut AO6 $APP 's/Absagen, Ausfälle, Einladungen und \x27/Absagen, Einladungen und \x27/' \
+  $FAO "nennt, was nicht hinausgeht"
+mut AO7 $APP 's/unter „Mitteilungen“ offen stehen\./unter „Mitteilungen“ verworfen./' \
+  $FAO "sagt, dass die Nachrichten offen stehen bleiben"
+mut AO8 $APP 's/\x27in admin_kuerzel steht\.\x27/\x27in der Verwaltung eingetragen ist.\x27/' \
+  $FAO "nennt den Weg"
+mut AO9 $APP 's/el\(\x27div\x27, \x27meldung fehler admin-konto-warnung\x27\)/el(\x27div\x27, \x27meldung info admin-konto-warnung\x27)/' \
+  $FAO "ist eine Warnung"
+mut AO10 $APP 's/if \(S\.user && S\.user\.admin_konto && S\.ansicht !== \x27login\x27\)/if (S.user && S.ansicht !== \x27login\x27)/' \
+  $FAO "zeichne() zeigt sie nur mit admin_konto"
+mut AO11 $APP 's/(  const box = el\(\x27div\x27, \x27meldung info offen-hinweis\x27\);\n)/$1  box.appendChild(adminKontoWarnungElement());\n/' \
+  $FAO "genau eine Darstellung"
+mut AO12 $APP 's/if \(S\.user && S\.user\.admin_konto && S\.ansicht !== \x27login\x27\)/if (true || S.user \&\& S.user.admin_konto \&\& S.ansicht !== \x27login\x27)/' \
+  $FAO "zeichne() zeigt sie nur mit admin_konto"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1

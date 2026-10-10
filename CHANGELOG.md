@@ -1,5 +1,43 @@
 # Changelog - sprechtag
 
+## v0.9.80 (Oktober 2026) – Warnung für das echte WebUntis-Admin-Konto (E23)
+
+- **Anlass (Fund 2):** Dem echten Admin-Konto (personType 16) fehlt die
+  Empfängerart PARENTS. Absagen, Ausfälle, Einladungen und Bestätigungen an
+  Eltern bleiben damit offen (403).
+- **Entscheidung (Betreiber):** Die Verwaltung arbeitet über ein
+  Lehrerkonto mit `admin_kuerzel`. Das echte Admin-Konto bleibt als
+  Notzugang und bekommt eine Warnung.
+- **Gebaut:**
+  - Die Anmeldung merkt sich, ob es das echte Admin-Konto ist
+    (`admin_konto` in `/api/auth/me`). Ein Lehrerkonto mit
+    `admin_kuerzel` hat dieselbe Rolle, aber keine Markierung.
+  - In jeder Ansicht außer der Anmeldung steht eine Warnung. Sie nennt,
+    was nicht hinausgeht, dass die Nachrichten unter „Mitteilungen“ offen
+    stehen bleiben, und den Weg über ein Lehrerkonto in `admin_kuerzel`.
+  - Eine Sitzung von vor dem Deploy zeigt die Warnung erst nach der
+    nächsten Anmeldung.
+- **Nicht gebaut:** Aktionen für dieses Konto abweisen. Das ist als
+  Nachschärfung notiert, falls die Warnung übersehen wird.
+- **Doku:** Befund A berichtigt („Einladung **an** ein Elternteil“).
+  Auf der Liste steht ein Protokoll der Versuche statt eines einzigen
+  Grundes.
+
+### Prüfungen
+- 1440 → 1454 Prüfzeilen in 69 Suiten (vorher 67), alle grün;
+  `tests-sprechtag.sh` 29.
+  - Neu `run_admin_konto.php` (7), zuerst 6-mal rot: die Erkennung,
+    ausgeführt über `auth_login_speichern()` und `auth_user()`, je Konto,
+    bei erneuter Anmeldung und bei einer alten Sitzung.
+  - Neu `frontend_admin_konto_test.js` (7), zuerst 7-mal rot:
+    - der sichtbare Text, ausgeführt;
+    - die Bedingung in `zeichne()` als Quelltext;
+    - genau eine Darstellung.
+- Mutationen 387 → 399 (AO1–AO12), alle angeschlagen, H4 grün, Rücknahme
+  belegt.
+  - AO3 setzt die falsche Fassung ein (Rolle statt personType).
+  - AO12 entwertet die Bedingung, statt sie zu entfernen.
+
 ## v0.9.79 (Oktober 2026) – Keine Bestätigung nach einer Elternbuchung (Stelle 1 gemessen, E17-Nachtrag)
 
 - **Gemessen (Betreiber, Betrieb):** Elternkonten dürfen in WebUntis nicht

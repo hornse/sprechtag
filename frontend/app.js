@@ -733,6 +733,24 @@ async function ladeOffenHinweis() {
   } catch { S.offenHinweis = null; }
 }
 
+// Warnung für das echte WebUntis-Admin-Konto (v0.9.80, E23): Es behält die
+// Verwaltung als Notzugang, darf aber nicht an Eltern senden (PARENTS, 403).
+// Die Entscheidung bleibt bei der Person vor dem Bildschirm.
+function adminKontoWarnungElement() {
+  const box = el('div', 'meldung fehler admin-konto-warnung');
+  box.setAttribute('role', 'alert');
+  box.appendChild(el('p', null,
+    'Sie sind mit dem WebUntis-Administrationskonto angemeldet. Damit gehen '
+    + 'Nachrichten an Eltern nicht hinaus: Absagen, Ausfälle, Einladungen und '
+    + 'Bestätigungen. WebUntis erlaubt diesem Konto die Empfängerart „Eltern“ '
+    + 'nicht. Die Aktionen selbst werden ausgeführt, die Nachrichten bleiben '
+    + 'unter „Mitteilungen“ offen stehen.'));
+  box.appendChild(el('p', null,
+    'Für die Verwaltung bitte mit einem Lehrerkonto anmelden, dessen Kürzel '
+    + 'in admin_kuerzel steht.'));
+  return box;
+}
+
 function offenHinweisElement() {
   const h = S.offenHinweis;
   const box = el('div', 'meldung info offen-hinweis');
@@ -803,6 +821,10 @@ function zeichne() {
     const m = el('div', 'meldung ' + S.meldung.art, S.meldung.text);
     m.setAttribute('role', 'alert');
     ziel.appendChild(m);
+  }
+  // Echtes Admin-Konto (E23): in jeder Ansicht, solange angemeldet.
+  if (S.user && S.user.admin_konto && S.ansicht !== 'login') {
+    ziel.appendChild(adminKontoWarnungElement());
   }
   // Abgelaufene Anmeldung (E17): bleibt stehen, bis sie erledigt ist.
   if (S.sitzungsKasten && S.sitzungsKasten.ansicht === S.ansicht) {

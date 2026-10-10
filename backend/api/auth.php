@@ -33,6 +33,11 @@ function auth_user(): ?array
         // selbst sichtbar; null, wenn sie nicht ermittelt werden konnte.
         'wu_gruppe' => isset($_SESSION['wu_gruppe']) && $_SESSION['wu_gruppe'] !== ''
             ? (string)$_SESSION['wu_gruppe'] : null,
+        // Echtes WebUntis-Admin-Konto (personType 16)? Ihm fehlt die
+        // Empfängerart PARENTS (Fund 2, E23); die Oberfläche warnt. Die
+        // Rolle „admin“ allein sagt es nicht – ein Lehrerkonto mit
+        // admin_kuerzel hat dieselbe (E22).
+        'admin_konto' => ($_SESSION['wu_admin_konto'] ?? false) === true,
     ];
 }
 
@@ -47,6 +52,7 @@ function auth_login_speichern(array $daten): void
     $_SESSION['person_id'] = $daten['person_id'];
     $_SESSION['kinder']    = $daten['kinder'];
     $_SESSION['wu_gruppe'] = $daten['wu_gruppe'] ?? null;
+    $_SESSION['wu_admin_konto'] = (int)($daten['personType'] ?? 0) === 16;
     // WebUntis-Sitzungscookie: ermöglicht Mitteilungen unter dem Namen der
     // handelnden Person, ohne ihr Passwort zu speichern. Steht BEWUSST NICHT
     // in auth_user(), damit er nicht versehentlich ans Frontend gelangt.

@@ -1321,3 +1321,25 @@ Möglichkeiten:
 Folgen je Möglichkeit: siehe die Antwort an den Betreiber vom 10.10.2026,
 sobald entschieden, hier als Nachtrag.
 
+**Nachtrag 10.10.2026 — entschieden: Option 2, Verwaltung mit Warnung (v0.9.80):**
+- **Begründung (Betreiber):** Der Notzugang entscheidet. Nach einer
+  Neuinstallation steht in `admin_kuerzel` `'XYZ'`. Mit Option 1 wäre eine
+  Schule ausgesperrt, bevor sie die Konfiguration anpassen kann, und das
+  wäre schlechter als die Lücke. Gegen Option 3 spricht der Zeitpunkt: Die
+  Lücke zeigte sich erst hinterher, als offene Mitteilung. Eine Warnung
+  vorher ist besser als ein Befund nachher.
+- **Gebaut:**
+  - Die Anmeldung merkt sich personType 16 in der Sitzung;
+    `auth_user()['admin_konto']`.
+  - `adminKontoWarnungElement()` erscheint in jeder Ansicht außer der
+    Anmeldung. Sie nennt Absagen, Ausfälle, Einladungen und Bestätigungen
+    an Eltern und sagt, dass die Nachrichten offen stehen bleiben. Als Weg
+    nennt sie ein Lehrerkonto, dessen Kürzel in `admin_kuerzel` steht.
+  - Eine Sitzung von vor v0.9.80 zeigt die Warnung erst nach der nächsten
+    Anmeldung.
+- **Nicht gebaut, als Möglichkeit notiert:** die schärfere Spielart, mit
+  diesem Konto die Aktionen abzuweisen, die an Eltern senden. FALLSTRICKE 8
+  spräche dafür. Aber ein Notzugang, der die Hälfte abweist, ist im Notfall
+  womöglich genau die Hälfte, die man braucht. **Zeigt sich, dass jemand die
+  Warnung übersieht und trotzdem handelt, wird nachgeschärft.**
+
