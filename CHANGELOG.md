@@ -1,5 +1,40 @@
 # Changelog - sprechtag
 
+## v0.9.78 (Oktober 2026) – Admin-Kürzel unempfindlich, Komma-Einträge aufgeteilt (E22)
+
+- **Kürzelvergleich unempfindlich, in beide Richtungen** (Entscheidung des
+  Betreibers): `['ho']`, `['Ho']` und `['HO']` treffen die Lehrkraft „Ho“.
+  Bisher verglich die Anmeldung `admin_kuerzel` streng (`in_array(…,
+  true)`).
+- **`admin_kuerzel` ist ein Array.** `['Ho, Mu']` ist ein Eintrag und traf
+  bisher still niemanden; jetzt wird er aufgeteilt. Eine Zeichenkette statt
+  eines Arrays ebenso; bisher bekam der WebUntis-Admin (personType 16)
+  davon nur den ersten Buchstaben.
+- **Dieselbe Art, mitbehoben:** Die Wache „nicht sich selbst als
+  Administrator entfernen“ vergleicht jetzt ebenfalls unempfindlich.
+- **Engstelle:** `admin_kuerzel` wird nur noch über `wu_kuerzel_liste()`
+  gelesen.
+- **`config.example.php`:** erklärt die Array-Form mit einem Beispiel, warnt
+  vor `['Ho, Mu']` und sagt, dass die Schreibweise keine Rolle spielt.
+- **Folge:** Wer in `config.php` in anderer Schreibweise oder in einem
+  Komma-Eintrag steht, ist ab jetzt Admin.
+
+### Prüfungen
+- 1403 → 1427 Prüfzeilen in 65 Suiten (vorher 64), alle grün;
+  `tests-sprechtag.sh` 29.
+  - **Neu `run_admin_kuerzel.php` (24), zuerst rot:**
+    - ausgeführt: der Vergleich (alle Schreibweisen paarweise, Rand,
+      verschiedene Kürzel, leer, Umlaut mit mbstring), die Liste
+      (Komma, Zeichenkette, leere Teile) und die Admin-Entscheidung;
+    - Quelltext: die Aufrufstellen in `wu_login()` und die Engstelle über
+      alle Backend-Dateien;
+    - die Wache und der Kommentar in `config.example.php`.
+- Mutationen 363 → 378 (AK1–AK15), alle angeschlagen, H4 grün, Rücknahme
+  belegt.
+  - AK2 legt den Vergleich einseitig auf Kleinschreibung fest, also die
+    ausdrücklich verworfene Fassung.
+  - AK10 und AK11 setzen die alte Fassung von `wu_login()` wieder ein.
+
 ## v0.9.77 (Oktober 2026) – Das Kalender-Abo liefert nur kommende Sprechtage (Fehler aus dem Betrieb, E21)
 
 - **Fehler:** Das Abo (`/api/kalender/{token}.ics`) lieferte die Termine

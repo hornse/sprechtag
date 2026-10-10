@@ -50,7 +50,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.77', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.78', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -609,7 +609,8 @@ if (($seg[0] ?? '') === 'admins') {
         $st = $pdo->prepare('SELECT lehrer_kuerzel FROM app_admins WHERE id = ?');
         $st->execute([(int)$seg[1]]);
         $ziel = $st->fetchColumn();
-        if ($ziel !== false && $ziel === ($u['kuerzel'] ?? null)) {
+        // Unempfindlich wie die Anmeldung (E22): 'ho' in app_admins ist 'Ho'.
+        if ($ziel !== false && wu_kuerzel_gleich((string)$ziel, (string)($u['kuerzel'] ?? ''))) {
             json_err('Du kannst dich nicht selbst als Administrator entfernen', 403);
         }
         $pdo->prepare('DELETE FROM app_admins WHERE id = ?')->execute([(int)$seg[1]]);

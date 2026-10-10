@@ -1197,3 +1197,49 @@ Sprechtag. Begründung: Ein Kalender zeigt, was kommt.
   nachgebauter Routenlogik dasselbe; die Nachbildung ist dabei die
   Schwachstelle der Probe, nicht der Befund.
 
+## E22 — Kürzel unempfindlich vergleichen; admin_kuerzel ist ein Array
+
+**Datum:** 10.10.2026 · **Version:** 0.9.78 · **Anlass:** Ergänzung des
+Betreibers zu einem „Fund 1“. Dieser Fund ist in der Sitzung, die das hier
+gebaut hat, nicht angekommen; was er betraf, ist aus dem Code erschlossen.
+
+**Stand bis v0.9.77:**
+- `wu_login()` prüfte `admin_kuerzel` mit `in_array(…, true)`, also mit
+  Rücksicht auf Groß- und Kleinschreibung. `['ho']` traf die Lehrkraft
+  „Ho“ nicht.
+- Ein WebUntis-Admin (personType 16) bekam `admin_kuerzel[0]`. Bei einer
+  Zeichenkette statt eines Arrays war das nur der erste Buchstabe.
+- Die Wache „nicht sich selbst als Administrator entfernen“ verglich
+  `app_admins.lehrer_kuerzel` streng mit dem Kürzel der Sitzung. Bei „ho“
+  gegen „Ho“ griff sie nicht. Das ist derselbe Fehler an einer anderen
+  Stelle, deshalb mitbehoben.
+- Die Datenbankvergleiche (`lehrer.kuerzel`, `app_admins`) laufen laut
+  Schema unter `utf8mb4_unicode_ci` und waren schon unempfindlich. Am
+  Server gemessen ist das nicht.
+
+**Entscheidung (Betreiber):**
+- **Der Vergleich ist unempfindlich, in beide Richtungen.** `['ho']`,
+  `['Ho']` und `['HO']` treffen dasselbe Kürzel. **Nicht** auf
+  Kleinschreibung festlegen: Das bräche bestehende Konfigurationen und
+  verlangte wieder Wissen über eine Konvention.
+- **`admin_kuerzel` ist ein Array.** Ein Eintrag mit Komma (`['Ho, Mu']`)
+  traf bisher still niemanden.
+
+**Gebaut:**
+- `wu_kuerzel_gleich()`: unempfindlich, ohne Rand-Leerzeichen; leer trifft
+  nie. Für Kürzel mit Umlaut braucht der Vergleich mbstring.
+- `wu_kuerzel_liste()`: Komma-Einträge und eine Zeichenkette werden
+  aufgeteilt.
+- `wu_ist_config_admin()` und `wu_admin_eigenes_kuerzel()`.
+- **Engstelle:** `admin_kuerzel` wird nur über `wu_kuerzel_liste()`
+  gelesen. Das prüft die Suite über alle Backend-Dateien.
+- `config.example.php` erklärt die Schreibweise.
+
+**Aufteilen statt melden:** Ein Komma-Eintrag wird aufgeteilt, ohne
+Meldung. Eine Meldung hätte bei jeder Anmeldung im Protokoll gestanden.
+Gemeint ist die Array-Form; die Aufteilung ist die Sicherung dahinter.
+
+**Folge der Auslieferung:** Wer in `config.php` in irgendeiner Schreibweise
+oder in einem Komma-Eintrag steht, ist ab v0.9.78 Admin. Bisher galt das
+still nicht.
+

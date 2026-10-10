@@ -267,7 +267,7 @@ function wu_login(array $cfg, PDO $pdo, string $benutzer, string $passwort): arr
         } elseif ($personType === 16) {
             // WebUntis-Admin: personId = -1, KEIN Eintrag in getTeachers()
             $ergebnis['rolle']   = 'admin';
-            $ergebnis['kuerzel'] = $wcfg['admin_kuerzel'][0] ?? null;
+            $ergebnis['kuerzel'] = wu_admin_eigenes_kuerzel($wcfg);
             if ($ergebnis['name'] === '') $ergebnis['name'] = 'WebUntis-Administration';
         } elseif ($personType === 5) {
             $ergebnis['rolle'] = 'schueler';
@@ -309,8 +309,7 @@ function wu_login(array $cfg, PDO $pdo, string $benutzer, string $passwort): arr
 
         if ($ergebnis['rolle'] === 'lehrkraft') {
             // Admin über config-Liste ODER app_admins-Tabelle
-            $ausConfig = in_array($ergebnis['kuerzel'],
-                (array)($wcfg['admin_kuerzel'] ?? []), true);
+            $ausConfig = wu_ist_config_admin($ergebnis['kuerzel'], $wcfg);
             $st = $pdo->prepare('SELECT COUNT(*) FROM app_admins WHERE lehrer_kuerzel = ?');
             $st->execute([$ergebnis['kuerzel']]);
             if ($ausConfig || (int)$st->fetchColumn() > 0) {
@@ -449,6 +448,55 @@ function wu_referenzzeitraum(string $sprechtagDatum): array
     $ende  = strtotime($sprechtagDatum . ' -7 days');
     $start = strtotime('-27 days', $ende);
     return ['von' => date('Y-m-d', $start), 'bis' => date('Y-m-d', $ende)];
+}
+
+/**
+ * Vergleicht zwei Kürzel unempfindlich gegen Groß- und Kleinschreibung, in
+ * beide Richtungen (Entscheidung Betreiber, E22): 'ho', 'Ho' und 'HO'
+ * treffen einander. Niemand muss wissen, wie das Kürzel in der Tabelle
+ * lehrer steht. Leer trifft nie. mb_strtolower nur, wo vorhanden
+ * (FALLSTRICKE 3); ohne mbstring treffen sich Kürzel mit Umlaut nicht.
+ */
+function wu_kuerzel_gleich(string $a, string $b): bool
+{
+    $n = static fn(string $k): string => function_exists('mb_strtolower')
+        ? mb_strtolower(trim($k), 'UTF-8') : strtolower(trim($k));
+    $a = $n($a);
+    return $a !== '' && $a === $n($b);
+}
+
+/**
+ * admin_kuerzel aus der config als Liste (E22). Dokumentiert ist ein Array
+ * (['Ho', 'Mu', 'Sr']). Ein Eintrag mit Komma (['Ho, Mu']) traf bisher
+ * still niemanden und wird aufgeteilt; eine Zeichenkette statt eines Arrays
+ * ebenso (bisher nahm personType 16 davon nur den ersten Buchstaben).
+ */
+function wu_kuerzel_liste(mixed $wert): array
+{
+    $aus = [];
+    foreach ((array)($wert ?? []) as $eintrag) {
+        foreach (explode(',', (string)$eintrag) as $k) {
+            $k = trim($k);
+            if ($k !== '') $aus[] = $k;
+        }
+    }
+    return $aus;
+}
+
+/** Steht das Kürzel in admin_kuerzel der config? (E22) */
+function wu_ist_config_admin(?string $kuerzel, array $wcfg): bool
+{
+    if ($kuerzel === null) return false;
+    foreach (wu_kuerzel_liste($wcfg['admin_kuerzel'] ?? []) as $k) {
+        if (wu_kuerzel_gleich($kuerzel, $k)) return true;
+    }
+    return false;
+}
+
+/** Kürzel eines WebUntis-Admins (personType 16): das erste aus admin_kuerzel. */
+function wu_admin_eigenes_kuerzel(array $wcfg): ?string
+{
+    return wu_kuerzel_liste($wcfg['admin_kuerzel'] ?? [])[0] ?? null;
 }
 
 /**
