@@ -69,20 +69,28 @@ const persBlock = (arch.match(/const OHNE_SPRECHTAG = \[([\s\S]*?)\];/) || [])[1
 const pers = [...persBlock.matchAll(/'(\w+)'\s*=>\s*'personenbezogen'/g)].map((m) => m[1]);
 const merkmal = {
   login_log: /Anmeldeversuche/,
-  schueler: /Schülerliste/,
   // Der Eintrag selbst, nicht nur das Wort: Seit v0.9.77 nennt ein zweiter
   // Absatz den Kalender-Link (was das Abo liefert) – DS5 blieb sonst grün.
   kalender_abo: /Für den persönlichen Kalender-Link eine Kennnummer/,
 };
-pruefe('Voraussetzung: personenbezogene Tabellen aus run_archivieren.php gelesen (mind. 3)',
-  pers.length >= 3);
+// v0.9.82: mind. 2 statt 3 – schueler ist mit sql/23 fort. Die Voraussetzung
+// schützt davor, eine leere Liste zu lesen; das kann sie weiterhin.
+pruefe('Voraussetzung: personenbezogene Tabellen aus run_archivieren.php gelesen (mind. 2)',
+  pers.length >= 2);
 for (const t of pers) {
   pruefe('Hilfe nennt, was beim Archivieren bleibt: ' + t,
     merkmal[t] !== undefined && merkmal[t].test(text));
 }
 
-pruefe('Schülerliste: Namen und Klassen, bleibt bis zur Löschung durch die Schule',
-  /Schülerliste[^\n]*Namen und Klassen[^\n]*bis die Schule sie löscht/.test(text));
+// v0.9.82 (Zug 4, Schritt 4): Die Tabelle schueler ist fort (sql/23). Bis
+// v0.9.81 verlangte diese Stelle den Satz „bleibt, bis die Schule sie
+// löscht“. Die Engstelle oben sagt, was das Archivieren NICHT löscht – ob
+// es eine Tabelle gibt, sagt sie nicht. Erst diese Umkehrung hält den Satz
+// draußen.
+pruefe('Hilfe nennt keine Schülerliste mehr als gespeichert (die Tabelle ist fort)',
+  absaetze.length >= 5 && !/Schülerliste/.test(text) && !/früheren Abgleich/.test(text));
+pruefe('Voraussetzung: schueler steht nicht mehr unter den personenbezogenen Tabellen (run_archivieren.php)',
+  pers.length >= 2 && !pers.includes('schueler'));
 
 const tage = (p('sql/16_login_log.sql').match(/\('login_log_tage', +'(\d+)'\)/) || [])[1];
 const hoechst = (idx.match(/min\((\d+), \(int\)marke_wert\(\$pdo, 'login_log_tage'/) || [])[1];

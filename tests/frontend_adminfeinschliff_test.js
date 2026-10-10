@@ -42,8 +42,8 @@ pruefe('Sondierung-Zeitraum als Kalender',
 pruefe('CSS stylt Datumsfelder', css.includes('input[type=date]'));
 
 // ---- CSV-Buttons ausgerichtet ----
-pruefe('CSV-Buttons in .aktionen-Zeile',
-  js.includes('slAktionen') && js.includes("el('div', 'aktionen')"));
+// Seit v0.9.82 (Zug 4, Schritt 4) fort: Der CSV-Import der Schülerliste ist
+// mit ihr entfallen, es gibt keine Knopfzeile mehr, die auszurichten wäre.
 
 console.log(fehler === 0 ? '\nALLE TESTS GRÜN' : '\n' + fehler + ' FEHLER');
 process.exit(fehler === 0 ? 0 : 1);

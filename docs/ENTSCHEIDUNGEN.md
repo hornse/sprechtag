@@ -1233,6 +1233,80 @@ Richtungsfragen vor dem Bau:
   Grund.
 
 
+**Nachtrag 10.10.2026 — Schritt 4 (v0.9.82): die alte Schülerliste fällt.**
+Entschieden vom Betreiber auf die Richtungsfragen vor dem Bau:
+- **F1 — erst Deploy, dann Migration.** Der Code bis v0.9.81 liest die
+  Tabelle (Admin-Seite, Abgleich, CSV, beide Messrouten); vorher entfernt,
+  liefen diese Wege in einen 500. v0.9.82 liest und schreibt sie nicht
+  mehr, also kann sie danach fallen.
+- **F2 — zwei SQL-Dateien, ein Mensch als Wache, keine Wache im SQL.**
+  `sql/23_pruefung.sql` liest nur und zählt je Tabelle `leer_mit_kind`,
+  `noch_fuellbar`, `NICHT_FUELLBAR` und `ohne_kind`. Die dritte Zahl —
+  Namen, die auch die alte Tabelle nicht kennt — ist die, auf die es
+  ankommt, und steht deshalb groß im Spaltennamen und als Satz in der
+  letzten Zeile („OK …“ oder „ANSEHEN – n Vorgänge …“). Diese Namen sind
+  schon heute verloren; das Entfernen ändert daran nichts, aber danach gibt
+  es keine Quelle mehr. `sql/23_schueler_entfernen.sql` füllt wie sql/22
+  ein letztes Mal nach (eine gesetzte Klasse wird nicht überschrieben) und
+  entfernt dann die Tabelle; zweimal einspielbar. Die Prüfdatei ist im
+  gemeinsamen Teil von MariaDB und SQLite geschrieben und wird im Test
+  gegen erfundene Zeilen ausgeführt; die Migration ist nur am Text geprüft.
+- **F3 — nur die beiden Lesestellen in den Messrouten fallen**, und die
+  Engstelle wird geschärft (siehe unten).
+- **F4 — die Sondierung bleibt unverändert**, auch `austritt_feld`. Sie ist
+  ein Diagnosewerkzeug und der einzige verbleibende Aufruf von
+  `getStudents`; eine Prüfung hält genau das fest.
+- **F5 — die Admin-Seite heißt „Volljährige Schüler“** und zeigt nur noch
+  die Benutzergruppen (E15). Der interne Schlüssel `admin-daten` bleibt.
+- **F6 — der Datenschutz-Satz zur Schülerliste entfällt**, und die Prüfung
+  ist umgekehrt: Das Wort „Schülerliste“ darf in der Hilfe nicht mehr
+  stehen.
+
+**Ein Muster, kein Einzelfall: zwei Prüfungen sahen eine Schreibweise,
+nicht die Sache.**
+- **Die Engstelle aus Schritt 2** prüfte, dass keine Datei mit der Tabelle
+  `schueler` verbindet (`JOIN`) und dass vier benannte Dateien nicht aus
+  ihr lesen (`FROM`). Die Lesestellen in `index.php` (Messrouten) und die
+  ganze `schueler.php` lagen außerhalb: Ihr erster Lauf in der geschärften
+  Form meldete genau diese beiden Dateien. Jetzt prüft sie jede PHP-Datei
+  unter `backend/` samt Unterordnern auf `FROM`, `JOIN`, `INTO`, `UPDATE`
+  und `TABLE` vor dem Tabellennamen, und ihr Suchausdruck wird an Formen
+  geprüft, die er treffen muss, und an solchen, die er nicht treffen darf
+  (`schueler_id`, `schueler_gruppen`, `/api/schueler-gruppen`, die Rolle
+  `'schueler'`). Belegt durch vier Mutationen, je eine Schreibweise in
+  einer Datei, die die alte Fassung nicht sah (SA1–SA4).
+- **Der Schemaleser in `run_archivieren.php`** (Engstelle aus v0.9.74, E19)
+  las `CREATE TABLE` und `ALTER TABLE`, aber nicht `DROP TABLE`. Nach
+  Migration 23 hätte er `schueler` weiter für vorhanden gehalten — die
+  Einordnung „personenbezogen“ wäre stehen geblieben, und die Hilfe hätte
+  eine gespeicherte Tabelle nennen müssen, die es nicht mehr gibt. Jetzt
+  liest er `DROP TABLE` in der Reihenfolge der Migrationen; eine
+  Voraussetzung hält fest, dass er `schueler` als entfernt erkennt (SA7
+  beschädigt den Leser und belegt sie).
+
+Beide waren grün und richtig für das, was sie lasen. Sie lasen eine
+bestimmte Schreibweise der Sache — eine Klausel, eine Anweisungsart — und
+schwiegen über jede andere. **Wo eine Prüfung eine Sache zusichern soll,
+zählt sie deren Schreibweisen auf und prüft die Aufzählung selbst**: an
+Fällen, die treffen müssen, und an solchen, die nicht treffen dürfen.
+
+**Dasselbe Muster im Werkzeug.** Beim Entfernen des Vergleichsmaßstabs
+`$alt` aus der Route wurden die Mutationen nach dem Thema durchsucht
+(SU1–SU10), nicht nach dem Bezeichner. S16 aus Schritt 1 trug `$alt` im
+Suchmuster und meldete „MUTATION NICHT ANGEKOMMEN“; nachgezogen auf
+dieselbe Stelle ohne `$alt`, derselbe Eingriff, dieselbe erwartete Zeile.
+**Wer einen Bezeichner entfernt, durchsucht alle Mutationsmuster nach
+ihm — nicht nur die thematisch naheliegenden.** Für Schritt 4 nachgeholt:
+alle entfernten Bezeichner gegen alle Muster, null Treffer außerhalb der
+SA-Serie; die Gegenprobe gegen die Fassung vor Schritt 4 traf genau S16,
+SU7, SU10 und DS6.
+
+**Ohne Rückfrage, ohne Einspruch:** Route `/api/schueler` samt
+`schueler.php`, Abgleich, CSV-Import und Austritt entfallen; ebenso der
+Messteil `messung_schuelerliste` und die Auskunft
+`kennung_in_schuelerliste` der Elternmessung. `kind_klasse` älterer
+Vorgänge bleibt leer, `einladungen.erledigt` bleibt.
+
 ## E21 — Das Kalender-Abo liefert nur kommende Sprechtage
 
 **Datum:** 10.10.2026 · **Version:** 0.9.77 · **Anlass:** Fehler aus dem

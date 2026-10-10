@@ -1,5 +1,15 @@
 # Schülerliste und Einladungsauswahl
 
+> **Überholt seit v0.9.82 (10.10.2026, Zug 4 Schritt 4, E20).** Die
+> Schülerliste gibt es nicht mehr: Route `/api/schueler`, Abgleich mit
+> WebUntis, CSV-Import aus Schild und Austritt sind entfernt, die Tabelle
+> `schueler` fällt mit `sql/23_schueler_entfernen.sql`. Die
+> Einladungsauswahl und die Kind-Suche lesen seit v0.9.81 über die Sitzung
+> der Lehrkraft aus pageconfig (`/api/kinder`). Die Admin-Seite heißt
+> „Volljährige Schüler“ und zeigt nur noch die Benutzergruppen (E15).
+> Der Text unten beschreibt den Stand bis v0.9.81 und bleibt als
+> Geschichte stehen.
+
 ## Wozu
 
 Lehrkräfte laden in Phase 1 gezielt Eltern ein. Ohne Schülerliste geht das

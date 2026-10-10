@@ -61,7 +61,7 @@ function neue_db(): PDO
     $pdo->exec('CREATE TABLE einstellungen (schluessel TEXT PRIMARY KEY, wert TEXT)');
     $pdo->exec('CREATE TABLE buchungen (id INTEGER PRIMARY KEY, sprechtag_id INT, lehrer_id INT,
       eltern_user_id INT, schueler_id INT, slot_beginn TEXT)');
-    $pdo->exec('CREATE TABLE schueler (webuntis_id INT, vorname TEXT, nachname TEXT, klasse TEXT)');
+    // Keine Tabelle schueler: seit sql/23 (v0.9.82) gibt es sie im Betrieb nicht mehr.
     $pdo->exec("INSERT INTO sprechtage VALUES (1, 'Sprechtag', '2099-11-20'), (2, 'Vorbei', '2000-01-01')");
     return $pdo;
 }

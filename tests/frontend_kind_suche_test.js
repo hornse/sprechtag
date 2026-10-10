@@ -138,18 +138,17 @@ const lauf = async (q) => {
     rK !== '' && !/svSucheAnstossen|setTimeout\(\(\) => svKindSuchen/.test(js) && !/addEventListener\('input'[^;]*svKindSuchen/.test(rK));
   pruefe('freie Eingabe einer Schüler-ID entfällt (E20 D)',
     rE !== '' && !/einl-schueler|Ersatzweise|Schüler-ID eingeben/.test(rE));
-  const altRoute = (t) => (t.match(/\/api\/schueler[?']/g) || []).length;
-  const rA = rumpf('function ansichtAdminDaten(ziel)');
-  pruefe('/api/schueler steht nur noch in der Admin-Seite (bis Schritt 4): alle Vorkommen dort',
-    rA !== '' && altRoute(rA) >= 1 && altRoute(js) === altRoute(rA));
-  pruefe('Admin-Seite verspricht die Auswahl nicht mehr über die alte Liste oder Schüler-IDs',
-    rA !== '' && !/Damit Lehrkräfte Eltern über eine Klassenliste einladen/.test(rA)
-    && !/wieder über Schüler-IDs/.test(rA) && /benutzen diese Liste nicht mehr/.test(rA));
-  const rD = rumpf('function datenschutzAbsaetze()');
-  pruefe('Datenschutz: die Schülerliste ist nicht mehr die Quelle der Einladungsauswahl',
-    rD !== '' && !/aus der Lehrkräfte für \'\s*\+\s*\'Einladungen auswählen/.test(rD)
-    && !/aus der Lehrkräfte für Einladungen auswählen/.test(rD) && /benutzt sie nicht mehr/.test(rD));
+  // v0.9.82 (Schritt 4): Die alte Route ist fort – kein Aufruf mehr, auch
+  // nicht in der Admin-Seite (bis v0.9.81: „alle Vorkommen dort“).
+  const altRoute = (t) => (t.match(/\/api\/schueler[?'\/]/g) || []).length;
+  pruefe('kein Abruf von /api/schueler mehr (die alte Liste ist fort, Schritt 4)',
+    js.includes("'/api/schueler-gruppen'") && altRoute(js) === 0);
+  // v0.9.82: Die Prüfung „Datenschutz: die Schülerliste ist nicht mehr die
+  // Quelle …“ (v0.9.81) ist fort – ihr Satz entfällt (F6). Strenger ersetzt in
+  // frontend_datenschutz_test.js: „Schülerliste“ steht gar nicht mehr in der Hilfe.
   pruefe('die alte Ladefunktion ist fort', !/function ladeSchueler\(/.test(js) && !/S\.schuelerListe/.test(js));
+  pruefe('der Zustand der alten Liste ist fort (schuelerAnzahl, schuelerKlassen)',
+    js.includes('svTreffer:') && !/schuelerAnzahl|schuelerKlassen/.test(js));
 
   console.log(fehler === 0 ? '\nALLE TESTS GRÜN' : '\n' + fehler + ' ROT');
   process.exit(fehler === 0 ? 0 : 1);

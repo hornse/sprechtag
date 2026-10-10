@@ -35,7 +35,6 @@ require_once __DIR__ . '/webuntis_adapter.php';
 require_once __DIR__ . '/sondierung.php';
 require_once __DIR__ . '/messung_sitzung.php';
 require_once __DIR__ . '/mitteilungen.php';
-require_once __DIR__ . '/schueler.php';
 require_once __DIR__ . '/einstellungen.php';
 require_once __DIR__ . '/kalender.php';
 require_once __DIR__ . '/erinnerungen.php';
@@ -50,7 +49,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.81', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.82', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -1057,12 +1056,7 @@ if ($methode === 'POST' && ($seg[0] ?? '') === 'messung' && ($seg[1] ?? '') === 
     $pdo = db($cfg);
     json_ok(['bericht' => messung_parents_ausfuehren($body, (string)$u['rolle'],
         fn(): array => wu_sitzung($cfg),
-        fn(int $kind, WebUntisRest $rest): array => mit_eltern_ids_ermitteln($pdo, $kind, $rest),
-        function (int $kind) use ($pdo): bool {
-            $st = $pdo->prepare('SELECT COUNT(*) FROM schueler WHERE webuntis_id = ?');
-            $st->execute([$kind]);
-            return (int)$st->fetchColumn() > 0;
-        })]);
+        fn(int $kind, WebUntisRest $rest): array => mit_eltern_ids_ermitteln($pdo, $kind, $rest))]);
 }
 
 // MESSUNG (v0.9.54), kein Feature – siehe messung_sitzung.php. Misst die
@@ -1085,14 +1079,7 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'messung' && ($seg[1] ?? '') === '
     $fb = (string)($_GET['ferien_bis'] ?? '');
     $ferien = preg_match('/^\d{4}-\d{2}-\d{2}$/', $fv) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fb)
         ? ['von' => $fv, 'bis' => $fb] : null;
-    // Zug 4 (v0.9.75): die alte Tabelle als Vergleichsmaßstab – welches
-    // pageconfig-Feld trägt Nachname und Vorname? Nur für Lehrkraft und
-    // Verwaltung; die Antwort enthält nur Zählwerte.
-    $alt = in_array($u['rolle'], ['lehrkraft', 'admin'], true)
-        ? array_column(db($cfg)->query('SELECT webuntis_id, vorname, nachname FROM schueler WHERE webuntis_id IS NOT NULL')
-            ->fetchAll(), null, 'webuntis_id')
-        : null;
-    json_ok(['bericht' => messung_sitzung_bericht($u, $rest, $grund, null, $probe, $lehrer, $ferien, $alt)]);
+    json_ok(['bericht' => messung_sitzung_bericht($u, $rest, $grund, null, $probe, $lehrer, $ferien)]);
 }
 
 // ============================================================
@@ -1245,65 +1232,9 @@ if (($seg[0] ?? '') === 'kinder') {
     json_err('Methode nicht unterstützt.', 405);
 }
 
-// ============================================================
-// SCHÜLERLISTE (bis Schritt 4; die Auswahl liest seit v0.9.81 /api/kinder)
-//   GET    /api/schueler[?suche=...]   nach Klassen gruppiert
-//   POST   /api/schueler/csv           {csv}          (Admin)
-//   POST   /api/schueler/sync          {benutzername, passwort} (Admin) –
-//          eingetippt, nicht gespeichert; bis Zug 4 (pageconfig über die Sitzung)
-//   DELETE /api/schueler               alle löschen   (Admin)
-// ============================================================
-if (($seg[0] ?? '') === 'schueler') {
-    $u   = auth_require_lehrkraft();   // Eltern haben hier nichts zu suchen
-    $pdo = db($cfg);
-
-    if ($methode === 'GET' && !isset($seg[1])) {
-        $klassen = schueler_liste($pdo, trim((string)($_GET['suche'] ?? '')));
-        json_ok(['klassen' => $klassen,
-                 'anzahl' => array_sum(array_map('count', $klassen))]);
-    }
-
-    if ($methode === 'POST' && ($seg[1] ?? '') === 'csv') {
-        auth_require_admin();
-        $roh = (string)($body['csv'] ?? '');
-        if (trim($roh) === '') json_err('Keine CSV-Daten übergeben');
-        $g = schueler_csv_parsen($roh);
-        if ($g['zeilen'] === []) {
-            json_err('Keine gültigen Zeilen erkannt. Erwartet wird je Zeile: '
-                . 'Nachname;Vorname;Klasse[;Schild-ID]');
-        }
-        $e = schueler_csv_importieren($pdo, $g['zeilen']);
-        json_ok(['ok' => true] + $e + ['uebersprungen' => $g['uebersprungen']]);
-    }
-
-    if ($methode === 'POST' && ($seg[1] ?? '') === 'sync') {
-        auth_require_admin();
-        // getStudents (JSON-RPC) braucht eine eigene Anmeldung; über die
-        // Sitzung ist das nicht gemessen. Deshalb eingetippt, nie gespeichert
-        // (E17) – bis Zug 4 die Liste über pageconfig liest.
-        if (($body['benutzername'] ?? '') === '' || ($body['passwort'] ?? '') === '') {
-            json_err('Bitte WebUntis-Benutzername und Passwort eingeben – sie werden '
-                . 'nur für diesen Abgleich benutzt und nicht gespeichert.', 400);
-        }
-        $zugang = ['benutzer' => (string)$body['benutzername'],
-                   'passwort' => (string)$body['passwort']];
-
-        ignore_user_abort(true);
-        set_time_limit(0);
-        try {
-            json_ok(['ok' => true] + schueler_webuntis_sync($cfg, $pdo,
-                $zugang['benutzer'], $zugang['passwort']));
-        } catch (RuntimeException $e) {
-            json_err('Schüler-Sync fehlgeschlagen: ' . $e->getMessage(), 502);
-        }
-    }
-
-    if ($methode === 'DELETE' && !isset($seg[1])) {
-        auth_require_admin();
-        $pdo->exec('DELETE FROM schueler');
-        json_ok(['ok' => true]);
-    }
-}
+// Die SCHÜLERLISTE (/api/schueler: Liste, Schild-CSV, getStudents-Abgleich
+// mit eingetippten Zugangsdaten, Löschen) ist mit v0.9.82 fort (Zug 4,
+// Schritt 4, E20). Die Tabelle fällt mit sql/23_schueler_entfernen.sql.
 
 require __DIR__ . '/buchungen.php';   // Buchungs-, Raster- und Einladungsrouten
 

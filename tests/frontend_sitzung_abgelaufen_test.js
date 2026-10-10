@@ -213,10 +213,13 @@ for (const [n, r] of Object.entries(R)) pruefe('Voraussetzung: Rumpf ' + n + ' g
   const mitt = rumpf('function ansichtMitteilungen(');
   pruefe('Mitteilungen versenden ohne Zugangsdaten-Felder', mitt !== '' && !mitt.includes('mv-passwort')
     && mitt.includes("'/api/mitteilungen/senden'") && mitt.includes('sitzungAuswerten(d.sitzung'));
+  // v0.9.82 (Zug 4, Schritt 4): Der Abgleich mit eingetippten Zugangsdaten
+  // ist fort – bis v0.9.81 prüfte diese Stelle, dass er sie übergibt.
+  // (Das Feld sync-passwort gibt es weiter: im Stammdaten-Abgleich der
+  // Sprechtage-Seite, ansichtAdminSprechtage.)
   const daten = rumpf('function ansichtAdminDaten(');
-  pruefe('Schüler-Sync: eingetippte Zugangsdaten werden übergeben (nicht gespeichert)', daten !== ''
-    && daten.includes("feld('Passwort', 'sync-passwort', 'password')")
-    && /api\('\/api\/schueler\/sync', \{ method: 'POST', body: zugang \}\)/.test(daten));
+  pruefe('kein Abgleich der Schülerliste mit eingetippten Zugangsdaten mehr (Admin-Seite ohne Passwortfeld, kein /api/schueler/sync)',
+    daten !== '' && !daten.includes('passwort') && !code.includes('/api/schueler/sync'));
   const zr = rumpf('function zeichne(');
   pruefe('Hinweis nicht in „Mitteilungen“ – dort steht derselbe Stand als Abschnitt (Quelltext)',
     zr !== '' && /S\.offenHinweis && S\.user && S\.ansicht !== 'login'\s*&& S\.ansicht !== 'mitteilungen'\)/.test(zr));

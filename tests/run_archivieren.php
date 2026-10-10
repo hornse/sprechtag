@@ -38,9 +38,9 @@ const STRUKTUR = ['sprechtag_lehrer', 'sprechtag_sonderlehrer'];
 
 // Tabellen ohne sprechtag_id. Personenbezogen = über Eltern, Kinder oder
 // deren Konten; diese nennt die Hilfeseite (frontend_datenschutz_test.js).
+// schueler stand hier bis v0.9.81; sql/23 entfernt die Tabelle (Schritt 4).
 const OHNE_SPRECHTAG = [
     'login_log'    => 'personenbezogen',
-    'schueler'     => 'personenbezogen',
     'kalender_abo' => 'personenbezogen',
     'app_admins'   => 'kollegium',
     'lehrer'       => 'kollegium',
@@ -52,6 +52,7 @@ const OHNE_SPRECHTAG = [
 
 // ---- Schema aus sql/*.sql ermitteln ----------------------------------
 $spalten = [];   // tabelle => [spalte => true]
+$entfernt = [];  // tabelle => true (DROP TABLE in einer späteren Migration)
 foreach (glob($wurzel . '/sql/*.sql') as $datei) {
     $sql = preg_replace('/^\s*--.*$/m', '', (string)file_get_contents($datei));
     preg_match_all('/CREATE TABLE IF NOT EXISTS (\w+) \((.*?)\n\) ENGINE/s', $sql, $tm, PREG_SET_ORDER);
@@ -68,6 +69,12 @@ foreach (glob($wurzel . '/sql/*.sql') as $datei) {
         preg_match_all('/ADD COLUMN (?:IF NOT EXISTS )?(\w+)/', $a[2], $cm);
         foreach ($cm[1] as $s) $spalten[$a[1]][$s] = true;
     }
+    // v0.9.82: Eine entfernte Tabelle gibt es nicht mehr (sql/23 entfernt
+    // schueler). glob() liefert sortiert, die Dateien laufen also in der
+    // Reihenfolge der Migrationen. Ohne das hielte die Einordnung unten eine
+    // Tabelle für vorhanden, die der Betrieb nicht mehr hat.
+    preg_match_all('/^\s*DROP TABLE (?:IF EXISTS )?(\w+)\s*;/m', $sql, $dm);
+    foreach ($dm[1] as $t) { unset($spalten[$t]); $entfernt[$t] = true; }
 }
 $mitSid = array_keys(array_filter($spalten, fn($c) => isset($c['sprechtag_id'])));
 sort($mitSid);
@@ -75,6 +82,8 @@ pruefe('Voraussetzung: Schema gelesen (mind. 14 Tabellen, mind. 6 mit sprechtag_
     count($spalten) >= 14 && count($mitSid) >= 6);
 pruefe('Voraussetzung: bekannte Spalte über ALTER erkannt (buchungen.kommentar)',
     isset($spalten['buchungen']['kommentar']));
+pruefe('Voraussetzung: entfernte Tabelle erkannt (schueler: angelegt in sql/05, entfernt in sql/23)',
+    isset($entfernt['schueler']) && !isset($spalten['schueler']));
 
 // ---- Archivierzweig aus index.php ausführen ---------------------------
 $tokens = token_get_all((string)file_get_contents($wurzel . '/backend/api/index.php'));

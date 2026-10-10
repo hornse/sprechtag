@@ -196,9 +196,34 @@ const ladeRumpf = rumpf('async function ladeLehrerListe(');
     /abgelaufen/.test(texte(rf.z)) && alle(rf.z).some((x) => x.tag === 'textarea') && /20 Zeichen/.test(texte(rf.z))
     && !/Wird geladen/.test(texte(rf.z)));
 
+  // v0.9.82 (Zug 4, Schritt 4, F5): Die Seite heißt „Volljährige Schüler“
+  // und zeigt nur noch die Benutzergruppen (E15) – die alte Schülerliste
+  // (Abgleich, CSV, Löschen) ist fort. Ausgeführt: Alles, was der Rumpf
+  // rufen könnte, ist ein Spion; ein Abruf, ein Feld oder ein Knopf der
+  // alten Liste fiele auf.
   const datenRumpf = rumpf('function ansichtAdminDaten(');
-  pruefe('Aufrufstelle: „Schülerliste“ zeichnet den Abschnitt',
-    /zeichneSchuelerGruppen\(ziel\);/.test(datenRumpf));
+  const zd = el('div'); const abrufe = []; let sgGerufen = 0;
+  try {
+    new Function('S', 'el', 'sektion', 'feld', 'knopf', 'api', 'wert', 'meldung', 'zeichne',
+      'zeichneSchuelerGruppen', 'document', 'confirm', 'ziel', datenRumpf)(
+      { schuelerAnzahl: 0, schuelerKlassen: 0 }, el, (t) => el('section', 'sektion', t),
+      (l, id, typ) => { const x = el('label', null, l); const i = el('input'); i.id = id; i.typ = typ; x.appendChild(i); return x; },
+      (t) => el('button', null, t), async (u) => { abrufe.push(u); return {}; }, () => '', () => {}, () => {},
+      (z) => { sgGerufen++; z.appendChild(el('section', 'sg', 'Gruppen')); },
+      { createElement: (t) => el(t) }, () => false, zd);
+  } catch (e) { zd.appendChild(el('p', 'AUSNAHME', e.message)); }
+  pruefe('Admin-Seite „Volljährige Schüler“: genau diese Überschrift',
+    datenRumpf !== '' && alle(zd).filter((x) => x.tag === 'h2').map((x) => x.text).join('|') === 'Volljährige Schüler');
+  pruefe('… zeigt genau einmal die Benutzergruppen (E15) und sonst nichts',
+    sgGerufen === 1 && zd.kinder.length === 2 && zd.kinder[1].klasse === 'sg');
+  pruefe('… kein Abruf, kein Feld, kein Knopf und kein Wort der alten Schülerliste',
+    datenRumpf !== '' && abrufe.length === 0
+    && !alle(zd).some((x) => ['textarea', 'input', 'button'].includes(x.tag))
+    && !/Schülerliste|Schild|CSV|Austritt/.test(texte(zd)));
+  const navRumpf = rumpf('function zeichneNavigation(');
+  pruefe('Seitenleiste: Eintrag „Volljährige Schüler“, der Schlüssel admin-daten bleibt',
+    /navKnopf\('admin-daten', 'Volljährige Schüler', true, 'personen'\)/.test(navRumpf)
+    && !/'Schülerliste'/.test(navRumpf));
 
   console.log(fehler === 0 ? '\nALLE TESTS GRÜN' : '\n' + fehler + ' FEHLER');
   process.exit(fehler === 0 ? 0 : 1);

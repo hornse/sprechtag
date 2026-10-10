@@ -296,7 +296,9 @@ mut S14 $MS "s/'gefuellt'       => messung_format\(\\\$v\) !== 'leer',/'gefuellt
   $S "Kind 2 ohne Klasse: Feld fehlt, nicht gefüllt"
 mut S15 $MS "s/return 'Objekt\{' \. implode\(',', \\\$k\) \. '\}';/return json_encode(\\\$v);/" \
   $S "weder Kennung noch Name der Klassenleitung in der Antwort"
-mut S16 $IX 's/\$probe, \$lehrer, \$ferien, \$alt\)\]\);/\$probe, [], \$ferien, \$alt)]);/' \
+# S16 seit v0.9.82 ohne $alt (der Vergleichsmaßstab ist fort) – derselbe
+# Eingriff, dieselbe Zeile (run_messung_sitzung.php prüft schon ohne $alt).
+mut S16 $IX 's/\$probe, \$lehrer, \$ferien\)\]\);/\$probe, [], \$ferien)]);/' \
   $S "Route reicht den Grund aus wu_sitzung() durch"
 mut S17 $MS "s/\\\$nachId\[\(int\)\(\\\$k\['id'\] \?\? 0\)\] \?\? null/\\\$nachId[0] ?? null/" \
   $S "Kind 1: Klassenleitung gefüllt, Format Objekt{id,name}"
@@ -647,7 +649,7 @@ mut FSG3 $APP 's/\? \x27Ihr eigenes Konto trägt in WebUntis die Gruppe „\x27 
 mut FSG4 $APP 's/  if \(gewaehlt\.length === 0\) \{/  if (false) {/' \
   $FSG "leere Liste: Warnung"
 mut FSG5 $APP 's/\n  zeichneSchuelerGruppen\(ziel\);\n/\n/' \
-  $FSG "Aufrufstelle: „Schülerliste“"
+  $FSG "… zeigt genau einmal die Benutzergruppen"
 
 # v0.9.66 – Ladereihenfolge in index.php; geladener Zustand der Ansicht
 LR=tests/run_ladereihenfolge.php
@@ -879,8 +881,9 @@ mut DS4 $IDX 's/max\(1, min\(365, \(int\)marke_wert\(\$pdo, \x27login_log_tage\x
   $DS "Login: Obergrenze aus dem Backend (180)"
 mut DS5 $APP 's/    \x27Für den persönlichen Kalender-Link.*?\n(    \x27|  \];)/$1/s' \
   $DS "Hilfe nennt, was beim Archivieren bleibt: kalender_abo"
-mut DS6 $APP 's/    \x27Die Schülerliste mit Namen und Klassen.*?\n    \x27/    \x27/s' \
-  $DS "Hilfe nennt, was beim Archivieren bleibt: schueler"
+# DS6 entfällt mit v0.9.82: Der Satz über die Schülerliste, den sie
+# entfernte, ist fort (F6). Die Nummer bleibt vergeben; die Umkehrung
+# belegt SA19.
 mut DS7 $APP 's/WebUntis-Benutzernamen und der IP-Adresse, zum Schutz/WebUntis-Benutzernamen, zum Schutz/' \
   $DS "Login: Benutzername und IP-Adresse"
 mut DS8 $APP 's/Dafür gibt es keine \x27\n      \+ \x27automatische Frist\. //' \
@@ -889,26 +892,11 @@ mut DS8 $APP 's/Dafür gibt es keine \x27\n      \+ \x27automatische Frist\. //'
 echo "== v0.9.75: Zug 4, Schritt 1 – Messteil Schülerliste"
 MSZ=backend/api/messung_sitzung.php
 RMS=tests/run_messung_sitzung.php
-mut SU1 $MSZ 's/\$t = fn\(\$v\) => is_scalar\(\$v\) \? trim\(\(string\)\$v\) : \x27\x27;/\$t = fn(\$v) => is_scalar(\$v) ? (string)\$v : \x27\x27;/' \
-  $RMS "longName = Nachname bei 3 von 3"
-mut SU2 $MSZ 's/if \(\$a === null \|\| \$nn === \x27\x27\) continue;/if (\$nn === \x27\x27 \&\& false) continue;/' \
-  $RMS "Einträge 4, davon 3 in der alten Liste"
-mut SU3 $MSZ 's/if \(\$w === trim\(\$nn \. \x27 \x27 \. \$vn\)\)/if (\$w === trim(\$vn . \x27  \x27 . \$nn))/' \
-  $RMS "name = „Nachname Vorname“ bei 2 von 3"
-mut SU4 $MSZ 's/\x27kurzname_eindeutig\x27   => count\(array_unique\(\$kurz\)\) === count\(\$kurz\)/\x27kurzname_eindeutig\x27   => true/' \
-  $RMS "doppelter Kurzname: eindeutig false"
-mut SU5 $MSZ 's/count\(array_diff_key\(\$imFilter, \$mitSchuelern\)\)/count(array_intersect_key(\$imFilter, \$mitSchuelern))/' \
-  $RMS "Klassen: 3 im Filter, 2 davon ohne Schüler"
-mut SU6 $MSZ 's/\$bericht\[\x27schuelerliste\x27\] = !in_array\(\$u\[\x27rolle\x27\] \?\? \x27\x27, \[\x27lehrkraft\x27, \x27admin\x27\], true\)/\$bericht[\x27schuelerliste\x27] = false/' \
-  $RMS "Eltern: schuelerliste nicht gemessen"
-mut SU7 $IDX 's/\$alt = in_array\(\$u\[\x27rolle\x27\], \[\x27lehrkraft\x27, \x27admin\x27\], true\)\n/\$alt = true\n/' \
-  $RMS "Route liest die alte Liste nur für Lehrkraft/Verwaltung"
-mut SU8 $MSZ 's/    if \(\$verglichen === 0\) \{\n        \$aus\[\x27deutung\x27\]/    if (\$verglichen < 0) {\n        \$aus[\x27deutung\x27]/' \
-  $RMS "keine gemeinsame Kennung: verglichen 0"
-mut SU9 $MSZ 's/(\$aus = \[\x27eintraege\x27 => \$eintraege,)/${1} \x27probe\x27 => array_column(\$liste, \x27longName\x27),/' \
-  $RMS "Antwort ohne Namen, Kennungen und externKey"
-mut SU10 $MSZ 's/if \(\$name === \x27schulzeit\x27\) \$klassenSchulzeit = \$r\[\x27json\x27\];/if (\$name === \x27schulzeit\x27) \$klassenSchulzeit = null;/' \
-  $RMS "Lehrkraft: schuelerliste gemessen"
+# SU1–SU10 entfallen mit v0.9.82 (Zug 4, Schritt 4): Der Messteil
+# messung_schuelerliste und der Vergleichsmaßstab $alt in der Route, die
+# sie mutierten, sind fort. Die Nummern bleiben vergeben. Dass beides nicht
+# zurückkommt, belegen SA5 und die Prüfung „Route übergibt keinen
+# Vergleichsmaßstab …“.
 
 echo "== v0.9.76: Zug 4, Schritt 2 – Kindname und Klasse am Vorgang"
 KLP=backend/api/klassenleitung.php
@@ -957,7 +945,7 @@ mut KN17 sql/22_kindname.sql 's/(UPDATE mitteilungen x .*?)\n WHERE x\.kind_name
 mut KN18 $IDX 's/SELECT b\.slot_beginn, b\.kommentar, b\.kind_name, b\.kind_klasse/SELECT b.slot_beginn, b.kommentar, "" AS kind_name, b.kind_klasse/' \
   $RKN "Anzeigen: Tischvorlage"
 mut KN19 $BUP 's/(b\.gebucht_von, b\.kommentar, b\.kind_name, b\.kind_klasse AS klasse\n         FROM buchungen b\n)/${1}         LEFT JOIN schueler s ON s.webuntis_id = b.schueler_id\n/' \
-  $RKN "keine Datei verbindet mit der Tabelle schueler"
+  $RKN "keine Datei unter backend/ nennt schueler als Tabelle in SQL"
 mut KN20 $ADP 's/wu_kind_daten_login\(\$restOk \? \$rest : null,/wu_kind_daten_login(null,/' \
   $RKN "wu_login hält die Kinddaten fest"
 mut EA1 $APP 's/const uebrig = ids\.slice\(i\);/const uebrig = ids.slice(i + 1);/' \
@@ -1176,10 +1164,63 @@ mut KS26 $APP 's/return api\(\x27\/api\/kinder\?suche=\x27/return api(\x27\/api\
   $FLR "Suche fragt das Backend ab"
 mut KS27 $APP 's/  const hinweis = kinderTrefferHinweis\(S\.svTreffer\);\n  if \(hinweis\) ziel\.appendChild\(el\(\x27p\x27, \x27hinweis-klein\x27, hinweis\)\);\n//' \
   $FLR "Trefferliste ist begrenzt"
-mut KS28 $APP 's/(entfallen mit dem nächsten Umbau\.)/${1} Ohne sie erfolgt die Auswahl wieder über Schüler-IDs./' \
-  $FKS "Admin-Seite verspricht die Auswahl nicht mehr"
-mut KS29 $APP 's/Die Liste bleibt, bis die Schule sie löscht\./Die Liste, aus der Lehrkräfte für Einladungen auswählen, bleibt, bis die Schule sie löscht./' \
-  $FKS "Datenschutz: die Schülerliste ist nicht mehr die Quelle"
+# KS28 und KS29 entfallen mit v0.9.82: Ihre Sätze (Admin-Seite, Hilfe)
+# sind mit der Schülerliste fort, ihre Prüfungen ebenso. Die Nummern
+# bleiben vergeben; die Hilfe belegt SA19, die Admin-Seite SA8.
+
+echo "== v0.9.82: Zug 4, Schritt 4 – die alte Schülerliste fällt"
+RSA=tests/run_schuelerliste_abbau.php
+RMS=tests/run_messung_sitzung.php
+P23=sql/23_pruefung.sql
+M23=sql/23_schueler_entfernen.sql
+# SA1–SA4: Die Engstelle sieht die Sache, nicht eine Schreibweise – jede
+# der vier Mutationen nennt die Tabelle auf eine andere Art, in einer
+# Datei, die die alte Prüfung (JOIN überall, FROM in vier Dateien) nicht
+# gesehen hätte: index.php, sondierung.php, backend/ außerhalb von api,
+# und ein Unterordner (auth).
+mut SA1 $IDX 's/(mit_eltern_ids_ermitteln\(\$pdo, \$kind, \$rest\)\)\]\);\n)/$1\$alteZahl = (int)\$pdo->query("SELECT COUNT(*) FROM schueler")->fetchColumn();\n/' \
+  $RKN "keine Datei unter backend/ nennt schueler als Tabelle in SQL"
+mut SA2 backend/api/sondierung.php 's/(        \$schueler = \$wu->getStudents\(\);\n)/$1        \$pdo->exec("INSERT INTO schueler (webuntis_id) VALUES (1)");\n/' \
+  $RKN "keine Datei unter backend/ nennt schueler als Tabelle in SQL"
+mut SA3 backend/helfer.php 's/(declare\(strict_types=1\);\n)/$1\nfunction alt_klasse_leeren(PDO \$pdo): void { \$pdo->exec("UPDATE schueler SET klasse = \x27\x27"); }\n/' \
+  $RKN "keine Datei unter backend/ nennt schueler als Tabelle in SQL"
+mut SA4 backend/auth/WebUntisRest.php 's/(class WebUntisRest\n\{\n)/$1    private const ALT = "CREATE TABLE IF NOT EXISTS schueler (id INT)";\n/' \
+  $RKN "keine Datei unter backend/ nennt schueler als Tabelle in SQL"
+mut SA5 $MSZ 's/(    \/\/ ---- 1d\. Sch)/    \$bericht[\x27schuelerliste\x27] = \x27nicht gemessen\x27;\n$1/' \
+  $RMS "Bericht ohne Teil schuelerliste"
+mut SA6 $MSZ 's/(        \x27namensweg\x27 => \[)/        \x27kennung_in_schuelerliste\x27 => null,\n$1/' \
+  $MP "Ergebnis: Empfänger von WebUntis"
+# SA7 beschädigt das Prüfwerkzeug, nicht den Code: Der Schemaleser in
+# run_archivieren vergisst DROP TABLE wieder. Die Voraussetzung muss es
+# merken – sonst hielte die Einordnung schueler still für vorhanden.
+mut SA7 tests/run_archivieren.php 's/foreach \(\$dm\[1\] as \$t\) \{ unset\(\$spalten\[\$t\]\); \$entfernt\[\$t\] = true; \}/foreach (\$dm[1] as \$t) { \$entfernt[\$t] = true; }/' \
+  tests/run_archivieren.php "Voraussetzung: entfernte Tabelle erkannt"
+mut SA8 $APP 's/(  ziel\.appendChild\(el\(\x27h2\x27, null, \x27Vollj\S+ Sch\S+\x27\)\);\n)/$1  ziel.appendChild(feld(\x27WebUntis-Passwort\x27, \x27sync-passwort\x27, \x27password\x27));\n/' \
+  $FSG "… kein Abruf, kein Feld, kein Knopf"
+mut SA9 $P23 's/\)\) <> \x27\x27/)) IS NOT NULL/g' \
+  $RSA "Einladungen: in der alten Liste, aber ohne Namen"
+mut SA10 $P23 's/COALESCE\(schueler_id, 0\) = 0/schueler_id = 0/g' \
+  $RSA "Mitteilungen ohne Kind (Kennung leer oder 0)"
+mut SA11 $M23 's/SET \@sql_einladungen := IF\(\@schueler_da = 1,/SET \@sql_einladungen := IF(1 = 1,/' \
+  $RSA "jedes Nachfüllen nur, wenn die Tabelle noch da ist"
+mut SA12 $M23 's/(SET \@sql_buchungen.*)DROP TABLE IF EXISTS schueler;\n/DROP TABLE IF EXISTS schueler;\n\n$1/s' \
+  $RSA "entfernt die Tabelle mit DROP TABLE IF EXISTS"
+mut SA13 $M23 's/(UPDATE mitteilungen x .*?x\.kind_klasse = )CASE WHEN x\.kind_klasse = \x27\x27 THEN s\.klasse ELSE x\.kind_klasse END/${1}s.klasse/s' \
+  $RSA "füllt alle drei Tabellen nach"
+mut SA14 $M23 's/(UPDATE einladungen x .*?)\n      WHERE x\.kind_name = \x27\x27"/$1"/s' \
+  $RSA "füllt alle drei Tabellen nach"
+mut SA15 $M23 's/CONCAT\(\x27, \x27, s\.vorname\)/CONCAT(\x27 \x27, s.vorname)/' \
+  $RSA "Prüfdatei und Migration benutzen denselben Namensausdruck"
+mut SA16 $IDX 's/(require_once __DIR__ \. \x27\/sondierung\.php\x27;\n)/$1require_once __DIR__ . \x27\/schueler.php\x27;\n/' \
+  $RSA "index.php lädt schueler.php nicht mehr"
+mut SA17 $IDX 's/(if \(\(\$seg\[0\] \?\? \x27\x27\) === \x27schueler-gruppen\x27\) \{\n)/if ((\$seg[0] ?? \x27\x27) === \x27schueler\x27) { json_antwort([]); }\n$1/' \
+  $RSA "kein Routenzweig für /api/schueler"
+mut SA18 backend/api/buchungen.php 's/(declare\(strict_types=1\);\n)/$1\$altAbgleich = fn(\$wu) => \$wu->getStudents();\n/' \
+  $RSA "getStudents wird nur noch in der Sondierung gerufen"
+mut SA19 $APP 's/(function datenschutzAbsaetze\(\) \{\n  return \[\n)/$1    \x27Die Sch\xc3\xbclerliste mit Namen und Klassen bleibt gespeichert.\x27,\n/' \
+  $DS "Hilfe nennt keine Schülerliste mehr als gespeichert"
+mut SA20 $APP 's/(  svTreffer: null,)/  schuelerAnzahl: 0,\n$1/' \
+  $FKS "der Zustand der alten Liste ist fort"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi

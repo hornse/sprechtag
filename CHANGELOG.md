@@ -1,5 +1,70 @@
 # Changelog - sprechtag
 
+## v0.9.82 (Oktober 2026) – Die alte Schülerliste fällt (Zug 4, Schritt 4, E20)
+
+- **Reihenfolge (F1): erst Deploy, dann Prüfung, dann Migration.** Ab
+  v0.9.82 liest und schreibt kein Code die Tabelle `schueler`. Danach
+  führt der Betreiber `sql/23_pruefung.sql` aus, liest die Zahlen und
+  spielt erst dann `sql/23_schueler_entfernen.sql` ein.
+- **Zwei SQL-Dateien, ein Mensch als Wache (F2):**
+  - `sql/23_pruefung.sql` liest nur und gibt keine Namen und keine
+    Kennungen aus. Sie zählt je Tabelle `leer_mit_kind`, `noch_fuellbar`,
+    **`NICHT_FUELLBAR`** und `ohne_kind`. Die letzte Zeile ist ein Satz:
+    „OK …“ oder „ANSEHEN – n Vorgänge …“.
+  - `sql/23_schueler_entfernen.sql` füllt wie sql/22 ein letztes Mal
+    nach, ohne eine gesetzte Klasse zu überschreiben, und entfernt dann
+    die Tabelle. Sie ist zweimal einspielbar.
+- **Entfernt:**
+  - die Route `/api/schueler` (Liste, Abgleich, CSV, Löschen) samt
+    `backend/api/schueler.php`;
+  - die Lesestellen in `/api/messung/parents` und `/api/messung/sitzung`
+    (F3), der Messteil `messung_schuelerliste` und die Auskunft
+    `kennung_in_schuelerliste`.
+  - Die Sondierung bleibt unverändert (F4).
+- **Admin-Seite „Volljährige Schüler“ (F5):** Sie zeigt nur noch die
+  Benutzergruppen (E15). Der Schlüssel `admin-daten` bleibt.
+- **Datenschutz (F6):** Der Satz zur Schülerliste entfällt.
+- **Engstelle geschärft.** Keine PHP-Datei unter `backend/`, auch in
+  Unterordnern, nennt `schueler` als Tabelle in SQL (`FROM`, `JOIN`,
+  `INTO`, `UPDATE`, `TABLE`). Die alte Fassung prüfte eine Schreibweise,
+  nicht die Sache. Der Schemaleser in `run_archivieren` liest jetzt
+  `DROP TABLE`. Beides ist im E20-Nachtrag beschrieben.
+
+### Prüfungen
+- 1534 → 1501 Prüfzeilen in 70 Suiten (vorher 71), alle grün;
+  `tests-sprechtag.sh` 29. Die Summe −33 setzt sich so zusammen:
+  - entfernt `run_schueler.php` (−27) und `run_austritt.php` (−18), weil
+    ihr Code fort ist;
+  - neu `run_schuelerliste_abbau.php` (+24): Routen und Dateien, die
+    Prüfdatei gegen SQLite mit erfundenen Zeilen ausgeführt, die Migration
+    am Text;
+  - `run_messung_sitzung` 109 → 94: Der Messteil (18) ist durch 3
+    Prüfungen auf seine Abwesenheit ersetzt;
+  - `run_kindname` 76 → 78: die geschärfte Engstelle samt Prüfung ihres
+    Suchausdrucks;
+  - `frontend_schueler_gruppe` 22 → 25: Admin-Seite ausgeführt,
+    Seitenleiste;
+  - nach Rückfrage gestrichen sind zwei Prüfungen, die den alten Stand
+    verlangten: „CSV-Buttons in .aktionen-Zeile“
+    (`frontend_adminfeinschliff` 10 → 9) und der Datenschutz-Satz in
+    `frontend_kind_suche` (33 → 32). Die strengere Umkehrung steht in
+    `frontend_datenschutz`. Deren Voraussetzung sinkt nach Rückfrage auf
+    „mind. 2“ personenbezogene Tabellen.
+- `run_sitzung_versand` legt keine Tabelle `schueler` mehr an, weil die
+  Testumgebung nicht mehr kennen darf als der Betrieb.
+- Mutationen 427 → 434, alle angeschlagen, H4 grün. Die Rücknahme ist
+  über Prüfsummen von 126 Dateien und `git diff --stat` belegt.
+  - Neu sind SA1–SA20.
+  - Stillgelegt sind SU1–SU10, KS28, KS29 und DS6, weil der mutierte Code
+    fort ist. Die Namen bleiben vergeben.
+  - FSG5 und KN19 haben neue erwartete Zeilen.
+  - S16 ist an die Stelle ohne `$alt` nachgezogen.
+
+### Gefunden, nicht behoben
+- Das Mobil-Messwerkzeug (`tests/mobil-messung/mock.js`) bildet
+  `/api/kinder` seit v0.9.81 nicht nach. Das gehört zum mobilen Strang.
+  Die Nachbildung von `/api/schueler` ist mit dieser Fassung entfernt.
+
 ## v0.9.81 (Oktober 2026) – Einladungsauswahl und Kind-Suche aus pageconfig (Zug 4, Schritt 3, E20)
 
 - **Eine Quelle für beide Auswahlen:** `GET /api/kinder?suche=…` liest

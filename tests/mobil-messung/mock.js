@@ -98,18 +98,6 @@
   for (let i = 1; i <= 30; i++) SCHUELER.push(schuelerZeile(i));
   const kindAnzeige = (s) => s.nachname + (s.vorname ? ', ' + s.vorname : '');
 
-  function schuelerKlassen(suche) {
-    const q = (suche || '').trim().toLowerCase();
-    const liste = SCHUELER.filter((s) => !q
-      || s.nachname.toLowerCase().includes(q)
-      || s.vorname.toLowerCase().includes(q)
-      || s.klasse.toLowerCase().includes(q));
-    liste.sort((a, b) => (a.klasse + a.nachname).localeCompare(b.klasse + b.nachname));
-    const klassen = {};
-    for (const s of liste) (klassen[s.klasse] = klassen[s.klasse] || []).push(s);
-    return { klassen, anzahl: liste.length };
-  }
-
   // ---------- Benutzer (auth/me) -------------------------------------------
   const ME = {
     gast: { angemeldet: false },
@@ -500,12 +488,6 @@
       case 'einladungen':
         if (methode === 'GET') return ok({ einladungen: istLk ? einladungen() : [] });
         if (methode === 'POST') return ok({ ok: true, eltern_bekannt: true, eltern_anzahl: 2 });
-        return ok({ ok: true });
-      case 'schueler':
-        if (!istLk) return fehlt(403, 'Nur für Lehrkräfte');
-        if (methode === 'GET' && !seg[1]) return ok(schuelerKlassen(p.get('suche')));
-        if (seg[1] === 'sync') return ok({ ok: true, gelesen: 30, neu: 0, aktualisiert: 30 });
-        if (seg[1] === 'csv') return ok({ ok: true, neu: 0, aktualisiert: 30, inaktiv: 0, uebersprungen: [] });
         return ok({ ok: true });
       case 'mitteilungen':
         if (!istLk) return fehlt(403, 'Nur für Lehrkräfte');

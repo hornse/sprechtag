@@ -276,16 +276,42 @@ $code = function (string $datei): string {
 };
 $dateien = array_map('basename', glob(__DIR__ . '/../backend/api/*.php'));
 pruefe('Voraussetzung: Anwendungsdateien gefunden (mind. 10)', count($dateien) >= 10);
-$joins = [];
-foreach ($dateien as $d) if (preg_match('/JOIN\s+schueler\b/i', $code($d))) $joins[] = $d;
-pruefe('keine Datei verbindet mit der Tabelle schueler (JOIN)', $joins === []);
-if ($joins !== []) echo '    (' . implode(', ', $joins) . ")\n";
-$lesen = [];
-foreach (['buchungen.php', 'kalender.php', 'mitteilungen.php', 'klassenleitung.php'] as $d) {
-    if (preg_match('/FROM\s+schueler\b/i', $code($d))) $lesen[] = $d;
+// v0.9.82 (Zug 4, Schritt 4): Bis hier prüfte die Engstelle nur die
+// Schreibweise JOIN und für vier Dateien FROM – nicht die Sache. Zwei
+// Messrouten in index.php lasen die Tabelle per FROM, und die Prüfung war
+// grün. Jetzt: keine PHP-Datei unter backend/ nennt schueler als Tabelle in
+// SQL. Gesucht wird im Code ohne Kommentare, aber MIT Zeichenketten – dort
+// steht das SQL.
+$sqlTabelle = '/\b(FROM|JOIN|INTO|UPDATE|TABLE)\s+(IF\s+(NOT\s+)?EXISTS\s+)?`?schueler`?(?![\w-])/i';
+pruefe('Prüfausdruck trifft alle fünf Formen',
+    preg_match($sqlTabelle, 'SELECT id FROM schueler WHERE') === 1
+    && preg_match($sqlTabelle, 'LEFT JOIN schueler s ON') === 1
+    && preg_match($sqlTabelle, 'INSERT INTO `schueler` (id)') === 1
+    && preg_match($sqlTabelle, 'update schueler set') === 1
+    && preg_match($sqlTabelle, 'DROP TABLE IF EXISTS schueler') === 1);
+pruefe('Prüfausdruck trifft die Nachbarn nicht (schueler_id, schueler-gruppen, Rolle)',
+    preg_match($sqlTabelle, 'FROM buchungen WHERE schueler_id = ?') === 0
+    && preg_match($sqlTabelle, 'FROM schueler_gruppen') === 0
+    && preg_match($sqlTabelle, "GET /api/schueler-gruppen") === 0
+    && preg_match($sqlTabelle, "rolle = 'schueler'") === 0);
+$backend = [];
+$it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(__DIR__ . '/../backend', FilesystemIterator::SKIP_DOTS));
+foreach ($it as $f) if ($f->isFile() && str_ends_with($f->getFilename(), '.php')) $backend[] = $f->getPathname();
+sort($backend);
+pruefe('Voraussetzung: PHP-Dateien unter backend/ samt Unterordnern gefunden (mind. 15)',
+    count($backend) >= 15 && count(array_filter($backend, fn($p) => str_contains($p, '/backend/auth/'))) >= 1);
+$nennen = [];
+foreach ($backend as $p) {
+    $c = '';
+    foreach (token_get_all((string)file_get_contents($p)) as $t) {
+        if (is_array($t) && in_array($t[0], [T_COMMENT, T_DOC_COMMENT], true)) continue;
+        $c .= is_array($t) ? $t[1] : $t;
+    }
+    if (preg_match($sqlTabelle, $c)) $nennen[] = substr($p, strpos($p, '/backend/') + 1);
 }
-pruefe('Buchen, Kalender, Mitteilungen lesen die Tabelle schueler nicht mehr', $lesen === []);
-if ($lesen !== []) echo '    (' . implode(', ', $lesen) . ")\n";
+pruefe('keine Datei unter backend/ nennt schueler als Tabelle in SQL (FROM, JOIN, INTO, UPDATE, TABLE)',
+    $nennen === []);
+if ($nennen !== []) echo '    (' . implode(', ', $nennen) . ")\n";
 
 $bu = $code('buchungen.php');
 $ix = $code('index.php');

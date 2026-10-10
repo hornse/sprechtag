@@ -837,3 +837,31 @@ Schritt 2 gehören: eine „Klasse“ ohne Schüler, an deren Namen sich kein
 Kind hängt; ein Kind, dessen `forename` vom gespeicherten Namen abweicht
 (der gespeicherte Name stammt aus `pageconfig`, nicht aus der alten
 Tabelle); ein Klassenname aus `displayName`, der von `longName` abweicht.
+
+## 21 — Nachtrag 10.10.2026: Die alte Tabelle fällt (v0.9.82, Zug 4 Schritt 4)
+
+Mit v0.9.82 liest und schreibt kein Code die Tabelle `schueler` mehr;
+`sql/23_schueler_entfernen.sql` entfernt sie nach `sql/23_pruefung.sql`.
+Damit ist der Vergleichsmaßstab dieses Befunds fort: Der Messteil
+`schuelerliste` (Abschnitt 19, ausgewertet in Abschnitt 20) ist aus
+`/api/messung/sitzung` entfernt, ebenso die Auskunft
+`kennung_in_schuelerliste` der Elternmessung. Die Zahlen aus Abschnitt 20
+bleiben als Messung vom 09.10.2026 gültig; wiederholen lassen sie sich
+nicht mehr.
+
+**Warum die Engstelle aus Schritt 2 die verbliebenen Lesestellen nicht
+sah:** Sie prüfte eine Schreibweise, nicht die Sache. Sie suchte `JOIN`
+mit der Tabelle in allen Dateien und `FROM` in vier benannten. Die beiden
+Lesestellen dieser Messung standen in `index.php` als `FROM`, außerhalb
+der vier — grün, und richtig für das, was sie las. Dasselbe beim
+Schemaleser in `tests/run_archivieren.php`, der `DROP TABLE` nicht las.
+Beide sind geschärft; die Begründung steht im E20-Nachtrag zu Schritt 4
+(`docs/ENTSCHEIDUNGEN.md`).
+
+**Was ändert das an dem, was wir prüfen?** Die Engstelle prüft jetzt jede
+PHP-Datei unter `backend/` samt Unterordnern auf `FROM`, `JOIN`, `INTO`,
+`UPDATE` und `TABLE` vor dem Tabellennamen, und ihr Suchausdruck wird an
+Formen geprüft, die er treffen und die er nicht treffen darf. Die
+Prüfdatei zählt vor dem Entfernen, wie viele Namen auch die alte Tabelle
+nicht kennt (`NICHT_FUELLBAR`); die Zahlen meldet der Betreiber, sie
+werden hier nachgetragen.

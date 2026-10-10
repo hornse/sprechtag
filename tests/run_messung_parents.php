@@ -94,8 +94,7 @@ $lauf = function (array $eingabe, ?ErsatzRest $rest, array $namensweg = ['ids' =
 {
     return messung_parents_ausfuehren($eingabe, $rolle,
         fn() => ['rest' => $rest, 'grund' => $rest === null ? 'kein_cookie' : null],
-        function (int $kind, $r) use ($namensweg, &$namenswegSitzung) { $namenswegSitzung[] = $r; return $namensweg; },
-        fn(int $kind) => true);
+        function (int $kind, $r) use ($namensweg, &$namenswegSitzung) { $namenswegSitzung[] = $r; return $namensweg; });
 };
 $r1 = new ErsatzRest($ok);
 $a1 = $lauf(['kind_id' => 90042, 'pfad' => 'users', 'bestaetigt' => true], $r1);
@@ -116,9 +115,9 @@ pruefe('ohne Bestätigung, mit unbekanntem Pfad, ohne Kind-Kennung: KEIN Versand
 $a6 = $lauf(['kind_id' => 90042, 'pfad' => 'users', 'bestaetigt' => true], null);
 pruefe('ohne nutzbare Sitzung: kein Versand, Grund aus der Sitzung', ($a6['gesendet'] ?? null) === false
     && str_contains((string)($a6['grund'] ?? ''), 'kein_cookie'));
-pruefe('Ergebnis: Empfänger von WebUntis, daneben die Zahl des Namenswegs und ob die Kennung in der Schülerliste steht',
+pruefe('Ergebnis: Empfänger von WebUntis, daneben die Zahl des Namenswegs – keine Auskunft mehr über die alte Schülerliste (v0.9.82)',
     ($a1['antwort']['empfaenger'] ?? null) === 4 && ($a1['namensweg']['konten'] ?? null) === 2
-    && ($a1['namensweg']['quelle'] ?? null) === 'webuntis' && ($a1['kennung_in_schuelerliste'] ?? null) === true);
+    && ($a1['namensweg']['quelle'] ?? null) === 'webuntis' && !array_key_exists('kennung_in_schuelerliste', $a1));
 $t1 = json_encode($a1, JSON_UNESCAPED_UNICODE);
 pruefe('keine Personenangaben: weder Kindname noch Eltern-Kennungen noch die Kind-Kennung',
     !str_contains($t1, 'Erfunden Kind') && !str_contains($t1, '90042') && !preg_match('/"ids"/', $t1));

@@ -77,9 +77,7 @@ const S = {
   svKindSuche: '',                   // Suchbegriff im Kind-Suchfeld
   svTreffer: null,                   // Kind-Suche stellvertretend: wie einlTreffer
   svLaeuft: false,                   // Buchung im Gange (Doppelklick-Schutz)
-  schuelerAnzahl: null,
   versandProtokoll: null,
-  schuelerKlassen: 0,
   meldung: null,
   offeneBloecke: {},   // merkt aufgeklappte <details> über Neuzeichnen hinweg
   sondierung: {        // Eingaben und Ergebnis überleben das Neuzeichnen
@@ -964,7 +962,7 @@ function zeichneNavigation() {
     sub.appendChild(navKnopf('admin-marke', 'Erscheinungsbild', true, 'inhalte'));
     sub.appendChild(navKnopf('admin-anzeige', 'Anzeige', true, 'bildschirm'));
     sub.appendChild(navKnopf('admin-sprechtage', 'Sprechtage', true, 'kalender'));
-    sub.appendChild(navKnopf('admin-daten', 'Schülerliste', true, 'personen'));
+    sub.appendChild(navKnopf('admin-daten', 'Volljährige Schüler', true, 'personen'));
     sub.appendChild(navKnopf('admin-loginlog', 'Login-Protokoll', true, 'datei'));
     sub.appendChild(navKnopf('admin-texte', 'Texte', true, 'stift'));
     sub.appendChild(navKnopf('admin-erinnerungen', 'Erinnerungen', true, 'glocke'));
@@ -1305,6 +1303,7 @@ function ansichtHilfe(ziel) {
 // Login-Protokoll, Schülerliste und Kalender-Abo bleiben aber. Was das
 // Archivieren löscht, hält tests/run_archivieren.php am Code fest; eine
 // neue Tabelle (etwa die Ablage abgesagter Termine, E19) macht sie rot.
+// Die Schülerliste ist seit v0.9.82 fort (sql/23); ihr Satz entfällt.
 function datenschutzAbsaetze() {
   return [
     'Es werden so wenige personenbezogene Daten wie möglich gespeichert. '
@@ -1323,9 +1322,6 @@ function datenschutzAbsaetze() {
       + 'einzeln über „📅 hinzufügen“ übernommener Termin ist eine Kopie in der '
       + 'Kalender-App; sie bleibt dort, bis man sie selbst löscht.',
     'Unabhängig vom Archivieren bleibt Folgendes gespeichert:',
-    'Die Schülerliste mit Namen und Klassen aus einem früheren Abgleich. Die '
-      + 'Auswahl für Einladungen benutzt sie nicht mehr, sie liest die Kinder '
-      + 'bei jeder Suche aus WebUntis. Die Liste bleibt, bis die Schule sie löscht.',
     'Fehlgeschlagene Anmeldeversuche mit dem eingegebenen '
       + 'WebUntis-Benutzernamen und der IP-Adresse, zum Schutz vor dem '
       + 'Durchprobieren von Passwörtern. '
@@ -2677,110 +2673,11 @@ function ansichtAdminMarke(ziel) {
   zeichneMarkeBlock(ziel);
 }
 
+// Bis v0.9.81 stand hier zuerst die alte Schülerliste (Abgleich mit
+// eingetippten Zugangsdaten, Schild-CSV, Löschen). Sie ist mit Zug 4,
+// Schritt 4 fort (v0.9.82, E20); die Seite zeigt nur noch die Gruppen.
 function ansichtAdminDaten(ziel) {
-  ziel.appendChild(el('h2', null, 'Schülerliste'));
-
-  // ---- Schülerliste ------------------------------------------------------
-  const sl = sektion('Schülerliste (alter Abgleich)');
-  sl.appendChild(el('p', 'hinweis',
-    'Die Einladungsauswahl und die Kind-Suche beim stellvertretenden Buchen '
-    + 'benutzen diese Liste nicht mehr: Sie lesen die Kinder bei jeder Suche '
-    + 'über die WebUntis-Anmeldung der Lehrkraft. Die Liste und diese Seite '
-    + 'entfallen mit dem nächsten Umbau.'));
-  sl.appendChild(el('p', 'hinweis-wichtig',
-    'Diese Liste enthält Namen von Schülerinnen und Schülern. Sie lässt sich '
-    + 'jederzeit vollständig löschen; das Tool funktioniert danach unverändert.'));
-
-  const slStatus = el('div');
-  sl.appendChild(slStatus);
-  if (S.schuelerAnzahl === null) {
-    api('/api/schueler').then((d) => {
-      S.schuelerAnzahl = d.anzahl || 0;
-      S.schuelerKlassen = Object.keys(d.klassen || {}).length;
-      zeichne();
-    }).catch(() => { S.schuelerAnzahl = 0; });
-    slStatus.appendChild(el('p', 'hinweis', 'Status wird geladen …'));
-  } else {
-    slStatus.appendChild(el('p', S.schuelerAnzahl > 0 ? 'meldung ok' : 'hinweis',
-      S.schuelerAnzahl > 0
-        ? S.schuelerAnzahl + ' Schüler:innen in ' + S.schuelerKlassen + ' Klassen'
-        : 'Noch keine Schülerliste vorhanden.'));
-  }
-
-  sl.appendChild(el('h4', null, '1. Aus WebUntis übernehmen'));
-  sl.appendChild(el('p', 'hinweis-klein',
-    'Holt IDs und Namen. Dafür meldet sich das System einmal mit den '
-    + 'Zugangsdaten an, die Sie hier eingeben – sie werden nicht gespeichert.'));
-  const syncZeile = el('div', 'zeile');
-  syncZeile.appendChild(feld('WebUntis-Benutzername', 'sync-benutzer', 'text', S.benutzername || ''));
-  syncZeile.appendChild(feld('Passwort', 'sync-passwort', 'password'));
-  sl.appendChild(syncZeile);
-  sl.appendChild(knopf('Schüler:innen aus WebUntis holen', 'klein', async () => {
-    // Werte VOR meldung() lesen (meldung() zeichnet die Ansicht neu)
-    const zugang = { benutzername: wert('sync-benutzer'), passwort: wert('sync-passwort') };
-    if (zugang.benutzername === '' || zugang.passwort === '') {
-      meldung('Bitte Benutzername und Passwort eingeben.', 'fehler');
-      return;
-    }
-    meldung('Schülerliste wird geholt …', 'info');
-    try {
-      const d = await api('/api/schueler/sync', { method: 'POST', body: zugang });
-      S.schuelerAnzahl = null;
-      meldung(d.gelesen + ' gelesen, ' + d.neu + ' neu, '
-        + d.aktualisiert + ' aktualisiert.', 'ok');
-    } catch (f) { meldung(String(f.message), 'fehler'); }
-  }));
-
-  sl.appendChild(el('h4', null, '2. Klassen aus Schild-NRW ergänzen'));
-  sl.appendChild(el('p', 'hinweis-klein',
-    'Eine Zeile je Kind: Nachname;Vorname;Klasse;Schild-ID;Austrittsdatum. '
-    + 'Trenner ; , oder Tab. Kopf- und Kommentarzeilen (#) werden übersprungen. '
-    + 'Die Schild-ID verknüpft mit WebUntis (dort das Feld „Externe Id"). '
-    + 'Das Austrittsdatum ist wichtig, weil der Schild-Export auch alle '
-    + 'ehemaligen Schüler enthält – wer bereits ausgetreten ist, erscheint '
-    + 'nicht in der Auswahlliste.'));
-  const ta = document.createElement('textarea');
-  ta.id = 'sl-csv';
-  ta.rows = 5;
-  ta.placeholder = 'Aahan;Aahan;06B;1101130;31.07.2029\n'
-    + 'Muster;Maxi;6b;1101131;31.07.2030';
-  sl.appendChild(ta);
-  const slAktionen = el('div', 'aktionen');
-  slAktionen.appendChild(knopf('CSV importieren', 'klein', async () => {
-    const csv = wert('sl-csv');
-    if (csv === '') {
-      meldung('Bitte CSV-Daten einfügen.', 'fehler');
-      return;
-    }
-    meldung('Import läuft …', 'info');
-    try {
-      const d = await api('/api/schueler/csv', { method: 'POST', body: { csv } });
-      S.schuelerAnzahl = null;
-      let text = d.neu + ' neu, ' + d.aktualisiert + ' aktualisiert';
-      if (d.inaktiv > 0) {
-        text += ', davon ' + d.inaktiv + ' bereits ausgetreten (nicht in der Auswahl)';
-      }
-      text += '.';
-      if ((d.uebersprungen || []).length > 0) {
-        text += ' Übersprungen: ' + d.uebersprungen.slice(0, 5).join('; ');
-        if (d.uebersprungen.length > 5) text += ' …';
-      }
-      meldung(text, 'ok');
-    } catch (f) { meldung(String(f.message), 'fehler'); }
-  }));
-
-  slAktionen.appendChild(knopf('Gesamte Schülerliste löschen', 'klein gefahr', async () => {
-    if (!confirm('Die alte Schülerliste löschen? Die Einladungsauswahl '
-      + 'benutzt sie nicht mehr.')) return;
-    try {
-      await api('/api/schueler', { method: 'DELETE' });
-      S.schuelerAnzahl = null;
-      meldung('Schülerliste gelöscht.', 'ok');
-    } catch (f) { meldung(String(f.message), 'fehler'); }
-  }));
-  sl.appendChild(slAktionen);
-  ziel.appendChild(sl);
-
+  ziel.appendChild(el('h2', null, 'Volljährige Schüler'));
   zeichneSchuelerGruppen(ziel);
 }
 
