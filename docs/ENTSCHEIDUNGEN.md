@@ -832,6 +832,11 @@ Lage: `docs/BESTAND-DIENSTKONTO-2026-10-09.md`.
 **Eingetragen:** 09.10.2026 · **wirksam seit:** v0.9.72 · **betrifft:** E1,
 E9, E16 · **benötigt:** `sql/21_dienstkonto_entfernen.sql`
 
+> **Teilweise beantwortet (10.10.2026, v0.9.79):** Stelle 1, die Bestätigung
+> nach einer Elternbuchung, ist gemessen: Elternkonten dürfen nicht senden
+> (HTTP 403). Die Bestätigung entfällt. Siehe Nachtrag am Ende dieses
+> Eintrags.
+
 **Entschieden (Betreiber):** Es gibt kein Dienstkonto mehr. Jede
 WebUntis-Aktion läuft über die Sitzung der handelnden Person. Die
 Verwaltungsseite, die Verschlüsselung und die hinterlegten Zugangsdaten sind
@@ -965,6 +970,45 @@ Konto, damit es nie eine Absage ohne Empfänger gibt; nach dem Schema hat jede
 Buchung eine Kennung.
 
 ---
+
+**Nachtrag 10.10.2026 — Stelle 1 gemessen; die Bestätigung nach einer Elternbuchung entfällt (v0.9.79):**
+- **Gemessen (Betreiber, Betrieb, v0.9.78):** Nach einer Elternbuchung
+  blieb die Bestätigung offen. Anlass `bestaetigung`, Empfängerart
+  `konto`, Grund „Keine Berechtigung zum Versenden von Mitteilungen (HTTP
+  403)“. Damit ist **Stelle 1 der Bestandsaufnahme gemessen**
+  (`docs/BESTAND-DIENSTKONTO-2026-10-09.md`, dort „nicht gemessen“).
+  Elternkonten dürfen über die eigene Sitzung nicht senden, auch nicht an
+  sich selbst.
+- **Nicht derselbe Fall wie der PARENTS-403 vom Admin-Konto:** Hier geht
+  der Weg an ein einzelnes Konto. Es scheitert nicht an der Empfängerart,
+  sondern daran, dass das Konto gar nicht senden darf.
+- **Entschieden (Betreiber, am 09.10. angelegt, jetzt belegt):** Die
+  Bestätigung nach einer Elternbuchung entfällt. „Ich weiß ja, dass ich
+  den Termin gebucht habe.“ Die Eltern sehen den Termin in „Meine
+  Termine“ und im Kalender-Abo. Sie kann auch nicht funktionieren,
+  solange Eltern selbst buchen: Es bliebe nur ein Konto mit Senderecht,
+  also das abgeschaffte Dienstkonto. Dasselbe gilt für volljährige
+  Schüler; sie buchen über denselben Weg.
+- **Bleibt:** Die stellvertretende Buchung durch eine Lehrkraft behält
+  ihre Bestätigung. Dort handelt jemand mit Senderecht, und die Eltern
+  haben nicht selbst gebucht.
+- **Weitere Stellen mit Eltern-Sitzung:** Nach Zug 4 am Code nachgesehen,
+  gibt es keine. Jede andere Versandstelle liegt hinter einer Prüfung auf
+  Lehrkraft oder Verwaltung. Die Eltern-Absage sendet nicht. Seit v0.9.79
+  führt `tests/run_versandstellen.php` ein Register aller Versandstellen;
+  eine neue macht die Suite rot, bis eingeordnet ist, wer dort angemeldet
+  ist.
+- **Die offene Mitteilung id 50** verwirft der Betreiber von Hand; sie kann
+  nicht hinausgehen. Ältere offene Bestätigungen räumte bisher die nächste
+  Elternbuchung desselben Kontos ab. Das entfällt mit; was noch offen
+  steht, bleibt in der Mitteilungsansicht, bis es verworfen wird.
+- **Möglichkeit für „Befund A“ (doppelter Versand):** Dort blieb eine
+  Mitteilung offen, obwohl sie ankam. War es dieselbe Konstellation, kam
+  dort womöglich nichts an, und der Empfänger sah eine **andere**
+  Mitteilung. Das ist nachträglich nicht klärbar. „Befund A“ liegt in
+  diesem Repo nicht vor; der Vermerk steht deshalb hier und muss dorthin
+  übertragen werden, wo Befund A geführt wird.
+
 
 ## E18 — Der Einladungsstatus wird aus den Buchungen abgeleitet, nicht gespeichert
 

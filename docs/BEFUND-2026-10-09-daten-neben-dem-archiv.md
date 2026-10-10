@@ -122,3 +122,7 @@ Sprechtags, und das Abo liest nur Buchungen. Das ist ausgeführt belegt
 **D1 bleibt offen:** Der Eintrag in `kalender_abo` hat weiterhin keine
 Frist und keinen Löschweg.
 
+**Nachtrag 10.10.2026 zu D3:** erledigt in v0.9.79. Die FAQ nennt kein
+Dienstkonto mehr; eine Bestätigung nach einer eigenen Buchung gibt es nicht
+mehr (E17-Nachtrag).
+

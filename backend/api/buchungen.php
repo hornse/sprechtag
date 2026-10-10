@@ -852,38 +852,11 @@ if (($seg[0] ?? '') === 'buchungen') {
                 ->execute([$sid, $lid, $kind]);
         }
 
-        // Bestätigung vormerken (Versand sammelt die Administration).
-        // Fehler hier dürfen die Buchung NICHT scheitern lassen.
-        try {
-            $st = $pdo->prepare(
-                'SELECT b.slot_beginn, l.kuerzel, l.name, r.kuerzel AS raum_kuerzel
-                 FROM buchungen b
-                 JOIN lehrer l ON l.id = b.lehrer_id
-                 LEFT JOIN sprechtag_lehrer sl
-                        ON sl.sprechtag_id = b.sprechtag_id AND sl.lehrer_id = b.lehrer_id
-                 LEFT JOIN raeume r ON r.id = sl.raum_id
-                 WHERE b.sprechtag_id = ? AND b.eltern_user_id = ?
-                 ORDER BY b.slot_beginn');
-            $st->execute([$sid, $elternUserId]);
-            $t = mit_text_bestaetigung((string)$s['name'], (string)$s['datum'],
-                $st->fetchAll(), marke_schulname($pdo));
-            // Ältere offene Bestätigungen ersetzen – es gilt der aktuelle Stand
-            $pdo->prepare("DELETE FROM mitteilungen WHERE sprechtag_id = ?
-                           AND empfaenger_user_id = ? AND anlass = 'bestaetigung'
-                           AND status = 'offen'")->execute([$sid, $elternUserId]);
-            // Über die Sitzung der buchenden Eltern (Stelle 1 der
-            // Bestandsaufnahme – nie über ein Dienstkonto). Klappt es nicht,
-            // bleibt sie offen. Ohne Lehrkraft (null): Die Bestätigung nennt
-            // ALLE Termine der Eltern, nicht nur einen – nachsenden darf jede
-            // Lehrkraft mit einem dieser Termine (bisherige Regel) und die
-            // Verwaltung; im Hinweis nach der Anmeldung steht sie bei der
-            // Verwaltung.
-            mit_einreihen_und_senden($pdo, $sid, (int)$elternUserId,
-                'bestaetigung', $t['betreff'], $t['text'], $kind, null,
-                wu_sitzung($cfg), 'konto', $kd['name'], $kd['klasse']);
-        } catch (Throwable $e) {
-            error_log('sprechtag: Bestaetigung nicht vorgemerkt: ' . $e->getMessage());
-        }
+        // Keine Bestätigung (v0.9.79, E17-Nachtrag): Elternkonten dürfen in
+        // WebUntis nicht senden – gemessen 10.10.2026, HTTP 403, Stelle 1 der
+        // Bestandsaufnahme. Es gäbe nur den Weg über ein Konto mit Senderecht,
+        // also das abgeschaffte Dienstkonto. Die Eltern sehen den Termin in
+        // „Meine Termine“ und im Kalender-Abo (Entscheidung Betreiber).
 
         json_ok(['ok' => true, 'id' => $neueId], 201);
     }

@@ -277,7 +277,7 @@ pruefe('Einladung: über PARENTS, ohne Elternkonten zu suchen', (bool)preg_match
     && !str_contains($ei, 'mit_eltern_ids_ermitteln'));
 // v0.9.73 (Betreiber): Absagen gehen über PARENTS an ALLE Erziehungsberechtigten
 // – Stelle 3 (Absage) und Stelle 5 (Ausfall). Eine Entscheidung, eine Stelle:
-// mit_absage_art(); die Bestätigung nach einer Elternbuchung bleibt am Konto.
+// mit_absage_art(); eine Bestätigung nach einer Elternbuchung gibt es nicht mehr (v0.9.79).
 pruefe('Absage: über die Sitzung der absagenden Person, mit der Lehrkraft der Buchung, an alle (mit_absage_art)',
     (bool)preg_match("/'absage', \\\$t\['betreff'\], \\\$t\['text'\],\s*\(int\)\\\$b\['schueler_id'\], \(int\)\\\$b\['lehrer_id'\], wu_sitzung\(\\\$cfg\),\s*mit_absage_art\(\(int\)\\\$b\['schueler_id'\]\),/", $code));
 $ixCode = '';
@@ -287,8 +287,11 @@ foreach (token_get_all((string)file_get_contents(__DIR__ . '/../backend/api/inde
 }
 pruefe('Ausfall: jede Absage an alle Erziehungsberechtigten (mit_absage_art)', (bool)preg_match(
     "/mit_einreihen\(\\\$pdo, \\\$sid, \(int\)\\\$b\['eltern_user_id'\], 'absage',[^;]*\(int\)\\\$b\['schueler_id'\], \\\$lid,\s*mit_absage_art\(\(int\)\\\$b\['schueler_id'\]\),/s", $ixCode));
-pruefe('Bestätigung nach Elternbuchung bleibt am buchenden Konto (kein PARENTS)', (bool)preg_match(
-    "/mit_einreihen_und_senden\(\\\$pdo, \\\$sid, \(int\)\\\$elternUserId,\s*'bestaetigung',[^;]*wu_sitzung\(\\\$cfg\), 'konto',/s", $code));
+// v0.9.79 (E17-Nachtrag): Elternkonten dürfen nicht senden (403, gemessen);
+// die Bestätigung nach einer Elternbuchung entfällt. Ausführlich in
+// run_versandstellen.php; hier die alte Fassung ausdrücklich ausgeschlossen.
+pruefe('keine Bestätigung nach Elternbuchung mehr (alte Fassung fehlt)', !preg_match(
+    "/mit_einreihen_und_senden\(\\\$pdo, \\\$sid, \(int\)\\\$elternUserId,\s*'bestaetigung'/s", $code));
 
 // ------------------------------------------------------------
 echo "Migration sql/21\n";

@@ -844,8 +844,9 @@ mut SV21 $BUP 's/wu_sitzung\(\$cfg\),\n                    mit_absage_art\(\(int
   $SV "Absage: über die Sitzung der absagenden Person, mit der Lehrkraft der Buchung, an alle"
 mut SV22 $IDX 's/\$lid,\n                        mit_absage_art\(\(int\)\$b\[\x27schueler_id\x27\]\),/\$lid, \x27konto\x27,/' \
   $SV "Ausfall: jede Absage an alle Erziehungsberechtigten"
-mut SV23 $BUP 's/(\$kind, null,\n                wu_sitzung\(\$cfg\)), \x27konto\x27,/$1, \x27eltern\x27,/' \
-  $SV "Bestätigung nach Elternbuchung bleibt am buchenden Konto"
+# SV23 entfällt mit v0.9.79: Die Bestätigung nach einer Elternbuchung, die
+# sie mutierte, gibt es nicht mehr (E17-Nachtrag). Die Nummer bleibt vergeben;
+# die umgedrehte Prüfung deckt VS6 ab.
 
 echo "== v0.9.74: Archivieren und Datenschutz-Absatz der Hilfe (H9)"
 AR=tests/run_archivieren.php
@@ -1057,6 +1058,30 @@ mut AK14 $CFE 's/        \/\/     \x27admin_kuerzel\x27 => \[\x27Ho\x27, \x27Mu\
   $RAK "Kommentar zeigt die Array-Form"
 mut AK15 $CFE 's/Groß- und Kleinschreibung spielt/Die Schreibweise spielt/' \
   $RAK "Kommentar warnt vor"
+
+# v0.9.79: keine Bestätigung nach Elternbuchung; Register der Versandstellen.
+RVS=tests/run_versandstellen.php
+FB=tests/frontend_bestaetigung_test.js
+mut VS1 $BUP 's/(        json_ok\(\[\x27ok\x27 => true, \x27id\x27 => \$neueId\], 201\);)/        mit_einreihen_und_senden(\$pdo, \$sid, (int)\$elternUserId, \x27bestaetigung\x27, \x27B\x27, \x27T\x27, \$kind, null, wu_sitzung(\$cfg), \x27konto\x27);\n$1/' \
+  $RVS "Elternbuchung reiht nichts ein und sendet nichts"
+mut VS2 $BUP 's/(        json_ok\(\[\x27ok\x27 => true, \x27id\x27 => \$neueId\], 201\);)/        \$t = mit_text_bestaetigung(\x27x\x27, \x27\x27, []);\n$1/' \
+  $RVS "Elternbuchung: kein Bestätigungstext"
+mut VS3 $BUP 's/mit_einreihen_und_senden\(\$pdo, \$sid, 0, \x27bestaetigung\x27,/mit_einreihen_und_senden(\$pdo, \$sid, 0, \x27einladung\x27,/' \
+  $RVS "stellvertretende Buchung behält ihre Bestätigung"
+mut VS4 $IX 's/(    \$abo = kal_abo_ics\()/    if (false) mit_einreihen(\$pdo, 0, 0, \x27x\x27, \x27x\x27, \x27x\x27);\n$1/' \
+  $RVS "jede Versandstelle ist eingeordnet"
+mut VS5 $IX 's/json_ok\(erinnerung_versenden\(\$pdo, wu_sitzung\(\$cfg\)\)\);/json_ok([]);/' \
+  $RVS "jede Versandstelle ist eingeordnet"
+mut VS6 $BUP 's/(        json_ok\(\[\x27ok\x27 => true, \x27id\x27 => \$neueId\], 201\);)/        mit_einreihen_und_senden(\$pdo, \$sid, (int)\$elternUserId, \x27bestaetigung\x27, \x27B\x27, \x27T\x27, \$kind, null, wu_sitzung(\$cfg), \x27konto\x27);\n$1/' \
+  $SV "keine Bestätigung nach Elternbuchung mehr"
+mut VS7 $APP 's/Nach einer eigenen Buchung kommt keine Nachricht\./Bestätigungen kommen per WebUntis./' \
+  $FB "FAQ: nach der eigenen Buchung kommt keine Nachricht"
+mut VS8 $APP 's/Die Buchung gilt \x27\n     \+ \x27sofort/Ohne Dienstkonto gilt die Buchung \x27\n     + \x27sofort/' \
+  $FB "FAQ verspricht kein Dienstkonto mehr"
+mut VS9 $APP 's/steht unter „Meine Termine" und im Kalender-Abo\./steht unter „Meine Termine"./' \
+  $FB "FAQ: die Buchung steht unter „Meine Termine“ und im Kalender-Abo"
+mut VS10 $APP 's/Bestätigung per WebUntis-Nachricht kommt nur, wenn/Bestätigung per WebUntis-Nachricht kommt auch, wenn/' \
+  $FB "FAQ: Bestätigung nur, wenn eine Lehrkraft gebucht hat"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi

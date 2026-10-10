@@ -1246,9 +1246,10 @@ function ansichtHilfe(ziel) {
      'Ja. Wählen Sie oben das jeweilige Kind aus; die Buchungen werden dem '
      + 'richtigen Kind zugeordnet.'],
     ['Ich habe einen Termin gebucht, aber es kam keine Bestätigung.',
-     'Bestätigungen werden über WebUntis versendet, sofern ein Dienstkonto '
-     + 'hinterlegt ist. Ihre Buchung ist auch ohne Nachricht gültig und unter '
-     + '„Meine Termine" sichtbar.'],
+     'Nach einer eigenen Buchung kommt keine Nachricht. Die Buchung gilt '
+     + 'sofort und steht unter „Meine Termine" und im Kalender-Abo. Eine '
+     + 'Bestätigung per WebUntis-Nachricht kommt nur, wenn eine Lehrkraft für '
+     + 'Sie gebucht hat.'],
     ['Kann ich der Lehrkraft vorab ein Thema mitteilen?',
      'Ja. Beim Buchen gibt es ein optionales Feld „Hinweis an die Lehrkraft". '
      + 'Was Sie dort eintragen (z. B. „Thema: Mathe-Note"), sieht nur die '

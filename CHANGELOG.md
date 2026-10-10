@@ -1,5 +1,41 @@
 # Changelog - sprechtag
 
+## v0.9.79 (Oktober 2026) – Keine Bestätigung nach einer Elternbuchung (Stelle 1 gemessen, E17-Nachtrag)
+
+- **Gemessen (Betreiber, Betrieb):** Elternkonten dürfen in WebUntis nicht
+  senden. Die Bestätigung blieb mit „Keine Berechtigung zum Versenden von
+  Mitteilungen (HTTP 403)“ offen, Empfängerart `konto`. Damit ist Stelle 1
+  der Bestandsaufnahme Dienstkonto gemessen.
+- **Die Bestätigung nach einer Elternbuchung entfällt** (Entscheidung des
+  Betreibers), ebenso bei volljährigen Schülern. Es wird nichts mehr
+  eingereiht. Der Termin steht in „Meine Termine“ und im Kalender-Abo.
+- **Die stellvertretende Buchung behält ihre Bestätigung.** Dort sendet
+  die Lehrkraft.
+- **Keine weitere Stelle sendet über eine Eltern-Sitzung**, am Code
+  nachgesehen. Neu ist ein Register aller Versandstellen
+  (`run_versandstellen.php`): Eine neue Stelle macht die Suite rot, bis
+  jemand eingeordnet hat, wer dort angemeldet ist.
+- **FAQ „… es kam keine Bestätigung“:** Nach einer eigenen Buchung kommt
+  keine Nachricht; eine Bestätigung kommt nur, wenn eine Lehrkraft gebucht
+  hat. Kein Dienstkonto mehr im Text (H13, D3).
+- **Offene Bestätigungen von früher** (etwa id 50) räumt keine Buchung
+  mehr ab; der Betreiber verwirft sie von Hand.
+
+### Prüfungen
+- 1427 → 1440 Prüfzeilen in 67 Suiten (vorher 65), alle grün;
+  `tests-sprechtag.sh` 29.
+  - Neu `run_versandstellen.php` (7), zuerst 3-mal rot. Quelltext, die
+    Routen sind nicht ausführbar: Die Elternbuchung sendet nicht, die
+    stellvertretende behält die Bestätigung, dazu das Register.
+  - Neu `frontend_bestaetigung_test.js` (6), zuerst 4-mal rot: die
+    FAQ-Antwort, im Rumpf von `ansichtHilfe()` gesucht.
+  - `run_sitzung_versand.php`: Die Prüfung „Bestätigung nach Elternbuchung
+    bleibt am buchenden Konto“ ist umgedreht zu „keine Bestätigung nach
+    Elternbuchung mehr“, gleiche Zahl, zuerst rot.
+- Mutationen 378 → 387: VS1–VS10 neu, alle angeschlagen, H4 grün,
+  Rücknahme belegt. SV23 entfällt, weil der Code fehlt, den sie mutierte;
+  die Nummer bleibt vergeben.
+
 ## v0.9.78 (Oktober 2026) – Admin-Kürzel unempfindlich, Komma-Einträge aufgeteilt (E22)
 
 - **Kürzelvergleich unempfindlich, in beide Richtungen** (Entscheidung des

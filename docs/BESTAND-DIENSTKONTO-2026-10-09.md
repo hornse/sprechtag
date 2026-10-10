@@ -124,3 +124,13 @@ E17. Die offenen Punkte oben, Stand jetzt:
 - **Neu nicht gemessen:** die Namenssuche über die Sitzung der Lehrkraft (für
   die Zuordnung der stellvertretenden Buchung). Messbar über
   `POST /api/messung/parents`, Feld `namensweg.quelle`.
+
+## Nachtrag 10.10.2026: Stelle 1 gemessen (v0.9.79, E17-Nachtrag)
+
+**Gemessen (Betreiber, Betrieb):** Die Bestätigung nach einer Elternbuchung
+blieb offen, mit Grund „Keine Berechtigung zum Versenden von Mitteilungen
+(HTTP 403)“ und Empfängerart `konto`. **Elternkonten dürfen über die eigene
+Sitzung nicht senden.** Die Bestätigung entfällt (Entscheidung Betreiber).
+Stelle 1 gibt es damit nicht mehr. Nach Zug 4 am Code nachgesehen, sendet
+keine andere Stelle über eine Eltern-Sitzung.
+

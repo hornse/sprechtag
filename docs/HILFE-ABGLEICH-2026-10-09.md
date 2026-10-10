@@ -179,3 +179,12 @@ nicht beauftragt ist.
 Dienstkonto, Schild-Import, die alte Kachel-Gliederung. Sie wird zusammen
 mit der Hilfeseite und den Fachdokumenten nachgezogen, **nicht** in Zug 4
 selbst.
+
+**Nachtrag 10.10.2026 — H13 erledigt (v0.9.79):** Die Bestätigung nach
+einer Elternbuchung entfällt, denn Elternkonten dürfen nicht senden (403,
+gemessen; E17-Nachtrag). Die FAQ-Antwort sagt jetzt: Nach einer eigenen
+Buchung kommt keine Nachricht; die Buchung steht unter „Meine Termine“ und
+im Kalender-Abo; eine Bestätigung kommt nur, wenn eine Lehrkraft gebucht
+hat. Mitgezogen, weil die Antwort sonst etwas versprochen hätte, das es
+nicht mehr gibt. Die übrige Hilfeseite bleibt auf der Nachzieh-Liste.
+
