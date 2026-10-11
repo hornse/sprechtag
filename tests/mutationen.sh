@@ -1497,6 +1497,24 @@ mut HS3 $APP 's/    s\.className \+= \x27 hilfe-teil\x27;[^\n]*\n//' $HIT "$HS_P
 # HS4: die Regel als Kommentar stehen gelassen (Art 3)
 mut HS4 $CSS 's/  \.hilfe-teil \{ scroll-margin-top: 3\.5rem; \}/  \/* .hilfe-teil { scroll-margin-top: 3.5rem; } *\//' $HIT "$HS_P"
 
+echo "== v0.9.92: Hilfe – breit klebende Sprungmarken, auf dem Telefon ein Knopf"
+HK_B="breit: Sprungmarken kleben oben, mit Fläche dahinter; Sprungziele halten ihren Abstand (CSS ab 761 px)"
+HK_T="Telefon: Knopf unten links, über Safaris Leiste (safe-area), unter dem Menü-Schleier; breit ausgeblendet (CSS)"
+HK_Z="Knopf führt zu den Sprungmarken, nicht an den Seitenanfang (ausgeführt)"
+HK_S="Knopf erscheint erst, wenn die Sprungmarken aus dem Bild sind; beobachtet sie und hört auf, wenn sie fort sind (ausgeführt)"
+HK_A="ansichtHilfe hängt den Knopf genau einmal an, mit der Sprungmarken-Leiste als Ziel (ausgeführt)"
+mut HK1 $CSS 's/  \.hilfe-nav \{ position: sticky; top: 0;/  .hilfe-nav { top: 0;/' $HIT "$HK_B"
+mut HK2 $CSS 's/  \.hilfe-teil \{ scroll-margin-top: 9rem; \}\n//' $HIT "$HK_B"
+mut HK3 $CSS 's/\n\.hilfe-hoch \{ display: none; \}//' $HIT "$HK_T"
+mut HK4 $CSS 's/(  \.hilfe-hoch \{ display: block; position: fixed; z-index: )31;/${1}33;/' $HIT "$HK_T"
+mut HK5 $CSS 's/\n                left: 1rem;\n                left: max\(1rem, env\(safe-area-inset-left, 0px\)\);/\n                right: 1rem;/' $HIT "$HK_T"
+mut HK6 $CSS 's/\n                bottom: calc\(1\.25rem \+ env\(safe-area-inset-bottom, 0px\)\);//' $HIT "$HK_T"
+mut HK7 $APP 's/k\.addEventListener\(\x27click\x27, \(\) => nav\.scrollIntoView\(\{ block: \x27start\x27 \}\)\);/k.addEventListener(\x27click\x27, () => scrollTo(0, 0));/' $HIT "$HK_Z"
+mut HK8 $APP 's/k\.classList\.toggle\(\x27versteckt\x27, eintraege\[0\]\.isIntersecting\);/k.classList.toggle(\x27versteckt\x27, !eintraege[0].isIntersecting);/' $HIT "$HK_S"
+mut HK9 $APP 's/      if \(!nav\.isConnected\) \{ beobachter\.disconnect\(\); return; \}\n//' $HIT "$HK_S"
+mut HK10 $APP 's/  hilfeKnopfZuDenMarken\(ziel, nav\);\n//' $HIT "$HK_A"
+mut HK11 $APP 's/const nav = el\(\x27div\x27, \x27hilfe-nav hilfe-teil\x27\);/const nav = el(\x27div\x27, \x27hilfe-nav\x27);/' $HIT "$HK_A"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1

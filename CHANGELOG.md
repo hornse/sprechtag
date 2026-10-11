@@ -1,5 +1,68 @@
 # Changelog - sprechtag
 
+## v0.9.92 (Oktober 2026) – Hilfe: breit klebende Sprungmarken, auf dem Telefon ein Knopf zurück
+
+Aus dem Betrieb gemeldet: Wer über eine Sprungmarke in einen Abschnitt
+springt, muss zum Wechseln ganz nach oben scrollen. Entschieden hat die
+Messung (Betreiber); dieselbe Grenze wie Kopfleiste und Karten (760 px).
+
+- **Breiter als 760 px kleben die Sprungmarken oben** und kosten 6 %
+  (1280 px, eine Reihe), 12 % (1024 und 800 px, zwei Reihen) und 18 %
+  (761 px, drei Reihen) der Höhe. Die Sprungziele halten `9rem` Abstand. Mit
+  `7rem` lag die Überschrift bei 761 px 4 px unter der Leiste; gemessen und
+  vor der Auslieferung berichtigt.
+- **Auf dem Telefon gibt es einen Knopf „↑ Abschnitte“ unten links.** Er
+  erscheint, sobald die Sprungmarken aus dem Bild sind, und führt **zu
+  ihnen**, nicht an den Seitenanfang; dazwischen stünde der Zusatztext der
+  Schule. Er steht links, weil rechts der Toast erscheint, und unter dem
+  Menü-Schleier, damit ein offenes Menü ihn deckt.
+- **Verworfen, gemessen auf 390 px:** Klebende Sprungmarken auf dem Telefon
+  belegten mit der Kopfleiste 218 von 664 px, also ein Drittel. Einzeilig
+  und wischbar zeigten sie eineinhalb von sechs Marken.
+- **Ein langer Toast** (eine Meldung über die volle Breite) überlappt den
+  Knopf auf dem Telefon; gemessen liegt der Toast oben. Die Meldung bleibt
+  lesbar, der Knopf ist für ihre Dauer verdeckt.
+
+### Abnahme am Gerät (keine Prüfung)
+- **iPhone, Safari:** Steht der Knopf frei über Safaris schwebender Leiste?
+  Er hält denselben Abstand wie der Toast
+  (`env(safe-area-inset-bottom)`). Ob das reicht, zeigt nur das Gerät.
+- **iPad im Querformat:** Stehen die klebenden Sprungmarken beim Scrollen
+  ruhig?
+
+### Messung
+- **Neuer Messpunkt `hilfe-knopf` / `hilfe-leiste` in
+  `tests/mobil-messung/messen.js`, keine Prüfung (E11).** Auf dem Telefon:
+  Der Knopf ist oben verborgen und nach dem Scrollen sichtbar; nach dem
+  Tippen stehen die Sprungmarken frei unter der Kopfleiste (56 gegen 43 px);
+  das offene Menü deckt ihn; bei Überlappung liegt der Toast oben. Breit:
+  Die Sprungmarken kleben bei 0 px, der Knopf ist nicht da. Die Messpunkte
+  `sprung-*` stehen auf 320, 390, 761, 800, 1024 und 1280 px auf „frei“.
+- **Zwei Fehler der eigenen Probe, vor jedem Schluss behoben:** In der
+  ersten Probe war der Knopf nie erschienen, weil vor dem Scroll-Ereignis
+  gemessen wurde, und für die einzeilige Leiste stand „nicht tippbar“,
+  ohne dass der Grund klar war. Beides lief ein zweites Mal gezielt. Erst
+  die zweite Messung trägt die Zahlen oben.
+
+### Prüfungen
+- **1638 → 1643 Prüfzeilen in 73 Suiten, alle grün;** `tests-sprechtag.sh` 29.
+- Neu in `frontend_hilfe_test.js`, fünf Prüfungen:
+  - die klebende Leiste und der Abstand in der Abfrage ab 761 px (CSS);
+  - der Knopf in der Telefon-Abfrage: links, über `safe-area-inset-bottom`,
+    z-index unter dem Menü-Schleier, breit ausgeblendet (CSS);
+  - `hilfeKnopfZuDenMarken` ausgeführt: Der Knopf führt zu den
+    Sprungmarken und nicht an den Seitenanfang; er erscheint erst, wenn
+    sie aus dem Bild sind; der Beobachter trennt sich, wenn die Leiste
+    neu gezeichnet wurde;
+  - `ansichtHilfe` hängt den Knopf genau einmal an, mit der Leiste als Ziel.
+- Die ausführenden Nachbildungen in `frontend_datenschutz_test.js` und
+  `tests/werkzeuge/hilfe_baum.js` kennen den neuen Namen. Der sichtbare Text
+  der Hilfe ist gegen v0.9.91 für alle Rollen Zeile für Zeile gleich
+  (`hilfe_baum.js`).
+- **Mutationen 542 → 553, alle angeschlagen (HK1–HK11).** Die Rücknahme ist
+  belegt: Prüfsummen aller 176 Dateien und `git diff --stat` vorher und
+  nachher gleich.
+
 ## v0.9.91 (Oktober 2026) – Hilfe: die Überschrift nach dem Sprung liegt nicht mehr unter der Kopfleiste
 
 - **Bestehender Fehler, gefunden beim Messen für die Navigation der

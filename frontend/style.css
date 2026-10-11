@@ -242,6 +242,18 @@ body {
                 border: 1px solid var(--rand); border-radius: 6px;
                 padding: .3rem .7rem; }
 .hilfe-sprung:hover { background: var(--blau-hell); }
+/* Knopf zurück zu den Sprungmarken: nur auf dem Telefon (Abfrage unten). */
+.hilfe-hoch { display: none; }
+/* Breit (v0.9.92): Die Sprungmarken kleben oben – sie kosten hier 6–11 %
+   der Höhe (gemessen 1280/1024/800 px). Auf dem Telefon wären es mit der
+   Kopfleiste 218 von 664 px; dort gibt es stattdessen den Knopf. Abstand
+   der Sprungziele: bis drei Reihen Sprungmarken (761 px: drei Reihen,
+   135 px; mit 7rem lag die Überschrift 4 px darunter, gemessen). */
+@media (min-width: 761px) {
+  .hilfe-nav { position: sticky; top: 0; z-index: 20; background: var(--flaeche);
+               padding: .5rem 0; }
+  .hilfe-teil { scroll-margin-top: 9rem; }
+}
 .hilfe-liste { margin: .3rem 0 .8rem 1.1rem; padding: 0; }
 .hilfe-liste li { margin-bottom: .35rem; }
 .login-hilfe { margin-top: 1.2rem; font-size: .9rem; }
@@ -440,6 +452,19 @@ select.konflikt.kf-g, select.konflikt.kf-h {
   /* Sprungziele der Hilfe nicht unter die klebende Kopfleiste (43 px,
      gemessen): Bis v0.9.90 lag die Überschrift nach dem Sprung darunter. */
   .hilfe-teil { scroll-margin-top: 3.5rem; }
+  /* Knopf zu den Sprungmarken (v0.9.92), unten LINKS – rechts steht der
+     Toast. Unter dem Menü-Schleier (32), damit ein offenes Menü ihn deckt.
+     Abstand unten wie beim Toast; ob er über Safaris schwebender Leiste
+     reicht, zeigt nur das Gerät. */
+  .hilfe-hoch { display: block; position: fixed; z-index: 31;
+                left: 1rem;
+                left: max(1rem, env(safe-area-inset-left, 0px));
+                bottom: 1.25rem;
+                bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+                padding: .6rem .9rem; border: none; border-radius: 999px;
+                background: var(--akzent); color: var(--flaeche);
+                box-shadow: var(--schatten-gross); font-size: .9rem; }
+  .hilfe-hoch.versteckt { display: none; }
   /* Auf dem Handy übernimmt der Hamburger; Desktop-Einklappknöpfe aus. */
   .leiste-einklappen, .leiste-ausklappen { display: none !important; }
   .shell.leiste-zu .seitenleiste { width: min(18rem, 85vw); }

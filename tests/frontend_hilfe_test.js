@@ -52,18 +52,22 @@ const sprungmarken = (rolle) => new Function('HILFE_TEILE', 'rolle', sprungRumpf
 const listeRumpf = rumpf('function hilfeListe(');
 const dokument = { createElement: (t) => knoten(t) };
 const hilfeListe = (punkte) => new Function('document', 'punkte', listeRumpf)(dokument, punkte);
+const knopfAufrufe = [];
 function hilfe(user) {
+  knopfAufrufe.length = 0;
   const ziel = knoten('main');
   const S = { user, hilfeZusatz: '', offeneBloecke: {} };
   const sektion = (t) => { const s = knoten('section', 'sektion'); s.kinder.push(knoten('h3', null, t)); return s; };
   const namen = ['S', 'el', 'document', 'sektion', 'block', 'knopf', 'api', 'wechsleAnsicht', 'zeichne',
-    'kontaktSatz', 'hilfeListe', 'hilfeSchluessel', 'datenschutzAbsaetze', 'HILFE_TEILE', 'hilfeSprungmarken'];
+    'kontaktSatz', 'hilfeListe', 'hilfeSchluessel', 'datenschutzAbsaetze', 'HILFE_TEILE', 'hilfeSprungmarken',
+    'hilfeKnopfZuDenMarken'];
   const werte = [S, knoten, dokument, sektion,
     (k, t) => knoten('details', null, t), (t) => knoten('button', null, t), () => Promise.resolve({}),
     () => {}, () => {}, (v) => v, hilfeListe, (t) => t, () => ['A', 'B'],
-    TEILE, sprungmarken];
+    TEILE, sprungmarken, (z, n) => knopfAufrufe.push([z, n])];
   try { new Function(...namen, 'ziel', hilfeRumpf)(...werte, ziel); }
   catch (e) { console.log('    (ansichtHilfe: ' + e.message + ')'); return null; }
+  ziel.knopfAufrufe = knopfAufrufe.slice();
   return ziel;
 }
 const ohne = hilfe(null);
@@ -125,6 +129,69 @@ const telefon = medienBloecke(ohneCssKommentar(css), '(max-width: 760px)').join(
 pruefe('Sprungziele: jeder Abschnitt trägt .hilfe-teil, und die Telefon-Abfrage gibt ihm scroll-margin-top (v0.9.91)',
   abschnitte.length === 6 && abschnitte.every((x) => /(^| )hilfe-teil( |$)/.test(x.klasse))
   && /(^|\n)\s*\.hilfe-teil \{[^}]*scroll-margin-top: [1-9]/.test(telefon));
+
+// ---- v0.9.92: breit klebende Sprungmarken, auf dem Telefon ein Knopf ----
+// Gemessen auf 390 px: klebende Sprungmarken belegten mit der Kopfleiste
+// 218 von 664 px, einzeilig zeigten sie 1,5 von 6 Marken. Deshalb dieselbe
+// Grenze wie Kopfleiste und Karten (760 px). Ob es wirkt, misst messen.js.
+const breit = medienBloecke(ohneCssKommentar(css), '(min-width: 761px)').join('\n');
+const regel = (quelle, sel) => ((quelle.match(new RegExp('(?:^|\\n)\\s*' + sel.replace(/\./g, '\\.') + ' \\{([^}]*)\\}')) || [])[1] || null);
+const navBreit = regel(breit, '.hilfe-nav');
+pruefe('breit: Sprungmarken kleben oben, mit Fläche dahinter; Sprungziele halten ihren Abstand (CSS ab 761 px)',
+  navBreit !== null && /position: sticky/.test(navBreit) && /top: 0/.test(navBreit)
+  && /background: var\(--flaeche\)/.test(navBreit)
+  && /scroll-margin-top: [1-9]/.test(regel(breit, '.hilfe-teil') || ''));
+const hochGrund = regel(ohneCssKommentar(css).replace(/@media[^{]*\{[\s\S]*?\n\}/g, ''), '.hilfe-hoch');
+const hochTel = regel(telefon, '.hilfe-hoch');
+const zKnopf = Number(((hochTel || '').match(/z-index: (\d+)/) || [])[1]);
+const zSchleier = Number(((regel(css, '.menue-overlay') || '').match(/z-index: (\d+)/) || [])[1]);
+pruefe('Telefon: Knopf unten links, über Safaris Leiste (safe-area), unter dem Menü-Schleier; breit ausgeblendet (CSS)',
+  hochGrund !== null && /display: none/.test(hochGrund)
+  && hochTel !== null && /position: fixed/.test(hochTel) && /left: /.test(hochTel) && !/right: /.test(hochTel)
+  && /bottom: calc\([^)]*env\(safe-area-inset-bottom/.test(hochTel)
+  && zKnopf > 0 && zSchleier > 0 && zKnopf < zSchleier
+  && /display: none/.test(regel(telefon, '.hilfe-hoch.versteckt') || ''));
+
+// Die Funktion ausführen: Ziel, Sichtbarkeit, Aufräumen.
+const knopfRumpf = rumpf('function hilfeKnopfZuDenMarken(');
+function knopfProbe() {
+  const klassen = new Set(); const hoerer = {}; const aufrufe = [];
+  const kn = { tag: 'button', klassen, setAttribute() {}, appendChild() {},
+    addEventListener(t, f) { hoerer[t] = f; },
+    classList: { toggle(c, an) { if (an) klassen.add(c); else klassen.delete(c); }, add(c) { klassen.add(c); } } };
+  const nav = { isConnected: true, scrollIntoView(o) { aufrufe.push(['nav', o]); } };
+  const fenster = { scrollTo() { aufrufe.push(['seitenanfang']); } };
+  let rueck = null; let getrennt = 0; let beobachtet = null;
+  function IO(f) { rueck = f; this.observe = (x) => { beobachtet = x; }; this.disconnect = () => { getrennt++; }; }
+  const ziel = { kinder: [], appendChild(k) { this.kinder.push(k); return k; } };
+  const elF = (tag, klasse, text) => { for (const c of String(klasse || '').split(' ').filter(Boolean)) klassen.add(c);
+    kn.text = text; return kn; };
+  new Function('el', 'IntersectionObserver', 'window', 'scrollTo', 'ziel', 'nav', knopfRumpf)(
+    elF, IO, fenster, fenster.scrollTo, ziel, nav);
+  return { kn, klassen, hoerer, aufrufe, nav, ziel, rueck: (x) => rueck && rueck([{ isIntersecting: x }]),
+    getrennt: () => getrennt, beobachtet: () => beobachtet };
+}
+let kp = null;
+try { kp = knopfProbe(); } catch (e) { console.log('    (hilfeKnopfZuDenMarken: ' + e.message + ')'); }
+if (kp && kp.hoerer.click) kp.hoerer.click();
+pruefe('Knopf führt zu den Sprungmarken, nicht an den Seitenanfang (ausgeführt)',
+  !!kp && kp.ziel.kinder.length === 1 && kp.aufrufe.length === 1 && kp.aufrufe[0][0] === 'nav'
+  && kp.aufrufe[0][1] && kp.aufrufe[0][1].block === 'start');
+let sicht = null;
+if (kp) {
+  const anfang = kp.klassen.has('versteckt');
+  kp.rueck(false); const weg = kp.klassen.has('versteckt');
+  kp.rueck(true); const wieder = kp.klassen.has('versteckt');
+  kp.nav.isConnected = false; kp.rueck(false);
+  sicht = { anfang, weg, wieder, beobachtet: kp.beobachtet() === kp.nav, getrennt: kp.getrennt() };
+}
+pruefe('Knopf erscheint erst, wenn die Sprungmarken aus dem Bild sind; beobachtet sie und hört auf, wenn sie fort sind (ausgeführt)',
+  !!sicht && sicht.anfang === true && sicht.weg === false && sicht.wieder === true
+  && sicht.beobachtet && sicht.getrennt === 1);
+pruefe('ansichtHilfe hängt den Knopf genau einmal an, mit der Sprungmarken-Leiste als Ziel (ausgeführt)',
+  !!ohne && ohne.knopfAufrufe.length === 1 && ohne.knopfAufrufe[0][0] === ohne
+  && ohne.knopfAufrufe[0][1] && /(^| )hilfe-nav( |$)/.test(ohne.knopfAufrufe[0][1].klasse)
+  && /(^| )hilfe-teil( |$)/.test(ohne.knopfAufrufe[0][1].klasse));
 
 // ============================================================
 // Schritt 2: Inhalt (v0.9.90, H1–H12 aus docs/HILFE-ABGLEICH-2026-10-09.md)

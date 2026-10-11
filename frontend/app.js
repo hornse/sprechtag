@@ -1138,13 +1138,15 @@ function ansichtHilfe(ziel) {
 
   // Sprungmarken: allen alles, die eigene Rolle vorn (v0.9.89, Betreiber).
   // Die Hilfe ist auch ohne Anmeldung erreichbar; verborgen wird nichts.
-  const nav = el('div', 'hilfe-nav');
+  // hilfe-teil: auch die Leiste ist Sprungziel – das des Knopfs (v0.9.92).
+  const nav = el('div', 'hilfe-nav hilfe-teil');
   for (const [ziel2, text] of hilfeSprungmarken(S.user ? S.user.rolle : null)) {
     const a = el('a', 'hilfe-sprung', text);
     a.href = '#' + ziel2;
     nav.appendChild(a);
   }
   ziel.appendChild(nav);
+  hilfeKnopfZuDenMarken(ziel, nav);
 
   // Optionaler, von der Schule gepflegter Hilfetext (sicher serverseitig
   // gerendert). Wird einmal geladen und oben angezeigt, wenn vorhanden.
@@ -1374,6 +1376,27 @@ const HILFE_TEILE = [
   ['hilfe-faq', 'Häufige Fragen', 'Häufige Fragen'],
   ['hilfe-datenschutz', 'Datenschutz', 'Datenschutz'],
 ];
+
+// Telefon (v0.9.92): schwebender Knopf zurück zu den Sprungmarken. Er
+// erscheint, sobald sie aus dem Bild sind, und führt zu ihnen, nicht an den
+// Seitenanfang – dann steht die Wahl des nächsten Abschnitts da, ohne den
+// Zusatztext der Schule dazwischen. Über 760 px blendet ihn das CSS aus;
+// dort kleben die Sprungmarken oben.
+function hilfeKnopfZuDenMarken(ziel, nav) {
+  const k = el('button', 'hilfe-hoch versteckt', '↑ Abschnitte');
+  k.setAttribute('type', 'button');
+  k.setAttribute('aria-label', 'Zu den Abschnitten der Hilfe');
+  k.addEventListener('click', () => nav.scrollIntoView({ block: 'start' }));
+  if (typeof IntersectionObserver === 'function') {
+    const beobachter = new IntersectionObserver((eintraege) => {
+      // Neu gezeichnet: Die alte Leiste ist fort, ihr Beobachter auch.
+      if (!nav.isConnected) { beobachter.disconnect(); return; }
+      k.classList.toggle('versteckt', eintraege[0].isIntersecting);
+    });
+    beobachter.observe(nav);
+  }
+  ziel.appendChild(k);
+}
 
 // Sprungmarken [Kennung, Text], die der eigenen Rolle zuerst.
 function hilfeSprungmarken(rolle) {

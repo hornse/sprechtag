@@ -56,11 +56,12 @@ function hilfeAusfuehren() {
   const TEILE = new Function('return ' + teileQuelle)();
   const sprung = new Function('HILFE_TEILE', 'rolle', rumpf('function hilfeSprungmarken('));
   const namen = ['S', 'el', 'document', 'sektion', 'block', 'knopf', 'api', 'wechsleAnsicht', 'zeichne',
-    'kontaktSatz', 'hilfeListe', 'hilfeSchluessel', 'datenschutzAbsaetze', 'HILFE_TEILE', 'hilfeSprungmarken'];
+    'kontaktSatz', 'hilfeListe', 'hilfeSchluessel', 'datenschutzAbsaetze', 'HILFE_TEILE', 'hilfeSprungmarken',
+    'hilfeKnopfZuDenMarken'];
   const werte = [{ user: null, hilfeZusatz: '', offeneBloecke: {} }, knoten,
     { createElement: (t) => knoten(t) }, sektion, (k, t) => knoten('details', null, t),
     (t) => knoten('button', null, t), () => Promise.resolve({}), () => {}, () => {}, (v) => v,
-    () => knoten('ol'), (t) => t, () => absaetze.slice(), TEILE, (rolle) => sprung(TEILE, rolle)];
+    () => knoten('ol'), (t) => t, () => absaetze.slice(), TEILE, (rolle) => sprung(TEILE, rolle), () => {}];
   const ziel = knoten('main');
   new Function(...namen, 'ziel', hilfe)(...werte, ziel);
   return ziel;

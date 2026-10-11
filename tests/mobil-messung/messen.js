@@ -148,6 +148,61 @@ const L = [
       zeile(kurz, 'KEIN ERGEBNIS (' + String(err.message).split('\n')[0] + ')'); fehlt++;
     } finally { await p.close(); }
   }
+  // Hilfe, Weg zurück zu den Sprungmarken (v0.9.92). Ein Messpunkt, keine
+  // Prüfung (E11). Telefon: Knopf erst nach dem Scrollen, unten links, nicht
+  // unter einem langen Toast, unter dem offenen Menü; sein Tippen bringt die
+  // Sprungmarken frei unter die Kopfleiste. Breit: Die Sprungmarken kleben
+  // oben, der Knopf ist nicht da.
+  {
+    const p = await ctx.newPage();
+    try {
+      await p.goto(basis + '/?rolle=eltern#/hilfe');
+      await p.waitForFunction(() => window.__messung, null, { timeout: 20000 });
+      const telefon = await p.isVisible('#mobil-menue');
+      const sichtbar = () => p.evaluate(() => { const k = document.querySelector('.hilfe-hoch');
+        return !!k && getComputedStyle(k).display !== 'none'; });
+      const obenSichtbar = await sichtbar();
+      await p.evaluate(() => scrollTo(0, 3000)); await p.waitForTimeout(500);
+      if (telefon) {
+        const r = await p.evaluate(() => {
+          const k = document.querySelector('.hilfe-hoch'); const x = k.getBoundingClientRect();
+          const t = document.querySelector('.toast');
+          t.className = 'toast ok';
+          t.textContent = 'Für dieses Kind besteht bei dieser Lehrkraft bereits ein Termin, gebucht über ein anderes Konto.';
+          const y = t.getBoundingClientRect();
+          const schnitt = !(x.right <= y.left || y.right <= x.left || x.bottom <= y.top || y.bottom <= x.top);
+          // Wer liegt bei Überlappung oben? Die Meldung darf nicht verdeckt sein.
+          const mx = (Math.max(x.left, y.left) + Math.min(x.right, y.right)) / 2;
+          const my = (Math.max(x.top, y.top) + Math.min(x.bottom, y.bottom)) / 2;
+          const oben = schnitt ? document.elementFromPoint(mx, my) : null;
+          const obenWer = !oben ? '' : oben.closest('.toast') ? 'Toast oben' : oben.closest('.hilfe-hoch') ? 'KNOPF OBEN' : 'anderes';
+          t.className = 'toast versteckt';
+          return { sicht: getComputedStyle(k).display !== 'none', links: Math.round(x.left),
+            abstandUnten: Math.round(innerHeight - x.bottom), toastLinks: Math.round(y.left), schnitt, obenWer };
+        });
+        await p.tap('.hilfe-hoch'); await p.waitForTimeout(500);
+        const n = await p.evaluate(() => ({ nav: Math.round(document.querySelector('.hilfe-nav').getBoundingClientRect().top),
+          leiste: Math.round(document.querySelector('.mobil-leiste').getBoundingClientRect().bottom) }));
+        await p.evaluate(() => scrollTo(0, 3000)); await p.waitForTimeout(300);
+        await p.tap('#mobil-menue'); await p.waitForTimeout(400);
+        const gedeckt = await p.evaluate(() => { const x = document.querySelector('.hilfe-hoch').getBoundingClientRect();
+          const e = document.elementFromPoint(x.left + x.width / 2, x.top + x.height / 2);
+          return !!e && !e.closest('.hilfe-hoch'); });
+        zeile('hilfe-knopf', 'oben ' + (obenSichtbar ? 'SICHTBAR' : 'verborgen') + ', nach Scrollen '
+          + (r.sicht ? 'sichtbar' : 'FEHLT') + ' bei x ' + r.links + ', ' + r.abstandUnten + ' px über dem Rand; langer Toast ab x '
+          + r.toastLinks + ' → ' + (r.schnitt ? 'überlappt, ' + r.obenWer : 'frei') + '; Tippen: Sprungmarken bei ' + n.nav + ' px, Kopfleiste bis '
+          + n.leiste + ' → ' + (n.nav >= n.leiste ? 'frei' : 'VERDECKT') + '; offenes Menü ' + (gedeckt ? 'deckt ihn' : 'DECKT IHN NICHT'));
+      } else {
+        const r = await p.evaluate(() => ({ nav: Math.round(document.querySelector('.hilfe-nav').getBoundingClientRect().top),
+          hoehe: Math.round(document.querySelector('.hilfe-nav').getBoundingClientRect().height),
+          vh: innerHeight, knopf: getComputedStyle(document.querySelector('.hilfe-hoch')).display }));
+        zeile('hilfe-leiste', 'nach Scrollen Sprungmarken bei ' + r.nav + ' px (' + (r.nav === 0 ? 'kleben' : 'KLEBEN NICHT')
+          + '), ' + r.hoehe + ' px = ' + Math.round(100 * r.hoehe / r.vh) + ' %; Knopf ' + (r.knopf === 'none' ? 'nicht da' : 'DA'));
+      }
+    } catch (err) {
+      zeile('hilfe-nav', 'KEIN ERGEBNIS (' + String(err.message).split('\n')[0] + ')'); fehlt++;
+    } finally { await p.close(); }
+  }
   await b.close();
   process.exit(fehlt ? 3 : 0);
 })();

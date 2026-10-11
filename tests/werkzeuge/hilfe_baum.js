@@ -46,9 +46,9 @@ const spr = js.includes('function hilfeSprungmarken(')
   ? new Function('HILFE_TEILE', 'rolle', name('function hilfeSprungmarken(')) : null;
 const ziel = knoten('main');
 const namen = Object.keys(umgebung).concat(['hilfeListe', 'hilfeSchluessel', 'datenschutzAbsaetze',
-  'HILFE_TEILE', 'hilfeSprungmarken', 'ziel']);
+  'HILFE_TEILE', 'hilfeSprungmarken', 'hilfeKnopfZuDenMarken', 'ziel']);
 const werte = Object.values(umgebung).concat([(p) => hilfeListe(umgebung.document, p), hilfeSchluessel, ds,
-  HILFE_TEILE, (r) => spr(HILFE_TEILE, r), ziel]);
+  HILFE_TEILE, (r) => spr(HILFE_TEILE, r), () => {}, ziel]);
 new Function(...namen, name('function ansichtHilfe('))(...werte);
 const aus = [];
 (function lauf(k, t) {
