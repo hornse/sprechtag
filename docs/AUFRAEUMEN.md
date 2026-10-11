@@ -33,3 +33,11 @@ erledigte werden mit Version vermerkt, nicht gestrichen.
      absichtliche Zählungen. Die Zahl heißt nicht „15 kaputte Suiten“.
    - Ausdrücklich dazu: `frontend_datenschutz_test.js`, in v0.9.83 selbst
      erweitert, mit demselben Muster.
+5. **Eintragsnummer von `koordination` nachtragen** (vorgemerkt 11.10.2026).
+   Die Vermerke zur E-Mail-Adresse (`docs/SONDIERUNG.md`, CHANGELOG v0.9.88)
+   und zum Kürzel (CHANGELOG v0.9.4) verweisen auf die Entscheidung von
+   `koordination` zum Regelkonflikt REIHENREGELN 9 gegen 10 – über die
+   Mitteilung des Betreibers vom 11.10.2026 und den Befund
+   `docs/BEFUND-2026-10-11-sprechtag-modul-und-kontodaten.md`, nicht über
+   eine Nummer, weil die Entscheidung dort noch nicht abgelegt ist. Sobald
+   sie es ist: je ein Nachtrag mit der Nummer, alter Text unverändert.
