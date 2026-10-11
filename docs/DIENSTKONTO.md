@@ -1,5 +1,15 @@
 # Dienstkonto und Lehrkraft-Ermittlung
 
+> **Überholt seit v0.9.72 (09.10.2026, E17).** Das Dienstkonto gibt es
+> nicht mehr: Verwaltungsseite, Verschlüsselung, Schlüssel in `config.php`
+> und hinterlegte Zugangsdaten sind entfernt; `sql/21_dienstkonto_entfernen.sql`
+> löscht die gespeicherten Werte. Die Lehrkraft-Ermittlung
+> (`POST /api/lehrer-ermitteln`) läuft über die WebUntis-Sitzung der
+> angemeldeten Person, ohne Zugangsdaten; ist die Sitzung nicht nutzbar,
+> sagt das System es, statt einzuspringen. Ob der Abschnitt „Was ermittelt
+> wird“ im Einzelnen noch stimmt, ist hier nicht geprüft. Der Text unten
+> beschreibt den Stand bis v0.9.71 und bleibt als Geschichte stehen.
+
 ## Wozu
 
 Eltern sollen beim Buchen sofort sehen, welche Lehrkräfte ihr Kind

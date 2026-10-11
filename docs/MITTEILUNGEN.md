@@ -126,6 +126,16 @@ entsteht keine Mitteilung (sie wissen es ja).
 
 ## Versand auslösen
 
+> **Überholt (Dienstkonto seit v0.9.72, E17):** Den Knopf „Alle offenen
+> versenden“ mit eingetippten Zugangsdaten gibt es in der Oberfläche nicht
+> mehr (Stand v0.9.87 gesucht, kein Treffer; seit wann, ist nicht
+> nachgesehen), und ein Dienstkonto gibt es nicht mehr. Mitteilungen gehen
+> über die WebUntis-Sitzung der handelnden Person; was liegen blieb, steht
+> nach der Anmeldung als „N Mitteilungen sind gespeichert, aber noch nicht
+> verschickt“ und in der Ansicht „Mitteilungen“ (E17). Das gilt auch für
+> Schritt 2 im folgenden Abschnitt. Der Abschnitt bleibt als damaliger
+> Stand stehen.
+
 Administration → „Mitteilungen" → Sprechtag wählen → Zugangsdaten eingeben
 → „Alle offenen versenden". Die Zugangsdaten werden nur für diesen Vorgang
 verwendet und nicht gespeichert; es wird **eine** WebUntis-Sitzung für alle
