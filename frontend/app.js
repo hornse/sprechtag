@@ -1187,9 +1187,13 @@ function ansichtHilfe(ziel) {
       + 'des Kindes.',
     'Oben den Sprechtag wählen (falls mehrere zur Auswahl stehen).',
     'Das Kind auswählen, um dessen Termine es geht.',
-    'Bei der gewünschten Lehrkraft auf eine freie Uhrzeit tippen – der Termin '
-      + 'ist damit gebucht.',
-    'Unter „Meine Termine" sieht man alle Buchungen und kann sie wieder absagen.',
+    'Die Kachel der Lehrkraft antippen. Darunter erscheinen ihre freien Zeiten; '
+      + 'wer möchte, trägt vorher im Feld „Optionaler Hinweis an die Lehrkraft“ '
+      + 'ein Thema ein.',
+    'Eine freie Uhrzeit antippen – der Termin ist damit gebucht, ohne weitere '
+      + 'Rückfrage.',
+    'Oben auf der Seite zeigt „Meine Termine“ die gebuchten Termine; dort und '
+      + 'unter „Meine Termine“ in der Seitenleiste lassen sie sich absagen.',
   ]));
   eltern.appendChild(el('h4', null, 'Anmeldung'));
   eltern.appendChild(el('p', null,
@@ -1197,20 +1201,41 @@ function ansichtHilfe(ziel) {
     + 'Erziehungsberechtigte verwenden ihren eigenen Elternzugang. Die App '
     + 'speichert keine Passwörter; die Anmeldung wird bei WebUntis geprüft.'));
 
+  eltern.appendChild(el('h4', null, 'Welche Lehrkräfte erscheinen'));
+  eltern.appendChild(el('p', null,
+    'Zuerst stehen Lehrkräfte, die Sie eingeladen haben („hat Sie '
+    + 'eingeladen“), dann die Klassenleitung (Abzeichen „Klassenleitung“) und '
+    + 'die Lehrkräfte, die Ihr Kind unterrichten. Abgesetzt darunter stehen '
+    + 'Ansprechpersonen mit besonderer Aufgabe, etwa die Beratung. Ab Phase 2 '
+    + 'finden Sie alle weiteren teilnehmenden Lehrkräfte unter „Weitere '
+    + 'Lehrkräfte suchen“, nach Name, Kürzel oder Raum.'));
+
   eltern.appendChild(el('h4', null, 'Die zwei Phasen eines Sprechtags'));
   eltern.appendChild(el('p', null,
-    'Ein Sprechtag durchläuft in der Regel zwei Phasen. In Phase 1 können nur '
-    + 'Erziehungsberechtigte buchen, die von einer Lehrkraft eingeladen wurden '
-    + '– so kommen wichtige Gespräche zuerst zustande. In Phase 2 ist die '
-    + 'Buchung für alle geöffnet. Ist ein Sprechtag geschlossen, sind keine '
-    + 'Buchungen mehr möglich.'));
+    'Ein Sprechtag durchläuft in der Regel zwei Phasen. In Phase 1 können Sie '
+    + 'nur bei einer Lehrkraft buchen, die Sie eingeladen hat; es erscheint '
+    + 'nur deren Kachel. In Phase 2 ist jede teilnehmende Lehrkraft buchbar. '
+    + 'Ist ein Sprechtag geschlossen, sind keine Buchungen mehr möglich.'));
 
   eltern.appendChild(el('h4', null, 'Termine buchen und absagen'));
   eltern.appendChild(el('p', null,
     'Buchungen sind einem bestimmten Kind zugeordnet, damit die Lehrkraft '
-    + 'weiß, um wen es geht. Ein Elternteil kann zur selben Uhrzeit nur einen '
-    + 'Termin haben – Doppelbuchungen bei zwei Lehrkräften gleichzeitig werden '
-    + 'verhindert. Abgesagte Termine geben den Slot sofort wieder frei.'));
+    + 'weiß, um wen es geht. Je Kind gibt es bei jeder Lehrkraft nur einen '
+    + 'Termin; ist schon einer gebucht, auch über ein anderes Konto, sagt die '
+    + 'Seite das, die Uhrzeit aber nur bei einem Termin des eigenen Kontos. '
+    + 'Ein Elternteil kann zur selben Uhrzeit nur einen Termin haben. Einen '
+    + 'Termin, der in Phase 1 auf Einladung entstanden ist, kann nur die '
+    + 'Lehrkraft absagen. Abgesagte Termine geben den Slot sofort wieder frei.'));
+
+  // ---- Für volljährige Schülerinnen und Schüler (E15) ----
+  // Der zitierte Satz ist der Anfang von bu_sperre_text() (slots.php);
+  // tests/frontend_hilfe_test.js hält die Verbindung.
+  const schueler = teil('hilfe-schueler');
+  schueler.appendChild(el('p', null,
+    'Selbst buchen können Sie, wenn die Schule es für Ihre '
+    + 'WebUntis-Benutzergruppe freigeschaltet hat; dann geht alles wie oben '
+    + 'beschrieben. Sonst steht auf der Buchungsseite „Termine buchen die '
+    + 'Erziehungsberechtigten“. Angemeldet sind Sie in beiden Fällen.'));
 
 
   // ---- Für Lehrkräfte ----
@@ -1219,9 +1244,13 @@ function ansichtHilfe(ziel) {
     'Mit dem WebUntis-Zugang anmelden.',
     'Unter „Meine Termine" sieht man das eigene Zeitraster mit gebuchten und '
       + 'freien Slots.',
-    'In Phase 1 können Eltern per „Einladungen" gezielt eingeladen werden.',
-    'Ist ein Elternteil verhindert, kann die Lehrkraft stellvertretend für '
-      + 'einen freien Slot buchen.',
+    'Unter „Einladungen“ Kinder suchen (Name oder Klasse, „Suchen“) und deren '
+      + 'Erziehungsberechtigte einladen – in der Vorbereitung vorbereitet und '
+      + 'beim Anlegen versendet, in Phase 1 der Weg zum Termin, in Phase 2 als '
+      + 'gezielte Erinnerung.',
+    'Ist ein Elternteil verhindert, das Kind im eigenen Zeitraster suchen und '
+      + 'einen freien Zeitpunkt antippen; alle Erziehungsberechtigten werden '
+      + 'benachrichtigt.',
   ]));
 
   // ---- Für die Administration ----
@@ -1233,6 +1262,22 @@ function ansichtHilfe(ziel) {
     'Das Erscheinungsbild (Logo, Texte) lässt sich unter '
       + '„Erscheinungsbild" anpassen.',
   ]));
+  verwaltung.appendChild(el('h4', null, 'Mit welchem Konto'));
+  verwaltung.appendChild(el('p', null,
+    'Die Verwaltung mit dem eigenen Lehrerkonto benutzen. Mit dem '
+    + 'WebUntis-Administrationskonto gehen keine Nachrichten an Eltern hinaus '
+    + '(Absagen, Ausfälle, Einladungen, Bestätigungen). Es wird nur einmal '
+    + 'gebraucht, um unter „Volljährige Schüler“ die Gruppen auszuwählen.'));
+
+  verwaltung.appendChild(el('h4', null, 'Volljährige Schülerinnen und Schüler'));
+  verwaltung.appendChild(el('p', null,
+    'Unter „Volljährige Schüler“ werden die WebUntis-Gruppen gewählt, deren '
+    + 'Mitglieder selbst buchen dürfen.'));
+
+  verwaltung.appendChild(el('h4', null, 'Gespeicherte Mitteilungen'));
+  verwaltung.appendChild(el('p', null,
+    'Nach der Anmeldung meldet die Seite, wenn Mitteilungen gespeichert, aber '
+    + 'noch nicht verschickt sind; „Jetzt senden“ holt das nach.'));
   verwaltung.appendChild(el('h4', null, 'Anwesenheit der Lehrkräfte'));
   verwaltung.appendChild(el('p', null,
     'Lehrkräfte sind normalerweise den ganzen Sprechtag anwesend. Über das '
@@ -1252,8 +1297,10 @@ function ansichtHilfe(ziel) {
   verwaltung.appendChild(el('p', null,
     'Fällt eine Lehrkraft aus, gibt die Administration die Termine über das '
     + '⊘-Symbol frei. Die betroffenen Erziehungsberechtigten werden '
-    + 'automatisch benachrichtigt, und die Lehrkraft ist danach nicht mehr '
-    + 'buchbar. Die abgesagten Termine sieht die Lehrkraft weiter in ihrer '
+    + 'benachrichtigt; ist die Anmeldung der Verwaltung abgelaufen, bleibt die '
+    + 'Absage gespeichert und wird nach erneuter Anmeldung verschickt. Die '
+    + 'Lehrkraft ist danach nicht mehr buchbar. '
+    + 'Die abgesagten Termine sieht die Lehrkraft weiter in ihrer '
     + 'Ansicht unter „Abgesagte Termine“.'));
 
 
@@ -1265,9 +1312,14 @@ function ansichtHilfe(ziel) {
      + 'den des Kindes) und ob Benutzername und Passwort stimmen. Bei '
      + 'anhaltenden Problemen ' + kontaktSatz('wenden Sie sich an')],
     ['Warum sehe ich keine freien Termine?',
-     'Möglicherweise läuft gerade Phase 1, in der nur eingeladene '
-     + 'Erziehungsberechtigte buchen können, oder die Lehrkraft ist bereits '
-     + 'ausgebucht. In Phase 2 stehen wieder alle freien Slots offen.'],
+     'Läuft Phase 1 und liegt für Ihr Kind keine Einladung vor, erscheint '
+     + 'keine Kachel – die Seite sagt das dann selbst. Sonst ist die Lehrkraft '
+     + 'vielleicht bereits ausgebucht. In Phase 2 stehen wieder alle freien '
+     + 'Slots offen.'],
+    ['Ich finde eine Lehrkraft nicht.',
+     'In Phase 1 erscheinen nur Lehrkräfte, die Sie eingeladen haben. Ab '
+     + 'Phase 2 finden Sie alle teilnehmenden Lehrkräfte unter „Weitere '
+     + 'Lehrkräfte suchen“.'],
     ['Kann ich mehrere Kinder in einem Konto buchen?',
      'Ja. Wählen Sie oben das jeweilige Kind aus; die Buchungen werden dem '
      + 'richtigen Kind zugeordnet.'],
@@ -1277,12 +1329,12 @@ function ansichtHilfe(ziel) {
      + 'Bestätigung per WebUntis-Nachricht kommt nur, wenn eine Lehrkraft für '
      + 'Sie gebucht hat.'],
     ['Kann ich der Lehrkraft vorab ein Thema mitteilen?',
-     'Ja. Beim Buchen gibt es ein optionales Feld „Hinweis an die Lehrkraft". '
+     'Ja. Beim Buchen gibt es das Feld „Optionaler Hinweis an die Lehrkraft“. '
      + 'Was Sie dort eintragen (z. B. „Thema: Mathe-Note"), sieht nur die '
      + 'jeweilige Lehrkraft – keine anderen Eltern. Das Feld ist freiwillig.'],
-    ['Wie sage ich einen Termin ab?',
-     'Unter „Meine Termine" lässt sich jeder Termin absagen; der Platz wird '
-     + 'sofort wieder frei.'],
+    ['Warum kann ich einen Termin nicht absagen?',
+     'Er ist in Phase 1 auf Einladung entstanden; absagen kann ihn nur die '
+     + 'Lehrkraft.'],
     ['Kann ich die Termine in meinen Kalender übernehmen?',
      'Ja. Unter „Meine Termine" gibt es bei jedem Termin „📅 hinzufügen" für '
      + 'den einzelnen Eintrag und darunter einen persönlichen Abo-Link, mit '
@@ -1290,9 +1342,9 @@ function ansichtHilfe(ziel) {
      + 'WebUntis-Kalender erscheinen und sich bei Änderungen selbst '
      + 'aktualisieren. Der Link ist privat und sollte nicht weitergegeben '
      + 'werden.'],
-    ['Als Lehrkraft: Kann ich für Eltern buchen, die selbst nicht können?',
-     'Ja, in Ihrer eigenen Ansicht können Sie stellvertretend für ein freies '
-     + 'Zeitfenster buchen. Das Elternkonto wird dabei automatisch ermittelt.'],
+    ['Auf dem Telefon sieht die Seite anders aus.',
+     'Auf schmalen Bildschirmen werden Tabellen zu Karten, je Eintrag eine; '
+     + 'Knöpfe wie „Absagen“ stehen unten in der Karte.'],
   ];
   for (const [frage, antwort] of fragen) {
     const f = block('faq-' + hilfeSchluessel(frage), frage);
@@ -1315,17 +1367,16 @@ function ansichtHilfe(ziel) {
 // Sprungmarke können nicht auseinanderlaufen (tests/frontend_hilfe_test.js).
 const HILFE_TEILE = [
   ['hilfe-eltern', 'Erziehungsberechtigte', 'Für Erziehungsberechtigte'],
+  ['hilfe-schueler', 'Volljährige Schüler', 'Für volljährige Schülerinnen und Schüler'],
   ['hilfe-lehrkraefte', 'Lehrkräfte', 'Für Lehrkräfte'],
   ['hilfe-verwaltung', 'Administration', 'Für die Administration'],
   ['hilfe-faq', 'Häufige Fragen', 'Häufige Fragen'],
   ['hilfe-datenschutz', 'Datenschutz', 'Datenschutz'],
 ];
 
-// Sprungmarken [Kennung, Text], die der eigenen Rolle zuerst. Volljährige
-// Schülerinnen und Schüler buchen wie Eltern; einen eigenen Teil bekommen
-// sie mit dem Nachziehen der Inhalte.
+// Sprungmarken [Kennung, Text], die der eigenen Rolle zuerst.
 function hilfeSprungmarken(rolle) {
-  const eigene = { eltern: 'hilfe-eltern', schueler: 'hilfe-eltern',
+  const eigene = { eltern: 'hilfe-eltern', schueler: 'hilfe-schueler',
     lehrkraft: 'hilfe-lehrkraefte', admin: 'hilfe-verwaltung' }[rolle];
   const marken = HILFE_TEILE.map((t) => [t[0], t[1]]);
   const i = marken.findIndex((m) => m[0] === eigene);

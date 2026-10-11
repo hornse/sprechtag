@@ -1333,7 +1333,8 @@ mut AT46 $APP 's/  zeichneAbgesagte\(ziel, S\.svAbgesagt \|\| \[\]\);\n//; s/(  
   $FAT "unter dem Raster, genau einmal"
 mut AT47 $APP 's/S\.svAbgesagt = d\.abgesagt \|\| \[\];/S.svAbgesagt = d.abgesagt;/' \
   $FAT "ladeSvRaster übernimmt die abgesagten Termine"
-mut AT48 $APP 's/ Die abgesagten Termine sieht die Lehrkraft weiter in ihrer \x27\n    \+ \x27Ansicht unter „Abgesagte Termine“\.\x27/\x27/' \
+# AT48 (v0.9.90): Der Satz beginnt jetzt eine Fortsetzungszeile; derselbe Eingriff.
+mut AT48 $APP 's/\n    \+ \x27Die abgesagten Termine sieht die Lehrkraft weiter in ihrer \x27\n    \+ \x27Ansicht unter „Abgesagte Termine“\.\x27//' \
   $FAT "Krankheitsausfall: die Lehrkraft sieht die Termine weiter"
 # Datenschutz: jede geleerte Tabelle genannt; eine künftige ohne Nennung wird rot
 mut AT49 $APP 's/, auch abgesagte Termine, die Einladungen/, die Einladungen/' \
@@ -1445,8 +1446,9 @@ mut DS10 $APP 's/^  for \(const a of datenschutzAbsaetze\(\)\) datenschutz\./  i
 mut DS11 $APP 's/^  for \(const a of datenschutzAbsaetze\(\)\) datenschutz\.appendChild/  for (const a of datenschutzAbsaetze()) faq.appendChild/m' \
   $DS "ansichtHilfe zeigt die Absätze im Abschnitt „Datenschutz“, je genau einmal (ausgeführt)"
 # HR1: die Reihenfolge steht nur in HILFE_TEILE (Engstelle, v0.9.89); die
-# Abschnitte wandern mit, nicht nur die Sprungmarken.
-mut HR1 $APP 's/^(  \[\x27hilfe-eltern\x27, [^\n]*\n)(  \[\x27hilfe-lehrkraefte\x27, [^\n]*\n)/$2$1/m' \
+# Abschnitte wandern mit, nicht nur die Sprungmarken. Seit v0.9.90 steht der
+# Schülerteil an zweiter Stelle; vertauscht werden die ersten beiden.
+mut HR1 $APP 's/^(  \[\x27hilfe-eltern\x27, [^\n]*\n)(  \[\x27hilfe-schueler\x27, [^\n]*\n)/$2$1/m' \
   $HIT "Abschnitte nach Rollen, in dieser Reihenfolge, je einmal"
 mut HR2 $APP 's/  return i <= 0 \? marken : \[marken\[i\]\]\.concat\(marken\.slice\(0, i\), marken\.slice\(i \+ 1\)\);/  return marken;/' \
   $HIT "Sprungmarke der eigenen Rolle zuerst, keine fehlt"
@@ -1454,7 +1456,36 @@ mut HR3 $APP 's/^  \[\x27hilfe-lehrkraefte\x27, [^\n]*\n//m' \
   $HIT "Abschnitte nach Rollen, in dieser Reihenfolge, je einmal"
 mut HR4 $APP 's/    a\.href = \x27#\x27 \+ ziel2;/    a.href = \x27#\x27 + ziel2 + \x27x\x27;/' \
   $HIT "eine Sprungmarke je Abschnitt, jede auf einen vorhandenen Abschnitt"
-mut HR5 $APP 's/schueler: \x27hilfe-eltern\x27,/schueler: \x27hilfe-faq\x27,/' \
+# HR5 (v0.9.90): Volljährige haben einen eigenen Teil; derselbe Eingriff.
+mut HR5 $APP 's/schueler: \x27hilfe-schueler\x27,/schueler: \x27hilfe-faq\x27,/' \
+  $HIT "Sprungmarke der eigenen Rolle zuerst, keine fehlt"
+
+echo "== v0.9.90: Hilfe nachgezogen (Schritt 2, Inhalt)"
+# HZ1–HZ4: Ändert sich der Code, den die Hilfe beschreibt, wird die
+# Hilfe-Prüfung rot – nicht nur der Test des Codes.
+mut HZ1 $SLP 's/return \x27Termine buchen die Erziehungsberechtigten\. Ob Sie/return \x27Termine buchen Ihre Eltern. Ob Sie/' \
+  $HIT "E15: der zitierte Satz ist der Anfang beider Sperr-Meldungen aus bu_sperre_text (ausgeführt)"
+mut HZ2 $SLP 's/bereits ein Termin, gebucht über ein \x27/bereits ein Termin um \x27 . \$uhr . \x27 Uhr, gebucht über ein \x27/' \
+  $HIT "E24: ein Termin je Kind und Lehrkraft; Uhrzeit nur beim eigenen Konto – wie bu_kind_termin_text (ausgeführt)"
+mut HZ3 $SLP 's/\(\(string\)\(\$buchung\[\x27phase\x27\] \?\? \x27\x27\) === \x27phase1\x27\)/((string)(\$buchung[\x27phase\x27] ?? \x27\x27) === \x27phaseX\x27)/' \
+  $HIT "Absagen: Termin aus Phase 1 auf Einladung sagt nur die Lehrkraft ab – wie slot_storno_erlaubt (H4, H10; ausgeführt)"
+mut HZ4 $APP 's/lehrer: \(liste\.eingeladen \|\| \[\]\)\.concat\(liste\.unterrichtend \|\| \[\]\)/lehrer: (liste.unterrichtend || []).concat(liste.eingeladen || [])/' \
+  $HIT "Eltern: Gliederung der Kacheln in der Reihenfolge der Seite (H2, E10; Reihenfolge aus buchenLehrerAbschnitte ausgeführt)"
+# HZ5–HZ7: die Zitat-Prüfung. HZ6 lässt den alten Text als Kommentar stehen
+# (Art 3 im Befund vom 11.10.); HZ7 zitiert in der Hilfe falsch.
+mut HZ5 $APP 's/knopf\(\x27Jetzt senden\x27, null,/knopf(\x27Senden\x27, null,/' \
+  $HIT "jedes Zitat der Hilfe steht als Text im Code, außerhalb der Hilfe, an Grenzen (mind. 15 Zitate)"
+mut HZ6 $APP 's/  const b = block\(\x27buchen-weitere\x27, \x27Weitere Lehrkräfte suchen \(\x27/  \/\/ früher: \x27Weitere Lehrkräfte suchen (\x27\n  const b = block(\x27buchen-weitere\x27, \x27Mehr Lehrkräfte suchen (\x27/' \
+  $HIT "jedes Zitat der Hilfe steht als Text im Code, außerhalb der Hilfe, an Grenzen (mind. 15 Zitate)"
+mut HZ7 $APP 's/Knöpfe wie „Absagen“ stehen/Knöpfe wie „Termin absagen“ stehen/' \
+  $HIT "jedes Zitat der Hilfe steht als Text im Code, außerhalb der Hilfe, an Grenzen (mind. 15 Zitate)"
+mut HZ8 $APP 's/    \[\x27Warum kann ich einen Termin nicht absagen\?\x27,/    [\x27Wie sage ich einen Termin ab?\x27,/' \
+  $HIT "FAQ ohne Doppelung zur Schritt-Liste: kein Ablauf des Absagens, keine Lehrkraft-Frage zum stellvertretenden Buchen"
+mut HZ9 $APP 's/\x27benachrichtigt; ist die Anmeldung der Verwaltung abgelaufen/\x27automatisch benachrichtigt; ist die Anmeldung der Verwaltung abgelaufen/' \
+  $HIT "Krankheitsausfall: freigegebener Wortlaut, kein „automatisch“ (H8)"
+mut HZ10 $APP 's/(    \x27Ein Sprechtag durchläuft in der Regel zwei Phasen\. )/    \x27Auf schmalen Bildschirmen werden Tabellen zu Karten. \x27\n    + $1/' \
+  $HIT "FAQ: Karten auf dem Telefon – einmal, nicht in jedem Teil"
+mut HZ11 $APP 's/schueler: \x27hilfe-schueler\x27,/schueler: \x27hilfe-eltern\x27,/' \
   $HIT "Sprungmarke der eigenen Rolle zuerst, keine fehlt"
 
 echo ""

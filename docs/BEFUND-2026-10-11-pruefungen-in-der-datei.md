@@ -49,6 +49,23 @@ geblieben, die ausgeführte schlägt an. **Die Grenze greift also auch dann,
 wenn sie bekannt ist** — „im Rumpf“ klingt nach der Abhilfe und ist nur
 ihre erste Hälfte.
 
+**Fünftes Beispiel, v0.9.90: Art 4 in einer Prüfung, die gegen Art 4
+gebaut war.** Die Hilfe-Prüfung verlangt, dass jedes Zitat „…“ der Hilfe
+als Text im Code steht. Sie suchte das Zitat irgendwo in einer
+Zeichenkette. Die Mutation HZ7 machte in der Hilfe aus „Absagen“ das
+Zitat „Termin absagen“, das es als Beschriftung nicht gibt. Die Prüfung
+blieb grün: Sie fand es in `'Diesen Termin absagen'`, dem Tooltip eines
+anderen Knopfs. Das ist Art 4, hier als **Teilstück zählt als Ganzes**.
+Seit v0.9.90 muss das Zitat an Grenzen stehen (davor Anfang der
+Zeichenkette oder „, danach ihr Ende, “, „(“, „.“, „:“ oder „,“).
+**Die Art trifft also auch eine Prüfung, die gegen sie gerichtet ist** —
+gefunden hat es die Mutationsserie, nicht das Lesen.
+
+Die geschärfte Prüfung hat sofort einen echten Fehler gefunden, keine
+Formalie: Die FAQ nannte das Feld „Hinweis an die Lehrkraft“. Es heißt
+„Optionaler Hinweis an die Lehrkraft“. Wer nach dem genannten Namen
+sucht, findet es nicht.
+
 ## Wonach in anderen Suiten zu suchen ist
 
 - **Art 1:** Wie oft steht die gesuchte Zeichenkette in der Datei? Mehr als

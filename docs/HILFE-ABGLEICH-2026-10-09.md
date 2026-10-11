@@ -188,3 +188,13 @@ im Kalender-Abo; eine Bestätigung kommt nur, wenn eine Lehrkraft gebucht
 hat. Mitgezogen, weil die Antwort sonst etwas versprochen hätte, das es
 nicht mehr gibt. Die übrige Hilfeseite bleibt auf der Nachzieh-Liste.
 
+**Nachtrag 11.10.2026 — H1–H12 nachgezogen (v0.9.89, v0.9.90):** Die
+Hilfeseite ist nach Rollen gegliedert (v0.9.89, nur umsortiert) und
+inhaltlich nachgezogen (v0.9.90): H1–H8 und H10–H12 wie oben unter „Gilt
+heute“, jeweils gegen den Code vom 11.10.2026 geprüft. Dazu kommen E15
+(eigener Teil für volljährige Schülerinnen und Schüler), E23 (mit welchem
+Konto die Verwaltung arbeitet), E24 (ein Termin je Kind und Lehrkraft) und
+die Kartenansicht am Telefon. Geprüft wird das in
+`tests/frontend_hilfe_test.js`, wo möglich verbunden mit dem Code, der es
+tut. **Offen:** die README und die Fachdokumente aus dem Abschnitt oben,
+darunter `BEDIENUNG.md`.

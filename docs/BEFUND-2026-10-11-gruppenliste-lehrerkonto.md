@@ -77,3 +77,26 @@ Schüler“, die Texte beim Nachziehen.
 - Der Text der Meldung entsteht an zwei Stellen: der Grund in
   `backend/api/webuntis_adapter.php` (`auswahl_fehler`), der Satz drum
   herum in `frontend/app.js`. Der Halbsatz gehört in den Satz im Frontend.
+
+## Nachtrag 11.10.2026 — jetzt gemessen, nicht mehr geschlossen (v0.9.90)
+
+Der Abschnitt „Warum das erwartbar ist“ schloss aus der Messung vom
+09.10.2026 auf das Lehrerkonto. **Beide Zeilen der Tabelle sind jetzt
+gemessen:**
+
+| Konto | Gruppenliste | gemessen |
+|---|---|---|
+| WebUntis-Admin (personType 16) | 200 | 09.10.2026, über unsere Sitzung (v0.9.67) |
+| Lehrerkonto mit `admin_kuerzel` | 403 | 11.10.2026, im Betrieb (Betreiber), Meldung wie oben unter „Beobachtet“ |
+
+Damit stimmt „nur einmal gebraucht“: Für die Gruppenliste braucht es das
+Administrationskonto, sonst nicht. So steht es seit v0.9.90 in der Hilfe
+(Teil „Für die Administration“, „Mit welchem Konto“), Stelle 2 von drei.
+
+**Weiter nur am Code gelesen, nicht gemessen:** „danach reicht das
+Lehrerkonto“, also dass die Seite mit dem Lehrerkonto das Textfeld mit den
+gespeicherten Gruppen vorbefüllt (siehe oben, „Am Code gelesen“).
+
+**Offen bleiben** Stelle 1 (der Halbsatz in der Meldung selbst, beim
+nächsten Anfassen der Seite „Volljährige Schüler“) und Stelle 3 (die
+Dokumentation).

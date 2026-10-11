@@ -1459,6 +1459,21 @@ Messteil `messung_schuelerliste` und die Auskunft
 `kennung_in_schuelerliste` der Elternmessung. `kind_klasse` älterer
 Vorgänge bleibt leer, `einladungen.erledigt` bleibt.
 
+**Nachtrag 11.10.2026 (v0.9.90) zur Lehre „Wer einen Bezeichner entfernt,
+durchsucht alle Mutationsmuster nach ihm“:** Nicht nur entfernte
+Bezeichner brechen Muster, **auch verschobener Text und geänderte
+Zeilenform.** Beim Nachziehen der Hilfe meldeten zwei Mutationen „MUTATION
+NICHT ANGEKOMMEN“, ohne dass ein Bezeichner wegfiel: AT48 suchte einen Satz
+mit Leerzeichen am Anfang einer Fortsetzungszeile, und der Satz begann nach
+dem Glätten des Absatzes eine neue Zeile; HR1 suchte zwei Einträge von
+`HILFE_TEILE` direkt untereinander, und dazwischen stand jetzt ein neuer.
+Gesucht hatte ich nur nach dem Bezeichner, der wegfiel (HR5 traf das).
+Beide sind umgestellt, derselbe Eingriff an derselben Stelle – wie DS1,
+DS2, S16, KN1 und KN5. **Wer Text umbricht, verschiebt oder zwischen zwei
+Zeilen einfügt, durchsucht die Muster nach diesem Text und nach seinen
+Nachbarzeilen**, nicht nur nach Bezeichnern. Die Serie meldet es zwar
+selbst („NICHT ANGEKOMMEN“), aber erst nach dem Umbau.
+
 ## E21 — Das Kalender-Abo liefert nur kommende Sprechtage
 
 **Datum:** 10.10.2026 · **Version:** 0.9.77 · **Anlass:** Fehler aus dem

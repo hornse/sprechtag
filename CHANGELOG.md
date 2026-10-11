@@ -1,5 +1,78 @@
 # Changelog - sprechtag
 
+## v0.9.90 (Oktober 2026) – Hilfe nachgezogen (Schritt 2: Inhalt)
+
+Zweiter Schritt zu `docs/HILFE-ABGLEICH-2026-10-09.md`. Jeder Punkt ist
+gegen den heutigen Code geprüft. Der Wortlaut ist vom Betreiber
+freigegeben.
+
+- **Für Erziehungsberechtigte:**
+  - Erst die Kachel, dann eine freie Uhrzeit; gebucht ist ohne Rückfrage.
+    Davor kann das Feld „Optionaler Hinweis an die Lehrkraft“ ausgefüllt
+    werden (H1).
+  - „Meine Termine“ oben auf der Buchungsseite (H3).
+  - Welche Lehrkräfte erscheinen und in welcher Reihenfolge, nach E10 (H2).
+  - In Phase 1 nur bei der Lehrkraft, die eingeladen hat (H7).
+  - Einen Termin aus Phase 1 auf Einladung sagt nur die Lehrkraft ab
+    (H4, H10).
+  - Ein Termin je Kind und Lehrkraft. Die Uhrzeit wird nur bei einem
+    Termin des eigenen Kontos genannt (E24).
+- **Neuer Teil „Für volljährige Schülerinnen und Schüler“ (E15),** mit
+  Sprungmarke; für Schülerinnen und Schüler steht sie vorn.
+- **Für Lehrkräfte:**
+  - Einladungen in jeder Phase, über die Suche (H5).
+  - Stellvertretend buchen über die Kind-Suche (H6).
+- **Für die Administration:**
+  - Krankheitsausfall im freigegebenen Wortlaut (H8).
+  - „Mit welchem Konto“ (E23): Das Administrationskonto sendet nicht an
+    Eltern und wird nur einmal für die Gruppen gebraucht. Gemessen,
+    `docs/BEFUND-2026-10-11-gruppenliste-lehrerkonto.md`.
+  - Volljährige Schüler.
+  - Gespeicherte Mitteilungen.
+- **Häufige Fragen:**
+  - Neu: „Ich finde eine Lehrkraft nicht.“ (H11).
+  - Neu: „Auf dem Telefon sieht die Seite anders aus.“, die Kartenansicht,
+    einmal statt in jedem Teil.
+  - Ergänzt: „Warum sehe ich keine freien Termine?“ (H12).
+  - „Wie sage ich einen Termin ab?“ wird zu „Warum kann ich einen Termin
+    nicht absagen?“. Das Absagen selbst steht in der Schritt-Liste.
+  - Die Lehrkräfte-Frage zum stellvertretenden Buchen entfällt; sie stand
+    doppelt mit der Schritt-Liste.
+- **Fund:** Die FAQ nannte das Feld „Hinweis an die Lehrkraft“; es heißt
+  „Optionaler Hinweis an die Lehrkraft“. Gefunden hat es die geschärfte
+  Zitat-Prüfung, siehe unten.
+- `hilfe_zusatz` ist unberührt. Der Halbsatz in der Meldung der Seite
+  „Volljährige Schüler“ kommt beim nächsten Anfassen dieser Seite.
+- `tests/werkzeuge/hilfe_baum.js`: das Werkzeug zum Beleg von v0.9.89
+  (fertiger Baum der Hilfe, Vergleich zweier Fassungen). Ein Werkzeug,
+  keine Prüfung, nicht im Zähllauf.
+
+### Prüfungen
+- **1617 → 1637 Prüfzeilen in 73 Suiten, alle grün;**
+  `frontend_hilfe_test.js` 10 → 30, `tests-sprechtag.sh` 29. Gegen die alte
+  Hilfe waren 23 der 30 rot.
+- **Was die Hilfe über das Verhalten sagt, ist mit dem Code verbunden, der
+  es tut.** Ausgeführt werden `bu_sperre_text` (der zitierte Satz ist der
+  Anfang beider Sperr-Meldungen), `bu_kind_termin_text` (die Uhrzeit nur
+  beim eigenen Konto), `slot_storno_erlaubt` (Phase 1 sagt nur die
+  Lehrkraft ab), alle drei aus `slots.php` über `php -r`, sowie
+  `buchenLehrerAbschnitte` (Reihenfolge der Kacheln). Ändert sich der Code,
+  wird die Hilfe-Prüfung rot (HZ1–HZ4).
+- **Jedes Zitat „…“ der Hilfe muss als Text im Code stehen,** außerhalb
+  der Hilfe, ohne Kommentare und an Grenzen; heute sind es 19. Ohne die
+  Grenzen blieb HZ7 grün: Das falsche Zitat „Termin absagen“ fand sich in
+  „Diesen Termin absagen“. Das ist der fünfte Fall im Befund
+  `docs/BEFUND-2026-10-11-pruefungen-in-der-datei.md`, Art 4 in einer
+  Prüfung, die gegen Art 4 gebaut war. Die geschärfte Fassung fand sofort
+  das falsch benannte Feld in der FAQ.
+- **Mutationen 527 → 538, alle angeschlagen**, H4 grün. Neu sind HZ1–HZ11.
+  Umgestellt, mit demselben Eingriff an derselben Stelle: HR5 (wegen des
+  Schülerteils), AT48 (andere Zeilenform) und HR1 (eine neue Zeile
+  dazwischen). Die Lehre steht als Nachtrag zu E20: Auch verschobener Text
+  und geänderte Zeilenform brechen Muster, nicht nur entfernte
+  Bezeichner. Die Rücknahme ist belegt: Prüfsummen aller 176 Dateien und
+  `git diff --stat` vorher und nachher gleich.
+
 ## v0.9.89 (Oktober 2026) – Hilfe nach Rollen gegliedert (Schritt 1: nur umsortiert)
 
 Erster von zwei Schritten zum Nachziehen der Hilfe
