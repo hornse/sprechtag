@@ -75,7 +75,7 @@ if (is_file($API . '/absagen.php')) require_once $API . '/absagen.php';
 $daSind = function_exists('bu_buchungen_entfernen') && function_exists('bu_absage_anlass');
 pruefe('Voraussetzung: bu_buchungen_entfernen und bu_absage_anlass definiert', $daSind);
 
-/** Testdatenbank: buchungen mit dem Schlüssel aus sql/02 (Slot eindeutig), die Ablage wie sql/24. */
+/** Testdatenbank: buchungen mit den Schlüsseln aus sql/02 (Slot) und sql/26 (Kind je Lehrkraft), die Ablage wie sql/24. */
 function ab_db(bool $mitAblage = true): PDO
 {
     $pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -84,7 +84,7 @@ function ab_db(bool $mitAblage = true): PDO
         lehrer_id INT NOT NULL, slot_beginn TEXT NOT NULL, eltern_user_id INT NOT NULL, schueler_id INT NOT NULL,
         kommentar TEXT NOT NULL DEFAULT '', phase TEXT NOT NULL DEFAULT 'phase2', gebucht_von TEXT NOT NULL DEFAULT 'eltern',
         kind_name TEXT NOT NULL DEFAULT '', kind_klasse TEXT NOT NULL DEFAULT '',
-        UNIQUE (sprechtag_id, lehrer_id, slot_beginn))");
+        UNIQUE (sprechtag_id, lehrer_id, slot_beginn), UNIQUE (sprechtag_id, lehrer_id, schueler_id))");
     // ENUM im Betrieb: ein anderer Anlass wird dort abgewiesen, hier auch.
     if ($mitAblage) $pdo->exec("CREATE TABLE abgesagte_termine (id INTEGER PRIMARY KEY AUTOINCREMENT,
         sprechtag_id INT NOT NULL, lehrer_id INT NOT NULL, slot_beginn TEXT NOT NULL, schueler_id INT NOT NULL,

@@ -1231,6 +1231,12 @@ zu entscheiden, ob dort „auch abgesagte“ ausdrücklich dazugeschrieben wird.
   sieht.
 - **Nicht in diesem Zug:** Die Eltern sehen abgesagte Termine nicht.
 
+**Nachtrag 11.10.2026 — E18 und E19 im Betrieb abgenommen (Betreiber):**
+Nach einem Ausfall zeigt der Abschnitt „Abgesagte Termine“ beide Termine mit
+Anlass, Zeitpunkt, Elternhinweis und „nicht neu gebucht“. Die Einladung
+steht auf „Termin abgesagt“. Die Ansicht lädt bei Teilnahme 0, und auf dem
+Telefon erscheint der Abschnitt als Karte. Kein Handlungsbedarf.
+
 ---
 
 ## E20 — Zug 4: keine Schülerliste mehr, Namen nur am Vorgang
@@ -1591,3 +1597,66 @@ sobald entschieden, hier als Nachtrag.
   womöglich genau die Hälfte, die man braucht. **Zeigt sich, dass jemand die
   Warnung übersieht und trotzdem handelt, wird nachgeschärft.**
 
+---
+
+## E24 — Ein Termin je Kind und Lehrkraft
+
+**Datum:** 11.10.2026 · **Version:** v0.9.84 · **Fehler aus dem Betrieb**
+
+**Lage:** Ein Elternteil konnte bei derselben Lehrkraft für dasselbe Kind
+mehrere Termine buchen; gesehen wurden zwei, um 15:00 und 15:10. Der Weg
+der Eltern (`POST /api/buchungen`) prüfte nur das Konto zur selben Uhrzeit
+(„Fall A“) und die Obergrenze je Konto. Die stellvertretende Buchung
+prüfte das Kind schon („Fall B“), aber **keine einzige Prüfung hielt diese
+Regel fest.** Eine Regel, die lange im Code stand und nie geprüft wurde,
+ist dasselbe wie eine, die nur im Frontend steht: Man weiß nicht, ob sie
+noch tut, was sie soll.
+
+**Entschieden (Betreiber):** Das wird verhindert. Begründung, wörtlich: Es
+bindet Kapazitäten, die es nicht gibt. Und: „Auch getrennt lebende Eltern
+müssen miteinander reden, und als Lehrer führe ich nicht dasselbe Gespräch
+zweimal.“
+
+- **Je Kind und Lehrkraft, nicht je Elternkonto.** Getrennt lebende Eltern
+  buchen über zwei Konten. Eine Prüfung je Konto ließe genau diesen Fall
+  offen, und er ist der wahrscheinlichste.
+- **Auch für die stellvertretende Buchung** (1): Sie lehnt weiter ab. Wer
+  die Lage kennt, kann den vorhandenen Termin absagen und neu buchen.
+- **Die Meldung nennt die Uhrzeit nur, wo sie beim Handeln hilft** (2b):
+  - beim eigenen Termin;
+  - für die Lehrkraft, die stellvertretend bucht; sie sieht ihr Raster
+    ohnehin.
+  
+  Liegt der Termin an einem anderen Konto, findet man ihn in „Meine
+  Termine“ nicht und kann ihn nicht absagen. Die Uhrzeit hülfe also nicht
+  beim Handeln, sie verriete nur, wo jemand zu einer bestimmten Zeit ist.
+  Bei einem Kontaktverbot wäre das genau die falsche Auskunft; eine
+  Schulanwendung muss sie nicht preisgeben.
+- **Ein abgesagter Termin zählt nicht:** Nach einer Absage soll neu gebucht
+  werden können. Die Ablage aus E19 steht in einer eigenen Tabelle und
+  blockiert nicht.
+- **Eine Stelle, serverseitig** (3): `bu_kind_termin()` in `slots.php`.
+  Beide Buchungswege fragen sie in ihrer Transaktion vor dem Schreiben.
+- **Zweite Stufe: der Schlüssel** `uniq_kind_termin` (sprechtag_id,
+  lehrer_id, schueler_id) auf `buchungen` (`sql/26`). Er ist die einzige
+  Sicherung, die zwei gleichzeitige Buchungen beider Elternteile fängt; ob
+  `FOR UPDATE` auf eine noch nicht vorhandene Zeile das in MariaDB täte,
+  ist nicht bekannt. Vorweg zählt `sql/26_pruefung.sql`, wie bei sql/23.
+  Reihenfolge: Deploy, dann zählen, dann Migration. Welche der doppelten
+  Buchungen weicht, entscheidet der Betreiber.
+- **Der tote Zweig entfällt** (4): Über den Weg der Eltern konnten
+  Lehrkraft und Verwaltung mit einer Konto-Kennung aus dem Request buchen.
+  Den Zweig rief nichts auf, und ihm fehlte dieselbe Regel. Toter Code mit
+  einer Lücke ist schlechter als toter Code.
+
+**Eigener Schritt danach, nicht in diesem Zug:** Die Kachel einer Lehrkraft
+zeigt schon vor dem Klick, dass für das Kind dort ein Termin besteht, und
+das Raster ist nicht buchbar. Eine Lehrkraft, bei der man ohnehin nicht
+buchen kann, erst nach dem Klick als gesperrt zu erfahren, ist unnötig.
+Die Anzeige fragt dann dieselbe Funktion.
+
+**Festlegung der Entwicklung:** Die Abfrage in `bu_kind_termin()` liest ohne
+`FOR UPDATE`. Gegen gleichzeitige Buchungen steht der Schlüssel; nach
+seiner Verletzung sagt `bu_konflikt_text()`, ob das Kind oder der Slot es
+war. Bis `sql/26` eingespielt ist, fehlt diese zweite Stufe im Betrieb –
+wie vor v0.9.84 für alle Fälle.

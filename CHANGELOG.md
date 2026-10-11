@@ -1,5 +1,70 @@
 # Changelog - sprechtag
 
+## v0.9.84 (Oktober 2026) – Ein Termin je Kind und Lehrkraft (E24)
+
+- **Fehler aus dem Betrieb behoben:** Über den Weg der Eltern ließen sich
+  bei derselben Lehrkraft mehrere Termine für dasselbe Kind buchen. Jetzt
+  lehnen beide Buchungswege einen zweiten Termin ab, **je Kind, nicht je
+  Elternkonto**: Hat das andere Elternteil schon gebucht, gilt es auch.
+  Ein abgesagter Termin (Ablage, E19) zählt nicht.
+- **Eine Stelle:** `bu_kind_termin()` in `slots.php`. Beide Wege fragen sie
+  in ihrer Transaktion vor dem Schreiben. Die eigene Abfrage der
+  stellvertretenden Buchung („Fall B“) ist ersetzt.
+- **Meldung (Betreiber, 2b):**
+  - eigenes Konto: „Sie haben für dieses Kind bei dieser Lehrkraft bereits
+    einen Termin um HH:MM Uhr.“
+  - anderes Konto: ohne Uhrzeit, mit dem Hinweis, sich an die Lehrkraft zu
+    wenden;
+  - stellvertretend buchende Lehrkraft: mit Uhrzeit, wie bisher.
+- **Schlüssel als zweite Stufe:** `uniq_kind_termin` (`sql/26`) fängt
+  gleichzeitige Buchungen. Nach einer Schlüsselverletzung sagt die Meldung,
+  ob das Kind oder der Slot es war (`bu_konflikt_text()`).
+- **Reihenfolge: Deploy, dann `sql/26_pruefung.sql`, dann
+  `sql/26_ein_termin_je_kind.sql`.**
+  - Die Prüfdatei liest nur und gibt nur Zahlen aus: `DOPPELT_FAELLE`,
+    `UEBERZAHLIGE_TERMINE` und als letzte Zeile „OK …“ oder „ANSEHEN …“.
+    Im Kopf steht eine Abfrage zum Ansehen der Fälle, ohne Namen.
+  - Welche doppelte Buchung weicht, entscheidet der Betreiber. Solange es
+    eine gibt, bricht MariaDB das Anlegen des Schlüssels ab und ändert
+    nichts.
+- **Entfernt:** der Zweig im Weg der Eltern, über den Lehrkraft und
+  Verwaltung mit einer Konto-Kennung aus dem Request buchen sollten. Ihn
+  rief nichts auf, und ihm fehlte die Regel. Lehrkraft und Verwaltung
+  bekommen dort jetzt 403 mit Verweis auf ihre eigene Ansicht.
+
+### Prüfungen
+- 1587 → 1615 Prüfzeilen in 73 Suiten (vorher 72), alle grün;
+  `tests-sprechtag.sh` 29.
+  - neu `run_ein_termin_je_kind.php` (+28): die Regel, die drei Meldungen,
+    der Schlüssel (aus den Spalten von `sql/26` gebaut, ohne die Funktion,
+    damit er allein belegt ist) und die Prüfdatei gegen SQLite ausgeführt;
+    die Migration am Text; Aufrufstellen und Engstelle am Quelltext (genau
+    zwei Schreibstellen in `buchungen`, beide mit dem ganzen Wachblock vor
+    dem `INSERT`).
+  - **Vorher hatte die Regel keine einzige Prüfung,** auch nicht der
+    „Fall B“ der stellvertretenden Buchung, der seit Langem im Code stand.
+- `run_abgesagte_termine` baut seine Testdatenbank mit beiden Schlüsseln
+  (nach `sql/26` wäre sie sonst großzügiger als der Betrieb); die Zahl
+  bleibt 63.
+- Mutationen 485 → 506, alle angeschlagen, H4 grün. Die Rücknahme ist über
+  Prüfsummen von 173 Dateien und `git diff --stat` belegt (zweiter,
+  voller Lauf nach der Korrektur von ET8).
+  - Neu sind ET1–ET21. ET15 und ET16 entwerten den Wachblock mit
+    `if (false)`, statt ihn zu entfernen; die Prüfung der Aufrufstellen
+    verlangt deshalb den ganzen Block zusammenhängend.
+  - ET8 schlug im ersten Lauf nicht an: Sein Muster traf zuerst den
+    Kopfkommentar der Migration, nicht die Anweisung (Werkzeugfehler). Es
+    ist an `ALTER TABLE` verankert, von Hand nachgefahren und belegt.
+
+### Gefunden, nicht behoben
+- `slot_buchung_erlaubt()` nimmt Lehrkraft und Verwaltung von der
+  Obergrenze je Konto aus. Seit der tote Zweig fort ist, erreicht diese
+  Ausnahme nichts mehr. Sie ist harmlos, steht aber da wie eine geltende
+  Regel.
+- Abgelegt (Doku): `docs/BEFUND-2026-10-11-spalte-hinweis.md` (Spalte
+  „Hinweis“ ohne Urheber) und die Abnahme von E18 und E19 als Nachtrag zu
+  E19.
+
 ## v0.9.83 (Oktober 2026) – Abgesagte Termine und abgeleiteter Einladungsstatus (E18, E19)
 
 - **Reihenfolge (G6): `sql/24` VOR dem Deploy, `sql/25` NACH dem Deploy.**

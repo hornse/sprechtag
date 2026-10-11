@@ -640,20 +640,14 @@ if (($seg[0] ?? '') === 'buchungen') {
                     . ' gebucht. Bitte einen anderen Zeitpunkt wählen.', 409);
             }
 
-            // Fall B: Ist dieses Kind bei DIESER Lehrkraft schon gebucht?
-            // Ein zweites Gespräch über dasselbe Kind bei derselben Lehrkraft
-            // ergibt keinen Sinn.
-            $stKind = $pdo->prepare(
-                'SELECT slot_beginn FROM buchungen
-                 WHERE sprechtag_id = ? AND lehrer_id = ? AND schueler_id = ?
-                 FOR UPDATE');
-            $stKind->execute([$sid, $lid, $kind]);
-            $vorhanden = $stKind->fetch();
-            if ($vorhanden !== false) {
+            // Fall B: Ist dieses Kind bei DIESER Lehrkraft schon gebucht? Ein
+            // Termin je Kind und Lehrkraft (E24) – dieselbe Regel wie beim
+            // Buchen der Eltern. Die Lehrkraft sieht die Uhrzeit, gleich an
+            // welchem Konto der Termin hängt.
+            $vorhanden = bu_kind_termin($pdo, $sid, $lid, $kind);
+            if ($vorhanden !== null) {
                 $pdo->rollBack();
-                json_err('Für dieses Kind besteht bei dieser Lehrkraft bereits '
-                    . 'ein Termin um ' . substr((string)$vorhanden['slot_beginn'], 0, 5)
-                    . ' Uhr.', 409);
+                json_err(bu_kind_termin_text($vorhanden, 'lehrkraft', 0), 409);
             }
 
             // Schreiben – der UNIQUE KEY sperrt den Slot zusätzlich ab.
@@ -669,7 +663,8 @@ if (($seg[0] ?? '') === 'buchungen') {
         } catch (PDOException $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             if ((int)$e->errorInfo[1] === 1062) {
-                json_err('Dieser Termin ist bereits vergeben.', 409);
+                json_err(bu_konflikt_text($pdo, $sid, $lid, $kind, 'lehrkraft', 0,
+                    'Dieser Termin ist bereits vergeben.'), 409);
             }
             throw $e;
         }
@@ -723,33 +718,24 @@ if (($seg[0] ?? '') === 'buchungen') {
         }
         $s = bu_sprechtag($pdo, $sid);
 
-        // Wer bucht für wen?
+        // Wer bucht für wen? Nur für sich selbst bzw. das eigene Kind.
+        // Lehrkräfte und Verwaltung buchen stellvertretend über
+        // /api/buchungen/stellvertretend. Bis v0.9.83 stand hier ein Zweig, der
+        // für sie mit einer Konto-Kennung aus dem Request buchen sollte – ihn
+        // rief nichts auf, und ihm fehlte die Regel je Kind (E24).
         $rolle = $u['rolle'];
         $elternUserId = $u['user_id'];
         if (in_array($rolle, ['lehrkraft', 'admin'], true)) {
-            // Stellvertretende Buchung (Phase 1): Eltern-Konto wird angegeben
-            $elternUserId = isset($body['eltern_user_id'])
-                ? (int)$body['eltern_user_id'] : null;
-            if ($elternUserId === null || $elternUserId <= 0) {
-                json_err('Für eine stellvertretende Buchung wird die WebUntis-Benutzer-ID '
-                    . 'der Erziehungsberechtigten benötigt');
-            }
-            // Nur bei der EIGENEN Lehrkraft – auch ein Admin nicht in fremdem
-            // Namen. Der übergebene lehrer_id muss dem eigenen Stammsatz gleichen.
-            if ($lid !== (int)($u['lehrer_id'] ?? 0)) {
-                json_err('Es kann nur bei der eigenen Lehrkraft stellvertretend '
-                    . 'gebucht werden, nicht im Namen einer anderen.', 403);
-            }
-        } else {
-            if (!auth_kind_erlaubt($u, $kind)) {
-                json_err('Für dieses Kind besteht keine Berechtigung', 403);
-            }
-            // Volljährige Schüler nur in zugelassener Gruppe (E15) – dieselbe
-            // Entscheidung wie bei den Kacheln.
-            $sperre = bu_buchen_gesperrt($u, bu_zugelassene_gruppen($pdo));
-            if ($sperre !== null) json_err(bu_sperre_text($sperre), 403);
-            if ($elternUserId === null) json_err('Konto unvollständig – bitte neu anmelden', 401);
+            json_err('Lehrkräfte buchen stellvertretend in ihrer eigenen Ansicht.', 403);
         }
+        if (!auth_kind_erlaubt($u, $kind)) {
+            json_err('Für dieses Kind besteht keine Berechtigung', 403);
+        }
+        // Volljährige Schüler nur in zugelassener Gruppe (E15) – dieselbe
+        // Entscheidung wie bei den Kacheln.
+        $sperre = bu_buchen_gesperrt($u, bu_zugelassene_gruppen($pdo));
+        if ($sperre !== null) json_err(bu_sperre_text($sperre), 403);
+        if ($elternUserId === null) json_err('Konto unvollständig – bitte neu anmelden', 401);
 
         // Regelprüfung
         $fenster = bu_lehrer_fenster($pdo, $sid, $lid);
@@ -805,9 +791,7 @@ if (($seg[0] ?? '') === 'buchungen') {
         // festgehalten) – gebucht wird dann ohne WebUntis. Fehlen sie
         // (Anmeldung vor v0.9.76, oder WebUntis gab sie beim Login nicht her),
         // werden sie über die Sitzung nachgeholt; geht das nicht, wird NICHT
-        // gebucht, statt still einen leeren Namen zu schreiben. Der Zweig für
-        // Lehrkraft/Verwaltung oben (Eltern-Benutzer-ID) bekommt so nie einen
-        // Namen und bucht nicht; die Oberfläche ruft ihn nicht auf.
+        // gebucht, statt still einen leeren Namen zu schreiben.
         $kd = wu_kind_daten_buchung($cfg, $kind, $rolle, (string)$u['name']);
         if (isset($kd['sitzung'])) json_sitzung_fehlt($kd['sitzung']);
         if (!isset($kd['name'])) json_err('Der Name des Kindes ließ sich nicht aus WebUntis lesen. '
@@ -835,6 +819,14 @@ if (($seg[0] ?? '') === 'buchungen') {
                     . '. Bitte einen anderen Zeitpunkt wählen.', 409);
             }
 
+            // Ein Termin je Kind und Lehrkraft (E24) – je Kind, nicht je Konto:
+            // Hat das andere Elternteil schon gebucht, gilt es auch hier.
+            $vorhanden = bu_kind_termin($pdo, $sid, $lid, $kind);
+            if ($vorhanden !== null) {
+                $pdo->rollBack();
+                json_err(bu_kind_termin_text($vorhanden, 'eltern', (int)$elternUserId), 409);
+            }
+
             $pdo->prepare('INSERT INTO buchungen
                 (sprechtag_id, lehrer_id, slot_beginn, eltern_user_id, schueler_id,
                  kommentar, phase, gebucht_von, kind_name, kind_klasse)
@@ -848,7 +840,8 @@ if (($seg[0] ?? '') === 'buchungen') {
         } catch (PDOException $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             if ((int)$e->errorInfo[1] === 1062) {
-                json_err('Dieser Termin wurde soeben von jemand anderem gebucht', 409);
+                json_err(bu_konflikt_text($pdo, $sid, $lid, $kind, 'eltern', (int)$elternUserId,
+                    'Dieser Termin wurde soeben von jemand anderem gebucht'), 409);
             }
             throw $e;
         }

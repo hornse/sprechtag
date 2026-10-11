@@ -1342,6 +1342,59 @@ mut AT50 $AR 's/\x27mitteilungen\x27, \x27abgesagte_termine\x27\] as \$t\)/\x27m
 mut AT51 $APP 's/  ziel\.appendChild\(kartenTabelle\(tab\)\);\n\}\n\n\/\/ Zeilentexte der abgesagten Termine/  ziel.appendChild(tabelleRahmen(tab));\n}\n\n\/\/ Zeilentexte der abgesagten Termine/' \
   $MO "Karten genau in Meine Termine, Einladungen, Login-Protokoll, Mitteilungen, Abgesagte Termine"
 
+echo "== v0.9.84: E24 – ein Termin je Kind und Lehrkraft"
+RET=tests/run_ein_termin_je_kind.php
+P26=sql/26_pruefung.sql
+M26=sql/26_ein_termin_je_kind.sql
+# Die Regel (ausgeführt)
+mut ET1 $SLP 's/WHERE sprechtag_id = \? AND lehrer_id = \? AND schueler_id = \?\n        ORDER BY slot_beginn LIMIT 1/WHERE sprechtag_id = ? AND ? > 0 AND schueler_id = ?\n        ORDER BY slot_beginn LIMIT 1/' \
+  $RET "anderes Kind, andere Lehrkraft, anderer Sprechtag: kein Termin"
+mut ET2 $SLP 's/(\$st = \$pdo->prepare\(\x27SELECT slot_beginn, eltern_user_id )FROM buchungen\n/${1}FROM (SELECT sprechtag_id, lehrer_id, schueler_id, slot_beginn, 0 AS eltern_user_id FROM abgesagte_termine UNION ALL SELECT sprechtag_id, lehrer_id, schueler_id, slot_beginn, eltern_user_id FROM buchungen) x\n/' \
+  $RET "nach einer Absage: kein Termin mehr"
+# Die Meldung (ausgeführt)
+mut ET3 $SLP 's/return \x27Für dieses Kind besteht bei dieser Lehrkraft bereits ein Termin, gebucht über ein \x27/return \x27Für dieses Kind besteht bei dieser Lehrkraft bereits ein Termin um \x27 . \$uhr . \x27 Uhr, gebucht über ein \x27/' \
+  $RET "anderes Konto: ohne Uhrzeit"
+mut ET4 $SLP 's/if \(\(int\)\$termin\[\x27eltern_user_id\x27\] === \$konto\) \{/if (false) {/' \
+  $RET "eigenes Konto: mit Uhrzeit"
+mut ET5 $SLP 's/if \(\$wer === \x27lehrkraft\x27\) \{/if (false) {/' \
+  $RET "Lehrkraft, die stellvertretend bucht: mit Uhrzeit"
+mut ET6 $SLP 's/return \$t === null \? \$sonst :/return true ? \$sonst :/' \
+  $RET "nach der Verletzung: Meldung zum Kind"
+# Schlüssel und Prüfdatei
+mut ET7 $M26 's/\(sprechtag_id, lehrer_id, schueler_id\);/(sprechtag_id, lehrer_id, schueler_id, eltern_user_id);/' \
+  $RET "Migration legt genau den Schlüssel an"
+# ET8: am ALTER verankert – „ADD UNIQUE KEY IF NOT EXISTS“ steht auch im
+# Kopfkommentar, und der erste Lauf traf nur ihn (Werkzeugfehler, v0.9.84).
+mut ET8 $M26 's/ALTER TABLE buchungen ADD UNIQUE KEY IF NOT EXISTS/ALTER TABLE buchungen ADD UNIQUE KEY/' \
+  $RET "Migration legt genau den Schlüssel an"
+mut ET9 $P26 's/(  FROM \(SELECT COUNT\(\*\) AS n FROM buchungen\n         GROUP BY sprechtag_id, lehrer_id, schueler_id HAVING COUNT\(\*\) )> 1/${1}>= 1/' \
+  $RET "Prüfdatei zählt: 2 Fälle, 3 überzählige Termine"
+mut ET10 $P26 's/(SELECT COUNT\(\*\) AS DOPPELT_FAELLE,)/$1 MIN(d.k) AS kind,/; s/\(SELECT COUNT\(\*\) AS n FROM buchungen/(SELECT COUNT(*) AS n, MIN(schueler_id) AS k FROM buchungen/' \
+  $RET "… gibt nur Zahlen aus, keine Kennungen und keine Namen"
+mut ET11 $P26 's/\z/\nDELETE FROM buchungen WHERE id = 0;\n/' \
+  $RET "Prüfdatei liest nur"
+mut ET12 $P26 's/CASE WHEN COUNT\(\*\) = 0/CASE WHEN COUNT(*) >= 0/' \
+  $RET "… letzte Zeile ein Satz: ANSEHEN"
+mut ET13 $P26 's/Deploy, dann diese Prüfdatei, dann sql\/26_ein_termin_je_kind\.sql\./Diese Prüfdatei, dann sql\/26_ein_termin_je_kind.sql, dann Deploy./' \
+  $RET "Reihenfolge im Kopf beider Dateien"
+# Aufrufstellen: entfernen UND entwerten (Nachbarschaft zweier Stellen)
+mut ET14 $BUP 's/\n            \/\/ Ein Termin je Kind und Lehrkraft \(E24\) – je Kind, nicht je Konto:\n.*?\n            \}\n//s' \
+  $RET "Eltern: fragt bu_kind_termin vor dem Schreiben"
+mut ET15 $BUP 's/(\$vorhanden = bu_kind_termin\(\$pdo, \$sid, \$lid, \$kind\);\n            if \()\$vorhanden !== null(\) \{\n                \$pdo->rollBack\(\);\n                json_err\(bu_kind_termin_text\(\$vorhanden, \x27eltern\x27)/${1}false${2}/' \
+  $RET "Eltern: fragt bu_kind_termin vor dem Schreiben"
+mut ET16 $BUP 's/(\$vorhanden = bu_kind_termin\(\$pdo, \$sid, \$lid, \$kind\);\n            if \()\$vorhanden !== null(\) \{\n                \$pdo->rollBack\(\);\n                json_err\(bu_kind_termin_text\(\$vorhanden, \x27lehrkraft\x27)/${1}false${2}/' \
+  $RET "stellvertretend: fragt bu_kind_termin vor dem Schreiben"
+mut ET17 $BUP 's/json_err\(bu_konflikt_text\(\$pdo, \$sid, \$lid, \$kind, \x27eltern\x27, \(int\)\$elternUserId,\n                    (\x27Dieser Termin wurde soeben von jemand anderem gebucht\x27)\), 409\);/json_err($1, 409);/' \
+  $RET "beide: nach einer Schlüsselverletzung"
+mut ET18 $BUP 's/(            \$vorhanden = bu_kind_termin\(\$pdo, \$sid, \$lid, \$kind\);\n            if \(\$vorhanden !== null\) \{\n                \$pdo->rollBack\(\);\n                json_err\(bu_kind_termin_text\(\$vorhanden, \x27lehrkraft\x27)/            \$stKind = \$pdo->prepare(\x27SELECT slot_beginn FROM buchungen\n                 WHERE sprechtag_id = ? AND lehrer_id = ? AND schueler_id = ?\x27);\n$1/' \
+  $RET "die Regel steht einmal"
+mut ET19 $BUP 's/(        \$elternUserId = \$u\[\x27user_id\x27\];\n)/$1        if (isset(\$body[\x27eltern_user_id\x27])) \$elternUserId = (int)\$body[\x27eltern_user_id\x27];\n/' \
+  $RET "kein Code übernimmt eltern_user_id aus dem Request"
+mut ET20 $BUP 's/        if \(in_array\(\$rolle, \[\x27lehrkraft\x27, \x27admin\x27\], true\)\) \{\n            json_err\(\x27Lehrkräfte buchen stellvertretend in ihrer eigenen Ansicht\.\x27, 403\);\n        \}\n//' \
+  $RET "Elternweg weist Lehrkraft und Verwaltung ab"
+mut ET21 $IDX 's/(require_once __DIR__ \. \x27\/absagen\.php\x27;\n)/$1\$nachtrag = fn(PDO \$p) => \$p->exec(\x27INSERT INTO buchungen (sprechtag_id) VALUES (0)\x27);\n/' \
+  $RET "genau zwei Stellen unter backend/ schreiben in buchungen"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1

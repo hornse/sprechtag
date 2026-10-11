@@ -333,6 +333,65 @@ function slot_buchung_erlaubt(array $kontext): array
 }
 
 /**
+ * Ein Termin je Kind und Lehrkraft (E24): Hat dieses Kind bei dieser
+ * Lehrkraft an diesem Sprechtag schon einen Termin? Die eine Stelle für die
+ * Regel; beide Buchungswege fragen hier, vor dem Schreiben und in ihrer
+ * Transaktion. Gezählt wird je Kind, nicht je Elternkonto – getrennt
+ * lebende Eltern buchen über zwei Konten. Gelesen wird nur buchungen: Ein
+ * abgesagter Termin (abgesagte_termine, E19) blockiert nicht, nach einer
+ * Absage soll neu gebucht werden können.
+ *
+ * Bei zwei gleichzeitigen Buchungen entscheidet der Schlüssel
+ * uniq_kind_termin aus sql/26, nicht diese Abfrage.
+ *
+ * Liefert slot_beginn und eltern_user_id des vorhandenen Termins, sonst null.
+ */
+function bu_kind_termin(PDO $pdo, int $sprechtagId, int $lehrerId, int $kind): ?array
+{
+    $st = $pdo->prepare('SELECT slot_beginn, eltern_user_id FROM buchungen
+        WHERE sprechtag_id = ? AND lehrer_id = ? AND schueler_id = ?
+        ORDER BY slot_beginn LIMIT 1');
+    $st->execute([$sprechtagId, $lehrerId, $kind]);
+    $z = $st->fetch(PDO::FETCH_ASSOC);
+    return $z === false ? null : $z;
+}
+
+/**
+ * Meldung, wenn bu_kind_termin() einen Termin gefunden hat. Die Uhrzeit nur,
+ * wo sie beim Handeln hilft (E24, Betreiber): beim eigenen Termin und für die
+ * Lehrkraft, die stellvertretend bucht ($wer = 'lehrkraft'). Liegt der Termin
+ * an einem anderen Konto, findet man ihn in „Meine Termine“ nicht und kann
+ * ihn nicht absagen – die Uhrzeit verriete dann nur, wo jemand zu einer
+ * bestimmten Zeit ist.
+ */
+function bu_kind_termin_text(array $termin, string $wer, int $konto): string
+{
+    $uhr = substr((string)$termin['slot_beginn'], 0, 5);
+    if ($wer === 'lehrkraft') {
+        return 'Für dieses Kind besteht bei dieser Lehrkraft bereits ein Termin um ' . $uhr . ' Uhr.';
+    }
+    if ((int)$termin['eltern_user_id'] === $konto) {
+        return 'Sie haben für dieses Kind bei dieser Lehrkraft bereits einen Termin um ' . $uhr . ' Uhr.';
+    }
+    return 'Für dieses Kind besteht bei dieser Lehrkraft bereits ein Termin, gebucht über ein '
+        . 'anderes Konto. Bitte wenden Sie sich an die Lehrkraft.';
+}
+
+/**
+ * Meldung nach einer Verletzung eines eindeutigen Schlüssels beim Buchen:
+ * Hat das Kind inzwischen einen Termin bei dieser Lehrkraft (uniq_kind_termin,
+ * etwa weil das andere Elternteil gleichzeitig gebucht hat), sagt sie das;
+ * sonst war es der Slot (uniq_slot), und es gilt $sonst. Nach dem
+ * Zurückrollen aufrufen.
+ */
+function bu_konflikt_text(PDO $pdo, int $sprechtagId, int $lehrerId, int $kind,
+                          string $wer, int $konto, string $sonst): string
+{
+    $t = bu_kind_termin($pdo, $sprechtagId, $lehrerId, $kind);
+    return $t === null ? $sonst : bu_kind_termin_text($t, $wer, $konto);
+}
+
+/**
  * Prüft, ob eine Buchung storniert werden darf.
  * Regel: Eltern dürfen NICHT stornieren, wenn die Buchung in Phase 1
  * entstanden ist. Lehrkräfte und Admins dürfen immer.
