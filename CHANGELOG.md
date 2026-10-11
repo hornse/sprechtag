@@ -1,5 +1,29 @@
 # Changelog - sprechtag
 
+## v0.9.87 (Oktober 2026) – Keine Kontodaten mehr in den Testdaten
+
+- **`tests/run_jwt_scopes.php` trug Benutzer-ID und Benutzernamen eines
+  echten Kontos** aus einem Mitschnitt, seit v0.8.0. Beide sind durch
+  erfundene Werte gleicher Länge ersetzt (REIHENREGELN 9); der Kommentar
+  sagt, dass der Aufbau aus dem Mitschnitt stammt und die Werte erfunden
+  sind. Gefunden beim Kennzeichnen der Scope-Aussagen, in keinem Auftrag;
+  das Repo ist öffentlich. **In der Geschichte des Repos stehen die Werte
+  weiter.**
+- **Zwei Prüfungsnamen trugen die alte Deutung des Scopes weiter** (E1):
+  „kein Schreibrecht“ heißt jetzt „Scope mg:rw nicht im Token“,
+  „Schreibrecht erkannt“ heißt „Scope mg:rw erkannt“. Geprüft wird, was im
+  Token steht, nicht ein Recht.
+
+### Prüfungen
+- 1615 Prüfzeilen in 73 Suiten, unverändert, alle grün;
+  `run_jwt_scopes` 7 → 7.
+- **Dieselbe Prüfung wie vorher**, belegt im Probebaum: drei Eingriffe am
+  Modul (`jwtDaten` liefert null, Nutzlast ohne URL-Alphabet, Scopes immer
+  `mg:rw`) gegen die alte und die neue Fassung, mit denselben roten
+  Positionen (4/7/8/10, keine, 7). Die Rücknahme ist je Eingriff mit `cmp`
+  belegt.
+- Mutationen unverändert 520; keine nennt diese Suite.
+
 ## v0.9.86 (Oktober 2026) – Selbstbedienung der Halbtagskräfte ausgeführt geprüft
 
 Es ändert sich keine Funktion der Anwendung, nur Prüfungen und
