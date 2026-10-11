@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.25.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v2.0.0 – dort ändern, hierher kopieren! -->
 # Regeln der Reihe
 
 Gilt für alle Projekte, die diese Datei führen. **Quelle ist
@@ -7,10 +7,10 @@ werden vom Bestandslauf gemessen.
 
 **Fällt beim Arbeiten in einem Projekt auf, dass eine Regel falsch,
 unvollständig oder überholt ist: die Kopie wird nicht geändert.** Der
-Befund gehört nach `koordination` — als Eintrag im Entscheidungsprotokoll
-oder als Auftragsdatei. Wer die Kopie ändert, bekommt beim nächsten
-Bestandslauf einen Befund und hat bis dahin eine zweite Wahrheit
-geschaffen. Genau so sind vier Fassungen desselben Moduls entstanden.
+Befund gehört nach `koordination` — als Eintrag im
+Entscheidungsprotokoll oder als Auftragsdatei. Wer die Kopie ändert,
+bekommt beim nächsten Bestandslauf einen Befund und hat bis dahin eine
+zweite Wahrheit geschaffen.
 
 **Kein Projektname steht in dieser Datei.** Der Geltungsbereich ist:
 wer sie führt.
@@ -29,10 +29,8 @@ aus gelesenem Code oder einem echten Lauf stammen, nicht aus Suchtreffern
 oder Mustererkennung.
 
 **Vermutungen aussprechen und als solche benennen** — mit dem Versuch
-dazu, der sie entscheiden würde. Etwa die Hälfte der so gekennzeichneten
-Vermutungen war falsch, und jede hat trotzdem einen Versuch veranlasst,
-der eine Antwort brachte. Eine unausgesprochene Annahme wäre in die
-Umsetzung gewandert.
+dazu, der sie entscheiden würde. Eine unausgesprochene Annahme wäre in
+die Umsetzung gewandert.
 
 **Was nicht geprüft werden kann, gehört nicht in die Umsetzung.**
 
@@ -44,14 +42,7 @@ Ergebnis unlesbar.
 **Bleibt eine Behebung ohne sichtbare Wirkung, suche eine zweite
 Ursache, bevor du die erste verwirfst.** Zwei Fehler mit demselben
 Symptom sind der Fall, in dem eine richtige Korrektur wie ein Irrtum
-aussieht — und dann rückgängig gemacht wird. Einmal traf ein Selektor nie
-und ein Mengenvergleich ebenso wenig; beide erzeugten „nichts ist
-ausgewählt", und wer nur den ersten kannte, suchte nach seiner Behebung
-am falschen Ort weiter.
-
-Das ist die Rückseite der vorigen Regel: Sie sorgt dafür, dass ein
-Ergebnis lesbar ist. Diese sorgt dafür, dass ein **ausbleibendes**
-Ergebnis richtig gelesen wird.
+aussieht — und dann rückgängig gemacht wird.
 
 **Rückfragen vor Entscheidungen mit Tragweite, nicht danach.**
 
@@ -77,9 +68,6 @@ Das kostet nichts und trennt „gesagt" von „geschehen".
 **Eine örtliche Behebung ist keine Behebung.** Wo ein Fehler eine *Art*
 hat, gehört die Frage dazu, wie viele Stellen dieser Art es gibt — und
 ob sich eine **Engstelle** bauen lässt, an der es nur noch eine gibt.
-Einmal wurde „null Räume gelesen" an einer Stelle behoben; zwei Wochen
-später stand dieselbe Sorte Fehler an der nächsten und beendete einen
-Aufruf mit einem Fatal.
 
 **Und eine Engstelle ist statisch prüfbar, wo ein Datenfluss es nicht
 ist.** „Läuft irgendwo jemand über eine ungeprüfte Antwort" bräuchte eine
@@ -105,16 +93,11 @@ gegen eine nachgebildete. Sobald eine fremde Struktur belegt ist, gehört
 sie als Testfall ins Repo. Ausgedachte Beispiele prüfen nur die eigenen
 Annahmen.
 
-**Das gilt auch für jede Ausprägung einer bekannten Struktur.** Einmal
-war ein Zusammenbau geprüft — mit Daten, die nur Einzelstunden enthielten.
-Doppelstunden erschienen danach mit ihrer ersten Stundennummer. **Eine
+**Das gilt auch für jede Ausprägung einer bekannten Struktur.** **Eine
 Prüfung ist nur so gut wie die Fälle in ihren Daten.**
 
 **Und welche Fälle es gibt, entscheidet der Kenntnisstand, nicht die
-Sorgfalt.** Einmal übernahm eine Anwendung eine Kennung für jede Rolle
-und prüfte nur ihren Bereich — bis belegt war, dass auch ein anderer
-Kontotyp sie trägt. Bis dahin **konnte** kein Testfall ihn führen. Die
-Prüfungen bildeten ab, was man wusste.
+Sorgfalt.**
 
 **Deshalb bekommt ein neuer Beleg über ein fremdes System eine zweite
 Frage**, nicht nur einen Eintrag in der Befunddatei:
@@ -124,85 +107,54 @@ Frage**, nicht nur einen Eintrag in der Befunddatei:
 Sie ist billig: In vier von fünf Fällen lautet die Antwort „nichts" — im
 fünften findet sie einen Fehler, der im Betrieb steht.
 
-**Eine Herkunftsangabe in Testdaten ist eine Behauptung.** Einmal gab
-eine Testdatei „Zeiten aus der Auskunft der Schule" an — eine solche
-Auskunft gab es nicht, und die Zeiten widersprachen dem belegten
-Zeitraster. Wer Testdaten beschriftet, belegt jede Angabe einzeln oder
-nennt sie **erfunden**. Und eine Prüfung hält die Angabe fest, sonst
-driftet sie wie jede andere ungepflegte Angabe.
+**Eine Herkunftsangabe in Testdaten ist eine Behauptung.** Wer Testdaten
+beschriftet, belegt jede Angabe einzeln oder nennt sie **erfunden**. Und
+eine Prüfung hält die Angabe fest, sonst driftet sie wie jede andere
+ungepflegte Angabe.
 
 **Und die Gegenprobe selbst wird geprüft**, indem der geprüfte Code
-absichtlich beschädigt wird. Schlägt sie dann nicht an, prüft sie nichts.
-Das ist mehrfach vorgekommen — zuletzt bei einer Prüfung, deren einziger
-Zweck es war, Verluste beim Aufräumen zu fangen: Sie las nur Backticks
-und keine Code-Blöcke und meldete „OK" für eine Datei, aus der absichtlich
-etwas entfernt worden war.
+absichtlich beschädigt wird. Schlägt sie dann nicht an, prüft sie
+nichts.
 
 **Die Beschädigung muss belegt angekommen sein.** Trefferzahl vorher und
-nachher, oder eine Zahl, die sich verändern muss. Viermal in einer
-Sitzung hat nicht der geprüfte Code versagt, sondern das Prüfwerkzeug —
-ein Suchmuster traf nicht, eine Ersetzung benannte zwei Stellen gleich,
-ein mehrzeiliges Muster brach beim Kompilieren ab, eine Variable wurde
-überschrieben. **Dreimal war die Ausgabe grün oder still, und „keine rote
-Zeile" nach einem fehlgeschlagenen Eingriff liest sich wie Bestehen.**
+nachher, oder eine Zahl, die sich verändern muss. **Dreimal war die
+Ausgabe grün oder still, und „keine rote Zeile" nach einem
+fehlgeschlagenen Eingriff liest sich wie Bestehen.**
 
 Ein Eingriff ohne Wirkungsnachweis belegt nichts — auch nicht, dass die
 Prüfung greift.
 
 **Und wo eine Gegenprobe zwei Ergebnisse vergleicht, gehört der Nachweis
-dazu, dass sie sich überhaupt unterscheiden.** Einmal lautete sie „ein
-anderes Raster ergibt andere Blöcke" und verglich gegen eines, das
-**zufällig dieselbe Folge** ergab — die Mutation schlug nicht an. Besser
-als eine Ungleichheit ist eine eigene Prüfung mit dem **erwarteten
-Wert**.
+dazu, dass sie sich überhaupt unterscheiden.** Besser als eine
+Ungleichheit ist eine eigene Prüfung mit dem **erwarteten Wert**.
 
 **Ein Versuch, der gutgeht, sagt nichts über den Fall, den er nicht
-enthielt.** Einmal beantwortete eine Messsitzung vier Fragen, drei davon
-günstig; die vierte — und gefährlichste — kam nur, weil derselbe Versuch
-**wiederholt** wurde, einmal unter der anderen Voraussetzung.
+enthielt.**
 
 **Und ein Beleg, dessen Werkzeug fehlt, ist nicht wiederholbar.** Das
-Werkzeug, mit dem Gegenproben gefahren werden, gehört zu den Belegen —
-einmal ließ es sich am nächsten Tag nur deshalb wiederherstellen.
+Werkzeug, mit dem Gegenproben gefahren werden, gehört zu den Belegen.
 
 **Ein sauberer Ausgangszustand belegt nur, dass die Prüfungen grün sind
-— nicht, dass sie hinsehen.** Einmal nahm eine Prüfung den
-Verzeichnisnamen als Bezugspunkt; im echten Repo stimmte er, in jeder
-Kopie und jedem Probebaum fiel die Kette stillschweigend ins `else` und
-prüfte nichts. Die Zeile „Ausgang: 0 rot" stand in allen vorherigen
-Läufen da und war für diesen Zweig bedeutungslos.
+— nicht, dass sie hinsehen.**
 
 **Mutationen werden in Serie gefahren, nicht einzeln.** Mehrere
 Nichttreffer sind ein Muster, einer ist Rauschen — und ein einzelner
-Durchrutscher verleitet zur Einzelfallerklärung. Der Fall oben fiel nur
-auf, weil zwei Mutationen nacheinander nicht anschlugen.
+Durchrutscher verleitet zur Einzelfallerklärung.
 
-**Und die Rücknahme braucht ihren eigenen Nachweis.** Einmal sicherte
-ein Mutationswerkzeug in ein Verzeichnis aus einem früheren Durchgang;
-die Rücknahme scheiterte, drei Mutationen blieben im Code, und alle
-folgenden liefen auf mutiertem Stand. **Der Lauf meldete „1 rot, 2 rot,
-3 rot", und die Zahlen waren wertlos.**
+**Und die Rücknahme braucht ihren eigenen Nachweis.**
 
 **Eine Rücknahme, die nicht ankommt, ist gefährlicher als eine Mutation,
 die nicht trifft** — die eine verschweigt einen Fehler, die andere
-verdirbt jede folgende Messung. Aufgefallen ist es an einer Meldung des
-Werkzeugs, nicht an einer roten Prüfung, und das war Zufall. Nach jeder
-Rücknahme gehört deshalb der Vergleich gegen den Sollstand: Prüfsumme
-oder leerer `git diff`.
+verdirbt jede folgende Messung. Nach jeder Rücknahme gehört deshalb der
+Vergleich gegen den Sollstand: Prüfsumme oder leerer `git diff`.
 
-**Eine Prüfumgebung darf nicht mehr kennen als der Betrieb.** Einmal legte
-der DOM-Ersatz der Tests eine Kennung selbst an, die in Wahrheit im HTML
-stehen muss — die Mutation „das Element verliert seine Kennung" machte
-keine Prüfung rot. **Wo die Umgebung großzügiger ist als die
-Wirklichkeit, prüft sie die eigene Großzügigkeit mit.**
+**Eine Prüfumgebung darf nicht mehr kennen als der Betrieb.** **Wo die
+Umgebung großzügiger ist als die Wirklichkeit, prüft sie die eigene
+Großzügigkeit mit.**
 
 **Wonach gesucht wird, wird dort gesucht, wo es wirken soll** — im Rumpf
-der Funktion, nicht in der Datei. Eine Suche über eine ganze Datei belegt
-**Vorkommen, nicht Wirkung**: Einmal blieb eine Prüfung grün, weil
-dieselbe Zeichenkette an einer zweiten Stelle derselben Datei stand,
-während sie an der gemeinten entfernt worden war. Das ist die subtilere
-Verwandte des Treffers im Kommentar — dort war er unecht, hier ist er
-echt und nur am falschen Ort.
+der Funktion, nicht in der Datei. Eine Suche über eine ganze Datei
+belegt **Vorkommen, nicht Wirkung**.
 
 **Dasselbe gilt für Stilregeln und für doppelte Darstellungen.** Steht
 eine CSS-Eigenschaft in mehreren Regeln, wird **in der Regel** gesucht,
@@ -213,29 +165,24 @@ sonst übersteht das Entfernen aus einer der beiden jede Prüfung.
 **Eine Quelle ist nicht eine Darstellung.** Eine Prüfung, die belegt,
 dass zwei Ansichten aus **derselben Funktion** kommen, verhindert zwei
 Wahrheiten — und sagt nichts darüber, ob auch nur **eine** erscheint.
-Einmal standen beide zugleich da. **Zwei richtige Anzeigen desselben sind
-trotzdem eine zu viel.**
+**Zwei richtige Anzeigen desselben sind trotzdem eine zu viel.**
 
 Neben „eine Quelle" gehört deshalb „genau eine Darstellung". Die erste
 misst den Code, die zweite das Ergebnis — und nur die zweite braucht eine
 ausgeführte Anzeige.
 
-**Und die Entscheidung gehört an eine Stelle.** Dort entschied eine
-Medienabfrage im CSS über das Aussehen, während die Anzeige unabhängig
-davon beides zeichnete. **Zwei Schwellen für dieselbe Frage sind zwei
-Wahrheiten, auch wenn beide dieselbe Zahl tragen.**
+**Und die Entscheidung gehört an eine Stelle.** **Zwei Schwellen für
+dieselbe Frage sind zwei Wahrheiten, auch wenn beide dieselbe Zahl
+tragen.**
 
 **Eine Prüfung an einem Intervall braucht einen Fall genau auf der
-Grenze.** Einmal schlug die Mutation „das Ende zählt mit" nicht an — kein
-Testfall berührte die Grenze. Ohne einen solchen Fall ist die Gegenprobe
-zur Grenzbedingung wirkungslos, und das fällt nur auf, wenn man sie
-fährt.
+Grenze.** Ohne einen solchen Fall ist die Gegenprobe zur Grenzbedingung
+wirkungslos, und das fällt nur auf, wenn man sie fährt.
 
 **Wo zwei Stufen dieselbe Gefahr abwehren, wird jede einzeln belegt.**
 Für die Dauer der Gegenprobe wird die andere ausgehängt. Sonst prüft man
 die Redundanz statt der Stufen: Eine Mutation kann nur eine Stufe
-entfernen, die zweite fängt, und alles meldet grün — vier Prüfungen
-standen so grün und belegten keine der beiden.
+entfernen, die zweite fängt, und alles meldet grün.
 
 **Und wo sie sich nicht aushängen lassen, prüft die Gegenprobe den
 Wortlaut der Meldung**, nicht nur dass eine kommt. Eine anschlagende
@@ -256,9 +203,7 @@ sieht sonst aus wie ein sauberer.
 **Und ein Prüfschritt, dessen Voraussetzung von Hand hergestellt werden
 muss, wird nie ausgeführt.** Das ist nicht derselbe Fall: Bei einer
 fehlenden Voraussetzung meldet sich die Prüfung. Hier schweigt sie, und
-**Schweigen ist von Bestehen nicht zu unterscheiden.** Einmal verlangte
-ein Prüfschritt einen Cookie aus einem fehlgeschlagenen Login — er lief
-nie, also fiel er nie auf.
+**Schweigen ist von Bestehen nicht zu unterscheiden.**
 
 Ein solcher Schritt stellt seine Voraussetzung selbst her, oder er ist
 keine Prüfung, sondern eine Anleitung. Beides ist zulässig; nur muss
@@ -266,8 +211,7 @@ dabeistehen, was von beidem es ist.
 
 **Wird eine Prüfung erweitert, muss die Prüfungszahl um den erwarteten
 Betrag steigen.** Bleibt sie gleich oder steigt sie um weniger, ist die
-Erweiterung nicht wirksam geworden. Diese Zahl hat mehrfach einen Fehler
-aufgedeckt, den sonst niemand gesehen hätte.
+Erweiterung nicht wirksam geworden.
 
 **Die erwartete Zahl wird genannt, nachdem feststeht, welche Prüfungen
 geschrieben werden** — nicht als Schätzung vorab. Eine Ankündigung, die
@@ -287,24 +231,18 @@ und die Prüfung greift.
 anschlagen.** Je besser eine Regel dokumentiert ist, desto
 wahrscheinlicher steht ihr Wortlaut als Prosa in derselben Datei, die
 geprüft wird — die Prüfung wird also gerade dort unzuverlässig, wo
-sorgfältig gearbeitet wurde. Einmal traf ein ungeankerter Ausdruck den
-Kopfkommentar, der die Regel erklärt, statt der Zuweisung, die sie
-umsetzt; die Prüfung wäre grün geblieben, wenn nur der Kommentar
-übrig gewesen wäre. **Die Gegenprobe dazu lautet: den Code löschen, den
-Kommentar stehen lassen.**
+sorgfältig gearbeitet wurde. **Die Gegenprobe dazu lautet: den Code
+löschen, den Kommentar stehen lassen.**
 
 Dasselbe gilt für jedes Werkzeug, das eine Datei liest, die ihr eigenes
-Format erklärt: Beschreibung und Sache müssen trennbar sein. Eine
-Ausnahmedatei, deren Formvorschrift ein Beispiel enthielt, hat dieses
-Beispiel einmal als Eintrag gelesen.
+Format erklärt: Beschreibung und Sache müssen trennbar sein.
 
 **Und eine Zeichenkette ist so gefährlich wie ein Kommentar.** Die
-Beschriftung einer Prüfung — `pruefe('lz_raumhinweis() wird gerufen', …)` —
-sieht für jeden Suchausdruck wie ein Aufruf aus. **Gerade sorgfältig
-benannte Suiten sind davon betroffen.** Für PHP trennt der Tokenizer
-Kommentar, Zeichenkette und Code; für JavaScript und CSS fehlt ein
-solches Werkzeug, und dort schlugen zwei Prüfungen auf ihre eigenen
-Kommentare an.
+Beschriftung einer Prüfung — `pruefe('lz_raumhinweis() wird gerufen',
+…)` — sieht für jeden Suchausdruck wie ein Aufruf aus. **Gerade
+sorgfältig benannte Suiten sind davon betroffen.** Für PHP trennt der
+Tokenizer Kommentar, Zeichenkette und Code; für JavaScript und CSS fehlt
+ein solches Werkzeug.
 
 **Wo aus einem Vorfall bekannt ist, wie die falsche Fassung aussieht,
 sucht die Prüfung ausdrücklich nach ihr.** Die Anwesenheit der richtigen
@@ -323,12 +261,9 @@ von woanders stammt, prüft der Test die **Verbindung** zur Quelle. Und wo
 sich die Verbindung strukturell herstellen lässt — eine Referenz statt
 einer Kopie —, ist das besser als jede Prüfung.
 
-**Eine Prüfung, die eine bestimmte Datei liest, prüft diese Datei — nicht
-die Regel.** Wo eine Regel für ein ganzes Projekt gilt, sucht die Prüfung
-im ganzen Projekt und nicht dort, wo der Fall zuerst auftrat. Einmal las
-die Prüfung auf Rohfarben eine Stilvorlage, während sieben Hexwerte im
-JavaScript standen: Grün war eine Aussage über die Prüfstelle, nicht über
-den Bestand.
+**Eine Prüfung, die eine bestimmte Datei liest, prüft diese Datei —
+nicht die Regel.** Wo eine Regel für ein ganzes Projekt gilt, sucht die
+Prüfung im ganzen Projekt und nicht dort, wo der Fall zuerst auftrat.
 
 **Das ist schwerer zu finden als eine fehlende Prüfung**, weil niemand
 nachsieht, wo eine bestandene Prüfung hingeschaut hat. Bei einer
@@ -347,18 +282,13 @@ ermitteln fängt eine vergessene Zeile, aber keine gelöschte Datei.
 erklärt, nicht hingenommen.** Sie ist das einzige Signal.
 
 **Eine Darstellung wird am Dargestellten geprüft, nicht am Wert im
-Code.** Zwei Fälle, beide grün und beide falsch: Ein Langname stand als
-`title` im DOM — auf dem Telefon unerreichbar, am Monitor ein bis zwei
-Zeichen breit als Ziel. Und ein `max-width: 90rem` war wirkungslos, weil
-ein umgebendes Element auf 76rem begrenzte. **Eine Messgröße wirkt erst
-am bestimmenden Element.** Wo es um Sichtbares geht, prüft die Prüfung
-den sichtbaren Text — dafür muss dessen Bildung eine ausführbare Funktion
-sein —, und für Größen braucht es einen Blick im Browser.
+Code.** **Eine Messgröße wirkt erst am bestimmenden Element.** Wo es um
+Sichtbares geht, prüft die Prüfung den sichtbaren Text — dafür muss
+dessen Bildung eine ausführbare Funktion sein —, und für Größen braucht
+es einen Blick im Browser.
 
 **Und was sich nicht messen lässt, wird nicht als grüne Prüfung
-geführt.** Einmal waren Kacheln im dritten Durchgang unterschiedlich
-falsch hoch, und die Prüfungen dazu waren jedes Mal grün — sie prüften,
-**dass** eine Regel dasteht, nicht **was** sie bewirkt.
+geführt.**
 
 > **Was offline messbar ist, wird gemessen. Was nur im Browser sichtbar
 > ist, gehört als Abnahmepunkt in die Ausrollanleitung — nicht als grüne
@@ -370,22 +300,15 @@ Sonst zählt sie mit und belegt nichts.
 **Ein Skript, das aus der Suite genommen wird, wird geteilt, nicht
 herausgenommen.** Einmal lief eine Testdatei nicht mit, weil ein Teil
 davon eine Datenbank braucht — und verlor damit auch die Prüfungen, die
-keine brauchen. Es fehlte ein `require`, und niemand hat es gemerkt.
+keine brauchen.
 
-**Ein Weg, den niemand aufruft, ist eine zweite Wahrheit.** Zwei
-Projekte haben es unabhängig voneinander gemeldet: Eine Funktion baute
-dieselbe Liste wie der lebende Weg, wurde nie aufgerufen, und eine dort
-eingebaute Auskunft kam nie an. Im anderen war es eine **Sperre gegen das
-Produktivsystem**, die definiert und nie aufgerufen war. **Ein toter Weg
-ist schlimmer als ein falscher** — ein falscher fällt auf. Wie viele
+**Ein Weg, den niemand aufruft, ist eine zweite Wahrheit.** **Ein toter
+Weg ist schlimmer als ein falscher** — ein falscher fällt auf. Wie viele
 Funktionen niemand aufruft, ist billig zu zählen und gehört in den
-Bericht; als Rot/Grün-Prüfung erzeugte es Fehlalarme bei
-Schnittstellen, die bewusst für später gebaut sind.
+Bericht; als Rot/Grün-Prüfung erzeugte es Fehlalarme bei Schnittstellen,
+die bewusst für später gebaut sind.
 
-**Eine geprüfte Regel sagt nichts darüber, ob sie gefragt wird.** Einmal
-standen sieben Prüfungen zu einer Entscheidungsfunktion, alle grün — und
-die Aufrufstelle fragte sie zu spät, nach einem Rücksprung. Die Klasse
-des letzten Zeichnens blieb stehen.
+**Eine geprüfte Regel sagt nichts darüber, ob sie gefragt wird.**
 
 **Das ist die Kehrseite eines Vorteils:** Eine reine Funktion ist
 prüfbar, und **genau deshalb** wandert die Aufmerksamkeit dorthin. Der
@@ -394,7 +317,7 @@ Aufruf bleibt in der Schicht zurück, die niemand ausführt.
 **Wo eine Entscheidung als reine Funktion herausgezogen wird, prüft
 mindestens eine Prüfung die Aufrufstelle.** Und wo die Entscheidung vor
 einem Rücksprung fallen muss, prüft sie die **Reihenfolge** im
-Quelltext, nicht das Vorkommen — der Aufruf stand da, nur zu spät.
+Quelltext, nicht das Vorkommen.
 
 **Aber eine Prüfung auf Reihenfolge ist keine auf Wirkung.** Drei
 Stufen, und nur die dritte misst die Sache:
@@ -404,10 +327,6 @@ Stufen, und nur die dritte misst die Sache:
 | „das Wort steht da" | Quelltext |
 | „die Zeile steht an der richtigen Stelle" | **immer noch Quelltext** |
 | „ohne Zeitraum wird nichts abgefragt" | die Eigenschaft |
-
-Einmal stand die Wache an der richtigen Stelle, und ein `if (false)`
-davor kam durch — **ein leeres Datum hätte jede Zeile der Datenbank
-getroffen.**
 
 **Die mittlere Stufe ist die gefährlichere der beiden schwachen.** Die
 erste fällt beim Lesen auf; die zweite nicht, weil sie wie eine
@@ -420,16 +339,13 @@ gehört dann als solcher gekennzeichnet.
 
 **Ein Name ist eine Schnittstelle.** In JavaScript gewinnt die letzte
 Deklaration einer Funktion im selben Geltungsbereich — ohne Warnung,
-gültiger Code, `node --check` schweigt. Einmal entstand eine zweite
-Funktion gleichen Namens, und **die Anmeldung war zwölf Stunden lang
-zu**: Ein Feld lieferte ein Element statt eines Werts. **Eine Prüfung
-„kein Funktionsname zweimal im selben Geltungsbereich" ist ein
-Zehnzeiler und trifft jede künftige Funktion.**
+gültiger Code, `node --check` schweigt. **Eine Prüfung „kein
+Funktionsname zweimal im selben Geltungsbereich" ist ein Zehnzeiler und
+trifft jede künftige Funktion.**
 
 **Dasselbe in CSS, und dort schweigt alles.** Ein Klassenname mit zwei
 Grundregeln in derselben Datei: Die spätere gewinnt, kein Werkzeug sagt
-etwas, und eine Überschrift war einen Durchgang lang klein und blass,
-ohne dass es jemand entschieden hätte.
+etwas.
 
 **Eine Grundregel je Klassenname — Varianten und Medienabfragen
 ausgenommen**, sonst wäre die Prüfung sofort rot und würde
@@ -441,12 +357,10 @@ und wird dann abgeschaltet oder ignoriert. Dann fehlt sie auch dort, wo
 sie recht hätte.
 
 **Eine Sicherung, die aus einem Vorfall stammt, bekommt beim nächsten
-Umbau der Umgebung eine Bedingung — oder sie wird erneut begründet.** Als
-der Vorfall geschah, deckte sie genau einen Fall ab. Klärt sich die
+Umbau der Umgebung eine Bedingung — oder sie wird erneut begründet.**
+Als der Vorfall geschah, deckte sie genau einen Fall ab. Klärt sich die
 Umgebung, deckt dieselbe Regel womöglich zwei, und einer davon ist der
-Normalfall: Einmal hielt eine Prüfung „Zeilen, aber kein Mitglied" für
-einen Auswertungsfehler — bis feststand, dass eine frisch angelegte
-Gruppe genau so aussieht.
+Normalfall.
 
 **Niemand hat die Regel geändert; die Wirklichkeit ist unter ihr
 weitergegangen.** Sie ist dann nicht falsch, sondern ohne Bedingung.
@@ -463,9 +377,7 @@ zeigt nicht, dass sie die Wirklichkeit trifft.
 **Das erste Exemplar einer Sorte hat keinen Vergleich und braucht
 deshalb mehr.** Wo eine Prüfung darin besteht, gegen einen bereits
 geprüften Bestand zu vergleichen, fehlt sie beim ersten Mal ersatzlos —
-und das ist der Normalfall, nicht die Ausnahme. Bei einem Datensatz fand
-der Vergleich mit dem Vorgänger fünf Fehler, beim nächsten drei; beim
-ersten seiner Art hätte er nichts gefunden, weil es ihn nicht gab.
+und das ist der Normalfall, nicht die Ausnahme.
 
 Daraus folgt keine Prüfung, sondern zweierlei: Der erste Datensatz einer
 neuen Sorte wird von Hand gegengelesen, **und es wird vermerkt, dass hier
@@ -473,12 +385,11 @@ nichts geprüft hat.** Und wo die Reihenfolge frei ist, lohnt es, zwei
 gleichartige nacheinander zu nehmen — das zweite prüft das erste
 rückwirkend mit.
 
-**Läuft ein Erzeuger neu, wird vollständig gegen den ausgelieferten Stand
-verglichen.** Nicht stichprobenweise — vollständig. Einmal fand dieser
-Diff drei Fehler, die keine Prüfung und keine Stichprobe fangen konnte:
-**Ein Eintrag, der mitten im Satz auf einem heilen Wort abbricht, besteht
-jede Einzelprüfung.** Er ist grammatisch in Ordnung, er ist plausibel, und
-er ist falsch. Nur das Vorher zeigt, dass etwas fehlt.
+**Läuft ein Erzeuger neu, wird vollständig gegen den ausgelieferten
+Stand verglichen.** Nicht stichprobenweise — vollständig. **Ein Eintrag,
+der mitten im Satz auf einem heilen Wort abbricht, besteht jede
+Einzelprüfung.** Er ist grammatisch in Ordnung, er ist plausibel, und er
+ist falsch. Nur das Vorher zeigt, dass etwas fehlt.
 
 Der Vergleich ist bei einem neu laufenden Erzeuger billig und immer
 verfügbar — der ausgelieferte Stand ist der Vorgänger, den das erste
@@ -486,9 +397,7 @@ Exemplar sonst nicht hat.
 
 **Eine gekürzte Ausgabe kann die einzige Zeile verlieren, die zählt.**
 `tail -3` über einen Testlauf, `-A2` über eine Suche: Wo ein Ergebnis
-beschnitten wird, ist das Fehlen einer Zeile keine Auskunft. Bei einem
-roten Lauf, der sich danach nicht mehr herstellen ließ, blieb dadurch
-unbekannt, welche Prüfung gefallen war.
+beschnitten wird, ist das Fehlen einer Zeile keine Auskunft.
 
 **Vor jeder Auslieferung: nicht behaupten, sondern ausführen.**
 
@@ -507,25 +416,21 @@ Erfolgsfall abzufangen, nie um einen Werkzeugfehler.
 schlagen auf ihre eigenen Suchmuster an.** `--exclude` für das Skript
 selbst. **Für Skripte ohne Suchmuster gilt das nicht** — eines, das
 Klammern in einer Stilvorlage zählt, hat nichts, woran es anschlagen
-könnte. Die Regel ist bedingt und liest sich sonst als allgemeine
-Vorschrift, die zwei von zehn Skripten scheinbar verletzen.
+könnte.
 
 **Trocken ist der Standard.** Wo ein Skript etwas Zerstörendes tun kann,
 verlangt der echte Lauf einen ausdrücklichen Schalter
 (`TROCKEN=${TROCKEN:-1}`). Ein Probelauf darf nie davon abhängen, dass
-eine Textersetzung greift — genau daran ist einmal ein Probelauf zum
-echten Lauf über sechs Repos geworden.
+eine Textersetzung greift.
 
 **Vor der Verwendung nachsehen, nicht annehmen** — und im Zweifel die
-portable Form wählen. Die Werkzeuge auf dem Arbeitsrechner sind nicht die
-auf dem Server. **`grep -P` gibt es auf macOS nicht** — und ein
-nachgestelltes `|| echo` verschluckte einmal genau diesen Werkzeugfehler:
-Null Treffer sahen aus wie ein sauberer Lauf.
+portable Form wählen. Die Werkzeuge auf dem Arbeitsrechner sind nicht
+die auf dem Server. **`grep -P` gibt es auf macOS nicht**.
 
 **Eine Mutation wird aus einer Sicherungskopie zurückgenommen, nie aus
 dem Index.** `git checkout <datei>` stellt den letzten Commit her und
 verwirft dabei alles, was in derselben Sitzung korrigiert, aber noch
-nicht committet war. Zweimal aufgetreten.
+nicht committet war.
 
 **Anwesenheit einer Datei wird durch Auflisten geprüft, nicht durch
 `grep`.** `grep` über eine vorhandene Datei prüft ihren Inhalt, nicht die
@@ -544,12 +449,9 @@ zwei davon gibt es **eine** Vorbeugung: **nach einem Variablennamen immer
 `${…}`.** Der Doppelpunkt und die eckige Klammer sind derselbe Fall.
 
 * **`#` ist dort kein Kommentarzeichen.** Ein erklärender Zusatz am
-  Zeilenende wird zum Argument. Einmal hat er eine Zählprüfung
-  stillschweigend übersprungen — **und die `||`-Absicherung daneben
-  meldete daraufhin Erfolg, weil ein leerer Lauf wie ein sauberer
-  aussah.** Der Schaden entsteht nicht durch die Falle allein, sondern
-  durch ihr Zusammentreffen mit einem `|| true`, das mehr abfängt als den
-  Erfolgsfall.
+  Zeilenende wird zum Argument. Der Schaden entsteht nicht durch die
+  Falle allein, sondern durch ihr Zusammentreffen mit einem `|| true`,
+  das mehr abfängt als den Erfolgsfall.
 * **Glob-Muster für ein Werkzeug gehören in Anführungszeichen.**
   `--include=*.js` expandiert die Shell selbst und bricht ab;
   `--include="*.js"` erreicht `grep`.
@@ -557,11 +459,8 @@ zwei davon gibt es **eine** Vorbeugung: **nach einem Variablennamen immer
   auch in doppelten Anführungszeichen. Aus `"$t:FALLSTRICKE.md"` wurde
   einmal `…/v1.16.0LLSTRICKE.md`; `${t}:FALLSTRICKE.md` ist richtig.
 
-  **Diese Falle ist gefährlicher als die drei anderen**, weil sie nicht
-  abbricht und keinen Unsinn liefert, sondern ein **plausibles Ergebnis**:
-  Die nachfolgende Prüfsumme bekam leere Eingabe und lieferte dreimal
-  denselben Wert — was wie „an allen Ständen identisch" aussah und
-  zufällig die richtige Antwort vorgetäuscht hätte.
+  **Diese Falle ist gefährlicher als die vier anderen**, weil sie nicht
+  abbricht und keinen Unsinn liefert, sondern ein **plausibles Ergebnis**.
 
   **`da39a3ee5e6b` ist die Prüfsumme der leeren Eingabe.** Wer sie einmal
   kennt, erkennt sie wieder. Belegen lässt sie sich mit
@@ -574,16 +473,10 @@ zwei davon gibt es **eine** Vorbeugung: **nach einem Variablennamen immer
   bricht ab; in Anführungszeichen läuft es. Betrifft jede Trennlinie in
   einer Ausgabe.
 
-In einem Skript mit `#!/bin/bash` gilt beides nicht. Der Unterschied
-zwischen dem, was in einem Skript steht, und dem, was von Hand
-eingetippt wird, ist hier keine Formalie.
+In einem Skript mit `#!/bin/bash` gilt keine der fünf.
 
-**Ein Block zum Einfügen ist ein Skript ohne Kopfzeile.** Er läuft in der
-Shell, die der Leser hat, und jede Annahme darüber kann fallen. Einmal
-stand in einer Anleitung `TROCKEN=${TROCKEN:-1}     # 1 = nur anzeigen` —
-in der interaktiven zsh ist das `#` kein Kommentar, die Zuweisung gilt
-nur für dessen Umgebung, und **der erste Einfügevorgang kopierte 35
-Dateien**. Unter dem Block stand „trocken ist der Standard".
+**Ein Block zum Einfügen ist ein Skript ohne Kopfzeile.** Er läuft in
+der Shell, die der Leser hat, und jede Annahme darüber kann fallen.
 
 **Wer eine Anleitung zum Einfügen schreibt, schreibt stattdessen ein
 Skript** — oder verweist auf eines.
@@ -606,19 +499,17 @@ fängt genau den Fehler ab, der die Auskunft entwertet.
 
 **Eine Sollzahl ist eine Vermutung über die Umgebung des Empfängers.**
 Wer für einen anderen einen Auftrag schreibt und eine erwartete Zahl mit
-einem Werkzeug ermittelt, hat sich auf dieses Werkzeug festgelegt —
-ohne zu wissen, ob es dort vorhanden ist und in welcher Fassung. Der
-Auftrag prüft deshalb zuerst, dass das Werkzeug existiert, oder er
-kennzeichnet die Zahl als ungeprüft. Das ist derselbe Fall wie ein
-Befehl aus dem Gedächtnis, nur in Zahlenform.
+einem Werkzeug ermittelt, hat sich auf dieses Werkzeug festgelegt — ohne
+zu wissen, ob es dort vorhanden ist und in welcher Fassung. Der Auftrag
+prüft deshalb zuerst, dass das Werkzeug existiert, oder er kennzeichnet
+die Zahl als ungeprüft.
 
 ---
 
 ## 4 — Ermittlung statt Aufzählung
 
 **Kein Projektname in einem Skript.** Weder in einer Liste noch in einer
-Fallunterscheidung. Der Bestand wird gefunden, nicht aufgezählt. Eine
-feste Liste hat mehrfach ein Projekt übersehen.
+Fallunterscheidung. Der Bestand wird gefunden, nicht aufgezählt.
 
 **Auftragsdateien zählen keine Projekte auf, sie ermitteln den Bestand.**
 Eine feste Liste vergisst das nächste Projekt — genau der Fehler, vor dem
@@ -650,9 +541,8 @@ testen und das Ergebnis notieren.
 **Was ein Auftrag aus einem anderen Repo braucht, steht im
 Ausgangsstand.** Verweist er auf eine bestimmte fremde Datei — als
 Vorbild, als Vergleich, als Vorlage —, wird sie **beigelegt**: als Kopie
-im eigenen Repo, nicht als Zugriff über Verzeichnisgrenzen. Einmal blieb
-ein Lauf genau daran stehen, mitten in der Arbeit. Der Nebengewinn: Im
-Repo steht dann, welche Fassung als Vorbild diente.
+im eigenen Repo, nicht als Zugriff über Verzeichnisgrenzen. Der
+Nebengewinn: Im Repo steht dann, welche Fassung als Vorbild diente.
 
 **Wer dagegen den Bestand ermittelt, braucht Zugriff auf alle** und kann
 nichts beilegen. Die Trennlinie ist: eine **benannte** Datei wird
@@ -664,15 +554,10 @@ der Verwendung geprüft.** Versionsstand, Prüfungszahl, welches Repo was
 führt — das veraltet von selbst. **Eine Entscheidung gilt, bis sie
 aufgehoben wird; ein Zustand nicht.**
 
-**Und ein Datum aus einem Auftrag ist keine Messung.** Mehrfach wurde
-eines eingetragen, das aus einer Anweisung stammte und nie geprüft war.
-**Ein relatives Wort ist dieselbe Falle** — „gestern" wird ausgerechnet,
-und wer es ausrechnet, braucht einen Bezugspunkt, den er ebenfalls nicht
-gemessen hat. Einmal wurde ein Befund über eine
-unmarkierte Kopie siebzehn Tage später weitergereicht — das betroffene
-Repo war inzwischen archiviert. Und einmal war eine genannte
-Prüfungszahl schon am Tag ihrer Entstehung überholt, während die
-Zeilenangaben daneben stimmten. Das machte es tückisch.
+**Und ein Datum aus einem Auftrag ist keine Messung.** **Ein relatives
+Wort ist dieselbe Falle** — „gestern" wird ausgerechnet, und wer es
+ausrechnet, braucht einen Bezugspunkt, den er ebenfalls nicht gemessen
+hat.
 
 Das ist dieselbe Einsicht wie bei einem Prüfschritt, dessen Voraussetzung
 von Hand hergestellt werden muss — eine Ebene höher: **Eine
@@ -682,19 +567,14 @@ Ausgangsstand fehlte.**
 **Und eine Auftragsdatei benennt, welche Abschnitte einer vorhandenen
 Erhebung sie voraussetzt.** Nicht die Datei — den Abschnitt. Bei einer
 Erhebung von einigem Umfang liest man den Anfang und arbeitet dann; wer
-die Stelle nennt, zwingt zum Nachschlagen an der richtigen.
+die Stelle nennt, zwingt zum Nachschlagen an der richtigen. **Eine
+Erhebung, deren Ergebnis beim Bauen nicht gelesen wird, ist verlorene
+Arbeit** — und schlimmer als keine, weil sie den Eindruck erzeugt, die
+Frage sei geklärt.
 
-Einmal wurde eine Strukturerhebung eigens beauftragt, weil dreimal auf
-Stichproben entschieden worden war — und bei den **beiden** Vorgängen
-danach stand die entscheidende Auskunft ungelesen darin. Ein Datensatz
-ging beschädigt in Betrieb. **Eine Erhebung, deren Ergebnis beim Bauen
-nicht gelesen wird, ist verlorene Arbeit** — und schlimmer als keine,
-weil sie den Eindruck erzeugt, die Frage sei geklärt.
-
-**Es ist kein Aufmerksamkeitsproblem.** Dieselbe Person hatte den Auftrag
-geschrieben und die Zeile beim Bauen nicht gelesen. Wer eine Erhebung
-beauftragt, hat sie beim Schreiben im Kopf und beim Bauen nicht mehr —
-deshalb steht die Benennung in der Auftragsdatei und nicht im Gedächtnis.
+**Es ist kein Aufmerksamkeitsproblem.** Wer eine Erhebung beauftragt,
+hat sie beim Schreiben im Kopf und beim Bauen nicht mehr — deshalb steht
+die Benennung in der Auftragsdatei und nicht im Gedächtnis.
 
 **Die Umkehrung gehört dazu:** Ein Abschnitt, den nach mehreren Aufträgen
 keiner voraussetzt, war entweder überflüssig oder ist es geworden. Das
@@ -703,25 +583,20 @@ ist der Anlass, ihn zu streichen oder zu schärfen — nicht ein Gefühl.
 **Vor dem Lauf: `git status` in allen betroffenen Repos.** Sonst ist
 hinterher nicht zu trennen, was das Werkzeug getan hat.
 
-**Wer in einem fremden Repo committet, addiert namentlich — nie
-`git add -A`.** Ein Auftrag weiß, welche Dateien er anfasst; wenn nicht,
-ist das das eigentliche Problem. Einmal lagen hundert Sekunden zwischen
-einem Vendoring-Commit und zwei Dateien aus einer parallelen Sitzung.
-Wären sie früher da gewesen, hätte `-A` sie mitgenommen, und ein Push auf
-die Server-Gegenstelle hätte eine halbfertige Migration ausgeliefert.
+**Wer in einem fremden Repo committet, addiert namentlich — nie `git add
+-A`.** Ein Auftrag weiß, welche Dateien er anfasst; wenn nicht, ist das
+das eigentliche Problem.
 
 **Und ein sauberer Ausgangsstand ist keine Zusicherung über die
-Laufzeit.** Der `git status` vor dem Lauf hätte diesen Fall nicht
-gefangen — die Dateien entstanden danach. An mehreren Repos wird selten
-allein gearbeitet, auch wenn nur eine Person beteiligt ist.
+Laufzeit.** An mehreren Repos wird selten allein gearbeitet, auch wenn
+nur eine Person beteiligt ist.
 
 **Eine Änderung an einem Werkzeug, das über mehrere Repos läuft, wird im
 Probebaum durchgespielt.** Den Baum kopieren, das Werkzeug daraufsetzen,
 und **zuerst belegen, dass der Ausgangslauf dort Zahl für Zahl derselbe
 ist** — ohne diesen Beleg ist der Probebaum eine Annahme. Danach lässt
 sich die Änderung vollständig ausprobieren, ohne ein einziges Repo
-anzufassen. So wurde ein Fehler gefunden, der vierzehn falsche Befunde
-erzeugt hätte.
+anzufassen.
 
 **Der letzte Schritt bleibt manuell.** Ein Deploy über mehrere Repos
 macht eine Änderung wirksam, die niemand einzeln zurücknimmt — dabei soll
@@ -729,10 +604,9 @@ ein Mensch die Ausgabe sehen. Innerhalb eines Projekts gehört
 `deploy.sh` weiterhin zum Auftrag.
 
 **Remote und Zweig werden ausdrücklich genannt.** Die Reihe ist
-gewachsen; die Upstreams zeigen je Repo verschieden mal auf die eine, mal
-auf die andere Gegenstelle. `git push` ohne Argument bedient deshalb
-nicht überall dieselbe Seite — in drei von vier Fällen bediente es die
-falsche, und das Repo sah hinterher aus wie erledigt.
+gewachsen; die Upstreams zeigen je Repo verschieden mal auf die eine,
+mal auf die andere Gegenstelle. `git push` ohne Argument bedient deshalb
+nicht überall dieselbe Seite.
 
 **Ein Push auf die Server-Gegenstelle ist eine Auslieferung**, keine
 Vorbereitung: Am Bare-Repo hängt ein Hook, der auscheckt oder ausrollt.
@@ -776,26 +650,19 @@ und die anderen bedienen sich daraus.
 **Fehlt eine Modulvariante, bleibt der bisherige Zustand — oder es kommt
 eine örtliche, vorläufige Zeile mit Verweis auf den Befund. Nie ein
 schlechterer Zustand.** Die Vorgabe „nicht selbst bauen" hatte keine
-Bedingung für den Fall, dass das Modul noch nicht liefert: Einmal wurde
-deshalb eine bestehende Begrenzung entfernt und keine neue gesetzt — eine
-Anmeldekarte wurde bildschirmbreit. **Die vorläufige Zeile ist die
-Bedingung, die fehlte**, und sie fällt weg, sobald das Modul liefert.
+Bedingung für den Fall, dass das Modul noch nicht liefert. **Die
+vorläufige Zeile ist die Bedingung, die fehlte**, und sie fällt weg,
+sobald das Modul liefert.
 
 **Vor dem Vergeben einer Versionsnummer den Bestand ansehen:** Ist sie
-frei, und ist der eigene Ausgangsstand der neueste? Mehrfach hat eine
-Nummer etwas anderes behauptet als der Inhalt.
+frei, und ist der eigene Ausgangsstand der neueste?
 
 **Wo eine Versionsnummer vergeben wird, wird sie getaggt.** Eine Nummer
 in einer Commit-Meldung, einem Changelog oder einem Kopfvermerk ist eine
-Behauptung; ein Tag ist der Beleg. Fünfmal hintereinander ist das Taggen
-unterblieben, ohne dass es jemandem auffiel.
+Behauptung; ein Tag ist der Beleg.
 
 **Und ein Tag zeigt auf den Commit, der seinen Changelog-Eintrag
-trägt.** Einmal stand er **eine Änderung zu früh**: Wer die Nummer
-auscheckte, bekam den Stand der vorigen Fassung. Aufgefallen ist es nur,
-weil ein Lauf je Zwischenschritt maß, statt den Tags zu glauben — zwei
-Fassungen mit gleicher Prüfsumme wurden nicht übergangen, sondern
-nachgesehen.
+trägt.**
 
 **Das ist mechanisch prüfbar:** Für jeden Tag `vX.Y.Z` führt der
 getaggte Commit die Überschrift `[X.Y.Z]` im Changelog. **Ein Tag, der
@@ -808,14 +675,10 @@ sieht aus wie eine Auskunft und ist eine Falle. Wo sich ein Zustand
 ableiten lässt, wird er nicht aufgeschrieben.
 
 **Und bevor eine Eigenschaft ins Modul wandert, ist zu prüfen, ob sie
-gesetzt werden muss.** Einmal war eine Zeile für das Modul vorgeschlagen,
-verhandelt und fast gebaut — sie beschrieb die **Voreinstellung**, die
-ohnehin gilt. **Sie hätte nichts getan, außer den Eindruck zu erwecken,
-hier sei etwas entschieden worden.**
+gesetzt werden muss.**
 
 Beim nächsten Umbau steht sie da, und niemand weiß, ob sie eine Absicht
-trägt oder ein Rest ist. **Gefunden hat es ein Blick auf eine echte
-Seite**, nicht ein Argument.
+trägt oder ein Rest ist.
 
 **Eine nicht versionierte Konfigurationsdatei driftet unbemerkt in zwei
 Richtungen** — gegenüber ihrer Vorlage im Repo und gegenüber der Fassung
@@ -876,9 +739,7 @@ ist ausdrücklich beschlossen und kein Schlupfloch.
 
 **Token-Werte werden gegen den Bestand geprüft**, nicht nur gegen die
 Rechenregel. Ein neuer Wert muss zu den bestehenden Einträgen passen —
-etwa: Der Hover ist heller als der Akzent. Ein rein kontrastoptimierter
-Wert war einmal dunkler und fiel aus der Reihe, obwohl er jede Prüfung
-bestand.
+etwa: Der Hover ist heller als der Akzent.
 
 **Kein erfundener Name aus dem Namensraum des Moduls** — weder ein
 Klassenname noch ein Symbolname noch ein Token. Ein geratener Name sieht
@@ -889,15 +750,14 @@ Falls:
 
 | | Wirkung |
 |---|---|
-| Klassenname | hat keine Regel — so verschwanden alle Karten eines Projekts |
+| Klassenname | hat keine Regel |
 | Symbolname | zeigt ein leeres Feld |
 | **Tokenname** | macht die **ganze Deklaration** ungültig |
 | Kennung im DOM | das Element wird nicht gefunden — und ein DOM-Ersatz, der sie selbst anlegt, verdeckt es |
 
 **Der Tokenname ist der stillste.** `var(--name)` ohne Ersatzwert ist
 *invalid at computed-value time*: Nicht der Wert fällt aus, sondern die
-Deklaration. Einmal waren dadurch sieben Tage lang Ecken eckig, die rund
-sein sollten, und keine von über tausend Prüfungen sah hin.
+Deklaration.
 
 **Wer einen Namensraum des Moduls benutzt, bringt die Prüfung dazu
 mit.** Sie **ermittelt den Bestand** aus den vendorten Dateien, statt ihn
@@ -919,24 +779,19 @@ mitgeliefert, oder es werden Systemschriften verwendet.
 
 **`[hidden]` hat das letzte Wort.** Jede `display`-Regel im Projekt-CSS
 berücksichtigt das Attribut; das Projekt-CSS wird nach dem Modul geladen
-und überschriebe es sonst. **Das gilt für die Modulklassen ebenso** — und
-das Modul hat es zweimal selbst verletzt, bei der Navigation und beim
-Knopf. Die Prüfungen der Projekte fingen es nicht, weil sie nur
-projekteigene Klassen darauf prüften.
+und überschriebe es sonst. **Das gilt für die Modulklassen ebenso**.
 
-**Ein Modulmodifikator wirkt nur auf der Modulklasse.** `ci-knopf--leise`
-auf einem projekteigenen Knopf verliert: gleiche Spezifität, und das
-Projekt-CSS wird danach geladen. Der Knopf sah aus wie der kräftige
-daneben. Die Regel gegen erfundene Klassennamen deckt das nicht ab — der
-Name existiert. **Ein Modifikator wird nur zusammen mit seiner
-Grundklasse benutzt**, und das ist prüfbar: Jeder `ci-*--*`-Name
-verlangt den zugehörigen `ci-*`-Namen am selben Element.
+**Ein Modulmodifikator wirkt nur auf der Modulklasse.**
+`ci-knopf--leise` auf einem projekteigenen Knopf verliert: gleiche
+Spezifität, und das Projekt-CSS wird danach geladen. Die Regel gegen
+erfundene Klassennamen deckt das nicht ab — der Name existiert. **Ein
+Modifikator wird nur zusammen mit seiner Grundklasse benutzt**, und das
+ist prüfbar: Jeder `ci-*--*`-Name verlangt den zugehörigen `ci-*`-Namen
+am selben Element.
 
-**Eine Rückmeldung erscheint dort, wo gehandelt wurde.** Einmal hieß ein
-Befund „Buchen tut nichts" — der Server antwortete richtig, die Meldung
-erschien am Seitenkopf, der angeklickte Termin stand weit darunter.
-**„Es passiert nichts" ist ein Befund über die Oberfläche**, und die
-naheliegende Suche — Endpunkt, Fehlerbehandlung — geht daran vorbei.
+**Eine Rückmeldung erscheint dort, wo gehandelt wurde.** **„Es passiert
+nichts" ist ein Befund über die Oberfläche**, und die naheliegende Suche
+— Endpunkt, Fehlerbehandlung — geht daran vorbei.
 
 **Eingabemasken sind `<form>`-Elemente** mit einem `submit`-Ereignis und
 einem Knopf vom Typ `submit`. Eine Anmeldung aus `<div>` und einem Knopf
@@ -953,31 +808,20 @@ Prüfkette lückenlos und trotzdem wertlos.
 
 **Und Stimmigkeit ist nicht Bedeutung.** Eine Prüfung, die ein Ergebnis
 gegen seine Eingabe hält, prüft nicht, ob die Eingabe die Wirklichkeit
-trifft. Einmal beruhten drei Fehler auf einem falschen Modell der fremden
-Daten — **kein Wächter hätte angeschlagen**, weil der gebaute Körper zum
-gelesenen Bestand passte. Er meinte nur etwas anderes.
+trifft.
 
 **Mehrere Prüfungen, die dieselbe Eingabe teilen, sind eine Prüfung.**
-Vier Sicherungen ließen einmal einen leeren Bestand durch: Der
-Eingangswächter prüfte den falschen Fall, der Körperwächter hielt null
-gegen null, das Gegenlesen verglich gegen eine ebenfalls leere Erwartung —
-und der Rückweg, der den Schaden hätte rückgängig machen sollen, entstand
-aus demselben leeren Bestand und hätte ihn bestätigt.
 
 **Eine Prüfkette ist nur so gut wie ihr unabhängigster Teil.**
 
 **Ein Vergleich prüft vorher seine Operanden.** Null Überschneidung in
 **beide** Richtungen ist fast immer ein leerer Operand, kein Befund.
-Einmal meldeten drei Proben null, weil eine Antwortdatei 79 Byte
-Fehlermeldung enthielt statt der erwarteten Daten. Die Prüfung war
-stimmig — sie verglich korrekt, nur nichts mit nichts.
 
 **Wo mehrere fremde Aufrufe hintereinander laufen, nennt die
 Fehlermeldung, welcher gescheitert ist** — mit Methode, Adresse und
 Status. Ohne das kostet ein Fehlercode Zeit, der etwas anderes bedeutet
 als er sagt: `-32601 Method not found` beantwortete einmal eine falsche
-**Signatur**, nicht einen falschen Namen, und war eine halbe Stunde lang
-nicht zuzuordnen.
+**Signatur**, nicht einen falschen Namen.
 
 **Widersprüche werden als Widerspruch ausgegeben, nicht als Ergebnis.**
 „Daten da, Treffer null" heißt *kein Befund*, nicht *negativer Befund*.
@@ -990,9 +834,7 @@ braucht einen eindeutigen Pfad oder eine Kombination.
 
 **Und dieselbe Vorsicht gilt für die Menge der Felder.** Dass eine
 Abfrage ein Merkmal führt, heißt nicht, dass die Nachbarabfrage es auch
-führt — zwei Quellen, zwei Feldmengen. Einmal wurde ein Merkmal aus einer
-Listenseite mit einer Stammdatenabfrage zu einer Frage verbunden, die
-sich so gar nicht stellen ließ: Die eine führt es, die andere nicht.
+führt — zwei Quellen, zwei Feldmengen.
 
 **Ein Auftrag, der ein Merkmal aus einem anderen Projekt heranzieht,
 nennt den Aufruf, aus dem es stammt** — nicht den Protokolleintrag, der
@@ -1038,9 +880,8 @@ ist, statt zu verbergen, was verdächtig aussieht.
 
 **Und das Schwärzwerkzeug darf nicht das Untersuchungswerkzeug sein.**
 Ein `sed`, das jeden Text zwischen Tags entfernt, hält Personendaten aus
-der Ausgabe — und entfernt zugleich die Spaltenüberschriften, wegen derer
-abgefragt wurde. Einmal ist daraus eine falsch begründete Entscheidung
-entstanden, die erst Tage später berichtigt wurde.
+der Ausgabe — und entfernt zugleich die Spaltenüberschriften, wegen
+derer abgefragt wurde.
 
 Wer fremdes HTML untersucht, braucht zwei Durchläufe: einen, der die
 Struktur zeigt, und einen, der die Werte schwärzt. Ein Werkzeug, das
@@ -1074,11 +915,10 @@ Vergesslichkeit, nicht wie ein Fehler.
 
 **Vergebene Nummern werden nie neu vergeben und nie verschoben** — E, M,
 und jede Nummerierung in einer Befunddatei. Neue kommen ans Ende. Ein
-Zusatzbuchstabe (`B15b`) ist keine Lösung, sondern eine zweite Nummer für
-dieselbe Stelle. **Eine Nummer ist ein Name:** Einmal wurde eine
-Befunddatei am selben Tag umnummeriert, und dieselbe Nummer bedeutete an
-zwei Orten Verschiedenes. Anders als im Code fällt es nicht auf — beide
-Dokumente bleiben lesbar, nur der Verweis stimmt nicht mehr.
+Zusatzbuchstabe (`B15b`) ist keine Lösung, sondern eine zweite Nummer
+für dieselbe Stelle. **Eine Nummer ist ein Name:** Anders als im Code
+fällt es nicht auf — beide Dokumente bleiben lesbar, nur der Verweis
+stimmt nicht mehr.
 
 **Und ein Verweis auf eine Nummer nennt das Projekt**, aus dem sie
 stammt. Mehrere Projekte führen eigene E-Reihen mit denselben Zahlen.

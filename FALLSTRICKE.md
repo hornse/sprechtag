@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v1.25.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v2.0.0 – dort ändern, hierher kopieren! -->
 # Fallstricke: PHP, Router, WebUntis
 
 Ergänzung zu `REIHENREGELN.md`. **Quelle ist `hornse/koordination`**; die
