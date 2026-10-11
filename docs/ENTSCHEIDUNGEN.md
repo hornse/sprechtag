@@ -1660,3 +1660,33 @@ Die Anzeige fragt dann dieselbe Funktion.
 seiner Verletzung sagt `bu_konflikt_text()`, ob das Kind oder der Slot es
 war. Bis `sql/26` eingespielt ist, fehlt diese zweite Stufe im Betrieb –
 wie vor v0.9.84 für alle Fälle.
+
+**Nachtrag 11.10.2026 — im Betrieb vollständig (Betreiber):**
+- `sql/26` ist eingespielt. `SHOW INDEX` zeigt `uniq_kind_termin` über
+  sprechtag_id, lehrer_id, schueler_id mit Non_unique 0; `uniq_slot` steht
+  unverändert daneben. Damit gilt die Regel an einer Stelle im Code, und
+  der Schlüssel in der Datenbank ist die zweite Stufe.
+- `sql/25` aus v0.9.83 ist ebenfalls drin: `einladungen` führt `erledigt`
+  nicht mehr.
+- Die Tags `v0.9.83` und `v0.9.84` liegen auf github **und** uberspace.
+  Auf dem Server zeigt ein Tag die laufende Version besser als eine
+  Commit-Kennung. Der Hook checkt `main` aus, und ein Tag ändert daran
+  nichts; gemessen beim Push: „Bereits auf 'main'“.
+
+**Der wichtigste Teil des Zuges (Betreiber):** Die Prüfung der Aufrufstellen
+verlangt den ganzen Wachblock zusammenhängend vor dem `INSERT` – Abfrage,
+Bedingung, Zurückrollen, Meldung –, nicht nur den Aufruf irgendwo davor.
+Ein Aufruf, dessen Ergebnis niemand auswertet, wäre sonst durchgegangen.
+ET15 und ET16 belegen es mit `if (false)`.
+
+**ET8 – viertes Vorkommen desselben Musters (Betreiber):** Das Suchmuster
+der Mutation traf zuerst den Kopfkommentar der Migration, in dem derselbe
+Wortlaut steht wie in der Anweisung. Die Prüfsumme änderte sich, der
+Eingriff galt als „angekommen“, und die Prüfung, die Kommentare
+ausblendet, blieb zu Recht grün. Es ist derselbe Fehler wie bei den
+Wortlaut-Prüfungen (REIHENREGELN 2: „Ein Prüfausdruck darf nicht auf die
+Beschreibung der Regel anschlagen“), nur im Werkzeug statt im Code.
+**Die geänderte Prüfsumme belegt, dass sich die Datei geändert hat, nicht,
+dass der Eingriff an der gemeinten Stelle sitzt.** Gefunden hat es der
+Nichttreffer in der Serie, nicht eine Prüfung. Behoben ist der Anlass:
+ET8 ist an `ALTER TABLE` verankert.
