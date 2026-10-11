@@ -182,7 +182,9 @@ async function lade(antwort) {
   // ------------------------------------------------------------
   console.log('Hilfe');
   const hilfe = rumpf('function ansichtHilfe(');
-  const ausfall = (hilfe.match(/'Krankheitsausfall'\)\);\s*hb\.appendChild\(el\('p', null,([\s\S]*?)\)\);/) || [])[1] || '';
+  // Der Absatz direkt nach der Überschrift, gleich in welchem Abschnitt –
+  // nicht am Variablennamen (v0.9.89: Die Hilfe ist nach Rollen gegliedert).
+  const ausfall = (hilfe.match(/'Krankheitsausfall'\)\);\s*\w+\.appendChild\(el\('p', null,([\s\S]*?)\)\);/) || [])[1] || '';
   pruefe('Krankheitsausfall: die Lehrkraft sieht die Termine weiter unter „Abgesagte Termine“',
     /sieht[\s\S]*„Abgesagte Termine“/.test(ausfall.replace(/'\s*\+\s*'/g, '')));
 

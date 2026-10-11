@@ -32,6 +32,23 @@ Rumpf-Prüfung bei einer Umformulierung ohne Wirkung fälschlich an
 sich die Eigenschaft ausführen lässt, ist das die bessere Prüfung**
 (REIHENREGELN 2: drei Stufen, nur die dritte misst die Sache).
 
+**Zweiter Fall, v0.9.89, und zwar nachdem die Grenze bekannt war.** Die
+Prüfung „ansichtHilfe zeigt den Absatz unter ‚Datenschutz‘“ in
+`frontend_datenschutz_test.js` suchte im Rumpf, nicht in der Datei, und
+verlangte die Schreibweise `el('h4', null, 'Datenschutz'));` vor der
+Schleife über `datenschutzAbsaetze()`. Bei der Neugliederung der Hilfe nach
+Rollen wurde sie rot, obwohl die Absätze weiter im Datenschutz-Abschnitt
+standen. Vorhergesagt war, dass sie den Umbau übersteht: Gesehen war nur,
+dass sie im Rumpf sucht, nicht, was sie dort sucht. Seit v0.9.89 wird
+`ansichtHilfe` ausgeführt; geprüft ist, dass die Absätze im Abschnitt
+„Datenschutz“ stehen, vollständig, in ihrer Reihenfolge, und auf der ganzen
+Seite je genau einmal. **Die Gegenprobe, die den Unterschied zeigt, ist
+dieselbe wie HB14:** `if (false)` vor der Schleife (DS10). Der Text steht
+unverändert da, es wird nur nichts gezeigt; die alte Prüfung wäre grün
+geblieben, die ausgeführte schlägt an. **Die Grenze greift also auch dann,
+wenn sie bekannt ist** — „im Rumpf“ klingt nach der Abhilfe und ist nur
+ihre erste Hälfte.
+
 ## Wonach in anderen Suiten zu suchen ist
 
 - **Art 1:** Wie oft steht die gesuchte Zeichenkette in der Datei? Mehr als

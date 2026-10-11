@@ -41,9 +41,43 @@ pruefe('datenschutzAbsaetze() liefert Absätze (Voraussetzung)',
 const text = absaetze.join('\n');
 
 // ---- Aufrufstelle, genau eine Darstellung ----
+// v0.9.89: ansichtHilfe wird ausgeführt und am Gezeigten geprüft. Bis
+// v0.9.88 verlangte die Prüfung die Schreibweise `el('h4', null,
+// 'Datenschutz')` vor der Schleife und wurde bei der Neugliederung nach
+// Rollen rot, obwohl die Absätze weiter dort standen
+// (docs/BEFUND-2026-10-11-pruefungen-in-der-datei.md, Grenze der Abhilfe).
 const hilfe = rumpf('function ansichtHilfe(');
-pruefe('ansichtHilfe zeigt den Absatz unter „Datenschutz“',
-  /el\('h4', null, 'Datenschutz'\)\);\s*for \(const a of datenschutzAbsaetze\(\)\)/.test(hilfe));
+function hilfeAusfuehren() {
+  const knoten = (tag, klasse, text) => ({ tag, text: text == null ? '' : String(text), kinder: [],
+    appendChild(k) { this.kinder.push(k); return k; }, addEventListener() {}, setAttribute() {},
+    set innerHTML(h) { this.html = h; } });
+  const sektion = (t) => { const s = knoten('section'); s.kinder.push(knoten('h3', null, t)); return s; };
+  const teileQuelle = (js.match(/^const HILFE_TEILE = (\[[\s\S]*?\n\]);/m) || [])[1];
+  const TEILE = new Function('return ' + teileQuelle)();
+  const sprung = new Function('HILFE_TEILE', 'rolle', rumpf('function hilfeSprungmarken('));
+  const namen = ['S', 'el', 'document', 'sektion', 'block', 'knopf', 'api', 'wechsleAnsicht', 'zeichne',
+    'kontaktSatz', 'hilfeListe', 'hilfeSchluessel', 'datenschutzAbsaetze', 'HILFE_TEILE', 'hilfeSprungmarken'];
+  const werte = [{ user: null, hilfeZusatz: '', offeneBloecke: {} }, knoten,
+    { createElement: (t) => knoten(t) }, sektion, (k, t) => knoten('details', null, t),
+    (t) => knoten('button', null, t), () => Promise.resolve({}), () => {}, () => {}, (v) => v,
+    () => knoten('ol'), (t) => t, () => absaetze.slice(), TEILE, (rolle) => sprung(TEILE, rolle)];
+  const ziel = knoten('main');
+  new Function(...namen, 'ziel', hilfe)(...werte, ziel);
+  return ziel;
+}
+let gezeigt = null;
+try { gezeigt = hilfeAusfuehren(); } catch (e) { console.log('    (ansichtHilfe: ' + e.message + ')'); }
+const alleKnoten = (k) => [k].concat(...k.kinder.map(alleKnoten));
+const dsAbschnitte = gezeigt
+  ? gezeigt.kinder.filter((k) => k.tag === 'section' && k.kinder[0].text === 'Datenschutz') : [];
+const dsTexte = dsAbschnitte.length === 1
+  ? dsAbschnitte[0].kinder.slice(1).filter((k) => k.tag === 'p').map((k) => k.text) : [];
+const vorkommen = gezeigt
+  ? absaetze.map((a) => alleKnoten(gezeigt).filter((k) => k.text === a).length) : [];
+pruefe('ansichtHilfe zeigt die Absätze im Abschnitt „Datenschutz“, je genau einmal (ausgeführt)',
+  absaetze.length >= 4 && dsAbschnitte.length === 1
+  && JSON.stringify(dsTexte) === JSON.stringify(absaetze)
+  && vorkommen.every((n) => n === 1));
 pruefe('kein zweiter Archivier-Satz in ansichtHilfe',
   hilfe !== '' && !/rchivier/.test(hilfe));
 pruefe('datenschutzAbsaetze() einmal aufgerufen', (js.match(/datenschutzAbsaetze\(\)/g) || []).length === 2);

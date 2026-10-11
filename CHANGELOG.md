@@ -1,5 +1,59 @@
 # Changelog - sprechtag
 
+## v0.9.89 (Oktober 2026) – Hilfe nach Rollen gegliedert (Schritt 1: nur umsortiert)
+
+Erster von zwei Schritten zum Nachziehen der Hilfe
+(`docs/HILFE-ABGLEICH-2026-10-09.md`, H1–H12). **Dieser Schritt ändert
+keinen Wortlaut**; neue Inhalte kommen in Schritt 2.
+
+- **Die Hilfe ist nach Rollen gegliedert** (Betreiber): Für
+  Erziehungsberechtigte, Für Lehrkräfte, Für die Administration, Häufige
+  Fragen, Datenschutz. Jede Rolle beginnt mit ihrer Schritt-Liste aus der
+  bisherigen Schnellanleitung, danach folgen die Themen aus dem bisherigen
+  Handbuch. Die Überschriften Schnellanleitung und Handbuch entfallen.
+- **Allen wird alles gezeigt; die Sprungmarke der eigenen Rolle steht
+  vorn** (Betreiber). Volljährige Schülerinnen und Schüler landen bis
+  Schritt 2 beim Teil der Eltern; einen eigenen Teil ohne einen einzigen
+  Satz gibt es nicht.
+- **Reihenfolge, Kennungen und Überschriften stehen an einer Stelle**
+  (`HILFE_TEILE`). Abschnitte und Sprungmarken werden beide daraus gebildet
+  und können nicht auseinanderlaufen. In der ersten Fassung standen die
+  Abschnitte noch in der Reihenfolge der Aufrufe; gefunden hat das die
+  Mutation HR1.
+- **Belegt, dass nur umsortiert wurde:** `ansichtHilfe` wurde in der alten
+  und der neuen Fassung ausgeführt und der fertige Baum verglichen. Es gibt
+  12 Listenpunkte, 21 Absätze und 8 Fragen, vorher und nachher dieselben
+  Texte. Keiner ist doppelt, keiner fehlt. Anders sind nur die Gliederung,
+  Sprungmarken und Kennungen; vier frühere h4-Überschriften sind jetzt h3.
+  Die Engstelle hat den Baum nicht verändert, für jede Rolle und ohne
+  Anmeldung Zeile für Zeile gleich.
+- `hilfe_zusatz` ist unberührt.
+
+### Prüfungen
+- **1615 → 1617 Prüfzeilen in 73 Suiten, alle grün;** `tests-sprechtag.sh` 29.
+- **`frontend_hilfe_test.js` neu gebaut, 8 → 10.** `ansichtHilfe` wird
+  ausgeführt; geprüft werden die Reihenfolge der Abschnitte, die
+  Schritt-Liste je Rolle, eine Sprungmarke je Abschnitt und die eigene
+  Rolle vorn, für alle vier Rollen und ohne Anmeldung. Die übrigen Stellen
+  (Ansichtentabelle, Anmeldung, Seitenleiste) werden im Rumpf ihrer
+  Funktion gesucht, das CSS in seiner Regel. Bis v0.9.88 suchte die Suite
+  in ganz `app.js`. Gegen die alte Gliederung schlagen 4 der 10 an.
+- **`frontend_datenschutz_test.js`, unverändert 33:** Die Prüfung, dass
+  die Absätze unter „Datenschutz“ stehen, verlangte eine Schreibweise
+  (`el('h4', …)`). Sie wurde beim Umbau rot, obwohl die Absätze dort
+  standen. Jetzt ist sie ausgeführt und am Gezeigten geprüft: genau ein
+  Abschnitt „Datenschutz“, darin alle Absätze in ihrer Reihenfolge, jeder
+  auf der Seite genau einmal. Der Fall steht als Beispiel im Befund
+  `docs/BEFUND-2026-10-11-pruefungen-in-der-datei.md`.
+- `frontend_abgesagte_termine_test.js` sucht den Krankheitsausfall-Absatz
+  ohne den Variablennamen des alten Abschnitts.
+- **Mutationen 520 → 527, alle angeschlagen**, H4 grün. Neu sind DS10
+  (`if (false)` vor der Schleife; die alte Prüfung wäre grün geblieben),
+  DS11 (Absätze im falschen Abschnitt) und HR1–HR5. DS1 und DS2 suchten den
+  Bezeichner `hb`, den es nicht mehr gibt; der Eingriff ist derselbe. Die
+  Rücknahme ist belegt: Prüfsummen aller 175 Dateien und `git diff --stat`
+  vorher und nachher gleich.
+
 ## v0.9.88 (Oktober 2026) – Keine E-Mail-Adresse mehr in der Dokumentation
 
 - **`docs/SONDIERUNG.md` nannte die echte E-Mail-Adresse der Testeltern**

@@ -1136,10 +1136,10 @@ function ansichtLogin(ziel) {
 function ansichtHilfe(ziel) {
   ziel.appendChild(el('h2', null, 'Hilfe & Anleitung'));
 
-  // Sprungmarken
+  // Sprungmarken: allen alles, die eigene Rolle vorn (v0.9.89, Betreiber).
+  // Die Hilfe ist auch ohne Anmeldung erreichbar; verborgen wird nichts.
   const nav = el('div', 'hilfe-nav');
-  for (const [ziel2, text] of [['hilfe-schnell', 'Schnellanleitung'],
-      ['hilfe-handbuch', 'Handbuch'], ['hilfe-faq', 'Häufige Fragen']]) {
+  for (const [ziel2, text] of hilfeSprungmarken(S.user ? S.user.rolle : null)) {
     const a = el('a', 'hilfe-sprung', text);
     a.href = '#' + ziel2;
     nav.appendChild(a);
@@ -1167,11 +1167,22 @@ function ansichtHilfe(ziel) {
     ziel.appendChild(knopf('Zur Anmeldung', 'klein', () => wechsleAnsicht('login')));
   }
 
-  // ---- Schnellanleitung ----
-  const schnell = sektion('Schnellanleitung');
-  schnell.id = 'hilfe-schnell';
-  schnell.appendChild(el('h4', null, 'Für Erziehungsberechtigte'));
-  schnell.appendChild(hilfeListe([
+  // Gegliedert nach Rollen (v0.9.89): Jede Rolle findet ihren Teil, ohne an
+  // den anderen vorbeizulesen. Erst „So geht's“, dann die Einzelheiten.
+  // Angehängt werden die Teile unten in der Reihenfolge von HILFE_TEILE –
+  // dieselbe, die die Sprungmarken haben.
+  const teile = {};
+  const teil = (kennung) => {
+    const t = HILFE_TEILE.find((x) => x[0] === kennung);
+    const s = sektion(t[2]);
+    s.id = t[0];
+    teile[kennung] = s;
+    return s;
+  };
+
+  // ---- Für Erziehungsberechtigte ----
+  const eltern = teil('hilfe-eltern');
+  eltern.appendChild(hilfeListe([
     'Mit den eigenen WebUntis-Zugangsdaten anmelden – nicht mit dem Konto '
       + 'des Kindes.',
     'Oben den Sprechtag wählen (falls mehrere zur Auswahl stehen).',
@@ -1180,8 +1191,31 @@ function ansichtHilfe(ziel) {
       + 'ist damit gebucht.',
     'Unter „Meine Termine" sieht man alle Buchungen und kann sie wieder absagen.',
   ]));
-  schnell.appendChild(el('h4', null, 'Für Lehrkräfte'));
-  schnell.appendChild(hilfeListe([
+  eltern.appendChild(el('h4', null, 'Anmeldung'));
+  eltern.appendChild(el('p', null,
+    'Die Anmeldung erfolgt mit den WebUntis-Zugangsdaten der Schule. '
+    + 'Erziehungsberechtigte verwenden ihren eigenen Elternzugang. Die App '
+    + 'speichert keine Passwörter; die Anmeldung wird bei WebUntis geprüft.'));
+
+  eltern.appendChild(el('h4', null, 'Die zwei Phasen eines Sprechtags'));
+  eltern.appendChild(el('p', null,
+    'Ein Sprechtag durchläuft in der Regel zwei Phasen. In Phase 1 können nur '
+    + 'Erziehungsberechtigte buchen, die von einer Lehrkraft eingeladen wurden '
+    + '– so kommen wichtige Gespräche zuerst zustande. In Phase 2 ist die '
+    + 'Buchung für alle geöffnet. Ist ein Sprechtag geschlossen, sind keine '
+    + 'Buchungen mehr möglich.'));
+
+  eltern.appendChild(el('h4', null, 'Termine buchen und absagen'));
+  eltern.appendChild(el('p', null,
+    'Buchungen sind einem bestimmten Kind zugeordnet, damit die Lehrkraft '
+    + 'weiß, um wen es geht. Ein Elternteil kann zur selben Uhrzeit nur einen '
+    + 'Termin haben – Doppelbuchungen bei zwei Lehrkräften gleichzeitig werden '
+    + 'verhindert. Abgesagte Termine geben den Slot sofort wieder frei.'));
+
+
+  // ---- Für Lehrkräfte ----
+  const lehrkraefte = teil('hilfe-lehrkraefte');
+  lehrkraefte.appendChild(hilfeListe([
     'Mit dem WebUntis-Zugang anmelden.',
     'Unter „Meine Termine" sieht man das eigene Zeitraster mit gebuchten und '
       + 'freien Slots.',
@@ -1189,71 +1223,42 @@ function ansichtHilfe(ziel) {
     'Ist ein Elternteil verhindert, kann die Lehrkraft stellvertretend für '
       + 'einen freien Slot buchen.',
   ]));
-  schnell.appendChild(el('h4', null, 'Für die Administration'));
-  schnell.appendChild(hilfeListe([
+
+  // ---- Für die Administration ----
+  const verwaltung = teil('hilfe-verwaltung');
+  verwaltung.appendChild(hilfeListe([
     'Unter „Aktiver Sprechtag" wird der laufende Sprechtag direkt verwaltet.',
     'Lehrkräfte, Anwesenheit und Räume werden in der Tabelle des Sprechtags '
       + 'gepflegt; „Alle speichern" schreibt alle Zeilen auf einmal.',
     'Das Erscheinungsbild (Logo, Texte) lässt sich unter '
       + '„Erscheinungsbild" anpassen.',
   ]));
-  ziel.appendChild(schnell);
-
-  // ---- Handbuch ----
-  const hb = sektion('Handbuch');
-  hb.id = 'hilfe-handbuch';
-
-  hb.appendChild(el('h4', null, 'Anmeldung'));
-  hb.appendChild(el('p', null,
-    'Die Anmeldung erfolgt mit den WebUntis-Zugangsdaten der Schule. '
-    + 'Erziehungsberechtigte verwenden ihren eigenen Elternzugang. Die App '
-    + 'speichert keine Passwörter; die Anmeldung wird bei WebUntis geprüft.'));
-
-  hb.appendChild(el('h4', null, 'Die zwei Phasen eines Sprechtags'));
-  hb.appendChild(el('p', null,
-    'Ein Sprechtag durchläuft in der Regel zwei Phasen. In Phase 1 können nur '
-    + 'Erziehungsberechtigte buchen, die von einer Lehrkraft eingeladen wurden '
-    + '– so kommen wichtige Gespräche zuerst zustande. In Phase 2 ist die '
-    + 'Buchung für alle geöffnet. Ist ein Sprechtag geschlossen, sind keine '
-    + 'Buchungen mehr möglich.'));
-
-  hb.appendChild(el('h4', null, 'Termine buchen und absagen'));
-  hb.appendChild(el('p', null,
-    'Buchungen sind einem bestimmten Kind zugeordnet, damit die Lehrkraft '
-    + 'weiß, um wen es geht. Ein Elternteil kann zur selben Uhrzeit nur einen '
-    + 'Termin haben – Doppelbuchungen bei zwei Lehrkräften gleichzeitig werden '
-    + 'verhindert. Abgesagte Termine geben den Slot sofort wieder frei.'));
-
-  hb.appendChild(el('h4', null, 'Anwesenheit der Lehrkräfte'));
-  hb.appendChild(el('p', null,
+  verwaltung.appendChild(el('h4', null, 'Anwesenheit der Lehrkräfte'));
+  verwaltung.appendChild(el('p', null,
     'Lehrkräfte sind normalerweise den ganzen Sprechtag anwesend. Über das '
     + 'Uhr-Symbol (⏱) lässt sich ausnahmsweise ein Zeitfenster setzen. '
     + 'Halbtagskräfte und Referendar:innen werden mit „½" markiert und wählen '
     + 'dann die erste oder zweite Hälfte – entweder selbst oder über die '
     + 'Administration.'));
 
-  hb.appendChild(el('h4', null, 'Räume und Doppelbelegung'));
-  hb.appendChild(el('p', null,
+  verwaltung.appendChild(el('h4', null, 'Räume und Doppelbelegung'));
+  verwaltung.appendChild(el('p', null,
     'Jeder Lehrkraft kann ein Raum zugewiesen werden. Wird ein Raum von '
     + 'mehreren Personen genutzt, ist das erlaubt, wird aber farblich markiert '
     + '– jede Farbe steht für einen mehrfach belegten Raum, sodass '
     + 'zusammengehörige Zeilen leicht zu erkennen sind.'));
 
-  hb.appendChild(el('h4', null, 'Krankheitsausfall'));
-  hb.appendChild(el('p', null,
+  verwaltung.appendChild(el('h4', null, 'Krankheitsausfall'));
+  verwaltung.appendChild(el('p', null,
     'Fällt eine Lehrkraft aus, gibt die Administration die Termine über das '
     + '⊘-Symbol frei. Die betroffenen Erziehungsberechtigten werden '
     + 'automatisch benachrichtigt, und die Lehrkraft ist danach nicht mehr '
     + 'buchbar. Die abgesagten Termine sieht die Lehrkraft weiter in ihrer '
     + 'Ansicht unter „Abgesagte Termine“.'));
 
-  hb.appendChild(el('h4', null, 'Datenschutz'));
-  for (const a of datenschutzAbsaetze()) hb.appendChild(el('p', null, a));
-  ziel.appendChild(hb);
 
   // ---- FAQ ----
-  const faq = sektion('Häufige Fragen');
-  faq.id = 'hilfe-faq';
+  const faq = teil('hilfe-faq');
   const fragen = [
     ['Ich kann mich nicht anmelden.',
      'Bitte prüfen Sie, ob Sie den eigenen WebUntis-Zugang verwenden (nicht '
@@ -1294,10 +1299,37 @@ function ansichtHilfe(ziel) {
     f.appendChild(el('p', null, antwort));
     faq.appendChild(f);
   }
-  ziel.appendChild(faq);
+
+  // ---- Datenschutz ----
+  const datenschutz = teil('hilfe-datenschutz');
+  for (const a of datenschutzAbsaetze()) datenschutz.appendChild(el('p', null, a));
+
+  for (const [kennung] of HILFE_TEILE) ziel.appendChild(teile[kennung]);
 
   ziel.appendChild(el('p', 'hinweis-klein',
     'Diese Anleitung wird von der Schule gepflegt und kann sich ändern.'));
+}
+
+// Teile der Hilfe in Anzeigereihenfolge: Kennung, Sprungmarke, Überschrift.
+// Eine Stelle für beides, auch für die Reihenfolge – Abschnitt und
+// Sprungmarke können nicht auseinanderlaufen (tests/frontend_hilfe_test.js).
+const HILFE_TEILE = [
+  ['hilfe-eltern', 'Erziehungsberechtigte', 'Für Erziehungsberechtigte'],
+  ['hilfe-lehrkraefte', 'Lehrkräfte', 'Für Lehrkräfte'],
+  ['hilfe-verwaltung', 'Administration', 'Für die Administration'],
+  ['hilfe-faq', 'Häufige Fragen', 'Häufige Fragen'],
+  ['hilfe-datenschutz', 'Datenschutz', 'Datenschutz'],
+];
+
+// Sprungmarken [Kennung, Text], die der eigenen Rolle zuerst. Volljährige
+// Schülerinnen und Schüler buchen wie Eltern; einen eigenen Teil bekommen
+// sie mit dem Nachziehen der Inhalte.
+function hilfeSprungmarken(rolle) {
+  const eigene = { eltern: 'hilfe-eltern', schueler: 'hilfe-eltern',
+    lehrkraft: 'hilfe-lehrkraefte', admin: 'hilfe-verwaltung' }[rolle];
+  const marken = HILFE_TEILE.map((t) => [t[0], t[1]]);
+  const i = marken.findIndex((m) => m[0] === eigene);
+  return i <= 0 ? marken : [marken[i]].concat(marken.slice(0, i), marken.slice(i + 1));
 }
 
 // Fester Datenschutz-Absatz der Hilfeseite (v0.9.74, H9). Bis v0.9.73

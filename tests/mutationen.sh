@@ -873,9 +873,11 @@ mut AR8 backend/api/kalender.php 's/\z/\nfunction kal_abo_weg(PDO \$p): void { \
   $AR "Kalender-Abo: kein Löschweg im Code"
 mut AR9 $IDX 's/DELETE FROM login_log WHERE zeitpunkt < NOW\(\) - INTERVAL \? DAY/DELETE FROM login_log WHERE zeitpunkt < NOW() - INTERVAL ? MONTH/' \
   $AR "Login-Protokoll: Bereinigung nach login_log_tage vorhanden"
-mut DS1 $APP 's/  for \(const a of datenschutzAbsaetze\(\)\) hb\.appendChild\(el\(\x27p\x27, null, a\)\);\n//' \
-  $DS "ansichtHilfe zeigt den Absatz unter „Datenschutz“"
-mut DS2 $APP 's/(  for \(const a of datenschutzAbsaetze\(\)\) hb\.appendChild\(el\(\x27p\x27, null, a\)\);\n)/${1}  hb.appendChild(el(\x27p\x27, null, \x27Beim Archivieren werden alle persönlichen Daten gelöscht.\x27));\n/' \
+# DS1, DS2 (v0.9.89): seit der Neugliederung heißt der Abschnitt
+# `datenschutz`, nicht mehr `hb`; der Eingriff bleibt derselbe.
+mut DS1 $APP 's/  for \(const a of datenschutzAbsaetze\(\)\) datenschutz\.appendChild\(el\(\x27p\x27, null, a\)\);\n//' \
+  $DS "ansichtHilfe zeigt die Absätze im Abschnitt „Datenschutz“, je genau einmal (ausgeführt)"
+mut DS2 $APP 's/(  for \(const a of datenschutzAbsaetze\(\)\) datenschutz\.appendChild\(el\(\x27p\x27, null, a\)\);\n)/${1}  datenschutz.appendChild(el(\x27p\x27, null, \x27Beim Archivieren werden alle persönlichen Daten gelöscht.\x27));\n/' \
   $DS "NICHT mehr: „alle persönlichen Daten“ werden gelöscht"
 mut DS3 sql/16_login_log.sql 's/\(\x27login_log_tage\x27,    \x2730\x27\)/(\x27login_log_tage\x27,    \x2714\x27)/' \
   $DS "Login: Frist mit der Voreinstellung aus der Migration (14 Tage)"
@@ -1432,6 +1434,28 @@ mut HB13 $SLP 's/^function slot_haelfte_fenster\(/function slot_haelfte_fenster_
 # ausgeführte zählt null Aufrufe.
 mut HB14 $APP 's/(  \/\/ Halbtagskräfte wählen im eigenen Raster ihre Hälfte selbst\.\n)/  if (S.svLehrer \&\& S.svLehrer.halbtags) return;\n$1/' \
   $HBT "Selbstbedienung: eigene Hälfte wählbar"
+
+echo "== v0.9.89: Hilfe nach Rollen gegliedert"
+HIT=tests/frontend_hilfe_test.js
+# DS10: die Schleife steht unverändert da und läuft nie – die Prüfung bis
+# v0.9.88 (Schreibweise im Rumpf) wäre grün geblieben.
+mut DS10 $APP 's/^  for \(const a of datenschutzAbsaetze\(\)\) datenschutz\./  if (false) for (const a of datenschutzAbsaetze()) datenschutz./m' \
+  $DS "ansichtHilfe zeigt die Absätze im Abschnitt „Datenschutz“, je genau einmal (ausgeführt)"
+# DS11: die Absätze erscheinen, aber im falschen Abschnitt.
+mut DS11 $APP 's/^  for \(const a of datenschutzAbsaetze\(\)\) datenschutz\.appendChild/  for (const a of datenschutzAbsaetze()) faq.appendChild/m' \
+  $DS "ansichtHilfe zeigt die Absätze im Abschnitt „Datenschutz“, je genau einmal (ausgeführt)"
+# HR1: die Reihenfolge steht nur in HILFE_TEILE (Engstelle, v0.9.89); die
+# Abschnitte wandern mit, nicht nur die Sprungmarken.
+mut HR1 $APP 's/^(  \[\x27hilfe-eltern\x27, [^\n]*\n)(  \[\x27hilfe-lehrkraefte\x27, [^\n]*\n)/$2$1/m' \
+  $HIT "Abschnitte nach Rollen, in dieser Reihenfolge, je einmal"
+mut HR2 $APP 's/  return i <= 0 \? marken : \[marken\[i\]\]\.concat\(marken\.slice\(0, i\), marken\.slice\(i \+ 1\)\);/  return marken;/' \
+  $HIT "Sprungmarke der eigenen Rolle zuerst, keine fehlt"
+mut HR3 $APP 's/^  \[\x27hilfe-lehrkraefte\x27, [^\n]*\n//m' \
+  $HIT "Abschnitte nach Rollen, in dieser Reihenfolge, je einmal"
+mut HR4 $APP 's/    a\.href = \x27#\x27 \+ ziel2;/    a.href = \x27#\x27 + ziel2 + \x27x\x27;/' \
+  $HIT "eine Sprungmarke je Abschnitt, jede auf einen vorhandenen Abschnitt"
+mut HR5 $APP 's/schueler: \x27hilfe-eltern\x27,/schueler: \x27hilfe-faq\x27,/' \
+  $HIT "Sprungmarke der eigenen Rolle zuerst, keine fehlt"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
