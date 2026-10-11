@@ -1395,6 +1395,39 @@ mut ET20 $BUP 's/        if \(in_array\(\$rolle, \[\x27lehrkraft\x27, \x27admin\
 mut ET21 $IDX 's/(require_once __DIR__ \. \x27\/absagen\.php\x27;\n)/$1\$nachtrag = fn(PDO \$p) => \$p->exec(\x27INSERT INTO buchungen (sprechtag_id) VALUES (0)\x27);\n/' \
   $RET "genau zwei Stellen unter backend/ schreiben in buchungen"
 
+echo "== v0.9.85: Halbtags-Prüfungen im Rumpf statt in der Datei"
+HBT=tests/frontend_halbtags_test.js
+# HB1–HB7: die sieben Eingriffe aus der Messung zu v0.9.83 (CHANGELOG, „Gefunden,
+# nicht behoben“). Gegen die alte Fassung blieben alle sieben grün.
+mut HB1 $APP 's/sel\.id = \x27haelfte-\x27 \+ s\.id \+ \x27-\x27 \+ l\.lehrer_id;/sel.id = \x27h-\x27 + l.lehrer_id;/' \
+  $HBT "Lehrer-Zuweisung: Hälfte-Dropdown für Halbtagskräfte"
+mut HB2 $APP 's/\[\x27erste\x27, \x27erste Hälfte\x27\]/[\x27erste\x27, \x27vormittags\x27]/' \
+  $HBT "Lehrer-Zuweisung: Hälfte-Dropdown für Halbtagskräfte"
+mut HB3 $APP 's/\(\) => lehrerAusfall\(s, l\)\)/() => null)/' \
+  $HBT "Lehrer-Zuweisung: Ausfall-Knopf"
+mut HB4 $APP 's/^(\s+)zeichneHaelfteWahl\(ziel, lehrerId\);/${1}void 0;/m' \
+  $HBT "Selbstbedienung: eigene Hälfte wählbar"
+mut HB5 $APP 's/if \(eigenesRaster && S\.svLehrer && parseInt\(S\.svLehrer\.halbtags, 10\) === 1\)/if (eigenesRaster)/' \
+  $HBT "Selbstbedienung nur bei halbtags und eigenem Raster"
+mut HB6 $IDX 's/(\$s = \$sprechtagHolen\(\$pdo, \$sid\);\n\s*)\$f = slot_haelfte_fenster\(\$s, \$h\);/${1}\$f = [\x27von\x27 => null, \x27bis\x27 => null];/' \
+  $HBT "PATCH akzeptiert haelfte erste/zweite/ganz"
+mut HB7 $IDX 's/(PATCH\x27 && \(\$seg\[1\] \?\? \x27\x27\) === )\x27lehrer\x27/${1}\x27lehrerX\x27/' \
+  $HBT "Halbtags-Toggle-Route"
+# HB8–HB13: die übrigen Prüfungen, jetzt ebenfalls im Rumpf. HB11 und HB12
+# löschen den Code und lassen ihn als Kommentar stehen.
+mut HB8 $APP 's/body: \{ halbtags: cbH\.checked/body: { teilzeit: cbH.checked/' \
+  $HBT "Halbtags-Markierung in der Lehrer-Tabelle"
+mut HB9 $IDX 's/\$eigene = \(\$u\[\x27rolle\x27\] === \x27lehrkraft\x27/\$eigene = (\$u[\x27rolle\x27] === \x27admin\x27/' \
+  $HBT "Lehrkraft darf eigenen Eintrag ändern"
+mut HB10 $BUP 's/\x27halbtags\x27 => \$halbtags,/\x27halbtags\x27 => 0,/' \
+  $HBT "Raster liefert halbtags-Flag"
+mut HB11 sql/11_halbtags.sql 's/ALTER TABLE lehrer\n    ADD COLUMN IF NOT EXISTS halbtags/-- früher: ALTER TABLE lehrer ADD COLUMN IF NOT EXISTS halbtags\nALTER TABLE lehrer\n    ADD COLUMN halbtags/' \
+  $HBT "Schema idempotent (ADD COLUMN IF NOT EXISTS)"
+mut HB12 $IDX 's/        \$pdo->prepare\(\x27UPDATE lehrer SET halbtags = \? WHERE id = \?\x27\)\n            ->execute/        \/\/ \$pdo->prepare(\x27UPDATE lehrer SET halbtags = ? WHERE id = ?\x27)\n        \/\/ ->execute/' \
+  $HBT "Halbtags-Toggle-Route"
+mut HB13 $SLP 's/^function slot_haelfte_fenster\(/function slot_haelfte_fenster_alt(/m' \
+  $HBT "slot_haelfte_fenster vorhanden"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1

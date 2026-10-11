@@ -1,5 +1,57 @@
 # Changelog - sprechtag
 
+## v0.9.85 (Oktober 2026) – Halbtags-Prüfungen im Rumpf statt in der Datei
+
+Eigener Schritt nach v0.9.83 (Betreiber). Es ändert sich keine Funktion
+der Anwendung, nur `tests/frontend_halbtags_test.js` und die Mutationen.
+
+- **Alle zwölf Prüfungen suchen jetzt im Rumpf der Funktion oder Route,**
+  um die es geht, nicht in der ganzen Datei:
+  - JavaScript über `rumpf()` (ohne Kommentare);
+  - PHP über `phpBlock()`, vom Bedingungskopf bis zur schließenden Klammer
+    auf seiner Einrückung, ohne Kommentarzeilen.
+  
+  Kommt ein Kopf nicht genau einmal vor, bleibt der Ausschnitt leer, und
+  die Prüfung wird rot. Die Prüfungszahl bleibt 12.
+- **Behoben ist damit der Befund aus v0.9.83** („Gefunden, nicht behoben“:
+  sechs Prüfungen, sieben Eingriffe ohne rote Zeile). Zwei Fälle hebt der
+  Betreiber hervor:
+  - **„halbtags steht 13-mal in app.js“ war NIE aussagekräftig,** nicht
+    erst seit einem Umbau; die Prüfung konnte nie etwas fangen. Jetzt
+    verlangt sie Bedingung und Aufruf zusammenhängend im Rumpf von
+    `zeichneLehrkraftRaster`.
+  - **Die Definition von `lehrerAusfall` hielt die Prüfung grün, die den
+    AUFRUF prüfen soll.** Eine Funktion zu definieren, die niemand
+    aufruft, wäre genau der Fehler, den sie fangen müsste. Jetzt verlangt
+    sie den Aufruf im Knopf (`oeffneLehrerVerwaltung`) und die Route im
+    Rumpf von `lehrerAusfall`.
+- **Die übrigen sechs fanden ihre Zeichenkette nur zufällig einmal** und
+  sind mit umgestellt. Dabei zeigte der Vergleich gegen die alte Fassung
+  vier weitere Schwächen, die mit einer zweiten Fundstelle nichts zu tun
+  haben (Probebaum, je Eingriff gegen beide Fassungen):
+  - „Halbtags-Markierung“ prüfte das Feld `halbtags` im PATCH gar nicht
+    (HB8);
+  - „Schema idempotent“ (HB11) und „Halbtags-Toggle-Route“ (HB12) blieben
+    grün, wenn der Code gelöscht wurde und nur als Kommentar stehen
+    blieb;
+  - „slot_haelfte_fenster vorhanden“ suchte `function
+    slot_haelfte_fenster` und fand es auch in
+    `function slot_haelfte_fenster_alt(` (HB13).
+
+### Prüfungen
+- 1615 Prüfzeilen in 73 Suiten, unverändert, alle grün;
+  `frontend_halbtags` 12 → 12; `tests-sprechtag.sh` 29.
+- Mutationen 506 → 519, alle angeschlagen, H4 grün. Die Rücknahme ist über
+  Prüfsummen von 174 Dateien und `git diff --stat` belegt.
+  - HB1–HB7: die sieben Eingriffe der Messung zu v0.9.83; gegen die alte
+    Fassung blieben alle sieben grün, gegen die neue schlagen alle an.
+  - HB8–HB13: Gegenproben der übrigen; HB11 und HB12 löschen den Code und
+    lassen ihn als Kommentar stehen. HB9 und HB10 schlugen auch bei der
+    alten Fassung an, HB8, HB11, HB12 und HB13 nicht.
+  - Was hier steht, bleibt Quelltext. Ausgeführt werden
+    `slot_haelfte_fenster` in `run_slots.php` und die Ausfall-Route in
+    `run_abgesagte_termine.php`.
+
 ## v0.9.84 (Oktober 2026) – Ein Termin je Kind und Lehrkraft (E24)
 
 - **Fehler aus dem Betrieb behoben:** Über den Weg der Eltern ließen sich
