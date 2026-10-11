@@ -75,7 +75,9 @@ gezielt mit einem Testempfänger erprobt – nicht mit diesem Werkzeug.
 
 ## Befunde der Sondierung vom 19.07.2026 (frg-dusseldorf)
 
-Drei Läufe: Testeltern (`hornse@icloud.com`), Lehrkraft (`ho`), Admin (`adminho`).
+Drei Läufe: Testeltern (`testeltern@example.invalid`), Lehrkraft (`ho`), Admin (`adminho`).
+Die Adresse der Testeltern ist erfunden; bis v0.9.87 stand hier die echte
+(REIHENREGELN 9, Entscheidung von `koordination`, 11.10.2026).
 
 | Frage | Ergebnis |
 |---|---|

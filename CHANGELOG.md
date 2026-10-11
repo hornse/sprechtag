@@ -1,5 +1,31 @@
 # Changelog - sprechtag
 
+## v0.9.88 (Oktober 2026) – Keine E-Mail-Adresse mehr in der Dokumentation
+
+- **`docs/SONDIERUNG.md` nannte die echte E-Mail-Adresse der Testeltern**
+  (Befunde vom 19.07.2026). Sie ist durch eine erfundene ersetzt
+  (`example.invalid`), und der Satz sagt das. Die beiden Kontokürzel in
+  derselben Zeile bleiben.
+- **Entscheidung von `koordination`** (mitgeteilt vom Betreiber,
+  11.10.2026): Abschnitt 9 wiegt schwerer als Abschnitt 10, wenn der Wert
+  adressierbar ist. `SONDIERUNG.md` ist eine Arbeitsdatei, kein
+  Protokolleintrag; die Adresse stand dort als Beispiel, nicht als Zeugnis.
+- **Das Ersetzen nimmt die Adresse aus dem heutigen Stand, nicht aus der
+  Historie. Das Repo ist öffentlich.** Wer sie wirklich entfernen wollte,
+  müsste die Historie umschreiben, und das bricht jeden Klon. Dasselbe
+  gilt für die Kontodaten aus v0.9.87; dort steht es jetzt als Nachtrag.
+- **Das Kürzel im Eintrag v0.9.4 bleibt**, mit einem Vermerk, dass es am
+  11.10.2026 geprüft und als unbedenklich eingestuft wurde. Sonst sähe es
+  beim nächsten Durchgang wieder wie ein Versehen aus.
+- Ausgeliefert, obwohl nur Dokumentation: Die Adresse soll aus dem
+  öffentlichen Stand, nicht erst mit der nächsten Auslieferung. Mit hinaus
+  gehen die Doku-Commits zu den Scope- und Überholt-Vermerken.
+
+### Prüfungen
+- 1615 Prüfzeilen in 73 Suiten, unverändert, alle grün. Keine Prüfung
+  liest `SONDIERUNG.md`.
+- Gesucht: Die alte Adresse steht im heutigen Stand nirgends mehr.
+
 ## v0.9.87 (Oktober 2026) – Keine Kontodaten mehr in den Testdaten
 
 - **`tests/run_jwt_scopes.php` trug Benutzer-ID und Benutzernamen eines
@@ -9,6 +35,11 @@
   sind. Gefunden beim Kennzeichnen der Scope-Aussagen, in keinem Auftrag;
   das Repo ist öffentlich. **In der Geschichte des Repos stehen die Werte
   weiter.**
+
+  > **Nachtrag 11.10.2026 (`koordination`):** Das Ersetzen nimmt die Werte
+  > aus dem heutigen Stand, nicht aus der Historie; das Repo ist öffentlich.
+  > Wer sie wirklich entfernen wollte, müsste die Historie umschreiben, und
+  > das bricht jeden Klon.
 - **Zwei Prüfungsnamen trugen die alte Deutung des Scopes weiter** (E1):
   „kein Schreibrecht“ heißt jetzt „Scope mg:rw nicht im Token“,
   „Schreibrecht erkannt“ heißt „Scope mg:rw erkannt“. Geprüft wird, was im
@@ -2834,6 +2865,13 @@ Breiten, nicht Bedienbarkeit.**
 > `messages/permissions`; die Berichtigung steht in `docs/ENTSCHEIDUNGEN.md`
 > E1 und hier unter v0.9.48 („Hintergrund (gemessen)“). Der Eintrag bleibt
 > als damaliger Stand stehen.
+
+> **Geprüft 11.10.2026:** Das Kürzel des Sondierungskontos unten bleibt
+> stehen und ist als unbedenklich eingestuft – ein Kürzel ist außerhalb der
+> Schule nicht adressierbar. Entscheidung von `koordination` zum
+> Regelkonflikt REIHENREGELN 9 gegen 10, mitgeteilt vom Betreiber am
+> 11.10.2026 (Anlass: `koordination`,
+> `docs/BEFUND-2026-10-11-sprechtag-modul-und-kontodaten.md`).
 
 - **Mitteilungen unter dem eigenen Lehrer-Konto sind nicht möglich.** Die
   Sondierung mit dem Lehrer-Konto (`ho`, personType 2) ergab JWT-Scope
