@@ -437,6 +437,9 @@ select.konflikt.kf-g, select.konflikt.kf-h {
          padding-left: max(1rem, env(safe-area-inset-left, 0px));
          padding-right: 1rem;
          padding-right: max(1rem, env(safe-area-inset-right, 0px)); }
+  /* Sprungziele der Hilfe nicht unter die klebende Kopfleiste (43 px,
+     gemessen): Bis v0.9.90 lag die Überschrift nach dem Sprung darunter. */
+  .hilfe-teil { scroll-margin-top: 3.5rem; }
   /* Auf dem Handy übernimmt der Hamburger; Desktop-Einklappknöpfe aus. */
   .leiste-einklappen, .leiste-ausklappen { display: none !important; }
   .shell.leiste-zu .seitenleiste { width: min(18rem, 85vw); }

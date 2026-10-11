@@ -114,6 +114,40 @@ const L = [
       zeile('menue-' + hoehe, 'KEIN ERGEBNIS (' + String(err.message).split('\n')[0] + ')'); fehlt++;
     } finally { await p.close(); }
   }
+  // Hilfe: nach dem Tippen auf eine Sprungmarke – steht die Überschrift des
+  // Abschnitts frei, oder liegt sie unter der Kopfleiste bzw. unter der
+  // klebenden Sprungmarken-Leiste? Ein Messpunkt, keine Prüfung: Er misst
+  // Darstellung in WebKit, nicht Safari auf dem Gerät (E11). Bis v0.9.90
+  // lag sie auf 390 px unter der Kopfleiste (18 px gegen 43 px).
+  for (const [kennung, kurz] of [['hilfe-lehrkraefte', 'sprung-lk'], ['hilfe-faq', 'sprung-faq'],
+    ['hilfe-datenschutz', 'sprung-ds']]) {
+    const p = await ctx.newPage();
+    try {
+      await p.goto(basis + '/?rolle=eltern#/hilfe');
+      await p.waitForFunction(() => window.__messung, null, { timeout: 20000 });
+      const marke = '.hilfe-sprung[href="#' + kennung + '"]';
+      if (geraet.hasTouch) await p.tap(marke); else await p.click(marke);
+      await p.waitForTimeout(500);
+      const r = await p.evaluate((k) => {
+        const h = document.getElementById(k).querySelector('h3').getBoundingClientRect();
+        // Was oben klebt: alle sichtbaren Elemente mit position fixed/sticky
+        // am oberen Rand, nicht nur die bekannten.
+        let deckt = 0;
+        for (const e of document.querySelectorAll('body *')) {
+          const st = getComputedStyle(e);
+          if (st.position !== 'fixed' && st.position !== 'sticky') continue;
+          if (st.display === 'none' || st.visibility === 'hidden') continue;
+          const x = e.getBoundingClientRect();
+          if (x.height > 0 && x.top <= 1 + deckt && x.bottom > deckt && x.bottom < innerHeight / 2) deckt = Math.max(deckt, x.bottom);
+        }
+        return { ueberschrift: Math.round(h.top), deckt: Math.round(deckt) };
+      }, kennung);
+      zeile(kurz, 'Überschrift bei ' + r.ueberschrift + ' px, oben verdeckt bis '
+        + r.deckt + ' px → ' + (r.ueberschrift >= r.deckt ? 'frei' : 'VERDECKT um ' + (r.deckt - r.ueberschrift) + ' px'));
+    } catch (err) {
+      zeile(kurz, 'KEIN ERGEBNIS (' + String(err.message).split('\n')[0] + ')'); fehlt++;
+    } finally { await p.close(); }
+  }
   await b.close();
   process.exit(fehlt ? 3 : 0);
 })();

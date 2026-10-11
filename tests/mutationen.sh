@@ -1488,6 +1488,15 @@ mut HZ10 $APP 's/(    \x27Ein Sprechtag durchläuft in der Regel zwei Phasen\. )
 mut HZ11 $APP 's/schueler: \x27hilfe-schueler\x27,/schueler: \x27hilfe-eltern\x27,/' \
   $HIT "Sprungmarke der eigenen Rolle zuerst, keine fehlt"
 
+echo "== v0.9.91: Sprungziele der Hilfe nicht unter der Kopfleiste"
+HS_P="Sprungziele: jeder Abschnitt trägt .hilfe-teil, und die Telefon-Abfrage gibt ihm scroll-margin-top (v0.9.91)"
+mut HS1 $CSS 's/\n  \.hilfe-teil \{ scroll-margin-top: 3\.5rem; \}//' $HIT "$HS_P"
+# HS2: dieselbe Regel, aber außerhalb der Telefon-Abfrage
+mut HS2 $CSS 's/\n  \.hilfe-teil \{ scroll-margin-top: 3\.5rem; \}//; s/\z/\n.hilfe-teil { scroll-margin-top: 3.5rem; }\n/' $HIT "$HS_P"
+mut HS3 $APP 's/    s\.className \+= \x27 hilfe-teil\x27;[^\n]*\n//' $HIT "$HS_P"
+# HS4: die Regel als Kommentar stehen gelassen (Art 3)
+mut HS4 $CSS 's/  \.hilfe-teil \{ scroll-margin-top: 3\.5rem; \}/  \/* .hilfe-teil { scroll-margin-top: 3.5rem; } *\//' $HIT "$HS_P"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1

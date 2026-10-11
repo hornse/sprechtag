@@ -1,5 +1,37 @@
 # Changelog - sprechtag
 
+## v0.9.91 (Oktober 2026) – Hilfe: die Überschrift nach dem Sprung liegt nicht mehr unter der Kopfleiste
+
+- **Bestehender Fehler, gefunden beim Messen für die Navigation der
+  Hilfe.** Auf dem Telefon landete die Überschrift eines Abschnitts nach
+  dem Tippen auf eine Sprungmarke unter der klebenden Kopfleiste: gemessen
+  bei 19 px gegen 43 px, verdeckt um 24 px, bei jedem Abschnitt. Man sah
+  den Anfang des Inhalts, nicht wohin man gesprungen war. Seit wann das so
+  ist, ist nicht nachgesehen. Aufgefallen ist es erst, als nachgemessen
+  wurde.
+- **Behoben:** Jeder Abschnitt der Hilfe trägt die Klasse `hilfe-teil`, und
+  die Telefon-Abfrage gibt ihr `scroll-margin-top: 3.5rem`. Die Überschrift
+  steht jetzt bei 75 px, auf dem iPhone 13 (390 px) wie auf dem iPhone SE
+  (320 px). Auf dem Desktop ist nichts verändert; dort gibt es keine
+  Kopfleiste.
+- **Neuer Messpunkt `sprung-*` in `tests/mobil-messung/messen.js`:**
+  Gemessen wird nach dem Tippen auf drei Sprungmarken, ob die Überschrift
+  frei steht oder unter etwas liegt, das oben klebt. Jedes Element mit
+  `fixed` oder `sticky` zählt, nicht nur die bekannten. **Ein Messpunkt,
+  keine Prüfung:** WebKit auf dem Mac, nicht Safari auf dem Gerät (E11).
+  Vorher „VERDECKT um 24 px“, nachher „frei“.
+
+### Prüfungen
+- **1637 → 1638 Prüfzeilen in 73 Suiten, alle grün;** `tests-sprechtag.sh` 29.
+- Neu in `frontend_hilfe_test.js`: Jeder ausgeführte Abschnitt trägt
+  `hilfe-teil`, und die Regel mit `scroll-margin-top` steht **in** der
+  Telefon-Abfrage. Gesucht wird in deren Block, ohne CSS-Kommentare. Ob
+  die Überschrift damit frei steht, misst nur `messen.js`.
+- **Mutationen 538 → 542, alle angeschlagen:** HS1 (Regel fort), HS2
+  (Regel außerhalb der Abfrage), HS3 (Klasse fort), HS4 (Regel als
+  Kommentar stehen gelassen). Die Rücknahme ist belegt: Prüfsummen aller
+  176 Dateien und `git diff --stat` vorher und nachher gleich.
+
 ## v0.9.90 (Oktober 2026) – Hilfe nachgezogen (Schritt 2: Inhalt)
 
 Zweiter Schritt zu `docs/HILFE-ABGLEICH-2026-10-09.md`. Jeder Punkt ist

@@ -102,6 +102,30 @@ pruefe('ohne Anmeldung erreichbar: „Zur Anmeldung“ nur ohne Anmeldung',
 pruefe('Hilfe-CSS vorhanden (Regeln .hilfe-nav und .hilfe-liste)',
   /^\.hilfe-nav \{[^}]*display: flex/m.test(css) && /^\.hilfe-liste \{/m.test(css));
 
+// Blöcke einer Medienabfrage (es kann mehrere geben), mit Klammerzählung.
+function medienBloecke(quelle, abfrage) {
+  const aus = [];
+  let i = quelle.indexOf('@media ' + abfrage);
+  while (i >= 0) {
+    let k = quelle.indexOf('{', i) + 1, tiefe = 1;
+    const start = k;
+    while (k < quelle.length && tiefe > 0) { if (quelle[k] === '{') tiefe++; if (quelle[k] === '}') tiefe--; k++; }
+    aus.push(quelle.slice(start, k - 1));
+    i = quelle.indexOf('@media ' + abfrage, k);
+  }
+  return aus;
+}
+const ohneCssKommentar = (q) => q.replace(/\/\*[\s\S]*?\*\//g, '');
+const telefon = medienBloecke(ohneCssKommentar(css), '(max-width: 760px)').join('\n');
+// v0.9.91: Nach dem Sprung lag die Überschrift auf dem Telefon unter der
+// Kopfleiste (gemessen: 19 px gegen 43 px, tests/mobil-messung/messen.js,
+// Messpunkte sprung-*). Ob sie jetzt frei steht, misst nur messen.js; hier
+// steht, dass die Regel dort ist, wo sie wirken soll, und jeder Abschnitt
+// sie trägt.
+pruefe('Sprungziele: jeder Abschnitt trägt .hilfe-teil, und die Telefon-Abfrage gibt ihm scroll-margin-top (v0.9.91)',
+  abschnitte.length === 6 && abschnitte.every((x) => /(^| )hilfe-teil( |$)/.test(x.klasse))
+  && /(^|\n)\s*\.hilfe-teil \{[^}]*scroll-margin-top: [1-9]/.test(telefon));
+
 // ============================================================
 // Schritt 2: Inhalt (v0.9.90, H1–H12 aus docs/HILFE-ABGLEICH-2026-10-09.md)
 // ============================================================

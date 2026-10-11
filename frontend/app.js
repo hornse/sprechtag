@@ -1176,6 +1176,7 @@ function ansichtHilfe(ziel) {
     const t = HILFE_TEILE.find((x) => x[0] === kennung);
     const s = sektion(t[2]);
     s.id = t[0];
+    s.className += ' hilfe-teil';   // Sprungziel, Abstand zur Kopfleiste (CSS)
     teile[kennung] = s;
     return s;
   };
