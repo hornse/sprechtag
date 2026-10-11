@@ -1515,6 +1515,42 @@ mut HK9 $APP 's/      if \(!nav\.isConnected\) \{ beobachter\.disconnect\(\); re
 mut HK10 $APP 's/  hilfeKnopfZuDenMarken\(ziel, nav\);\n//' $HIT "$HK_A"
 mut HK11 $APP 's/const nav = el\(\x27div\x27, \x27hilfe-nav hilfe-teil\x27\);/const nav = el(\x27div\x27, \x27hilfe-nav\x27);/' $HIT "$HK_A"
 
+echo "== v0.9.93: Anmeldebremse an jeder Stelle, die ein WebUntis-Passwort entgegennimmt"
+BRT=tests/run_anmeldebremse.php
+LLT=tests/frontend_loginlog_test.js
+BRS=backend/api/anmeldebremse.php
+# SD1–SD3: die Verwaltungsprüfung der Sondierung – entfernt, abgeschwächt,
+# als Kommentar stehen gelassen (Art 3).
+mut SD1 $IDX 's/    auth_require_admin\(\);\n(    \$benutzer = req\(\$body, \x27benutzername\x27\);\n    \$passwort = req\(\$body, \x27passwort\x27\);\n    \$gruppen)/$1/' \
+  $BRT "eingeschaltet, nicht angemeldet: 401, WebUntis nicht gerufen, Bremse nicht befragt"
+mut SD2 $IDX 's/    auth_require_admin\(\);\n(    \$benutzer = req\(\$body, \x27benutzername\x27\);\n    \$passwort = req\(\$body, \x27passwort\x27\);\n    \$gruppen)/    auth_require();\n$1/' \
+  $BRT "eingeschaltet, Lehrkraft: 403 „nur für die Sprechtags-Administration“, WebUntis nicht gerufen"
+mut SD3 $IDX 's/    auth_require_admin\(\);\n(    \$benutzer = req\(\$body, \x27benutzername\x27\);\n    \$passwort = req\(\$body, \x27passwort\x27\);\n    \$gruppen)/    \/\/ auth_require_admin();\n$1/' \
+  $BRT "eingeschaltet, nicht angemeldet: 401, WebUntis nicht gerufen, Bremse nicht befragt"
+mut SD4 $IDX 's/(    \$pdo = db\(\$cfg\);\n)    if \(bremse_greift\(\$pdo, \$cfg, \$benutzer\)\) \{\n        json_err\([^\n]*\n    \}\n/$1/' \
+  $BRT "Verwaltung, Bremse greift: 429, WebUntis nicht gerufen"
+mut SD5 $IDX 's/        bremse_fehlschlag\(\$pdo, \$benutzer, \x27Sondierung: \x27 \. \$e->getMessage\(\)\);\n//' \
+  $BRT "Verwaltung, WebUntis lehnt ab: 502, der Fehlschlag steht im Protokoll"
+# SD6, SD7: der Stammdaten-Sync – Bremse fort; ein zweiter Aufruf außerhalb
+# einer Route mit Bremse (die Engstelle).
+mut SD6 $IDX 's/(        \$passwort = req\(\$body, \x27passwort\x27\);\n)        if \(bremse_greift\(\$pdo, \$cfg, \$benutzer\)\) \{\n[^\n]*\n        \}\n/$1/' \
+  $BRT "Sync, Bremse greift: 429, WebUntis nicht gerufen"
+mut SD7 backend/api/buchungen.php 's/\z/\nfunction probe_sync(array \$c, PDO \$p): array { return wu_stammdaten_sync(\$c, \$p, \x27a\x27, \x27b\x27); }\n/' \
+  $BRT "jede Stelle, die authenticate mit übergebenen Zugangsdaten ruft, fragt vorher die Bremse"
+mut SD8 backend/config.example.php 's/\x27sondierung_freigeschaltet\x27 => false,/\x27sondierung_freigeschaltet\x27 => true,/' \
+  $BRT "config.example.php: die Sondierung ist abgeschaltet voreingestellt"
+mut SD9 $IDX 's/            bremse_fehlschlag\(\$pdo, \$benutzer, \$e->getMessage\(\)\);/            \$pdo->prepare(\x27INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, ip) VALUES (?, 0, ?, ?)\x27)->execute([\$benutzer, \$e->getMessage(), \x27\x27]);/' \
+  $BRT "in login_log schreibt nur anmeldebremse.php"
+mut SD10 $BRS 's/return \(int\)\$st->fetchColumn\(\) >= \(int\)/return (int)\$st->fetchColumn() > (int)/' \
+  $BRT "die Bremse zählt Fehlschläge je Benutzername im Zeitfenster"
+# LL1, LL2: die umgestellten Prüfungen der Login-Protokoll-Suite. LL1 hätte
+# die Prüfung bis v0.9.92 bestanden – derselbe Text stand in der
+# Einstellungsroute (Art 1).
+mut LL1 $IDX 's/        if \(\(int\)marke_wert\(\$pdo, \x27login_log_aktiv\x27, \x270\x27\) !== 1\) \{\n            json_ok\(\[\x27aktiv\x27 => false, \x27eintraege\x27 => \[\]\]\);\n        \}\n//' \
+  $LLT "Protokoll nur bei aktiv sichtbar"
+mut LL2 $BRS 's/if \(\$logAktiv && \$logErfolge\)/if (\$logAktiv || \$logErfolge)/' \
+  $LLT "Erfolge nur bei aktiv+erfolge geloggt"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1

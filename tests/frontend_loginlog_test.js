@@ -16,6 +16,8 @@ function pruefe(name, ok) {
 
 const js  = fs.readFileSync(path.join(__dirname, '..', 'frontend', 'app.js'), 'utf8');
 const idx = fs.readFileSync(path.join(__dirname, '..', 'backend', 'api', 'index.php'), 'utf8');
+const bremse = fs.readFileSync(path.join(__dirname, '..', 'backend', 'api', 'anmeldebremse.php'), 'utf8');
+const rumpf = require('./rumpf.js').rumpf;
 const mig = fs.readFileSync(path.join(__dirname, '..', 'sql', '16_login_log.sql'), 'utf8');
 
 // ---- Standard: aus ----
@@ -24,14 +26,27 @@ pruefe('Default erfolge=0 (nur Fehlschläge)', mig.includes("('login_log_erfolge
 pruefe('Default 30 Tage', mig.includes("('login_log_tage',    '30')"));
 
 // ---- Backend ----
+// v0.9.93: Gesucht wird dort, wo die Sache steht. Bis v0.9.92 suchten
+// beide Prüfungen in ganz index.php. Die erste wurde rot, als das Schreiben
+// der Erfolge nach anmeldebremse.php zog. Die zweite blieb grün, obwohl sie
+// nichts mehr bewachte: Ihr Text stand auch in der Einstellungsroute (Art 1,
+// docs/BEFUND-2026-10-11-pruefungen-in-der-datei.md).
+const erfolg = rumpf(bremse, 'function anmeldung_erfolg_merken(');
 pruefe('Erfolge nur bei aktiv+erfolge geloggt',
-  idx.includes('$logAktiv && $logErfolge'));
+  /if \(\$logAktiv && \$logErfolge\) \{\s*\$pdo->prepare\('INSERT INTO login_log/.test(erfolg));
 pruefe('Bereinigung bei Login (Aufbewahrung)',
   idx.includes('DELETE FROM login_log WHERE zeitpunkt < NOW() - INTERVAL ? DAY'));
 pruefe('Admin-Route login-log (nur Admin)',
   idx.includes("=== 'login-log'") && idx.includes('auth_require_admin'));
+// Reihenfolge im Quelltext (Rückfall, die Route wird hier nicht ausgeführt):
+// In der Admin-Route steht die Abfrage „aktiv?“ VOR dem Lesen des Protokolls.
+const llRoute = rumpf(idx, "if (($seg[0] ?? '') === 'login-log')");
+const lesen = llRoute.indexOf("if ($methode === 'GET' && !isset($seg[1])) {");
+const waechter = /if \(\(int\)marke_wert\(\$pdo, 'login_log_aktiv', '0'\) !== 1\) \{\s*json_ok\(\['aktiv' => false, 'eintraege' => \[\]\]\);\s*\}/;
+const ab = lesen < 0 ? '' : llRoute.slice(lesen);
+const w = ab.search(waechter);
 pruefe('Protokoll nur bei aktiv sichtbar',
-  idx.includes("marke_wert($pdo, 'login_log_aktiv'"));
+  lesen >= 0 && w >= 0 && w < ab.indexOf('FROM login_log'));
 pruefe('IP wird dem Admin nicht ausgeliefert',
   !idx.includes('SELECT webuntis_benutzer, erfolgreich, grund, zeitpunkt, ip'));
 

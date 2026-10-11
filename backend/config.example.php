@@ -40,7 +40,9 @@ return [
         'lockout_minutes'   => 15,
     ],
 
-    // Das Sondierwerkzeug nach Abschluss der Sondierung abschalten!
-    'sondierung_freigeschaltet' => true,
+    // Sondierwerkzeug (Diagnose für die Verwaltung). Abgeschaltet
+    // voreingestellt (v0.9.93): Wer sondieren will, schaltet bewusst ein und
+    // danach wieder aus. Auch eingeschaltet erreicht es nur die Verwaltung.
+    'sondierung_freigeschaltet' => false,
 
 ];

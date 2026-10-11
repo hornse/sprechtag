@@ -1474,6 +1474,17 @@ Zeilen einfügt, durchsucht die Muster nach diesem Text und nach seinen
 Nachbarzeilen**, nicht nur nach Bezeichnern. Die Serie meldet es zwar
 selbst („NICHT ANGEKOMMEN“), aber erst nach dem Umbau.
 
+**Zweiter Nachtrag 11.10.2026 (v0.9.93) zur selben Lehre: auch die Suiten,
+nicht nur die Mutationsmuster.** Vor dem Umzug der Brute-Force-Bremse aus
+der Anmelderoute nach `backend/api/anmeldebremse.php` waren die
+Mutationsmuster nach den verschobenen Zeilen durchsucht, die Suiten nicht.
+Rot wurde danach `frontend_loginlog_test.js`, die denselben Text in
+`index.php` suchte. **Wer Code verschiebt, durchsucht vorher die Suiten
+nach seinem Text**, nicht nur die Muster in `tests/mutationen.sh`. Und wo
+dabei eine Prüfung rot wird, gehören die übrigen derselben Suite mit
+angesehen (`docs/BEFUND-2026-10-11-pruefungen-in-der-datei.md`, sechstes
+Beispiel).
+
 ## E21 — Das Kalender-Abo liefert nur kommende Sprechtage
 
 **Datum:** 10.10.2026 · **Version:** 0.9.77 · **Anlass:** Fehler aus dem

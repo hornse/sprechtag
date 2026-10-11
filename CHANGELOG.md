@@ -1,5 +1,84 @@
 # Changelog - sprechtag
 
+## v0.9.93 (Oktober 2026) – Sondierung nur für die Verwaltung; Brute-Force-Bremse an jeder Passwortstelle
+
+**Sicherheitsfund, gefunden bei der Durchsicht der Dokumentation.**
+SONDIERUNG.md behauptete, der Aufruf werde in `login_log` protokolliert
+(Brute-Force-Bremse). Beim Nachsehen gab es weder die Bremse noch eine
+Zugangsprüfung:
+
+- **`POST /api/sondierung` prüfte nur den Schalter `sondierung_freigeschaltet`**,
+  weder Anmeldung noch Rolle. Im Betrieb stand der Schalter auf `true`,
+  gemessen am 11.10.2026: ohne Zugangsdaten 400 „Feld 'benutzername'
+  fehlt“ statt 403. Jeder im Netz konnte fremde WebUntis-Zugangsdaten an
+  WebUntis weiterreichen lassen, ohne Bremse und ohne Protokoll. Die Vorlage
+  `config.example.php` setzte `true` voraus.
+- **Sofortmaßnahme (Betreiber, 11.10.2026):** Der Schalter ist auf dem
+  Server abgeschaltet, geprüft: Die Route antwortet „Sondierung ist in
+  config.php abgeschaltet“.
+
+**Behoben (Entscheidung Betreiber):**
+- **Die Sondierung hat zwei Stufen:** den Schalter **und** die Verwaltung
+  (`auth_require_admin()`). Abgeschaltet hilft auch die Verwaltung nicht.
+- **`config.example.php` schaltet die Sondierung ab** (`false`). Wer
+  sondieren will, schaltet bewusst ein.
+- **Eine Bremse für jede Stelle, die ein WebUntis-Passwort entgegennimmt:**
+  Anmeldung, Sondierung und **Stammdaten-Sync**. Der Sync war ebenfalls ohne
+  Bremse; er ist nur für die Verwaltung erreichbar, also harmloser, aber
+  nicht harmlos. Die Bremse ist aus der Anmelderoute herausgezogen, nach
+  `backend/api/anmeldebremse.php` (`bremse_greift`, `bremse_fehlschlag`,
+  `anmeldung_erfolg_merken`). Ihr SQL ist unverändert, das Zeitfenster
+  rechnet weiter die Datenbank. Fehlschläge stehen immer im
+  `login_log`, Erfolge nur nach den Einstellungen der Schule, wie bei der
+  Anmeldung und wie es der Datenschutz-Absatz der Hilfe zusagt.
+- **Eine vierte Stelle gibt es nicht.** Nachgesehen: `authenticate` mit
+  übergebenen Zugangsdaten rufen genau `wu_login`, `wu_stammdaten_sync` und
+  `sondierung_ausfuehren`. Das vierte Passwortfeld der Oberfläche (der
+  Kasten „Anmelden und …“) schickt an die Anmelderoute.
+- **Die Sondierung bleibt ein Werkzeug der Verwaltung**, an derselben Stelle
+  in der Seitenleiste.
+
+### Prüfungen
+- **1643 → 1664 Prüfzeilen in 74 Suiten, alle grün;** `tests-sprechtag.sh` 29.
+- **Neue Suite `tests/run_anmeldebremse.php`, 21 Prüfungen.**
+  - **Ausgeführt wird der echte Routenzweig** in einem eigenen Prozess, mit
+    der echten `auth.php` (Vorbild `run_ladereihenfolge.php`). Vor dem Bau
+    war die Lücke so belegt: ohne Anmeldung 200, WebUntis gerufen.
+  - Jede Stufe ist einzeln belegt, mit eigenem Wortlaut (403 abgeschaltet,
+    401, 403 Verwaltung, 429), dazu die Reihenfolge Bremse → WebUntis →
+    Protokoll für Sondierung und Sync.
+  - **Die Engstelle ist aus dem Code ermittelt:** jede Funktion, die
+    `authenticate` mit übergebenen Zugangsdaten ruft, und für jeden ihrer
+    Aufrufe, dass die Route vorher die Bremse fragt. In `login_log`
+    schreibt nur `anmeldebremse.php`.
+  - **Nicht ausgeführt:** die Zählung der Bremse selbst. Ihr SQL spricht
+    MariaDB, die Testdatenbank ist SQLite. Geprüft ist, dass Text und
+    Grenzen unverändert übernommen sind; ausgeführt war die Zählung auch
+    vorher nicht.
+- **`frontend_loginlog_test.js`, unverändert 12:** Zwei Prüfungen suchten in
+  ganz `index.php`.
+  - Die eine wurde durch den Umzug rot.
+  - **Die andere war seit v0.9.37 nur zufällig grün:** Ihr Text stand auch
+    in der Einstellungsroute. Ohne den eigentlichen Wächter wäre sie grün
+    geblieben, belegt im Probebaum.
+  - Beide suchen jetzt dort, wo die Sache steht. Lehre im Befund vom 11.10.
+    (sechstes Beispiel): Wird eine Prüfung durch einen Umzug rot, die
+    übrigen derselben Suite ansehen. Dazu ein zweiter Nachtrag zu E20: vor
+    dem Verschieben auch die Suiten durchsuchen, nicht nur die
+    Mutationsmuster.
+- **Mutationen 553 → 565, alle angeschlagen:**
+  - SD1–SD3: die Verwaltungsprüfung entfernt, abgeschwächt, als Kommentar
+    stehen gelassen;
+  - SD4–SD6: Bremse oder Protokoll fort, bei Sondierung und Sync;
+  - SD7: ein Aufruf des Syncs außerhalb einer Route mit Bremse;
+  - SD8: die Vorlage auf `true`;
+  - SD9: ein zweiter Schreiber in `login_log`;
+  - SD10: die Grenze um eins verschoben;
+  - LL1 und LL2: die umgestellten Prüfungen der Login-Protokoll-Suite.
+
+  Die Rücknahme ist belegt: Prüfsummen aller 178 Dateien und
+  `git diff --stat` vorher und nachher gleich.
+
 ## v0.9.92 (Oktober 2026) – Hilfe: breit klebende Sprungmarken, auf dem Telefon ein Knopf zurück
 
 Aus dem Betrieb gemeldet: Wer über eine Sprungmarke in einen Abschnitt

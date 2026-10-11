@@ -30,6 +30,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../bootstrap.php';
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/anmeldebremse.php';
 require_once __DIR__ . '/slots.php';
 require_once __DIR__ . '/absagen.php';
 require_once __DIR__ . '/webuntis_adapter.php';
@@ -50,7 +51,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.92', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.93', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -162,23 +163,16 @@ if (($seg[0] ?? '') === 'auth') {
         $passwort = req($body, 'passwort');
         $pdo = db($cfg);
 
-        // Brute-Force-Bremse VOR dem WebUntis-Aufruf
-        $st = $pdo->prepare(
-            'SELECT COUNT(*) FROM login_log
-             WHERE webuntis_benutzer = ? AND erfolgreich = 0
-               AND zeitpunkt >= NOW() - INTERVAL ? MINUTE');
-        $st->execute([$benutzer, (int)($cfg['security']['lockout_minutes'] ?? 15)]);
-        if ((int)$st->fetchColumn() >= (int)($cfg['security']['max_failed_logins'] ?? 5)) {
+        // Brute-Force-Bremse VOR dem WebUntis-Aufruf (anmeldebremse.php,
+        // dieselbe wie bei der Sondierung).
+        if (bremse_greift($pdo, $cfg, $benutzer)) {
             json_err('Zu viele Fehlversuche – bitte später erneut versuchen', 429);
         }
 
         try {
             $daten = wu_login($cfg, $pdo, $benutzer, $passwort);
         } catch (RuntimeException $e) {
-            $pdo->prepare('INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, ip)
-                           VALUES (?, 0, ?, ?)')
-                ->execute([$benutzer, substr($e->getMessage(), 0, 190),
-                    $_SERVER['REMOTE_ADDR'] ?? '']);
+            bremse_fehlschlag($pdo, $benutzer, $e->getMessage());
             json_err('Anmeldung fehlgeschlagen: ' . $e->getMessage(), 401);
         }
 
@@ -188,13 +182,7 @@ if (($seg[0] ?? '') === 'auth') {
         // aus Sicherheitsgründen (Brute-Force-Bremse) immer festgehalten;
         // ERFOLGE nur, wenn die Schule das Protokoll aktiviert und Erfolge
         // ausdrücklich einbezogen hat.
-        $logAktiv = (int)marke_wert($pdo, 'login_log_aktiv', '0') === 1;
-        $logErfolge = (int)marke_wert($pdo, 'login_log_erfolge', '0') === 1;
-        if ($logAktiv && $logErfolge) {
-            $pdo->prepare('INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, ip)
-                           VALUES (?, 1, ?, ?)')
-                ->execute([$benutzer, $daten['rolle'], $_SERVER['REMOTE_ADDR'] ?? '']);
-        }
+        anmeldung_erfolg_merken($pdo, $benutzer, $daten['rolle']);
         // Aufbewahrung begrenzen: Einträge älter als login_log_tage entfernen
         // (Bereinigung bei Login, kein Cron nötig).
         $tage = max(1, min(365, (int)marke_wert($pdo, 'login_log_tage', '30')));
@@ -518,15 +506,23 @@ if (($seg[0] ?? '') === 'stammdaten') {
     if ($methode === 'POST' && ($seg[1] ?? '') === 'sync') {
         auth_require_admin();
         $pdo = db($cfg);
+        // Auch hier entscheidet ein Passwort, ob WebUntis antwortet: dieselbe
+        // Bremse und dasselbe Protokoll wie bei der Anmeldung (v0.9.93).
+        $benutzer = req($body, 'benutzername');
+        $passwort = req($body, 'passwort');
+        if (bremse_greift($pdo, $cfg, $benutzer)) {
+            json_err('Zu viele Fehlversuche – bitte später erneut versuchen', 429);
+        }
         ignore_user_abort(true);
         set_time_limit(0);
         try {
-            $zahl = wu_stammdaten_sync($cfg, $pdo,
-                req($body, 'benutzername'), req($body, 'passwort'));
-            json_ok(['ok' => true] + $zahl);
+            $zahl = wu_stammdaten_sync($cfg, $pdo, $benutzer, $passwort);
         } catch (RuntimeException $e) {
+            bremse_fehlschlag($pdo, $benutzer, 'Stammdaten-Sync: ' . $e->getMessage());
             json_err('Stammdaten-Sync fehlgeschlagen: ' . $e->getMessage(), 502);
         }
+        anmeldung_erfolg_merken($pdo, $benutzer, 'stammdaten-sync');
+        json_ok(['ok' => true] + $zahl);
     }
 }
 
@@ -1001,9 +997,14 @@ if (($seg[0] ?? '') === 'sonderlehrer') {
 // SONDIERUNG (Werkzeug aus Paket 1, abschaltbar)
 // ============================================================
 if ($methode === 'POST' && ($seg[0] ?? '') === 'sondierung') {
+    // Zwei Stufen (v0.9.93): der Schalter in config.php UND die Verwaltung.
+    // Bis v0.9.92 prüfte die Route nur den Schalter – im Betrieb stand er auf
+    // true, und jeder im Netz konnte fremde Zugangsdaten an WebUntis
+    // weiterreichen lassen (tests/run_anmeldebremse.php).
     if (($cfg['sondierung_freigeschaltet'] ?? false) !== true) {
         json_err('Sondierung ist in config.php abgeschaltet', 403);
     }
+    auth_require_admin();
     $benutzer = req($body, 'benutzername');
     $passwort = req($body, 'passwort');
     $gruppen  = array_values(array_intersect((array)($body['gruppen'] ?? []),
@@ -1021,15 +1022,24 @@ if ($methode === 'POST' && ($seg[0] ?? '') === 'sondierung') {
             json_err("$feld muss das Format JJJJ-MM-TT haben");
         }
     }
+    // Dieselbe Bremse und dasselbe Protokoll wie bei der Anmeldung: Auch
+    // hier entscheidet ein Passwort, ob WebUntis antwortet.
+    $pdo = db($cfg);
+    if (bremse_greift($pdo, $cfg, $benutzer)) {
+        json_err('Zu viele Fehlversuche – bitte später erneut versuchen', 429);
+    }
     ignore_user_abort(true);
     set_time_limit(0);
     try {
-        json_ok(['bericht' => sondierung_ausfuehren($cfg, $benutzer, $passwort,
-            $gruppen, $extraPfade, $schuelerId, $von, $bis)]);
+        $bericht = sondierung_ausfuehren($cfg, $benutzer, $passwort,
+            $gruppen, $extraPfade, $schuelerId, $von, $bis);
     } catch (RuntimeException $e) {
+        bremse_fehlschlag($pdo, $benutzer, 'Sondierung: ' . $e->getMessage());
         sleep(2);
         json_err('Sondierung fehlgeschlagen: ' . $e->getMessage(), 502);
     }
+    anmeldung_erfolg_merken($pdo, $benutzer, 'sondierung');
+    json_ok(['bericht' => $bericht]);
 }
 
 // MESSUNG (v0.9.71), kein Feature – siehe messung_sitzung.php. Ersetzt die

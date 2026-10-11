@@ -66,6 +66,22 @@ Formalie: Die FAQ nannte das Feld „Hinweis an die Lehrkraft“. Es heißt
 „Optionaler Hinweis an die Lehrkraft“. Wer nach dem genannten Namen
 sucht, findet es nicht.
 
+**Sechstes Beispiel, v0.9.93: eine Prüfung, die nur zufällig grün war.**
+Beim Umzug der Brute-Force-Bremse nach `backend/api/anmeldebremse.php`
+wurde in `frontend_loginlog_test.js` die Prüfung „Erfolge nur bei
+aktiv+erfolge geloggt“ rot; ihr Text war mit dem Code gewandert. Die
+Nachbarprüfung derselben Suite, „Protokoll nur bei aktiv sichtbar“, blieb
+grün, und zwar ohne Grund: Sie suchte `marke_wert($pdo, 'login_log_aktiv'`
+in ganz `index.php`, und dieser Text steht auch in der Einstellungsroute.
+Belegt im Probebaum: Den eigentlichen Wächter vor dem Lesen des Protokolls
+entfernt, und die alte Fassung der Prüfung bleibt grün (heute Mutation
+LL1). Das ist Art 1, und zwar seit v0.9.37. Wäre nur die rote Prüfung
+behoben worden, hätte die grüne weiter nichts bewacht.
+
+**Die Lehre daraus:** Wird eine Prüfung einer Suite durch einen Umzug rot,
+lohnt der Blick auf die übrigen Prüfungen **derselben** Suite. Sie suchen
+oft auf dieselbe Weise, und eine davon ist vielleicht nur zufällig grün.
+
 ## Wonach in anderen Suiten zu suchen ist
 
 - **Art 1:** Wie oft steht die gesuchte Zeichenkette in der Datei? Mehr als
