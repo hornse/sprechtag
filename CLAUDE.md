@@ -23,6 +23,20 @@ verteilt neu; der Bestandslauf misst die Kopien.
 
 In diese Datei gehört nur, was **dieses Projekt** ausmacht.
 
+**Was über die WebUntis-API gemessen ist, liegt verstreut.** Die Liste
+aller Fundstellen steht in
+`~/Projekte/koordination/docs/BEFUND-2026-10-11-webuntis-api-bestand.md`
+— 846 Stellen in zehn Repos, Stand 11.10.2026. Sie sagt, **wo** etwas
+steht, nicht was gilt. **Vor jedem neuen Aufruf dort nachsehen**, nicht
+nur im eigenen Repo.
+
+**Die Fundstellen widersprechen sich** (Abschnitt 4 der Liste), darunter:
+Die Felder von `getStudents` werden in mehreren Fassungen beschrieben;
+für den Mitteilungsversand nennen Modul-Doku und Modul-Code verschiedene
+Wege; die Schülerzahl aus `getStudents` steht je nach Datum bei 3563,
+3782 oder 3802. **Und keine Messung trägt die WebUntis-Version** — was
+vor Wochen gemessen wurde, kann ein Update überholt haben.
+
 ## Der Stack
 
 Ermittelt aus dem Repo, nicht aus dem Gedächtnis.
