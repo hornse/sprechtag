@@ -865,3 +865,22 @@ Formen geprüft, die er treffen und die er nicht treffen darf. Die
 Prüfdatei zählt vor dem Entfernen, wie viele Namen auch die alte Tabelle
 nicht kennt (`NICHT_FUELLBAR`); die Zahlen meldet der Betreiber, sie
 werden hier nachgetragen.
+
+**Nachtrag 10.10.2026 — Prüfdatei ausgeführt, Migration 23 eingespielt
+(Betreiber, Produktivsystem).** `sql/23_pruefung.sql`, Zahlen wie gemeldet:
+
+| tabelle | leer_mit_kind | noch_fuellbar | NICHT_FUELLBAR | ohne_kind |
+|---|---|---|---|---|
+| buchungen | 0 | 0 | 0 | 0 |
+| einladungen | 0 | 0 | 0 | 0 |
+| mitteilungen | 0 | 0 | 0 | 1 |
+
+Urteil: „OK – kein Vorgang mit Kind verliert seinen Namen.“ Die eine
+Mitteilung ohne Kind ist getrennt gezählt und nicht als verloren gewertet,
+wie vorgesehen. Danach `sql/23_schueler_entfernen.sql` eingespielt;
+`SHOW TABLES LIKE 'schueler'` ist leer. Die Einladungsauswahl arbeitet
+danach im Betrieb (Suche nach Klasse geprüft). **Zug 4 ist abgeschlossen.**
+
+Gemessen ist damit auch, dass die Nachfüllung aus sql/22 vollständig war:
+Kein Vorgang mit Kind stand ohne Namen. Das Nachfüllen in Migration 23 hatte
+nichts zu tun.
