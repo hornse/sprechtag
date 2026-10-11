@@ -1,5 +1,48 @@
 # Changelog - sprechtag
 
+## v0.9.86 (Oktober 2026) – Selbstbedienung der Halbtagskräfte ausgeführt geprüft
+
+Es ändert sich keine Funktion der Anwendung, nur Prüfungen und
+Dokumentation.
+
+- **Die beiden Prüfungen zur Selbstbedienung laufen jetzt ausgeführt**
+  (Betreiber, Richtungsfrage 1). `zeichneLehrkraftRaster` läuft mit
+  Ersatzknoten wie in `frontend_abgesagte_termine_test.js`. Gezählt wird,
+  wie oft es `zeichneHaelfteWahl` ruft:
+  - genau einmal mit dem Halbtags-Kennzeichen 1 im eigenen Raster, mit
+    diesem Ziel und dieser Lehrkraft;
+  - nie mit Kennzeichen 0, ohne Kennzeichen, im fremden Raster oder in der
+    Ansicht der Verwaltung.
+  
+  Gemessen wird die Eigenschaft, nicht ihre Stelle im Text. Im Probebaum
+  gegen die Rumpf-Fassung von v0.9.85:
+  - ein Rücksprung vor dem Block (HB14): Rumpf-Fassung grün, ausgeführte
+    rot;
+  - eine Umformulierung ohne Wirkung (`Number(…)` statt `parseInt(…, 10)`,
+    Lehrkraft über eine Zwischenvariable): Rumpf-Fassung fälschlich mit 2
+    roten Zeilen, ausgeführte grün.
+- **Befund abgelegt:** `docs/BEFUND-2026-10-11-pruefungen-in-der-datei.md`.
+  Er hält vier Arten von Schwäche fest, nach denen bei anderen Suiten zu
+  suchen ist, nicht nur nach doppelten Fundstellen:
+  - zweite Fundstelle (HB1–HB7);
+  - das Wesentliche nicht geprüft (HB8);
+  - Kommentar zählt als Code (HB11, HB12);
+  - Namensanfang zählt als Name (HB13).
+- **Aufräumliste** (`docs/AUFRAEUMEN.md`), zwei neue Punkte:
+  - die geteilte Kennung der Hälfte-Auswahl (gebildet in
+    `anwesenheitZelle`, gelesen in `lehrerZeileDaten`);
+  - die Durchsicht der anderen Suiten, mit Ausgangszählung und dem Vermerk
+    zu legitimen Formen. `frontend_datenschutz_test.js` ist ausdrücklich
+    genannt.
+
+### Prüfungen
+- 1615 Prüfzeilen in 73 Suiten, unverändert, alle grün;
+  `frontend_halbtags` 12 → 12, davon jetzt 2 ausgeführt;
+  `tests-sprechtag.sh` 29.
+- Mutationen 519 → 520, alle angeschlagen, H4 grün. Die Rücknahme ist über
+  Prüfsummen von 175 Dateien und `git diff --stat` belegt. Neu ist HB14;
+  HB4 und HB5 schlagen jetzt an der ausgeführten Prüfung an.
+
 ## v0.9.85 (Oktober 2026) – Halbtags-Prüfungen im Rumpf statt in der Datei
 
 Eigener Schritt nach v0.9.83 (Betreiber). Es ändert sich keine Funktion

@@ -19,8 +19,9 @@
 // Kommt ein Kopf nicht genau einmal vor, ist der Ausschnitt leer, und die
 // Prüfung wird rot.
 //
-// Was hier steht, ist Quelltext. Ausgeführt wird slot_haelfte_fenster in
-// run_slots.php, die Ausfall-Route in run_abgesagte_termine.php.
+// Ausgeführt werden hier die beiden Prüfungen zur Selbstbedienung (seit
+// v0.9.86); die übrigen sind Quelltext. Ausgeführt wird slot_haelfte_fenster
+// in run_slots.php, die Ausfall-Route in run_abgesagte_termine.php.
 //
 // Aufruf: node tests/frontend_halbtags_test.js
 // ============================================================
@@ -76,15 +77,51 @@ const ausfallFn = rumpf('async function lehrerAusfall(s, l)');
 pruefe('Lehrer-Zuweisung: Ausfall-Knopf',
   /iconKnopf\('⊘', 'ausfall', '[^']*',\s*\(\) => lehrerAusfall\(s, l\)\)/.test(verwaltung)
   && /\+ '\/ausfall', \{ method: 'POST'/.test(ausfallFn));
+// Selbstbedienung AUSGEFÜHRT (v0.9.86): zeichneLehrkraftRaster läuft mit
+// Ersatzknoten, gezählt wird, wie oft es zeichneHaelfteWahl ruft – mit
+// Halbtags-Kennzeichen 1 und 0, im eigenen und im fremden Raster. Gemessen
+// wird die Eigenschaft, nicht ihre Stelle im Text: Sie übersteht jede
+// Umbenennung und jeden Umbau und fängt auch einen Aufruf, der hinter einem
+// Rücksprung zu spät kommt. Ersatzumgebung wie in
+// frontend_abgesagte_termine_test.js.
 const raster = rumpf('function zeichneLehrkraftRaster(ziel, lehrerId)');
 const wahl = rumpf('function zeichneHaelfteWahl(ziel, lehrerId)');
+function knoten(tag, klasse, text) {
+  return {
+    tag, klasse: klasse || '', text: text == null ? '' : String(text), kinder: [],
+    appendChild(k) { this.kinder.push(k); return k; },
+    addEventListener() {}, setAttribute() {}, classList: { add() {}, remove() {} },
+  };
+}
+/** Ruft zeichneLehrkraftRaster; liefert die Aufrufe von zeichneHaelfteWahl als [ziel, lehrerId]. */
+function selbstbedienung(eigenId, gezeigteId, halbtags) {
+  const ziel = knoten('div');
+  const wahlen = [];
+  const S = { svRaster: [{ typ: 'slot', beginn: '15:00', frei: true }], svAbgesagt: [],
+    svLehrer: halbtags === null ? null : { halbtags }, user: { lehrer_id: eigenId },
+    aktiverSprechtag: { id: 1 }, lehrerKalenderLink: 'x' };
+  const namen = ['S', 'el', 'knopf', 'block', 'zeichneHaelfteWahl', 'zeichneStellvertreterKopf',
+    'stellvertretendBuchen', 'lehrkraftStorno', 'ladeSvRaster', 'zeichneAbgesagte', 'api', '$', 'toast',
+    'document', 'navigator', 'confirm'];
+  const werte = [S, knoten, (t) => knoten('button', null, t), (id, t) => knoten('section', null, t),
+    (z, l) => { wahlen.push([z, l]); }, () => {}, () => {}, () => {}, () => {}, () => {},
+    () => Promise.resolve({}), () => null, () => {},
+    { createElement: (t) => knoten(t) }, {}, () => false];
+  try { new Function(...namen, 'ziel', 'lehrerId', raster)(...werte, ziel, gezeigteId); }
+  catch (e) { console.log('    (zeichneLehrkraftRaster: ' + e.message + ')'); return null; }
+  return { ziel, wahlen };
+}
+// Halbtags kommt aus der API als Zeichenkette (MariaDB über PDO).
+const eigenHalb = selbstbedienung(7, 7, '1');
 pruefe('Selbstbedienung: eigene Hälfte wählbar',
-  /zeichneHaelfteWahl\(ziel, lehrerId\);/.test(raster)
+  raster !== '' && !!eigenHalb && eigenHalb.wahlen.length === 1
+  && eigenHalb.wahlen[0][0] === eigenHalb.ziel && eigenHalb.wahlen[0][1] === 7
   && wahl.includes("auswahl('Meine Hälfte', 'haelfte-eigen',") && wahl.includes("wert('haelfte-eigen')"));
-// Bedingung und Aufruf zusammenhängend: Ein Aufruf irgendwo im Rumpf
-// bestünde auch ohne die Bedingung.
+const nie = [selbstbedienung(7, 7, '0'), selbstbedienung(7, 7, null), selbstbedienung(null, 7, '1'),
+  selbstbedienung(8, 7, '1'), selbstbedienung(null, 7, '0')];
 pruefe('Selbstbedienung nur bei halbtags und eigenem Raster',
-  /if \(eigenesRaster && S\.svLehrer && parseInt\(S\.svLehrer\.halbtags, 10\) === 1\) \{\s*zeichneHaelfteWahl\(ziel, lehrerId\);\s*\}/.test(raster));
+  raster !== '' && !!eigenHalb && eigenHalb.wahlen.length === 1
+  && nie.every((r) => r !== null && r.wahlen.length === 0));
 
 // ---- Backend ----
 pruefe('slot_haelfte_fenster vorhanden',

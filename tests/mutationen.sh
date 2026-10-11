@@ -1427,6 +1427,11 @@ mut HB12 $IDX 's/        \$pdo->prepare\(\x27UPDATE lehrer SET halbtags = \? WHE
   $HBT "Halbtags-Toggle-Route"
 mut HB13 $SLP 's/^function slot_haelfte_fenster\(/function slot_haelfte_fenster_alt(/m' \
   $HBT "slot_haelfte_fenster vorhanden"
+# HB14 (v0.9.86): ein Rücksprung vor dem Halbtags-Block. Bedingung und Aufruf
+# stehen unverändert da – die Rumpf-Prüfung von v0.9.85 blieb grün, die
+# ausgeführte zählt null Aufrufe.
+mut HB14 $APP 's/(  \/\/ Halbtagskräfte wählen im eigenen Raster ihre Hälfte selbst\.\n)/  if (S.svLehrer \&\& S.svLehrer.halbtags) return;\n$1/' \
+  $HBT "Selbstbedienung: eigene Hälfte wählbar"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
