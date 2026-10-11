@@ -28,6 +28,13 @@ Drei Punkte, die vorher falsch geraten wurden:
 
 ## Rechte: der wahrscheinlichste Stolperstein
 
+> **Berichtigt (07.10.2026, ab v0.9.48):** Der Scope `mg:r` sagt nichts über
+> das Senderecht – Lehrkraft-Sitzungen senden damit, maßgeblich ist
+> `messages/permissions`; die Berichtigung steht in `docs/ENTSCHEIDUNGEN.md`
+> E1. Auch der Hinweis auf den Scope in der Fehlermeldung ist fort; die
+> Sondierung zeigt ihn seit v0.9.50 nur noch als Auskunft. Der Abschnitt
+> bleibt als Stand vom 24.07.2026 stehen.
+
 Das JWT aus `/WebUntis/api/token/new` trägt einen Scope für Mitteilungen:
 
 | Scope | Bedeutung |

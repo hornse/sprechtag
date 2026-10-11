@@ -2758,6 +2758,12 @@ Breiten, nicht Bedienbarkeit.**
   mit 403 ab (auch für Admins).
 
 ### Hinweis (kein Code)
+> **Berichtigt (07.10.2026, ab v0.9.48):** Der Scope `mg:r` sagt nichts über
+> das Senderecht – Lehrkraft-Sitzungen senden damit, maßgeblich ist
+> `messages/permissions`; die Berichtigung steht in `docs/ENTSCHEIDUNGEN.md`
+> E1 und hier unter v0.9.48 („Hintergrund (gemessen)“). Der Eintrag bleibt
+> als damaliger Stand stehen.
+
 - **Versand-Absender:** Bestätigt, dass Mitteilungen über das Dienstkonto
   aus config.php versendet werden (frischer Login → eigenes JWT), nicht über
   das angemeldete Konto. Dessen mg:r-Scope ist für den Versand irrelevant.
@@ -2799,6 +2805,12 @@ Breiten, nicht Bedienbarkeit.**
   Kind wird kompakt angezeigt und lässt sich mit einem Klick wechseln.
 
 ### Geklärt (kein Code)
+> **Berichtigt (07.10.2026, ab v0.9.48):** Der Scope `mg:r` sagt nichts über
+> das Senderecht – Lehrkraft-Sitzungen senden damit, maßgeblich ist
+> `messages/permissions`; die Berichtigung steht in `docs/ENTSCHEIDUNGEN.md`
+> E1 und hier unter v0.9.48 („Hintergrund (gemessen)“). Der Eintrag bleibt
+> als damaliger Stand stehen.
+
 - **Mitteilungen unter dem eigenen Lehrer-Konto sind nicht möglich.** Die
   Sondierung mit dem Lehrer-Konto (`ho`, personType 2) ergab JWT-Scope
   `mg:r` – nur lesen, nicht senden. WebUntis gibt Lehrkräften das
@@ -2821,6 +2833,12 @@ Breiten, nicht Bedienbarkeit.**
     bleibt es bei „frei/belegt" ohne Namen (Datensparsamkeit unverändert).
 
 ### Vorbereitung (Absender von Mitteilungen)
+> **Berichtigt (07.10.2026, ab v0.9.48):** Der Scope `mg:r` sagt nichts über
+> das Senderecht – Lehrkraft-Sitzungen senden damit, maßgeblich ist
+> `messages/permissions`; die Berichtigung steht in `docs/ENTSCHEIDUNGEN.md`
+> E1 und hier unter v0.9.48 („Hintergrund (gemessen)“). Der Eintrag bleibt
+> als damaliger Stand stehen.
+
 - **Sondierung meldet jetzt die JWT-Scopes.** Der Bericht zeigt unter
   `rest_zugang`, ob das angemeldete Konto Mitteilungen senden darf
   (`mg:rw`) oder nur lesen (`mg:r`). Das beantwortet die offene Frage,
@@ -2969,6 +2987,13 @@ Echtbetrieb belegt.
   dem Token. Trägt es nur `mg:r` (nur lesen), weist die Fehlermeldung
   ausdrücklich darauf hin – im Mitschnitt hatte das Admin-Token genau
   diesen Scope, was ein wahrscheinlicher Stolperstein ist.
+
+  > **Berichtigt (07.10.2026, ab v0.9.48):** Der Scope `mg:r` sagt nichts
+  > über das Senderecht – Lehrkraft-Sitzungen senden damit, maßgeblich ist
+  > `messages/permissions`; die Berichtigung steht in
+  > `docs/ENTSCHEIDUNGEN.md` E1 und hier unter v0.9.48. Den Hinweis in der
+  > Fehlermeldung gibt es nicht mehr. Der Eintrag bleibt als damaliger Stand
+  > stehen.
 
 ### Tests
 - `tests/run_jwt_scopes.php` (7 Prüfungen): JWT-Auswertung mit dem

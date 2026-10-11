@@ -45,6 +45,18 @@ und behauptet die alte Deutung nicht mehr.
 - Ein Rechte-Scope ist künftig kein Beleg für ein Recht. Belegt wird am
   Endpunkt, der das Recht auskunftet, oder durch einen Versuch.
 
+**Nachtrag 11.10.2026 — Vermerk an der Quelle nachgetragen (Betreiber, aus
+`koordination`, `docs/BEFUND-2026-10-11-webuntis-api-bestand.md`):** Die
+Berichtigung stand hier, aber nicht an den Stellen, auf denen die alte
+Entscheidung beruhte. Der CHANGELOG-Eintrag v0.9.4 „Absender-Frage geklärt“
+und `docs/MITTEILUNGEN.md` („Rechte“) gaben `mg:r` weiter als „nur lesen“
+aus, ebenso die CHANGELOG-Einträge v0.8.0 („Scope-Diagnose“), v0.9.3
+(„Vorbereitung“) und v0.9.7 („vom Lehrerkonto senden ist endgültig
+ausgeschlossen“). Wer sie las, fand den Grund für das Dienstkonto ohne
+Anlass zu zweifeln. Alle fünf Stellen tragen jetzt einen Vermerk: was gilt,
+seit wann, wo die Berichtigung steht. Gelöscht ist nichts. Weitere Stellen ohne Vermerk sind
+gemeldet, nicht alle behoben.
+
 ---
 
 ## E2 — Versionsnummern werden nie neu vergeben
