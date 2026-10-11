@@ -64,6 +64,26 @@ pruefe('… genannt: die für das Kind ermittelten Lehrkräfte (kind_lehrer_cach
   /für das Kind ermittelten Lehrkräfte/.test(text));
 pruefe('… ohne automatische Frist', /keine automatische Frist/.test(text));
 
+// v0.9.83 (E19, G7): Jede Tabelle, die das Archivieren leert, ist im Absatz
+// genannt. Die Liste kommt aus run_archivieren.php, das sie gegen den
+// ausgeführten Archivieren-Block hält – eine neue Tabelle ohne Merkmal hier
+// wird rot, statt still ungenannt zu bleiben.
+const geleert = ((arch.match(/foreach \(\[([^\]]*)\] as \$t\) \{/) || [])[1] || '')
+  .split(',').map((s) => s.trim().replace(/^'|'$/g, '')).filter(Boolean);
+const genannt = {
+  buchungen: /Termine mit Name und Klasse des Kindes/,
+  einladungen: /Einladungen/,
+  kind_lehrer_cache: /für das Kind ermittelten Lehrkräfte/,
+  mitteilungen: /Benachrichtigungen/,
+  abgesagte_termine: /auch abgesagte Termine/,
+};
+pruefe('Voraussetzung: geleerte Tabellen aus run_archivieren.php gelesen (mind. 5, darunter buchungen)',
+  geleert.length >= 5 && geleert.includes('buchungen'));
+for (const t of geleert) {
+  pruefe('Hilfe nennt, was beim Archivieren gelöscht wird: ' + t,
+    genannt[t] !== undefined && genannt[t].test(text));
+}
+
 // ---- was NICHT gelöscht wird: jede personenbezogene Tabelle genannt ----
 const persBlock = (arch.match(/const OHNE_SPRECHTAG = \[([\s\S]*?)\];/) || [])[1] || '';
 const pers = [...persBlock.matchAll(/'(\w+)'\s*=>\s*'personenbezogen'/g)].map((m) => m[1]);

@@ -53,6 +53,11 @@ $neu = function (): PDO {
     $db->exec('CREATE TABLE mitteilungen (id INTEGER PRIMARY KEY, sprechtag_id INT)');
     $db->exec('CREATE TABLE kalender_abo (eltern_user_id INT PRIMARY KEY, token TEXT)');
     $db->exec('CREATE TABLE einstellungen (schluessel TEXT PRIMARY KEY, wert TEXT)');
+    // sql/24: der Archivieren-Block leert seit v0.9.83 auch die Ablage (E19).
+    $db->exec("CREATE TABLE abgesagte_termine (id INTEGER PRIMARY KEY AUTOINCREMENT, sprechtag_id INT NOT NULL,
+        lehrer_id INT NOT NULL, slot_beginn TEXT NOT NULL, schueler_id INT NOT NULL, kind_name TEXT NOT NULL DEFAULT '',
+        kind_klasse TEXT NOT NULL DEFAULT '', kommentar TEXT NOT NULL DEFAULT '',
+        anlass TEXT NOT NULL CHECK (anlass IN ('absage','ausfall')), abgesagt_am TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)");
     $db->exec("INSERT INTO lehrer VALUES (7, 'Erfundene Lehrkraft', 'Ef')");
     // Juli (vergangen, nicht archiviert), gestern (Grenze), heute, zwei künftige
     $tage = [1 => '2026-07-27', 2 => '2026-10-09', 3 => '2026-10-10', 4 => '2026-11-12', 5 => '2026-12-01'];

@@ -72,6 +72,7 @@ const S = {
   svSprechtag: null,                 // beginn/ende für die Hälften-Berechnung
   svLaedt: false,                    // Auto-Load läuft gerade (verhindert Doppelladen)
   svFehler: null,                    // Fehlermeldung, falls Auto-Load scheiterte
+  svAbgesagt: null,                  // abgesagte Termine der gezeigten Lehrkraft (E19)
   svKind: null,                      // gewähltes Kind für stellvertretende Buchung
   svKindName: '',                    // Anzeigename des gewählten Kindes
   svKindSuche: '',                   // Suchbegriff im Kind-Suchfeld
@@ -1243,7 +1244,8 @@ function ansichtHilfe(ziel) {
     'Fällt eine Lehrkraft aus, gibt die Administration die Termine über das '
     + '⊘-Symbol frei. Die betroffenen Erziehungsberechtigten werden '
     + 'automatisch benachrichtigt, und die Lehrkraft ist danach nicht mehr '
-    + 'buchbar.'));
+    + 'buchbar. Die abgesagten Termine sieht die Lehrkraft weiter in ihrer '
+    + 'Ansicht unter „Abgesagte Termine“.'));
 
   hb.appendChild(el('h4', null, 'Datenschutz'));
   for (const a of datenschutzAbsaetze()) hb.appendChild(el('p', null, a));
@@ -1310,7 +1312,7 @@ function datenschutzAbsaetze() {
       + 'Namen von Erziehungsberechtigten werden nur zur Laufzeit aus der '
       + 'aktuellen Sitzung verwendet.',
     'Was zu einem Sprechtag gehört – die Termine mit Name und Klasse des '
-      + 'Kindes und den Hinweisen an die Lehrkraft, die Einladungen, die '
+      + 'Kindes und den Hinweisen an die Lehrkraft, auch abgesagte Termine, die Einladungen, die '
       + 'Benachrichtigungen und die für das '
       + 'Kind ermittelten Lehrkräfte – bleibt gespeichert, bis die Schule den '
       + 'Sprechtag archiviert, und wird dann gelöscht. Dafür gibt es keine '
@@ -1994,6 +1996,9 @@ function zeichneLehrkraftRaster(ziel, lehrerId) {
   ziel.appendChild(knopf('Aktualisieren', 'klein',
     () => { S.svRaster = null; ladeSvRaster(lehrerId); }));
 
+  // Unter dem Raster, in jeder Ansicht – auch der der Verwaltung (G4).
+  zeichneAbgesagte(ziel, S.svAbgesagt || []);
+
   // Export nur im eigenen Raster anbieten (nicht in fremder Admin-Ansicht).
   if (eigenesRaster) {
     const sid = S.aktiverSprechtag.id;
@@ -2045,6 +2050,44 @@ function zeichneLehrkraftRaster(ziel, lehrerId) {
       }).catch(() => {});
     }
   }
+}
+
+// „Abgesagte Termine“ (E19, G4): was die Schule abgesagt hat, einzeln oder
+// per Krankheitsausfall – zum Ansehen, ohne Knöpfe. Ohne Einträge kein
+// Abschnitt. Die Texte bildet abgesagteZeilen (geprüft am angezeigten Text,
+// tests/frontend_abgesagte_termine_test.js).
+function zeichneAbgesagte(ziel, liste) {
+  if (!liste || liste.length === 0) return;
+  ziel.appendChild(el('h3', null, 'Abgesagte Termine'));
+  ziel.appendChild(el('p', 'hinweis',
+    'Termine dieses Sprechtags, die die Schule abgesagt hat – einzeln oder wegen eines Ausfalls.'));
+  const tab = el('table', 'tabelle');
+  const kopf = el('tr');
+  for (const t of ['Uhrzeit', 'Kind', 'Klasse', 'Anlass', 'Abgesagt am', 'Hinweis', 'Stand']) {
+    kopf.appendChild(el('th', null, t));
+  }
+  tab.appendChild(kopf);
+  for (const z of abgesagteZeilen(liste)) {
+    const tr = el('tr');
+    for (const t of z) tr.appendChild(el('td', null, t));
+    tab.appendChild(tr);
+  }
+  ziel.appendChild(kartenTabelle(tab));
+}
+
+// Zeilentexte der abgesagten Termine; „neu gebucht um“ ist abgeleitet
+// (Termin desselben Kindes bei derselben Lehrkraft, bu_abgesagte_termine).
+function abgesagteZeilen(liste) {
+  const anlass = { ausfall: 'Krankheitsausfall', absage: 'Absage' };
+  return liste.map((a) => [
+    String(a.slot_beginn || '').slice(0, 5),
+    a.kind_name || '–',
+    a.klasse || '–',
+    anlass[a.anlass] || String(a.anlass || '–'),
+    zeitstempel(a.abgesagt_am),
+    a.kommentar || '–',
+    a.neu_gebucht ? 'neu gebucht um ' + String(a.neu_gebucht).slice(0, 5) : 'nicht neu gebucht',
+  ]);
 }
 
 // Kopfzeile der eigenen Ansicht: Kind wählen (Suchfeld) für die
@@ -2267,6 +2310,7 @@ async function ladeSvRaster(lehrerId) {
       + '&lehrer=' + lehrerId);
     S.svRaster = d.raster || [];
     S.svLehrer = d.lehrer || null;   // halbtags + Fenster für die Selbstbedienung
+    S.svAbgesagt = d.abgesagt || []; // nur für Lehrkraft und Verwaltung gefüllt (E19)
     S.svSprechtag = d.sprechtag || null;
     S.svFehler = null;
     meldung(null);
@@ -2374,8 +2418,7 @@ function ansichtEinladungen(ziel) {
     tr.appendChild(el('td', null, e.kind_name
       || ('Schüler-ID ' + e.schueler_id)));
     tr.appendChild(el('td', null, e.hinweis || '–'));
-    tr.appendChild(el('td', null,
-      parseInt(e.erledigt, 10) === 1 ? 'Termin gebucht' : 'offen'));
+    tr.appendChild(el('td', null, einladungStatusText(e)));
     const td = el('td');
     td.appendChild(knopf('Löschen', 'klein gefahr', async () => {
       try {
@@ -2441,6 +2484,14 @@ function einlTrefferZeichnen(ziel) {
     }
     await einladenAusfuehren(ids, hinweis);
   }));
+}
+
+// Status einer Einladung, abgeleitet im Backend (E18): gebucht vor abgesagt
+// vor offen. Fehlt der Status, steht „unbekannt“ da, nicht „offen“ – so
+// fällt ein fehlendes Feld auf, statt wie ein Zustand auszusehen.
+function einladungStatusText(e) {
+  const t = { gebucht: 'Termin gebucht', abgesagt: 'Termin abgesagt', offen: 'offen' };
+  return Object.prototype.hasOwnProperty.call(t, e.status) ? t[e.status] : 'unbekannt';
 }
 
 async function ladeEinladungen() {

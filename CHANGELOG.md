@@ -1,5 +1,121 @@
 # Changelog - sprechtag
 
+## v0.9.83 (Oktober 2026) – Abgesagte Termine und abgeleiteter Einladungsstatus (E18, E19)
+
+- **Reihenfolge (G6): `sql/24` VOR dem Deploy, `sql/25` NACH dem Deploy.**
+  - Ab v0.9.83 wird jede Absage in `abgesagte_termine` abgelegt, bevor die
+    Buchung gelöscht wird. Fehlt die Tabelle, scheitert jede Absage.
+  - Der Code bis v0.9.82 liest `einladungen.erledigt`; vor dem Deploy
+    entfernt, liefen Einladungsliste und Buchen in einen Fehler.
+- **Ablage abgesagter Termine (E19, G2, G3):** Was die Schule absagt –
+  Lehrkraft oder Verwaltung einzeln (`absage`), Krankheitsausfall
+  (`ausfall`) –, wird abgelegt und dann gelöscht; der Slot ist sofort
+  frei. Storniert die Familie selbst, wird nur gelöscht.
+  - Buchungen entfernt eine Funktion, `bu_buchungen_entfernen()` in der
+    neuen Datei `backend/api/absagen.php`; Ablegen und Löschen stehen in
+    einer Transaktion. Außer ihr löscht nur das Archivieren Buchungen
+    (Engstelle).
+  - Abgelegt werden Uhrzeit, Kind (Kennung, Name, Klasse), Hinweis der
+    Eltern, Anlass und Zeitpunkt; keine Kennung der Eltern, kein
+    Absagetext.
+  - Das Archivieren leert die Ablage mit.
+- **Einladungsstatus abgeleitet (E18, G1):** „Termin gebucht“ vor „Termin
+  abgesagt“ vor „offen“. Abweichend von E18 mit eigenem Status
+  „abgesagt“, siehe E18-Nachtrag. Status und „neu gebucht“ fragen
+  dieselbe Bedingung (`bu_selber_vorgang_sql`).
+- **`einladungen.erledigt` entfällt (G5)**, mit `sql/25`. Kein Code
+  unter `backend/` und kein Skript unter `frontend/` liest oder schreibt
+  es (Engstelle).
+- **Ansicht der Lehrkraft (G4):** Abschnitt „Abgesagte Termine“ unter dem
+  Raster, auch in der Ansicht der Verwaltung, ohne Knöpfe, mit „neu
+  gebucht um HH:MM“ oder „nicht neu gebucht“. Er lädt auch nach einem
+  Ausfall (Teilnahme 0). Ohne Einträge kein Abschnitt. Auf dem Telefon
+  eine Karte: die fünfte Kartenansicht (E13-Nachtrag, Betreiber).
+- **Hilfe (G7):** Der Datenschutz-Absatz nennt „auch abgesagte Termine“;
+  die Hilfe zum Krankheitsausfall sagt, dass die Lehrkraft sie weiter
+  sieht.
+- **Nicht in diesem Zug:** Die Eltern sehen abgesagte Termine nicht.
+
+### Prüfungen
+- 1501 → 1587 Prüfzeilen in 72 Suiten (vorher 70), alle grün;
+  `tests-sprechtag.sh` 29. Die Summe +86 setzt sich so zusammen:
+  - neu `run_abgesagte_termine.php` (+63): Migrationen 24 und 25 am Text,
+    die eine Funktion, Status und Ablage gegen SQLite ausgeführt,
+    Aufrufstellen, die Engstellen für das Löschen und für `erledigt`;
+  - neu `frontend_abgesagte_termine_test.js` (+16): Statustext und Zeilen
+    der Ablage am angezeigten Text, Abschnitt und Aufrufstelle ausgeführt,
+    Engstelle für `erledigt`, die Telefon-Messumgebung;
+  - `frontend_datenschutz` 27 → 33: Jede Tabelle, die das Archivieren
+    leert (gelesen aus `run_archivieren`), ist im Absatz genannt;
+  - `run_archivieren` +1 (leert `abgesagte_termine`);
+  - `frontend_mobil` bleibt bei 32: Die Kartenprüfung zählt jetzt fünf
+    Ansichten statt vier.
+- **Verbindung zwischen den Schichten:** Die Frontend-Suite liest den
+  Status-Alias aus der Backend-Abfrage und die Felder der Ablage aus
+  `AB_FELDER` in `run_abgesagte_termine.php`, das sie gegen die
+  ausgeführte Abfrage hält. Benennt das Backend ein Feld um, wird eine der
+  beiden Suiten rot (Mutationen AT35, AT40, AT41).
+- **Testdatenbanken angeglichen:** `run_kalender_abo` kennt
+  `abgesagte_termine` (vorher Abbruch nach 10 von 16 Prüfungen, E5-Nachtrag);
+  `run_dreiteilung` und `run_einladung_kachel` legen kein `erledigt` mehr
+  an; `tests/mobil-messung/mock.js` liefert `status` statt `erledigt`.
+- `frontend_halbtags`: Die Prüfung der Ausfall-Route sucht im Rumpf der
+  Route, nicht in `index.php`; vorher hielt sie der Archivieren-Block grün.
+- Mutationen 434 → 485, alle angeschlagen, H4 grün. Die Rücknahme ist über
+  Prüfsummen von 168 Dateien und `git diff --stat` belegt (zweiter, voller
+  Lauf nach der Behebung von AT11 und AT23).
+  - Neu sind AT1–AT51.
+  - AR5 legt eine erfundene Tabelle `probe_ablage` an statt
+    `abgesagte_termine`, die es jetzt wirklich gibt; der Eingriff bleibt
+    derselbe.
+  - AT11 schlug im ersten Lauf nicht an: Die Suite brach ohne Zeile ab
+    (drittes Vorkommen des Musters aus E5, siehe dort). `$abgelehnt` meldet
+    jetzt jede andere Ausnahme als rote Zeile.
+
+### Nicht geprüft, mit Grund
+- `bu_buchungen_entfernen()` löscht die gelesenen Zeilen nach `id`, nicht
+  erneut nach der Bedingung. Das wirkt nur bei einer Buchung, die zwischen
+  Lesen und Löschen entsteht, und das lässt sich gegen eine einzelne
+  SQLite-Verbindung nicht herstellen. Keine grüne Prüfung dafür, damit
+  keine so tut.
+
+### Gefunden, nicht behoben
+- **`frontend_halbtags_test.js`: sechs Prüfungen suchen in der ganzen
+  Datei statt im Rumpf** (eigener Schritt nach v0.9.83, Betreiber). Je
+  gemeinter Stelle ein Eingriff, sieben Eingriffe in einem Probebaum,
+  Rücknahme je Eingriff belegt: Alle sechs Prüfungen blieben grün.
+  - „Lehrer-Zuweisung: Hälfte-Dropdown für Halbtagskräfte“ (zwei Eingriffe),
+  - „Lehrer-Zuweisung: Ausfall-Knopf“,
+  - „Selbstbedienung: eigene Hälfte wählbar“,
+  - „Selbstbedienung nur bei halbtags und eigenem Raster“,
+  - „PATCH akzeptiert haelfte erste/zweite/ganz“,
+  - „Halbtags-Toggle-Route“.
+  
+  Hervorgehoben (Betreiber):
+  - **„halbtags steht 13-mal in app.js“:** Diese Prüfung war NIE
+    aussagekräftig, nicht erst seit einem Umbau. Sie konnte nie etwas
+    fangen.
+  - **Die Definition von `lehrerAusfall` hält die Prüfung grün, die den
+    AUFRUF prüfen soll.** Eine Funktion zu definieren, die niemand
+    aufruft, wäre genau der Fehler, den sie fangen müsste.
+  
+  **Ungemessen ist, ob andere Suiten diese Eingriffe fangen.** Das ist
+  keine Liste von sieben ungesicherten Stellen, sondern von sechs
+  Prüfungen, die selbst nichts belegen.
+- **Dasselbe Muster zwischen Schichten:** `app.js` las `e.erledigt`
+  weiter, als die API es nicht mehr lieferte, und keine Prüfung wurde rot.
+  Die Frontend-Prüfungen hatten keine Verbindung zum Backend. **Wie es
+  anders geht, zeigt v0.9.83:** `AB_FELDER` und der Status-Alias werden
+  von der Frontend-Suite gelesen, eine Umbenennung im Backend macht eine
+  Suite rot. Ebenso liest `frontend_datenschutz` aus `run_archivieren`,
+  welche Tabellen geleert werden, und verlangt für jede eine Nennung, die
+  Engstelle aus v0.9.74 eine Stufe weiter: Eine künftige Tabelle ohne
+  Nennung wird rot, ohne dass jemand daran denken muss.
+- **Prüfungen melden nicht, dass sie aufgehört haben** (E5, jetzt drei
+  Vorkommen). Behoben sind die Anlässe, nicht das Muster. Ein Vorbild:
+  `frontend_abgesagte_termine_test.js` meldet einen Abbruch als eigene
+  rote Zeile.
+
 ## v0.9.82 (Oktober 2026) – Die alte Schülerliste fällt (Zug 4, Schritt 4, E20)
 
 - **Reihenfolge (F1): erst Deploy, dann Prüfung, dann Migration.** Ab

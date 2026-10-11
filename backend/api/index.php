@@ -31,6 +31,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../bootstrap.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/slots.php';
+require_once __DIR__ . '/absagen.php';
 require_once __DIR__ . '/webuntis_adapter.php';
 require_once __DIR__ . '/sondierung.php';
 require_once __DIR__ . '/messung_sitzung.php';
@@ -49,7 +50,7 @@ $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : []
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.82', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.83', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -705,6 +706,8 @@ if (($seg[0] ?? '') === 'sprechtage') {
             $pdo->prepare('DELETE FROM kind_lehrer_cache WHERE sprechtag_id = ?')->execute([$sid]);
             // Mitteilungstexte enthalten Namen von Lehrkräften und Zeiten
             $pdo->prepare('DELETE FROM mitteilungen WHERE sprechtag_id = ?')->execute([$sid]);
+            // Abgesagte Termine (E19): bis zum Archivieren, keine eigene Frist
+            $pdo->prepare('DELETE FROM abgesagte_termine WHERE sprechtag_id = ?')->execute([$sid]);
         }
         json_ok(['ok' => true, 'anonymisiert' => $archivieren]);
     }
@@ -905,21 +908,17 @@ if (($seg[0] ?? '') === 'sprechtage') {
                 ON DUPLICATE KEY UPDATE teilnahme = 0')
                 ->execute([$sid, $lid]);
 
-            // Betroffene Buchungen einsammeln, dann freigeben.
-            $stB = $pdo->prepare(
-                'SELECT id, slot_beginn, eltern_user_id, schueler_id, kind_name, kind_klasse
-                 FROM buchungen WHERE sprechtag_id = ? AND lehrer_id = ?');
-            $stB->execute([$sid, $lid]);
-            $buchungen = $stB->fetchAll();
+            // Betroffene Buchungen ablegen und freigeben (E19) – in einer
+            // Transaktion; die entfernten Zeilen kommen für die
+            // Benachrichtigung zurück. Die Lehrkraft sieht sie weiter unter
+            // „Abgesagte Termine“.
+            $buchungen = bu_buchungen_entfernen($pdo, ['sprechtag_id' => $sid, 'lehrer_id' => $lid], 'ausfall');
 
             $stL = $pdo->prepare('SELECT kuerzel, name FROM lehrer WHERE id = ?');
             $stL->execute([$lid]);
             $le = $stL->fetch() ?: [];
             $lehrkraft = (string)($le['name'] ?: ($le['kuerzel'] ?? 'die Lehrkraft'));
             $grund = substr((string)($body['nachricht'] ?? ''), 0, 500);
-
-            $pdo->prepare('DELETE FROM buchungen WHERE sprechtag_id = ? AND lehrer_id = ?')
-                ->execute([$sid, $lid]);
 
             // Betroffene Eltern benachrichtigen (Absage) – je Termin an ALLE
             // Erziehungsberechtigten des Kindes (PARENTS, v0.9.73). Erst alle Absagen

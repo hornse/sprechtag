@@ -220,13 +220,15 @@ pruefe('… die Spalte ohne Überschrift (Knöpfe) wird Fußzeile der Karte (kar
 pruefe('… Kopfzeile gekennzeichnet, Tabelle als „karten“, im rollenden Rahmen (Rückfall)',
   !!kErg && kErg.klasse === 'tabelle-rahmen' && kErg.kinder[0] === kTab
   && kTab.klassen.includes('karten') && kTab.kinder[0].klassen.includes('kopfzeile'));
+// v0.9.83 (E13-Nachtrag, Betreiber): die abgesagten Termine der Lehrkraft
+// (E19) als fünfte – sieben Spalten, gelesen vor allem unterwegs.
 const KARTEN_ANSICHTEN = ['function ansichtMeineTermine(', 'function ansichtEinladungen(',
-  'function ansichtAdminLoginLog(', 'function ansichtMitteilungen('];
+  'function ansichtAdminLoginLog(', 'function ansichtMitteilungen(', 'function zeichneAbgesagte('];
 const jeAnsicht = KARTEN_ANSICHTEN.map((k) => (rumpf(k).match(/kartenTabelle\(\w*tab\)/g) || []).length);
 const kartenGesamt = (jsOhne.match(/kartenTabelle\(/g) || []).length;
-pruefe('Karten genau in Meine Termine, Einladungen, Login-Protokoll, Mitteilungen ('
+pruefe('Karten genau in Meine Termine, Einladungen, Login-Protokoll, Mitteilungen, Abgesagte Termine ('
   + jeAnsicht.join('/') + ', gesamt ' + kartenGesamt + ')',
-  jeAnsicht.every((n) => n === 1) && kartenGesamt === 4);
+  jeAnsicht.every((n) => n === 1) && kartenGesamt === 5);
 pruefe('schmal: jede Zeile ein Block (.tabelle.karten tr: display block)',
   wert(regel('.tabelle.karten tr', MOBIL), 'display') === 'block');
 pruefe('schmal: Kopfzeile ausgeblendet (.tabelle.karten tr.kopfzeile: display none)',

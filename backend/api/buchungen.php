@@ -60,7 +60,7 @@ function bu_einladende_lehrer(PDO $pdo, int $sprechtagId, array $kinder): array
     if ($kinder === []) return [];
     $platzhalter = implode(',', array_fill(0, count($kinder), '?'));
     $st = $pdo->prepare(
-        "SELECT e.id, e.schueler_id, e.hinweis, e.erledigt,
+        "SELECT e.id, e.schueler_id, e.hinweis,
                 l.id AS lehrer_id, l.kuerzel, l.name,
                 COALESCE(c.faecher, '') AS faecher,
                 COALESCE(c.stunden, 0) AS stunden,
@@ -473,7 +473,12 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'raster') {
     $stH->execute([$lid]);
     $halbtags = (int)($stH->fetchColumn() ?: 0);
 
+    // Abgesagte Termine (E19, G4) – nur für die Lehrkraft selbst und die
+    // Verwaltung, wie die Namen oben. Unabhängig von der Teilnahme.
+    $abgesagt = $istLehrkraft ? bu_abgesagte_termine($pdo, $sid, $lid) : [];
+
     json_ok(['raster' => $ausgabe,
+        'abgesagt' => $abgesagt,
         'lehrer' => ['id' => $lid, 'halbtags' => $halbtags,
             'anwesend_von' => $fenster['anwesend_von'],
             'anwesend_bis' => $fenster['anwesend_bis']],
@@ -669,11 +674,6 @@ if (($seg[0] ?? '') === 'buchungen') {
             throw $e;
         }
 
-        // Einladung (falls vorhanden) als erledigt markieren
-        $pdo->prepare('UPDATE einladungen SET erledigt = 1
-                       WHERE sprechtag_id = ? AND lehrer_id = ? AND schueler_id = ?')
-            ->execute([$sid, $lid, $kind]);
-
         // ---- Alle Erziehungsberechtigten über den Termin informieren ----
         $mitteilung = null;
         try {
@@ -853,13 +853,6 @@ if (($seg[0] ?? '') === 'buchungen') {
             throw $e;
         }
 
-        // Einladung als erledigt markieren
-        if ($eingeladen) {
-            $pdo->prepare('UPDATE einladungen SET erledigt = 1
-                           WHERE sprechtag_id = ? AND lehrer_id = ? AND schueler_id = ?')
-                ->execute([$sid, $lid, $kind]);
-        }
-
         // Keine Bestätigung (v0.9.79, E17-Nachtrag): Elternkonten dürfen in
         // WebUntis nicht senden – gemessen 10.10.2026, HTTP 403, Stelle 1 der
         // Bestandsaufnahme. Es gäbe nur den Weg über ein Konto mit Senderecht,
@@ -883,12 +876,14 @@ if (($seg[0] ?? '') === 'buchungen') {
         $pruefung = slot_storno_erlaubt($b, $u['rolle'], (int)($u['user_id'] ?? 0));
         if (!$pruefung['ok']) json_err($pruefung['grund'], 403);
 
-        $pdo->prepare('DELETE FROM buchungen WHERE id = ?')->execute([$bid]);
+        // Sagt die Schule ab (Lehrkraft, Verwaltung), wird der Termin
+        // abgelegt (E19) und die Eltern werden benachrichtigt. Storniert die
+        // Familie selbst, wird nur gelöscht. Eine Entscheidung für beides.
+        $anlass = bu_absage_anlass((string)$u['rolle']);
+        bu_buchungen_entfernen($pdo, ['id' => $bid], $anlass);
 
-        // Sagt die LEHRKRAFT ab, werden die Eltern benachrichtigt.
-        // Sagen Eltern selbst ab, ist keine Mitteilung nötig.
         $mitteilung = null;
-        if (in_array($u['rolle'], ['lehrkraft', 'admin'], true)) {
+        if ($anlass !== null) {
             try {
                 $stS = $pdo->prepare('SELECT name, datum FROM sprechtage WHERE id = ?');
                 $stS->execute([(int)$b['sprechtag_id']]);
@@ -934,9 +929,10 @@ if (($seg[0] ?? '') === 'einladungen') {
         if (in_array($u['rolle'], ['lehrkraft', 'admin'], true)) {
             $lid = $u['rolle'] === 'admin' && isset($_GET['lehrer'])
                 ? (int)$_GET['lehrer'] : (int)($u['lehrer_id'] ?? 0);
+            // Status abgeleitet (E18): gebucht / abgesagt / offen.
             $st = $pdo->prepare(
-                'SELECT e.id, e.schueler_id, e.hinweis, e.erledigt, e.angelegt_am,
-                        e.kind_name, e.kind_klasse AS klasse
+                'SELECT e.id, e.schueler_id, e.hinweis, ' . bu_einladung_status_sql('e') . ' AS status,
+                        e.angelegt_am, e.kind_name, e.kind_klasse AS klasse
                  FROM einladungen e
                  WHERE e.sprechtag_id = ? AND e.lehrer_id = ?
                  ORDER BY e.kind_klasse, e.kind_name, e.angelegt_am DESC');

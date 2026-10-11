@@ -208,6 +208,69 @@ ins Leere greift, kann jedes Projekt mit asynchronem Einstieg treffen.
 abfangen und als eigenen Fehler melden). Wenigstens ein angemeldeter
 Weg gehört dazu. Ihr Name sagt danach, was sie prüft.
 
+**Nachtrag 11.10.2026 — zweite Ausprägung desselben Musters, in PHP
+(Betreiber, beim Bau von E18/E19):** `tests/run_kalender_abo.php` führt den
+Archivieren-Block aus `index.php` gegen eine eigene SQLite-Datenbank aus.
+Seit dieser Block auch `abgesagte_termine` leert, fehlte ihr die Tabelle;
+die Suite brach mit einem PHP-Fatal (`no such table: abgesagte_termine`)
+**nach 10 von 16 Prüfungen ab**. Gemessen:
+- **Keine Zeile mit ✗.** Die Suite hat für einen Abbruch keine eigene
+  Meldung; ihre Schlusszeile („ALLE TESTS GRÜN“ oder „n ROT“) fehlte
+  einfach. Was dastand, war PHPs eigene Fehlermeldung zwischen grünen
+  Zeilen.
+- **Erkannt hat es nur der Exit-Code** (255 durch den Fatal). Wer die
+  Ausgabe gelesen hätte statt des Exit-Codes, hätte sechs ungelaufene
+  Prüfungen übersehen, und nichts hätte es gesagt.
+
+**Das ist dasselbe wie oben:** Eine Prüfung, die bei einem Abbruch nicht
+sagt, dass sie abgebrochen ist. In Node greift das `catch` ins Leere und
+rot wird es durch Nodes Abbruch; hier gibt es kein `catch`, und rot wird es
+durch PHPs Abbruch. In beiden Fällen meldet die Laufzeit, nicht die
+Prüfung.
+
+**Behoben ist nur der Anlass** (die Testdatenbank kennt die Tabelle jetzt,
+mit den Einschränkungen aus `sql/24`), **nicht das Muster.** Für die
+Behebung zu überlegen: Ob jede Suite ihre **erwartete Prüfungszahl** kennt
+und am Ende vergleicht – dann fiele ein Abbruch an der Zahl auf, auch ohne
+Exit-Code. Dagegen steht der Pflegeaufwand (REIHENREGELN 2: eine
+Mindestzahl je Suite muss selbst gepflegt werden). **Nicht jetzt gebaut.**
+
+**Nachtrag 11.10.2026 — drittes Vorkommen, in der eigenen neuen Suite
+(Betreiber):** Mutation AT11 schaltete in `bu_buchungen_entfernen()` die
+Wache gegen eine unzulässige Bedingung ab. `tests/run_abgesagte_termine.php`
+endete daraufhin **nach 23 Zeilen mit Exit 255, ohne eine Zeile mit ✗.**
+Gemessen war die Ursache: Die Hilfsfunktion `$abgelehnt` fing nur
+`InvalidArgumentException`. Ohne Wache wurde aus der leeren Bedingung
+`WHERE  ORDER BY`, und die `PDOException` dazu ging ungefangen durch.
+
+**Drei Fälle in drei Tagen, jedes Mal in einer anderen Schicht:**
+- E5 (Node): Das `catch` greift ins Leere.
+- `run_kalender_abo` (PHP): Die Suite bricht ohne Zeile ab.
+- Jetzt eine Hilfsfunktion in einer Suite, die eigens für diesen Zug
+  geschrieben wurde.
+
+Drei Fälle sind kein Zufall mehr, sondern **ein Muster des Werkzeugs:
+Prüfungen melden, was sie erwarten, aber nicht, dass sie aufgehört
+haben.**
+
+**Ein Abbruch verdeckt die wichtigere Hälfte.** Gegen die leere Bedingung
+schützt neben der Wache auch der SQL-Syntaxfehler. Gegen „nur Sprechtag,
+ohne Lehrkraft“ schützt **nur** die Wache, und genau diese Prüfung
+erreichte die Suite nach dem Abbruch nicht mehr. Sichtbar blieb nur der
+Fall, der doppelt gesichert ist.
+
+**Behoben ist wieder nur der Anlass:** `$abgelehnt` fängt jetzt jede
+Ausnahme und meldet sie als „nicht abgewiesen“, also als rote Zeile. Als
+Abweisung zählt weiterhin nur `InvalidArgumentException`. AT11 schlägt
+seitdem an der erwarteten Zeile an, und die Suite läuft bis zu ihrer
+Schlusszeile.
+
+**Ein Vorbild für die spätere Behebung:**
+`tests/frontend_abgesagte_termine_test.js` (v0.9.83) meldet einen Abbruch
+ihres asynchronen Teils als eigene rote Zeile („✗ Suite abgebrochen: …“),
+nicht nur über Nodes Exit-Code. Hier ist das zum ersten Mal so gebaut, für
+eine Suite, nicht als Muster.
+
 ---
 
 ## E6 — Das Logo im Kopf ist dekorativ
@@ -665,6 +728,22 @@ persönlicher Kalender-Link –, und wer sich danach im selben Browser
 anmeldete, bekam ihn zu sehen. Eine Liste der zurückzusetzenden Felder
 würde mit jedem neuen Feld veralten; ein Neuladen setzt alle zurück.
 
+**Nachtrag 11.10.2026 (v0.9.83, Entscheidung Betreiber) — eine fünfte
+Kartenansicht: Abgesagte Termine.** Die Tabelle „Abgesagte Termine“ in der
+Ansicht der Lehrkraft (E19) wird auf schmalem Bildschirm ebenfalls zur
+Karte. Sie hat sieben Spalten, mehr als jede der vier bisherigen. Den
+Ausschlag gibt der Moment, in dem sie gelesen wird: Nach einem Ausfall
+schaut eine Lehrkraft vermutlich unterwegs nach, wer bei ihr gebucht
+hatte – am Telefon, wo seitliches Wischen am wenigsten taugt. Es gilt die
+Begründung oben: Eine halb sichtbare Tabelle sieht aus wie ein Fehler.
+
+Gefunden hat die Erweiterung die Prüfung in `frontend_mobil_test.js`, die
+die Kartenansichten zählt: Die neue Tabelle war beim Bau mit
+`kartenTabelle()` entstanden, die Prüfung wurde rot, und die Frage ging an
+den Betreiber, statt die Entscheidung stillschweigend zu erweitern. Die
+Prüfung bleibt so streng wie vorher – jetzt fünf Ansichten, je eine Karte,
+gesamt fünf. Der rollende Rahmen bleibt Rückfall für die übrigen.
+
 ## E14 — Abstände zwischen Abschnitten: zwei Werte, eine Regel
 
 **Stand 09.10.2026, v0.9.63. Entscheidung des Betreibers.**
@@ -1037,6 +1116,33 @@ Zustand.
 
 **Zeitpunkt:** nach dem laufenden Strang (Abnahme der abgelaufenen Sitzung).
 
+**Nachtrag 11.10.2026 — gebaut mit v0.9.83; Abweichung: ein eigener Status „Termin abgesagt“ (Betreiber, G1):**
+Der Status einer Einladung wird abgeleitet, wie entschieden, aber in drei
+Stufen statt zwei: **gebucht** vor **abgesagt** vor **offen**.
+- „gebucht“, solange das Kind bei dieser Lehrkraft an diesem Sprechtag
+  einen Termin hat, auch nach einer Absage neu gebucht;
+- „abgesagt“, wenn die Schule ihm dort einen Termin abgesagt hat (Ablage
+  aus E19);
+- sonst „offen“, auch nach einer Stornierung durch die Familie, denn die
+  legt nichts ab.
+
+**Warum abweichend vom „kein eigener Status“ oben:** „Offen“ nach einer
+Absage führt in die falsche Richtung. Die Lehrkraft liest es als
+„die Familie hat sich nicht gemeldet“, tatsächlich hat die Schule den Termin
+abgesagt, und die Familie wartet womöglich auf einen neuen. Das „kein
+eigener Status“ war aus der Anzeige gedacht, nicht aus dem Handeln.
+
+Ableiten bleibt Ableiten: Gespeichert wird kein Status. Die Ablage ist die
+zweite Quelle, aus der abgeleitet wird; dieselbe Bedingung („dasselbe Kind
+bei derselben Lehrkraft am selben Sprechtag“) steht einmal
+(`bu_selber_vorgang_sql`) und gilt für Status und „neu gebucht“.
+
+**`einladungen.erledigt` entfällt (G5)**, mit `sql/25`, NACH dem Deploy:
+Der alte Code liest die Spalte, der neue fasst sie nicht mehr an. Eine
+Engstelle hält fest, dass kein Code unter `backend/` und kein Skript unter
+`frontend/` sie liest oder schreibt. Die Eltern sehen weiter keinen Status
+(nicht in diesem Zug).
+
 ---
 
 ## E19 — Abgesagte Termine verschwinden nicht spurlos (zusammen mit E18 zu bauen)
@@ -1096,6 +1202,34 @@ sie mitgelöscht wird; Mutation AR5 belegt das mit einer nachgestellten
 Ablage. Der Datenschutz-Absatz der Hilfe (`datenschutzAbsaetze()`) nennt
 „die Termine“ allgemein und trägt den Bau ohne Änderung. Beim Bau ist nur
 zu entscheiden, ob dort „auch abgesagte“ ausdrücklich dazugeschrieben wird.
+
+**Nachtrag 11.10.2026 — gebaut mit v0.9.83 (Betreiber, G2–G7):**
+- **Eigene Ablage, nicht eine Markierung in `buchungen`** (`sql/24`,
+  `abgesagte_termine`). Der Slot ist sofort frei, und die 22 Lesestellen
+  von `buchungen` brauchen keinen Filter.
+- **Abgelegt wird nur, was die Schule absagt (G2):** Absage durch
+  Lehrkraft oder Verwaltung (`absage`) und Krankheitsausfall (`ausfall`).
+  Storniert die Familie selbst, wird wie bisher nur gelöscht. Buchungen
+  entfernt eine Funktion mit dem Anlass als Parameter,
+  `bu_buchungen_entfernen()`; Ablegen und Löschen stehen in einer
+  Transaktion. Eine Engstelle hält fest, dass außer ihr nur das
+  Archivieren Buchungen löscht.
+- **Felder (G3):** Sprechtag, Lehrkraft, Uhrzeit, Kennung, Name und Klasse
+  des Kindes, Hinweis der Eltern, Anlass, Zeitpunkt. Keine Kennung der
+  Eltern und kein Absagetext; der Text steht in `mitteilungen`.
+- **Ansicht (G4):** Abschnitt „Abgesagte Termine“ unter dem Raster, in der
+  eigenen Ansicht der Lehrkraft und in der der Verwaltung, ohne Knöpfe.
+  „neu gebucht um HH:MM“ ist abgeleitet. Er lädt auch bei Teilnahme 0,
+  also gerade nach einem Ausfall. Ohne Einträge zeigt die Ansicht keinen
+  Abschnitt. Auf dem Telefon wird die Tabelle zur Karte (E13-Nachtrag).
+- **Archivieren:** Es leert die Ablage mit (Nachtrag oben).
+- **Reihenfolge (G6):** `sql/24` VOR dem Deploy, denn der neue Code legt
+  bei jeder Absage ab, und ohne Tabelle scheiterte sie. `sql/25` NACH dem
+  Deploy, denn der alte Code liest `erledigt`.
+- **Hilfe (G7):** Der Datenschutz-Absatz nennt „auch abgesagte Termine“.
+  Die Hilfe zum Krankheitsausfall sagt, dass die Lehrkraft sie weiter
+  sieht.
+- **Nicht in diesem Zug:** Die Eltern sehen abgesagte Termine nicht.
 
 ---
 

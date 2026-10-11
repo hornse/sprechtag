@@ -169,7 +169,7 @@ pruefe('Archivieren leert Tabellen (mind. 4)', count($geleert) >= 4);
 pruefe('jede Löschung nur für DIESEN Sprechtag (WHERE sprechtag_id = ?, Wert 42)', $fremd === []);
 if ($fremd !== []) echo '    (anders: ' . implode(' | ', $fremd) . ")\n";
 pruefe('ohne Archivieren wird nichts gelöscht', $lauf(false, 42)->aufrufe === []);
-foreach (['buchungen', 'einladungen', 'kind_lehrer_cache', 'mitteilungen'] as $t) {
+foreach (['buchungen', 'einladungen', 'kind_lehrer_cache', 'mitteilungen', 'abgesagte_termine'] as $t) {
     pruefe("Archivieren leert $t", in_array($t, $geleert, true));
 }
 

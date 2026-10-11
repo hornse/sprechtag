@@ -861,7 +861,9 @@ mut AR3 $IDX 's/        if \(\$archivieren\) \{\n            \$pdo->prepare\(\x2
   $AR "Voraussetzung: genau ein Block"
 mut AR4 $IDX 's/DELETE FROM mitteilungen WHERE sprechtag_id = \?\x27\)->execute\(\[\$sid\]\)/DELETE FROM mitteilungen\x27)->execute()/' \
   $AR "jede Löschung nur für DIESEN Sprechtag"
-mut AR5 sql/21_dienstkonto_entfernen.sql 's/\z/\nCREATE TABLE IF NOT EXISTS abgesagte_termine (\n    id            INT UNSIGNED NOT NULL AUTO_INCREMENT,\n    sprechtag_id  INT UNSIGNED NOT NULL,\n    PRIMARY KEY (id)\n) ENGINE=InnoDB;\n/' \
+# AR5 (v0.9.83): erfundener Tabellenname statt abgesagte_termine – die gibt es
+# seit sql/24 wirklich und sie wird geleert; der Eingriff bleibt derselbe.
+mut AR5 sql/21_dienstkonto_entfernen.sql 's/\z/\nCREATE TABLE IF NOT EXISTS probe_ablage (\n    id            INT UNSIGNED NOT NULL AUTO_INCREMENT,\n    sprechtag_id  INT UNSIGNED NOT NULL,\n    PRIMARY KEY (id)\n) ENGINE=InnoDB;\n/' \
   $AR "jede Tabelle mit sprechtag_id wird geleert oder ist Struktur"
 mut AR6 sql/21_dienstkonto_entfernen.sql 's/\z/\nCREATE TABLE IF NOT EXISTS notizen (\n    id            INT UNSIGNED NOT NULL AUTO_INCREMENT,\n    eltern_user_id INT UNSIGNED NOT NULL,\n    PRIMARY KEY (id)\n) ENGINE=InnoDB;\n/' \
   $AR "jede Tabelle ohne sprechtag_id ist eingeordnet"
@@ -1221,6 +1223,124 @@ mut SA19 $APP 's/(function datenschutzAbsaetze\(\) \{\n  return \[\n)/$1    \x27
   $DS "Hilfe nennt keine Schülerliste mehr als gespeichert"
 mut SA20 $APP 's/(  svTreffer: null,)/  schuelerAnzahl: 0,\n$1/' \
   $FKS "der Zustand der alten Liste ist fort"
+
+echo "== v0.9.83: E18 + E19 – abgesagte Termine, abgeleiteter Einladungsstatus"
+RAT=tests/run_abgesagte_termine.php
+FAT=tests/frontend_abgesagte_termine_test.js
+ABP=backend/api/absagen.php
+M24=sql/24_abgesagte_termine.sql
+M25=sql/25_einladung_erledigt_entfernen.sql
+# Migration 24 (am Text)
+mut AT1 $M24 's/CREATE TABLE IF NOT EXISTS abgesagte_termine/CREATE TABLE abgesagte_termine/' \
+  $RAT "legt abgesagte_termine an, zweimal einspielbar"
+mut AT2 $M24 's/(    kommentar       VARCHAR)/    eltern_user_id  INT UNSIGNED NOT NULL,\n$1/' \
+  $RAT "keine Kennung der Eltern und kein Absagetext"
+mut AT3 $M24 's/ENUM\(\x27absage\x27,\x27ausfall\x27\)/ENUM(\x27absage\x27,\x27ausfall\x27,\x27storno\x27)/' \
+  $RAT "Anlass ist absage oder ausfall"
+mut AT4 $M24 's/kind_name       VARCHAR\(170\)/kind_name       VARCHAR(100)/' \
+  $RAT "Name, Klasse und Hinweis so breit wie in buchungen"
+mut AT5 $M24 's/(REFERENCES lehrer \(id\)) ON DELETE CASCADE/$1/' \
+  $RAT "hängt am Sprechtag und an der Lehrkraft"
+mut AT6 $M24 's/(    KEY idx_ab_kind)/    UNIQUE KEY uniq_ab_slot (sprechtag_id, lehrer_id, slot_beginn),\n$1/' \
+  $RAT "kein eindeutiger Schlüssel außer id"
+mut AT7 $M24 's/\z/\nDELETE FROM buchungen WHERE sprechtag_id = 0;\n/' \
+  $RAT "rührt sonst nichts an"
+# Die eine Funktion (ausgeführt)
+mut AT8 $ABP 's/in_array\(\$rolle, \[\x27lehrkraft\x27, \x27admin\x27\], true\)/in_array(\$rolle, [\x27lehrkraft\x27], true)/' \
+  $RAT "Anlass: Lehrkraft und Verwaltung sagen ab"
+mut AT9 $ABP 's/            if \(\$anlass !== null\) \{/            if (false) {/' \
+  $RAT "einzelne Absage: abgelegt mit"
+mut AT10 $ABP 's/        if \(\$eigene && \$pdo->inTransaction\(\)\) \$pdo->rollBack\(\);\n        throw \$e;/        if (\$eigene \&\& \$pdo->inTransaction()) \$pdo->rollBack();\n        return [];/' \
+  $RAT "scheitert das Ablegen (Tabelle fehlt), bleibt die Buchung stehen und der Fehler geht weiter"
+mut AT11 $ABP 's/if \(\$schluessel !== \[\x27id\x27\] && \$schluessel !== \[\x27lehrer_id\x27, \x27sprechtag_id\x27\]\) \{/if (false) {/' \
+  $RAT "nur Sprechtag ohne Lehrkraft, oder ein fremder Schlüssel: abgewiesen"
+# Status (ausgeführt)
+mut AT12 $ABP 's/(" WHEN EXISTS \(SELECT 1 FROM )abgesagte_termine( x WHERE \$gleich\) THEN \x27)abgesagt\x27"/${1}buchungen${2}gebucht\x27"/; s/(CASE WHEN EXISTS \(SELECT 1 FROM )buchungen( x WHERE \$gleich\) THEN \x27)gebucht\x27"/${1}abgesagte_termine${2}abgesagt\x27"/' \
+  $RAT "neu gebucht nach der Absage: gebucht geht vor abgesagt"
+mut AT13 $ABP 's/ AND \$a\.lehrer_id = \$b\.lehrer_id"/"/' \
+  $RAT "… die Ablage zählt nur bei dieser Lehrkraft und an diesem Sprechtag"
+mut AT14 $ABP 's/return "\$a\.sprechtag_id = \$b\.sprechtag_id AND /return "/' \
+  $RAT "einzelne Absage an Sprechtag 2: dort abgesagt, an Sprechtag 1 bleibt dasselbe Kind offen"
+# Abgesagte Termine für die Lehrkraft (ausgeführt)
+mut AT15 $ABP 's/SELECT a\.slot_beginn, a\.kind_name,/SELECT a.slot_beginn, a.schueler_id, a.kind_name,/' \
+  $RAT "nach dem Ausfall: alle drei, nach Uhrzeit, mit genau den Feldern"
+mut AT16 $ABP 's/WHERE a\.sprechtag_id = \? AND a\.lehrer_id = \?/WHERE a.sprechtag_id = ? AND ? > 0/' \
+  $RAT "andere Lehrkraft und anderer Sprechtag: nichts"
+mut AT17 $ABP 's/(\(SELECT MIN\(x\.slot_beginn\) FROM buchungen x WHERE \x27 \. )bu_selber_vorgang_sql\(\x27x\x27, \x27a\x27\)/${1}\x27x.sprechtag_id = a.sprechtag_id AND x.schueler_id = a.schueler_id\x27/' \
+  $RAT "neu gebucht: die Uhrzeit des neuen Termins bei DIESER Lehrkraft"
+# Aufrufstellen (Quelltext)
+mut AT18 $BUP 's/\$anlass = bu_absage_anlass\(\(string\)\$u\[\x27rolle\x27\]\);/\$anlass = \x27absage\x27;/' \
+  $RAT "Absage-Route: Anlass aus der Rolle"
+mut AT19 $BUP 's/        \$mitteilung = null;\n        if \(\$anlass !== null\) \{/        \$mitteilung = null;\n        if (in_array(\$u[\x27rolle\x27], [\x27lehrkraft\x27, \x27admin\x27], true)) {/' \
+  $RAT "… benachrichtigt genau dann, wenn abgelegt wird"
+mut AT20 $IDX 's/\[\x27sprechtag_id\x27 => \$sid, \x27lehrer_id\x27 => \$lid\], \x27ausfall\x27\);/[\x27sprechtag_id\x27 => \$sid, \x27lehrer_id\x27 => \$lid], \x27absage\x27);/' \
+  $RAT "Ausfall: alle Termine der Lehrkraft über die eine Funktion, Anlass ausfall"
+mut AT21 $IDX 's/\[\x27sprechtag_id\x27 => \$sid, \x27lehrer_id\x27 => \$lid\], \x27ausfall\x27\);/[\x27sprechtag_id\x27 => \$sid, \x27lehrer_id\x27 => \$lid], \x27absage\x27);/' \
+  tests/frontend_halbtags_test.js "Ausfall-Route gibt Termine frei und benachrichtigt"
+mut AT22 $BUP 's/(\$abgesagt = )\$istLehrkraft \? (bu_abgesagte_termine\(\$pdo, \$sid, \$lid\)) : \[\];/$1$2;/' \
+  $RAT "Raster-Route: Lehrkraft und Verwaltung bekommen die abgesagten Termine, Eltern nicht"
+mut AT23 $BUP 's/(    \$abgesagt = \$istLehrkraft \?)/    if (empty(\$teilnahme)) \$istLehrkraft = false;\n$1/' \
+  $RAT "… lädt auch bei Teilnahme 0"
+mut AT24 $IDX 's/(require_once __DIR__ \. \x27\/absagen\.php\x27;\n)//' \
+  $RAT "index.php lädt absagen.php vor der ersten Route"
+mut AT25 $IDX 's/(            \$stL = \$pdo->prepare\(\x27SELECT kuerzel, name FROM lehrer WHERE id = \?\x27\);\n            \$stL->execute\(\[\$lid\]\);)/            \$pdo->prepare(\x27DELETE b FROM buchungen b WHERE b.lehrer_id = ?\x27)->execute([\$lid]);\n$1/' \
+  $RAT "keine Datei löscht Buchungen außer bu_buchungen_entfernen und dem Archivieren"
+mut AT26 $IDX 's/\n            \$pdo->prepare\(\x27DELETE FROM abgesagte_termine WHERE sprechtag_id = \?\x27\)->execute\(\[\$sid\]\);//' \
+  $AR "Archivieren leert abgesagte_termine"
+# erledigt entfällt (G5): Engstelle in drei Dateien, eine davon im Unterordner
+mut AT27 $BUP 's/(        \/\/ Keine Bestätigung \(v0\.9\.79)/        \$pdo->prepare(\x27UPDATE einladungen SET erledigt = 1 WHERE sprechtag_id = ? AND lehrer_id = ? AND schueler_id = ?\x27)\n            ->execute([\$sid, \$lid, \$kind]);\n\n$1/' \
+  $RAT "kein Code unter backend/ liest oder schreibt einladungen.erledigt"
+mut AT28 $BUP 's/bu_einladung_status_sql\(\x27e\x27\) \. \x27 AS status,/bu_einladung_status_sql(\x27e\x27) . \x27 AS status, e.erledigt,/' \
+  $RAT "Lehrkraft-Zweig: Status über die eine Ableitung, erledigt wird nicht gelesen"
+mut AT29 backend/auth/extractors.php 's/(declare\(strict_types=1\);\n)/$1\$probeSpalten = "SELECT id, erledigt, hinweis FROM einladungen";\n/' \
+  $RAT "kein Code unter backend/ liest oder schreibt einladungen.erledigt"
+mut AT30 $M25 's/DROP COLUMN IF EXISTS erledigt/DROP COLUMN erledigt/' \
+  $RAT "entfernt genau die Spalte, zweimal einspielbar"
+mut AT31 $M25 's/\z/UPDATE einladungen SET hinweis = \x27\x27;\n/' \
+  $RAT "entfernt genau die Spalte, zweimal einspielbar (DROP COLUMN IF EXISTS), sonst nichts"
+mut AT32 $M25 's/Diese Datei NACH dem Deploy einspielen\./Diese Datei VOR dem Deploy einspielen./' \
+  $RAT "Reihenfolge im Kopf: 24 VOR dem Deploy, 25 NACH dem Deploy"
+# Frontend: am angezeigten Text, Verbindung zum Backend über Alias und AB_FELDER
+mut AT33 $APP 's/t\[e\.status\] : \x27unbekannt\x27/t[e.status] : \x27offen\x27/' \
+  $FAT "fehlt der Status (etwa nur das alte erledigt)"
+mut AT34 $APP 's/abgesagt: \x27Termin abgesagt\x27, offen/abgesagt: \x27offen\x27, offen/' \
+  $FAT "angezeigt: „Termin gebucht“, „Termin abgesagt“, „offen“"
+mut AT35 $BUP 's/bu_einladung_status_sql\(\x27e\x27\) \. \x27 AS status,/bu_einladung_status_sql(\x27e\x27) . \x27 AS zustand,/' \
+  $FAT "angezeigt: „Termin gebucht“, „Termin abgesagt“, „offen“"
+mut AT36 $APP 's/(function zeichneAbgesagte\(ziel, liste\) \{\n)/$1  if (liste.erledigt) return;\n/' \
+  $FAT "kein Skript unter frontend/ liest erledigt"
+mut AT37 tests/mobil-messung/mock.js 's/hinweis, status,/hinweis, erledigt: status,/' \
+  $FAT "Mobil-Messung (mock.js): kein erledigt"
+mut AT38 $APP 's/\x27neu gebucht um \x27 \+ String\(a\.neu_gebucht\)\.slice\(0, 5\)/\x27neu gebucht\x27/' \
+  $FAT "einzelne Absage, neu gebucht: „neu gebucht um 16:00“"
+mut AT39 $APP 's/    a\.klasse \|\| \x27–\x27,\n    anlass\[a\.anlass\]/    a.kind_klasse || \x27–\x27,\n    anlass[a.anlass]/' \
+  $FAT "Krankheitsausfall: Uhrzeit, Kind, Klasse"
+mut AT40 $ABP 's/a\.kind_klasse AS klasse, a\.kommentar/a.kind_klasse, a.kommentar/' \
+  $RAT "nach dem Ausfall: alle drei, nach Uhrzeit, mit genau den Feldern"
+mut AT41 $RAT 's/(const AB_FELDER = \[\x27slot_beginn\x27, \x27kind_name\x27, )\x27klasse\x27/${1}\x27kind_klasse\x27/' \
+  $FAT "Krankheitsausfall: Uhrzeit, Kind, Klasse"
+mut AT42 $APP 's/  if \(!liste \|\| liste\.length === 0\) return;/  if (!liste) return;/' \
+  $FAT "keine abgesagten Termine: kein Abschnitt"
+mut AT43 $APP 's/(  ziel\.appendChild\(el\(\x27h3\x27, null, \x27Abgesagte Termine\x27\)\);\n)/$1  ziel.appendChild(knopf(\x27Neu buchen\x27, \x27klein\x27, () => {}));\n/' \
+  $FAT "… ohne Knöpfe und ohne Klickziele"
+mut AT44 $APP 's/  zeichneAbgesagte\(ziel, S\.svAbgesagt \|\| \[\]\);\n//' \
+  $FAT "unter dem Raster, genau einmal"
+mut AT45 $APP 's/  zeichneAbgesagte\(ziel, S\.svAbgesagt \|\| \[\]\);/  if (S.user.lehrer_id === lehrerId) zeichneAbgesagte(ziel, S.svAbgesagt || []);/' \
+  $FAT "unter dem Raster, genau einmal"
+mut AT46 $APP 's/  zeichneAbgesagte\(ziel, S\.svAbgesagt \|\| \[\]\);\n//; s/(  \/\/ ---- Das Raster -+\n)/  zeichneAbgesagte(ziel, S.svAbgesagt || []);\n$1/' \
+  $FAT "unter dem Raster, genau einmal"
+mut AT47 $APP 's/S\.svAbgesagt = d\.abgesagt \|\| \[\];/S.svAbgesagt = d.abgesagt;/' \
+  $FAT "ladeSvRaster übernimmt die abgesagten Termine"
+mut AT48 $APP 's/ Die abgesagten Termine sieht die Lehrkraft weiter in ihrer \x27\n    \+ \x27Ansicht unter „Abgesagte Termine“\.\x27/\x27/' \
+  $FAT "Krankheitsausfall: die Lehrkraft sieht die Termine weiter"
+# Datenschutz: jede geleerte Tabelle genannt; eine künftige ohne Nennung wird rot
+mut AT49 $APP 's/, auch abgesagte Termine, die Einladungen/, die Einladungen/' \
+  $DS "Hilfe nennt, was beim Archivieren gelöscht wird: abgesagte_termine"
+mut AT50 $AR 's/\x27mitteilungen\x27, \x27abgesagte_termine\x27\] as \$t\)/\x27mitteilungen\x27, \x27abgesagte_termine\x27, \x27probe_tabelle\x27] as \$t)/' \
+  $DS "Hilfe nennt, was beim Archivieren gelöscht wird: probe_tabelle"
+# Mobil (E13-Nachtrag): fünf Kartenansichten, nicht still eine mehr oder weniger
+mut AT51 $APP 's/  ziel\.appendChild\(kartenTabelle\(tab\)\);\n\}\n\n\/\/ Zeilentexte der abgesagten Termine/  ziel.appendChild(tabelleRahmen(tab));\n}\n\n\/\/ Zeilentexte der abgesagten Termine/' \
+  $MO "Karten genau in Meine Termine, Einladungen, Login-Protokoll, Mitteilungen, Abgesagte Termine"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi

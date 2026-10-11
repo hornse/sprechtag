@@ -64,7 +64,7 @@ $pdo->exec('CREATE TABLE kind_lehrer_cache (id INTEGER PRIMARY KEY, sprechtag_id
     UNIQUE (sprechtag_id, schueler_id, lehrer_id))');
 $pdo->exec('CREATE TABLE einladungen (id INTEGER PRIMARY KEY, sprechtag_id INT NOT NULL,
     lehrer_id INT NOT NULL, schueler_id INT NOT NULL, hinweis TEXT NOT NULL DEFAULT "",
-    erledigt INT NOT NULL DEFAULT 0, angelegt_am TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    angelegt_am TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (sprechtag_id, lehrer_id, schueler_id))');
 
 // Sprechtag 1, Kind 500. Lehrkräfte:

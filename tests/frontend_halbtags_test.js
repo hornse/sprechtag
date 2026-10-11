@@ -45,9 +45,17 @@ pruefe('Lehrkraft darf eigenen Eintrag ändern',
   idx.includes('$eigene') && idx.includes("=== 'lehrkraft'"));
 pruefe('Halbtags-Toggle-Route',
   idx.includes("=== 'lehrer'") && idx.includes('UPDATE lehrer SET halbtags'));
+// Im Rumpf der Route gesucht, nicht in der Datei (v0.9.83): Bis v0.9.82
+// suchte die Prüfung „DELETE FROM buchungen“ in ganz index.php und blieb nach
+// dem Umbau auf bu_buchungen_entfernen grün – durch den Archivieren-Block.
+// Ausschnitt: vom Bedingungskopf bis zum nächsten „// ----“; nicht gefunden
+// heißt leer, und leer ist rot.
+const ausfallAb = idx.indexOf("=== 'ausfall')");
+const ausfallBis = ausfallAb < 0 ? -1 : idx.indexOf('// ----', ausfallAb);
+const ausfallRumpf = ausfallAb < 0 || ausfallBis < 0 ? '' : idx.slice(ausfallAb, ausfallBis);
 pruefe('Ausfall-Route gibt Termine frei und benachrichtigt',
-  idx.includes("=== 'ausfall'") && idx.includes('DELETE FROM buchungen')
-  && idx.includes('mit_text_absage'));
+  /bu_buchungen_entfernen\(\$pdo,[^;]*'ausfall'\);/.test(ausfallRumpf)
+  && ausfallRumpf.includes('mit_text_absage('));
 pruefe('Raster liefert halbtags-Flag',
   buch.includes("'halbtags' => $halbtags"));
 

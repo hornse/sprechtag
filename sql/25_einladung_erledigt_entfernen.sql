@@ -1,0 +1,23 @@
+-- ============================================================
+-- 25_einladung_erledigt_entfernen.sql – einladungen.erledigt entfällt (E18, G5)
+-- Idempotent. Einspielen: mysql hornse_sprechtag < sql/25_einladung_erledigt_entfernen.sql
+--
+-- REIHENFOLGE (v0.9.83): Diese Datei NACH dem Deploy einspielen.
+--   Der Code bis v0.9.82 liest die Spalte (Einladungsliste der Lehrkraft,
+--   Lehrkräfte mit Einladung für die Eltern) und schreibt sie beim Buchen.
+--   Vorher entfernt, liefen diese Abfragen in einen 500; beim Buchen stünde
+--   der Termin schon (das UPDATE folgt dem Commit), die Antwort wäre
+--   trotzdem ein Fehler. Der Code
+--   ab v0.9.83 leitet den Status aus buchungen und abgesagte_termine ab
+--   und fasst die Spalte nicht mehr an; sie steht dann nur noch herum.
+--   sql/24_abgesagte_termine.sql kommt VOR dem Deploy.
+--
+-- Die Spalte stimmte nach einer Absage nicht mehr: Sie blieb 1, obwohl kein
+-- Termin mehr bestand (docs/ENTSCHEIDUNGEN.md, E18). Ein Rückweg wird nicht
+-- gebraucht – der abgeleitete Status trägt mehr als sie.
+--
+-- Zweimal einspielbar: DROP COLUMN IF EXISTS (MariaDB). Am Text geprüft
+-- (tests/run_abgesagte_termine.php), nicht gegen MariaDB – hier läuft keines.
+-- ============================================================
+
+ALTER TABLE einladungen DROP COLUMN IF EXISTS erledigt;

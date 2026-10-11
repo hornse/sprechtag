@@ -76,3 +76,30 @@ Absage.
   liest, ist derselbe stille Zustand.
 - **Zeitpunkt:** erst, wenn der laufende Strang durch ist. Vorher steht noch
   die Abnahme der abgelaufenen Sitzung aus (rund 30 Minuten Wartezeit).
+
+## Nachtrag 11.10.2026 — behoben mit v0.9.83 (E18, E19)
+
+- **Abgeleitet, in drei Stufen statt zwei (Betreiber, G1):** gebucht vor
+  abgesagt vor offen. Abweichend vom Nachtrag oben gibt es einen eigenen
+  Status „Termin abgesagt“. „Offen“ nach einer Absage führte in die falsche
+  Richtung; das „kein eigener Status“ war aus der Anzeige gedacht, nicht
+  aus dem Handeln (E18-Nachtrag).
+- **Die Prüfungen aus „Für die Behebung“ stehen in
+  `tests/run_abgesagte_termine.php`**, gegen SQLite ausgeführt:
+  - eine Buchung ergibt „gebucht“;
+  - eine Absage ergibt „abgesagt“, ebenso der Ausfall mit **mehreren**
+    Einladungen derselben Lehrkraft;
+  - wer danach neu bucht, steht auf „gebucht“;
+  - eine Stornierung durch die Familie ergibt „offen“.
+  
+  Angezeigt wird der Text, den `einladungStatusText()` bildet, geprüft in
+  `tests/frontend_abgesagte_termine_test.js`.
+- **`einladungen.erledigt` entfällt** (`sql/25`, nach dem Deploy). Eine
+  Engstelle hält fest, dass kein Code unter `backend/` und kein Skript
+  unter `frontend/` sie liest oder schreibt.
+- **Am Code gelesen beim Bau:** `app.js` las `e.erledigt` weiter, während
+  die API es schon nicht mehr lieferte, und keine Prüfung wurde rot. Die
+  Frontend-Prüfungen hatten mit dem Backend keine Verbindung. Seit v0.9.83
+  liest die Frontend-Suite den Feldnamen aus der Backend-Abfrage, und
+  benennt das Backend ihn um, wird sie rot (Mutation AT35).
+- Die Eltern sehen weiter keinen Status (nicht in diesem Zug).

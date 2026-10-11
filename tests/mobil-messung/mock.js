@@ -158,9 +158,9 @@
   function buchbareLehrer(kind) {
     const k = String(kind || 9101);
     const eingeladen = [
-      buchbarZeile(1, { id: '61', schueler_id: k, hinweis: 'Bitte zum Gespräch über die Leistungsentwicklung in Mathematik kommen.', erledigt: '0',
+      buchbarZeile(1, { id: '61', schueler_id: k, hinweis: 'Bitte zum Gespräch über die Leistungsentwicklung in Mathematik kommen.',
         faecher: 'M, PH', stunden: '4', klausuren: '1', teilnahme: '1', eingeladen: '1' }),
-      buchbarZeile(2, { id: '62', schueler_id: k, hinweis: null, erledigt: '1',
+      buchbarZeile(2, { id: '62', schueler_id: k, hinweis: null,
         faecher: '', stunden: '0', klausuren: '0', teilnahme: null, eingeladen: '1',
         anwesend_von: '16:30:00', anwesend_bis: '18:20:00' }),
     ];
@@ -269,19 +269,19 @@
 
   // ---------- Einladungen (Lehrkraft) --------------------------------------
   function einladungen() {
-    const z = (id, i, hinweis, erledigt) => {
+    const z = (id, i, hinweis, status) => {
       const s = SCHUELER[i - 1];
-      return { id: String(id), schueler_id: String(9100 + i), hinweis, erledigt: String(erledigt),
+      return { id: String(id), schueler_id: String(9100 + i), hinweis, status,
         angelegt_am: '2026-10-0' + (1 + (id % 8)) + ' 1' + (id % 10) + ':05:00',
         kind_name: kindAnzeige(s), klasse: s.klasse };
     };
     return [
-      z(71, 1, 'Bitte zum Gespräch über die Leistungsentwicklung in Mathematik kommen.', 0),
-      z(72, 13, null, 1),
-      z(73, 6, 'Kurzes Gespräch zur Kurswahl', 0),
-      z(74, 11, null, 0),
-      z(75, 16, 'Rücksprache wegen häufiger Fehlzeiten im September und Oktober erbeten', 1),
-      z(76, 26, null, 0),
+      z(71, 1, 'Bitte zum Gespräch über die Leistungsentwicklung in Mathematik kommen.', 'offen'),
+      z(72, 13, null, 'gebucht'),
+      z(73, 6, 'Kurzes Gespräch zur Kurswahl', 'offen'),
+      z(74, 11, null, 'abgesagt'),
+      z(75, 16, 'Rücksprache wegen häufiger Fehlzeiten im September und Oktober erbeten', 'gebucht'),
+      z(76, 26, null, 'offen'),
     ];
   }
 
