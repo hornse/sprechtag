@@ -57,7 +57,7 @@ adm_sitzung_nachpruefen($cfg);
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.98', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.99', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------

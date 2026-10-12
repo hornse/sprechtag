@@ -1,5 +1,83 @@
 # Changelog - sprechtag
 
+## v0.9.99 (Oktober 2026) – Admin-Rechte, Teil 2: die Seite „Administratoren“
+
+Teil 2 von 3 zu E29 (Aufräumliste 10): die Oberfläche zu `/api/admins`.
+Im Betrieb gemessen vor dem Bau (Betreiber, 12.10.2026, mit
+`tests/werkzeuge/admin_bestand.php`): 2 Notzugang-Kürzel, beide mit
+Stammsatz; `app_admins` leer, also 0 Doppel und 0 ohne Stammsatz. Die
+Tabelle wurde nie benutzt – es gab keinen Weg, einen Eintrag anzulegen.
+Die Seite beginnt deshalb ohne Bestand.
+
+- **Neuer Punkt „Administratoren“ unter „Administration“.** Eine Liste mit
+  allen drei Herkünften, jede Person genau einmal: das
+  WebUntis-Administrationskonto, der Notzugang (`admin_kuerzel` in
+  `config.php`) und die Einträge dieser Seite. Je Zeile: wer, woher, ein
+  Hinweis, warum jemand Administrator ist und ob er entfernt werden kann.
+  Den sichtbaren Text bildet `adminZeileText()`.
+- **„Entfernen“ steht genau dort, wo der Server `entfernbar` sagt** –
+  nicht beim WebUntis-Konto, nicht beim Notzugang, nicht beim eigenen
+  Eintrag. Mit Rückfrage. Danach: „… ist nicht mehr Administrator, ab
+  sofort.“ und die Hinweise des Servers.
+- **Eintragen über eine Auswahl** der Lehrkräfte aus den Stammdaten, die
+  noch nicht Administrator sind. Die Seite sagt, dass Eintragen ab der
+  nächsten Anmeldung wirkt und Entfernen sofort.
+- **Ein Kürzel in beiden Listen** bekommt keinen eigenen Text
+  (Betreiber: im Betrieb kein solcher Fall, nur die Vorsichtsmaßnahme). Es
+  bleibt entfernbar; beim Entfernen steht statt „nicht mehr
+  Administrator“ der Hinweis des Servers, dass das Recht bleibt.
+- **Rückmeldung am Ort:** Erfolg, Hinweise und Fehler stehen in der Seite,
+  nicht in einer Meldung oben. Scheitert das Laden, steht der Fehler da,
+  ohne dass bei jedem Neuzeichnen erneut abgerufen wird.
+- **Sechste Kartenansicht (E13, zweiter Nachtrag, Entscheidung
+  Betreiber):** Auf dem Telefon wird jede Zeile eine Karte. Vier Spalten
+  mit einem Hinweis von ein bis zwei Sätzen würden sonst seitlich
+  abgeschnitten.
+- **Symbol:** `personen`, wie bei „Volljährige Schüler“. In der
+  eingeklappten Leiste sehen beide Punkte gleich aus. Ein Symbol für
+  Rechte oder Zugang fehlt im Modul `ci-css`; als Wunsch an
+  `koordination` gemeldet (über den Betreiber). Bis dahin bleibt
+  `personen`.
+
+### Abnahme im Browser (nicht offline messbar)
+- Unter „Administration“ erscheint „Administratoren“; die Seite zeigt das
+  WebUntis-Administrationskonto und die beiden Notzugang-Kürzel mit
+  Namen, ohne „Entfernen“.
+- Eine Lehrkraft eintragen: Sie verschwindet aus der Auswahl, erscheint
+  in der Liste mit „Eingetragen von … am …“ und „Entfernen“; die
+  Rückmeldung steht in der Seite.
+- Dieselbe Lehrkraft meldet sich danach an und sieht „Administration“.
+  Wird sie entfernt, während sie angemeldet ist, antwortet jede
+  Verwaltungsaktion ab dem nächsten Klick „nur für die
+  Sprechtags-Administration“. **Die Leiste zeigt „Administration“ bis zum
+  Neuladen weiter an:** Die Oberfläche liest die Rolle nur beim Laden der
+  Seite (gemeldet, nicht geändert).
+- Den eigenen Eintrag gibt es nur, wenn ein anderer Administrator einen
+  einträgt: Er trägt keinen „Entfernen“-Knopf und den Hinweis „Ihr
+  eigener Eintrag“.
+- Auf dem Telefon (unter 760 px): jede Zeile eine Karte, Beschriftungen
+  davor, „Entfernen“ als Fußzeile, nichts seitlich abgeschnitten.
+
+### Nebenbei gefunden (gemeldet, nicht behoben)
+- `ladeStammdaten()` schluckt Ladefehler; scheitert der Abruf, sagt die
+  Seite „Keine Lehrkräfte in den Stammdaten“ statt „konnte nicht geladen
+  werden“. Älter als E29 – Aufräumliste 15.
+
+### Prüfungen
+- **Neue Suite `frontend_admins_test.js`, 33 Prüfzeilen.** Sie führt
+  `adminZeileText`, `zeichneAdmins`, `adminEntfernen` und
+  `adminEintragen` aus; die Navigation ist Quelltext. Gegen den alten
+  Stand 30 von 33 rot – drei Abwesenheitsprüfungen bestanden auf einem
+  leeren Rumpf. Sie verlangen jetzt, dass der Rumpf gefunden wurde, und
+  sind danach alle 33 rot (Befund 11.10, Art 6, drittes Beispiel).
+- **`frontend_mobil_test.js`:** Die Zählung der Kartenansichten wurde beim
+  Bau rot (sechs statt fünf); die Frage ging an den Betreiber. Jetzt
+  sechs Ansichten, gesamt sechs; Prüfzeilen unverändert.
+- **Prüfzeilen 1718 → 1751, Suiten 77 → 78,** alle grün;
+  `tests-sprechtag.sh` 29.
+- **Mutationen 597 → 622:** OA1–OA25 neu (nicht `FA`, das neben `FAW`
+  stünde); jedes Suchmuster trifft genau einmal.
+
 ## v0.9.98 (Oktober 2026) – Admin-Rechte, Teil 1: drei Herkünfte, eine Entscheidung, jeder Aufruf geprüft
 
 Entscheidung des Betreibers zu Aufräumliste 10 (E29): `admin_kuerzel` in

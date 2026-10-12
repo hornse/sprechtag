@@ -22,6 +22,13 @@ const S = {
   sprechtage: [],
   aktiverSprechtag: null,
   stammdaten: { lehrer: [], raeume: [], sonderrollen: [] },
+  // Seite „Administratoren“ (E29): null = nicht geladen; admStamm merkt,
+  // ob die Stammdaten für die Auswahl schon geholt wurden.
+  admDaten: null,
+  admLaedt: false,
+  admFehler: null,
+  admMeldungen: [],
+  admStamm: undefined,
   kind: null,
   lehrerListe: null,
   gewaehlteLehrkraft: null,
@@ -849,6 +856,7 @@ function zeichne() {
     'admin-loginlog': ansichtAdminLoginLog,
     'admin-texte': ansichtAdminTexte,
     'admin-erinnerungen': ansichtAdminErinnerungen,
+    'admin-admins': ansichtAdminAdmins,
     mitteilungen: ansichtMitteilungen,
     sondierung: ansichtSondierung,
     hilfe: ansichtHilfe,
@@ -869,12 +877,14 @@ function ansichtZuruecksetzen() {
   S.texte = null; S.texteLaedt = {};
   S.erinnerungConf = undefined; S.erinnerungLaedt = false; S.erinnerungVorschau = null;
   S.sgDaten = null; S.sgLaedt = false; S.sgFehler = null;
+  S.admDaten = null; S.admLaedt = false; S.admFehler = null; S.admMeldungen = []; S.admStamm = undefined;
 }
 
 // Gültige Ansichts-Schlüssel (für die URL-Hash-Wiederherstellung).
 const ANSICHT_KEYS = ['buchen', 'meine', 'lehrkraft', 'einladungen', 'admin',
   'admin-marke', 'admin-aktiv', 'admin-anzeige', 'admin-sprechtage',
-  'admin-daten', 'admin-loginlog', 'admin-texte', 'admin-erinnerungen', 'mitteilungen', 'sondierung', 'hilfe'];
+  'admin-daten', 'admin-loginlog', 'admin-texte', 'admin-erinnerungen', 'admin-admins', 'mitteilungen',
+  'sondierung', 'hilfe'];
 
 function wechsleAnsicht(ziel) {
   if (S.ansicht !== ziel) ansichtZuruecksetzen();
@@ -935,7 +945,7 @@ function zeichneNavigation() {
   if (S.user.rolle === 'admin') {
     const adminSeiten = ['admin', 'admin-marke', 'admin-aktiv', 'admin-anzeige',
                          'admin-sprechtage', 'admin-daten', 'admin-loginlog',
-                         'admin-texte', 'admin-erinnerungen'];
+                         'admin-texte', 'admin-erinnerungen', 'admin-admins'];
     const adminAktiv = adminSeiten.includes(S.ansicht);
     if (adminAktiv) S.adminOffen = true;   // aktive Unterseite -> Gruppe offen
 
@@ -967,6 +977,7 @@ function zeichneNavigation() {
     sub.appendChild(navKnopf('admin-loginlog', 'Login-Protokoll', true, 'datei'));
     sub.appendChild(navKnopf('admin-texte', 'Texte', true, 'stift'));
     sub.appendChild(navKnopf('admin-erinnerungen', 'Erinnerungen', true, 'glocke'));
+    sub.appendChild(navKnopf('admin-admins', 'Administratoren', true, 'personen'));
     gruppe.appendChild(sub);
     nav.appendChild(gruppe);
 
@@ -3732,6 +3743,154 @@ async function oeffneSonderlehrer(s) {
 // ============================================================
 // ANSICHT: Login-Protokoll (optionales Admin-Feature)
 // ============================================================
+// ============================================================
+// ADMINISTRATOREN (v0.9.99, E29)
+// ============================================================
+// Drei Herkünfte, eine Liste: Das WebUntis-Administrationskonto und der
+// Notzugang (admin_kuerzel in config.php) stehen mit da, damit sich niemand
+// wundert, warum jemand Administrator ist, der nirgends eingetragen ist.
+// Ändern lassen sich hier nur die Einträge dieser Seite (app_admins). Was
+// entfernbar ist, sagt der Server; den sichtbaren Text bildet
+// adminZeileText().
+function ansichtAdminAdmins(ziel) {
+  ziel.appendChild(el('h2', null, 'Administratoren'));
+  zeichneAdmins(ziel);
+}
+
+// Sichtbarer Text einer Zeile: {wer, woher, hinweis}. Ein Kürzel, das
+// zugleich Eintrag dieser Seite ist (auch_oberflaeche), bekommt keinen
+// eigenen Text – im Betrieb gibt es keinen solchen Fall (gemessen
+// 12.10.2026); es bleibt nur entfernbar, und die Antwort des Servers sagt
+// dann, dass das Recht bleibt.
+function adminZeileText(e) {
+  if (e.herkunft === 'webuntis') {
+    return { wer: 'WebUntis-Administrationskonto', woher: 'WebUntis',
+      hinweis: 'Wer sich mit einem Administrationskonto von WebUntis anmeldet, ist hier '
+        + 'Administrator. Vergeben wird das in WebUntis, nicht hier.' };
+  }
+  const teile = [];
+  if (e.herkunft === 'notzugang') {
+    teile.push('Notzugang: steht in config.php (admin_kuerzel) und lässt sich nur auf dem '
+      + 'Server ändern – damit sich niemand aussperren kann.');
+  } else {
+    teile.push('Eingetragen' + (e.angelegt_von ? ' von ' + e.angelegt_von : '')
+      + (e.angelegt_am ? ' am ' + zeitstempel(e.angelegt_am) : '') + '.');
+    if (e.selbst) {
+      teile.push('Ihr eigener Eintrag – entfernen kann ihn nur jemand anderes aus der Administration.');
+    }
+  }
+  if (e.ohne_stammsatz) teile.push('Keine Lehrkraft mit diesem Kürzel in den Stammdaten.');
+  return { wer: e.kuerzel + (e.name ? ' – ' + e.name : ''),
+    woher: e.herkunft === 'notzugang' ? 'Notzugang (config.php)' : 'diese Seite',
+    hinweis: teile.join(' ') };
+}
+
+function zeichneAdmins(ziel) {
+  const b = sektion('Wer Administrator ist',
+    'Administrator ist, wer hier eingetragen ist. Dazu kommen zwei Wege, die sich hier '
+    + 'nicht ändern lassen: der Notzugang in config.php, damit sich niemand aussperren '
+    + 'kann, und das Administrationskonto von WebUntis.');
+  ziel.appendChild(b);
+  // Rückmeldung am Ort der Handlung (Eintragen, Entfernen).
+  for (const m of S.admMeldungen) {
+    b.appendChild(el('p', m.art === 'fehler' ? 'hinweis-wichtig' : 'hinweis', m.text));
+  }
+  // Scheitert das Laden, steht der Fehler da – kein erneuter Abruf bei jedem
+  // Neuzeichnen (wie bei den Volljährigen, v0.9.66).
+  if (S.admFehler) {
+    b.appendChild(el('p', 'hinweis-wichtig', 'Die Liste konnte nicht geladen werden: ' + S.admFehler));
+    b.appendChild(knopf('Erneut laden', 'klein', () => { S.admFehler = null; zeichne(); }));
+    return;
+  }
+  if (S.admDaten === null) {
+    b.appendChild(el('p', 'hinweis', 'Wird geladen …'));
+    if (!S.admLaedt) {
+      S.admLaedt = true;
+      api('/api/admins').then((d) => { S.admDaten = d.admins || []; S.admLaedt = false; zeichne(); })
+        .catch((f) => { S.admLaedt = false; S.admFehler = String(f.message) || 'unbekannter Fehler'; zeichne(); });
+    }
+    return;
+  }
+  const tab = el('table', 'tabelle');
+  const kopf = el('tr');
+  for (const t of ['Wer', 'Woher', 'Hinweis', '']) kopf.appendChild(el('th', null, t));
+  tab.appendChild(kopf);
+  for (const e of S.admDaten) {
+    const t = adminZeileText(e);
+    const tr = el('tr');
+    tr.appendChild(el('td', null, t.wer));
+    tr.appendChild(el('td', null, t.woher));
+    tr.appendChild(el('td', 'hinweis-klein', t.hinweis));
+    const td = el('td');
+    if (e.entfernbar) td.appendChild(knopf('Entfernen', 'klein gefahr', () => adminEntfernen(e)));
+    tr.appendChild(td);
+    tab.appendChild(tr);
+  }
+  b.appendChild(kartenTabelle(tab));
+
+  // Eintragen: nur Lehrkräfte aus den Stammdaten, die noch nicht
+  // Administrator sind. Der Server lehnt alles andere ohnehin ab (E29).
+  const ein = sektion('Administrator eintragen',
+    'Eintragen wirkt ab der nächsten Anmeldung der Lehrkraft. Entfernen wirkt sofort, '
+    + 'auch in einer laufenden Sitzung.');
+  ziel.appendChild(ein);
+  if (S.admStamm !== 'da') {
+    ein.appendChild(el('p', 'hinweis', 'Wird geladen …'));
+    if (S.admStamm === undefined) {
+      S.admStamm = 'laedt';
+      ladeStammdaten().then(() => { S.admStamm = 'da'; zeichne(); });
+    }
+    return;
+  }
+  const lehrer = S.stammdaten.lehrer || [];
+  const schon = S.admDaten.filter((e) => e.kuerzel).map((e) => String(e.kuerzel).toLowerCase());
+  const frei = lehrer.filter((l) => !schon.includes(String(l.kuerzel).toLowerCase()));
+  if (frei.length === 0) {
+    ein.appendChild(el('p', 'hinweis', lehrer.length === 0
+      ? 'Keine Lehrkräfte in den Stammdaten – zuerst unter „Sprechtage“ die Stammdaten aus WebUntis übernehmen.'
+      : 'Alle Lehrkräfte aus den Stammdaten sind bereits Administrator.'));
+    return;
+  }
+  ein.appendChild(auswahl('Lehrkraft', 'adm-neu', [{ wert: '', text: '– Lehrkraft wählen –' }]
+    .concat(frei.map((l) => ({ wert: l.kuerzel, text: l.kuerzel + (l.name ? ' – ' + l.name : '') }))), ''));
+  const akt = el('div', 'aktionen');
+  akt.appendChild(knopf('Als Administrator eintragen', null, () => adminEintragen(wert('adm-neu'))));
+  ein.appendChild(akt);
+}
+
+async function adminEntfernen(e) {
+  if (!confirm('„' + e.kuerzel + '“ aus der Liste entfernen?')) return;
+  try {
+    const d = await api('/api/admins/' + e.id, { method: 'DELETE' });
+    const hinweise = (d.hinweise || []).map((t) => ({ art: 'info', text: t }));
+    // Steht das Kürzel auch im Notzugang, bleibt das Recht – das sagt dann
+    // der Hinweis des Servers, nicht dieser Satz.
+    S.admMeldungen = (e.auch_oberflaeche ? []
+      : [{ art: 'ok', text: '„' + e.kuerzel + '“ ist nicht mehr Administrator, ab sofort.' }]).concat(hinweise);
+  } catch (f) {
+    S.admMeldungen = [{ art: 'fehler', text: String(f.message) }];
+  }
+  S.admDaten = null;
+  zeichne();
+}
+
+async function adminEintragen(kuerzel) {
+  if (!kuerzel) {
+    S.admMeldungen = [{ art: 'fehler', text: 'Bitte zuerst eine Lehrkraft wählen.' }];
+    zeichne();
+    return;
+  }
+  try {
+    const d = await api('/api/admins', { method: 'POST', body: { kuerzel } });
+    S.admMeldungen = [{ art: 'ok', text: d.hinweis
+      || '„' + kuerzel + '“ ist eingetragen und ab der nächsten Anmeldung Administrator.' }];
+  } catch (f) {
+    S.admMeldungen = [{ art: 'fehler', text: String(f.message) }];
+  }
+  S.admDaten = null;
+  zeichne();
+}
+
 function ansichtAdminLoginLog(ziel) {
   ziel.appendChild(el('h2', null, 'Login-Protokoll'));
 

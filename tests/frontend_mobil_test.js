@@ -222,13 +222,16 @@ pruefe('… Kopfzeile gekennzeichnet, Tabelle als „karten“, im rollenden Rah
   && kTab.klassen.includes('karten') && kTab.kinder[0].klassen.includes('kopfzeile'));
 // v0.9.83 (E13-Nachtrag, Betreiber): die abgesagten Termine der Lehrkraft
 // (E19) als fünfte – sieben Spalten, gelesen vor allem unterwegs.
+// v0.9.99 (zweiter E13-Nachtrag, Betreiber): die Administratoren (E29) als
+// sechste – der Hinweis sagt, warum jemand Administrator ist.
 const KARTEN_ANSICHTEN = ['function ansichtMeineTermine(', 'function ansichtEinladungen(',
-  'function ansichtAdminLoginLog(', 'function ansichtMitteilungen(', 'function zeichneAbgesagte('];
+  'function ansichtAdminLoginLog(', 'function ansichtMitteilungen(', 'function zeichneAbgesagte(',
+  'function zeichneAdmins('];
 const jeAnsicht = KARTEN_ANSICHTEN.map((k) => (rumpf(k).match(/kartenTabelle\(\w*tab\)/g) || []).length);
 const kartenGesamt = (jsOhne.match(/kartenTabelle\(/g) || []).length;
-pruefe('Karten genau in Meine Termine, Einladungen, Login-Protokoll, Mitteilungen, Abgesagte Termine ('
-  + jeAnsicht.join('/') + ', gesamt ' + kartenGesamt + ')',
-  jeAnsicht.every((n) => n === 1) && kartenGesamt === 5);
+pruefe('Karten genau in Meine Termine, Einladungen, Login-Protokoll, Mitteilungen, Abgesagte Termine, '
+  + 'Administratoren (' + jeAnsicht.join('/') + ', gesamt ' + kartenGesamt + ')',
+  jeAnsicht.every((n) => n === 1) && kartenGesamt === 6);
 pruefe('schmal: jede Zeile ein Block (.tabelle.karten tr: display block)',
   wert(regel('.tabelle.karten tr', MOBIL), 'display') === 'block');
 pruefe('schmal: Kopfzeile ausgeblendet (.tabelle.karten tr.kopfzeile: display none)',

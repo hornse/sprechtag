@@ -101,6 +101,7 @@ unter 9, weil vergebene Nummern nicht verschoben werden.
     wird der Notzugang, gepflegt wird über die Oberfläche. Eigener Zug in
     drei Teilen. **Teil 1 (Backend) erledigt mit v0.9.98;** Teil 2
     (Oberfläche) und Teil 3 (Dokumentation) offen.
+    **Teil 2 (Oberfläche) erledigt mit v0.9.99.** Teil 3 offen.
 11. **`run_elternzuordnung`: der Rollenfilter wird nie gefragt** (vorgemerkt
     12.10.2026). Die Prüfung „KEINE Schüler-Konten“ bleibt grün, auch wenn
     man in `mit_eltern_zu_kind()` den Rollenfilter entfernt: Die
@@ -135,3 +136,13 @@ unter 9, weil vergebene Nummern nicht verschoben werden.
     spielen die Reihenfolge Lesen/Zeichnen mit eigenen Funktionen nach und
     laden `app.js` nicht. Kein Eingriff am Code macht sie rot. Suchfrage:
     Prüft die Suite den Code oder eine Kopie davon?
+15. **`ladeStammdaten()` schluckt Ladefehler** (vorgemerkt 12.10.2026,
+    gefunden beim Bau der Seite „Administratoren“, v0.9.99). `frontend/app.js`:
+    `try { S.stammdaten = await api('/api/stammdaten'); } catch { }`.
+    Scheitert der Abruf, bleibt die leere Liste stehen, und die Seite sagt
+    „Keine Lehrkräfte in den Stammdaten“ statt „konnte nicht geladen
+    werden“. **Dieselbe Art wie E9 und Punkt 9:** ein Fehlschlag, der wie
+    ein gültiges Ergebnis aussieht. Hier besonders unangenehm, weil jemand
+    daraufhin den Stammdaten-Sync anwirft, statt den Fehler zu suchen.
+    Fünf Aufrufstellen. Älter als E29, deshalb nicht nebenbei geändert.
+    Prüfung zuerst: einen scheiternden Abruf rot zeigen.

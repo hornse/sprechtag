@@ -159,6 +159,19 @@ vorkamen. Der alte Code wählte daraufhin eine Bewertung ohne
 ohne hinzusehen. Behoben vor dem Einchecken; der Grund steht an der
 Attrappe.
 
+**Drittes Beispiel, in anderer Form (v0.9.99, Betreiber 12.10.2026: als
+Beispiel zu Art 6 aufnehmen):** Hier fehlte nicht der Fall in den Daten,
+sondern die Voraussetzung der Prüfung selbst. Von 33 Prüfungen der neuen
+`tests/frontend_admins_test.js` waren gegen den alten Stand drei grün, weil
+die geprüften Funktionen noch nicht existierten: „Kürzel in beiden Listen:
+kein eigener Text“ verglich zwei leere Texte miteinander, „kein Abruf“
+zählte null Aufrufe eines Rumpfs, der nicht lief, und „Rückfrage verneint:
+kein Aufruf“ ebenso. Alle drei sind Abwesenheitsprüfungen, und
+`tests/rumpf.js` warnt im Kopf genau davor („Ein leerer Rumpf besteht jede
+solche Prüfung“). Gefunden durch den roten Lauf vor dem Bau, nicht durch
+Lesen: 30 rot statt 33. Behoben vor dem Einchecken – jede der drei verlangt
+jetzt, dass der Rumpf gefunden wurde.
+
 **Art 7.** Dreimal: In `frontend_laufzeit_test.js` greift das `catch`
 nie, rot wird es nur durch Nodes Exit 1 (E5). `run_kalender_abo` endete
 mit einem PHP-Fatal nach 10 von 16 Prüfungen, ohne eine Zeile mit ✗ (E5,

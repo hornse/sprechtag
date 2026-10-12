@@ -1645,6 +1645,64 @@ mut AD20 $ADM 's/        \(\$_SESSION\[\x27wu_admin_konto\x27\] \?\? false\) ===
 mut AD21 $ADM 's/\. \(\$notzugang !== \[\]\n/. (true\n/' \
   $RAD "… ohne Notzugang in der config"
 
+# ------------------------------------------------------------
+# OA1–OA25 (v0.9.99, E29, Aufräumliste 10 Teil 2): die Seite
+# „Administratoren“. frontend_admins_test führt adminZeileText,
+# zeichneAdmins, adminEntfernen und adminEintragen aus; OA19–OA22 treffen
+# Quelltextprüfungen (Navigation, Zustand), OA24 die Zählung der
+# Kartenansichten (E13, zweiter Nachtrag).
+RFA=tests/frontend_admins_test.js
+mut OA1 $APP 's/\{ wer: \x27WebUntis-Administrationskonto\x27, woher: \x27WebUntis\x27,/{ wer: \x27WebUntis-Administrationskonto\x27, woher: \x27diese Seite\x27,/' \
+  $RFA "WebUntis-Konto: „WebUntis-Administrationskonto“"
+mut OA2 $APP 's/woher: e\.herkunft === \x27notzugang\x27 \? \x27Notzugang \(config\.php\)\x27 : \x27diese Seite\x27,/woher: \x27diese Seite\x27,/' \
+  $RFA "Notzugang: Kürzel mit Name"
+mut OA3 $APP 's/  if \(e\.ohne_stammsatz\) teile\.push\(/  if (false) teile.push(/' \
+  $RFA "Notzugang ohne Stammsatz"
+mut OA4 $APP 's/(\+ \x27Server ändern – damit sich niemand aussperren kann\.\x27\);\n)/$1    if (e.auch_oberflaeche) teile.push(\x27Zusätzlich hier eingetragen.\x27);\n/' \
+  $RFA "Kürzel in beiden Listen (Aq): kein eigener Text"
+mut OA5 $APP 's/    if \(e\.selbst\) \{\n      teile\.push/    if (false) {\n      teile.push/' \
+  $RFA "eigener Eintrag"
+mut OA6 $APP 's/if \(e\.entfernbar\) td\.appendChild\(knopf\(\x27Entfernen\x27/if (e.id !== null) td.appendChild(knopf(\x27Entfernen\x27/' \
+  $RFA "„Entfernen“ genau bei den entfernbaren"
+mut OA7 $APP 's/(    tr\.appendChild\(td\);\n    tab\.appendChild\(tr\);\n)(  \}\n  b\.appendChild\(kartenTabelle\(tab\)\);)/$1    tab.appendChild(tr);\n$2/' \
+  $RFA "jede Person genau einmal"
+mut OA8 $APP 's/!schon\.includes\(String\(l\.kuerzel\)\.toLowerCase\(\)\)/!schon.includes(String(l.kuerzel))/' \
+  $RFA "Auswahl zum Eintragen"
+mut OA9 $APP 's/    if \(!S\.admLaedt\) \{/    if (true) {/' \
+  $RFA "Liste nicht geladen"
+mut OA10 $APP 's/  if \(S\.admFehler\) \{/  if (false) {/' \
+  $RFA "Laden gescheitert"
+mut OA11 $APP 's/  for \(const m of S\.admMeldungen\) \{/  for (const m of []) {/' \
+  $RFA "Rückmeldung am Ort"
+mut OA12 $APP 's/  if \(S\.admStamm !== \x27da\x27\) \{/  if (false) {/' \
+  $RFA "Stammdaten noch nicht geladen"
+mut OA13 $APP 's/  if \(!confirm\(\x27„\x27 \+ e\.kuerzel \+ \x27“ aus der Liste entfernen\?\x27\)\) return;\n//' \
+  $RFA "Rückfrage verneint"
+mut OA14 $APP 's/S\.admMeldungen = \(e\.auch_oberflaeche \? \[\]/S.admMeldungen = (false ? []/' \
+  $RFA "Eintrag, der auch Notzugang ist (Aq)"
+mut OA15 $APP 's/(  \} catch \(f\) \{\n    S\.admMeldungen = \[\{ art: \x27)fehler(\x27, text: String\(f\.message\) \}\];\n  \}\n  S\.admDaten = null;\n  zeichne\(\);\n\}\n\nasync function adminEintragen)/$1info$2/' \
+  $RFA "Server lehnt ab: seine Meldung als Fehler in der Seite"
+mut OA16 $APP 's/  if \(!kuerzel\) \{\n    S\.admMeldungen/  if (false) {\n    S.admMeldungen/' \
+  $RFA "Eintragen ohne Auswahl"
+mut OA17 $APP 's/text: d\.hinweis\n      \|\| \x27„\x27/text: \x27„\x27/' \
+  $RFA "Server sagt „bereits eingetragen“"
+mut OA18 $APP 's/body: \{ kuerzel \} \}\);/body: { kuerzel: kuerzel.toLowerCase() } });/' \
+  $RFA "Eintragen (Dq): POST"
+mut OA19 $APP 's/    sub\.appendChild\(navKnopf\(\x27admin-admins\x27, \x27Administratoren\x27, true, \x27personen\x27\)\);\n//' \
+  $RFA "Nav-Punkt „Administratoren“"
+mut OA20 $APP 's/navKnopf\(\x27admin-admins\x27, \x27Administratoren\x27, true, \x27personen\x27\)/navKnopf(\x27admin-admins\x27, \x27Administratoren\x27, true, \x27schluessel\x27)/' \
+  $RFA "… sein Symbol steht im Symbolsatz des Moduls"
+mut OA21 $APP 's/ S\.admMeldungen = \[\]; S\.admStamm = undefined;\n/ S.admMeldungen = [];\n/' \
+  $RFA "Ansichtswechsel verwirft Liste"
+mut OA22 $APP 's/\n  admDaten: null,\n/\n  admDaten: [],\n/' \
+  $RFA "Startzustand: admDaten null"
+mut OA23 $APP 's/Entfernen wirkt sofort, \x27/\x27/' \
+  $RFA "sagt, wann es wirkt"
+mut OA24 $APP 's/  b\.appendChild\(kartenTabelle\(tab\)\);/  b.appendChild(tabelleRahmen(tab));/' \
+  $MO "Karten genau in"
+mut OA25 $APP 's/api\(\x27\/api\/admins\/\x27 \+ e\.id,/api(\x27\/api\/admins\/\x27 + e.kuerzel,/' \
+  $RFA "Entfernen (Cq): DELETE"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1

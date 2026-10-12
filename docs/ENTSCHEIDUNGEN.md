@@ -756,6 +756,17 @@ den Betreiber, statt die Entscheidung stillschweigend zu erweitern. Die
 Prüfung bleibt so streng wie vorher – jetzt fünf Ansichten, je eine Karte,
 gesamt fünf. Der rollende Rahmen bleibt Rückfall für die übrigen.
 
+**Zweiter Nachtrag 12.10.2026 (v0.9.99, Entscheidung Betreiber) — eine
+sechste Kartenansicht: Administratoren.** Die Liste der Administratoren
+(E29) wird auf schmalem Bildschirm zur Karte. Begründung wie bei den
+abgesagten Terminen: Vier Spalten mit einem ein- bis zweisätzigen Hinweis
+und einem Knopf würden auf dem Telefon seitlich abgeschnitten – genau das,
+was diese Entscheidung verhindern soll. Und der Hinweis ist kein Beiwerk:
+Er sagt, warum jemand Administrator ist und ob er entfernt werden kann.
+Gefunden wieder durch dieselbe Prüfung, die beim Bau rot wurde; die Frage
+ging an den Betreiber. Die Prüfung zählt jetzt sechs Ansichten, gesamt
+sechs.
+
 ## E14 — Abstände zwischen Abschnitten: zwei Werte, eine Regel
 
 **Stand 09.10.2026, v0.9.63. Entscheidung des Betreibers.**
