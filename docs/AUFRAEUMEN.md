@@ -97,6 +97,10 @@ unter 9, weil vergebene Nummern nicht verschoben werden.
     über die Oberfläche gepflegt werden können – dann bekommt die Route
     eine Oberfläche –, oder genügt `admin_kuerzel` in `config.php` – dann
     entfallen Route und Tabelle.
+    **Entschieden 12.10.2026 (E29), anders als gefragt:** `admin_kuerzel`
+    wird der Notzugang, gepflegt wird über die Oberfläche. Eigener Zug in
+    drei Teilen. **Teil 1 (Backend) erledigt mit v0.9.98;** Teil 2
+    (Oberfläche) und Teil 3 (Dokumentation) offen.
 11. **`run_elternzuordnung`: der Rollenfilter wird nie gefragt** (vorgemerkt
     12.10.2026). Die Prüfung „KEINE Schüler-Konten“ bleibt grün, auch wenn
     man in `mit_eltern_zu_kind()` den Rollenfilter entfernt: Die

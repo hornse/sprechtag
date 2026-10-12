@@ -1929,3 +1929,100 @@ deshalb durch keinen Eingriff belegbar (`run_stammsatz.php`,
 `frontend_reihenfolge_test.js`, `frontend_zustand_test.js`; Art 5). Und die
 Absage nennt die Lehrkraft zweimal, geprüft wird nur das Vorkommen (Art 1).
 Beides gemeldet, nicht behoben.
+
+## E29 — Admin-Rechte: admin_kuerzel ist der Notzugang, gepflegt wird über die Oberfläche
+
+**Datum:** 12.10.2026 · **Version:** v0.9.98 (Teil 1 von 3) · **Entschieden
+vom Betreiber** · **Anlass:** Aufräumliste 10 (`app_admins` ohne Oberfläche)
+
+**Lage (am Code gelesen):** Admin wurde man auf **drei** Wegen, nicht auf
+zwei: über `admin_kuerzel` in `config.php`, über einen Eintrag in
+`app_admins` – gleichwertig daneben, mit Route, aber ohne Oberfläche – und
+über das WebUntis-Admin-Konto (personType 16), ohne Bedingung. Die Rolle
+wurde bei der Anmeldung in die Sitzung geschrieben und danach nicht mehr
+geprüft. POST nahm jedes Kürzel an, auch eines ohne Stammsatz und eines aus
+`admin_kuerzel`. Die Anmeldung verglich `app_admins` in SQL, das Ergebnis
+hing also an der Kollation.
+
+**Entschieden – Arbeitsteilung statt zweier gleichwertiger Wege:**
+
+- **`admin_kuerzel` schrumpft auf den Notzugang:** ein oder mehrere Kürzel,
+  die immer gelten, damit sich niemand aussperren kann. Das ist der Weg,
+  der einen Serverzugang braucht und den ein kompromittiertes
+  WebUntis-Konto nicht hat.
+- **Alles Weitere läuft über die Oberfläche,** gespeichert in `app_admins`.
+
+**Begründung (Betreiber):** Admin-Rechte sind das, womit man alle anderen
+Rechte vergibt. Wer sie über die Oberfläche vergeben kann, kann sie auch
+sich selbst erweitern. Eine Datei auf dem Server ist langsamer zu ändern,
+aber sie braucht einen Zugang anderer Art. Und: Es gab zwei Wege, Admin zu
+werden, gleichwertig nebeneinander – dasselbe Muster, das die Reihe seit
+Tagen beschäftigt. Eine Oberfläche nur für den zweiten Weg hätte ihn
+festgeschrieben, statt die Frage zu klären. Die Arbeitsteilung klärt sie.
+
+**Entschieden auf die Rückfragen beim Bauen:**
+
+- **A – Das WebUntis-Admin-Konto bleibt ohne Bedingung Admin.** Es ist der
+  Notzugang für den Notzugang: Steht in `admin_kuerzel` nach einer
+  Neuinstallation `'XYZ'`, erreicht sonst niemand die Verwaltung. Und es
+  wird regelmäßig gebraucht: Die Gruppenliste für die Volljährigen liefert
+  WebUntis nur diesem Konto (gemessen 09./11.10.2026, Admin 200,
+  Lehrkraft 403), bei jeder neuen Gruppe und jeder Umbenennung wieder.
+  Dass es damit ein dritter Weg bleibt, ist unschön; er setzt aber
+  Admin-Rechte in WebUntis voraus, und wer die hat, braucht `sprechtag`
+  nicht. **In der Oberfläche ist er sichtbar,** als dritte Herkunft neben
+  Notzugang und Oberfläche – sonst wundert sich jemand, warum ein Konto
+  Admin ist, das nirgends steht.
+- **B – Die Rolle wird bei jedem Aufruf einer Admin-Sitzung neu geprüft.**
+  Wer entfernt wird, blieb bis zum Sitzungsende Admin, und Rechte entzieht
+  man meist nicht aus Gefälligkeit. Eine Meldung „wirkt ab der nächsten
+  Anmeldung“ wäre eine Entschuldigung für ein Verhalten, das man nicht
+  will. Der Preis ist eine Abfrage mehr je Aufruf.
+- **C – POST lehnt zweierlei ab:** ein Kürzel ohne Stammsatz (ein Eintrag
+  mit leerem Namen sieht aus wie ein Admin und ist keiner, solange sich
+  niemand mit dem Kürzel anmeldet) und ein Kürzel, das schon in
+  `admin_kuerzel` steht (doppelte Einträge für dasselbe Recht sind die
+  Unordnung, die dieser Zug beseitigt).
+- **Kürzel in beiden Listen** (nur noch aus der Zeit vor C): einmal
+  angezeigt, als Notzugang; der Tabelleneintrag lässt sich entfernen, mit
+  dem Hinweis, dass das Recht bleibt. Ob es solche Fälle im Betrieb gibt,
+  zählt `tests/werkzeuge/admin_bestand.php`.
+- **D – Verglichen wird in PHP mit `wu_kuerzel_gleich()`, nicht in SQL.**
+  Dann prüft der Test dasselbe wie der Betrieb, und der Unterschied
+  zwischen MariaDB und SQLite fällt weg, statt zwischen beiden zu
+  schwanken.
+- **In Teilen, die einzeln prüfbar sind,** jeder als eigene Version:
+  1. Backend (v0.9.98), 2. Oberfläche, 3. Dokumentation (BEDIENUNG,
+  WEBUNTIS, Hilfe, Warnkasten, `config.example.php`).
+
+**Gebaut in Teil 1 (v0.9.98):**
+
+- `backend/api/admins.php`: **`adm_herkunft()` ist die eine Stelle,** die
+  entscheidet – bei der Anmeldung (`wu_login`) und bei jedem Aufruf. Der
+  Notzugang geht vor der Tabelle. `app_admins` steht nur in dieser Datei
+  (geprüft über alle Backend-Dateien).
+- **Die Nachprüfung liegt nicht in `auth_require_admin()`,** wie der
+  Betreiber zu prüfen bat, **sondern im Vorspann von `index.php`, vor der
+  ersten Route** (`adm_sitzung_nachpruefen`). Grund: Neben
+  `auth_require_admin()` lesen gut ein Dutzend Stellen `$u['rolle']`
+  unmittelbar (`index.php`, `buchungen.php`, `slots.php`, `absagen.php`,
+  `einstellungen.php`); eine Prüfung nur in `auth_require_admin()` hätte
+  sie ausgelassen. Im Vorspann wird die Sitzung selbst zurückgestuft, und
+  alle Stellen sehen dasselbe. Andere Sitzungen fassen die Datenbank
+  dabei nicht an; befördert wird hier nie.
+- **Zurückgestuft wird auf `lehrkraft`:** Admin über eine der beiden Listen
+  gibt es nur für Lehrerkonten (personType 2). Das WebUntis-Konto wird nie
+  zurückgestuft.
+- `GET /api/admins` liefert alle drei Herkünfte mit `herkunft`, `selbst`,
+  `entfernbar`, `auch_oberflaeche` und `ohne_stammsatz`, ohne Fließtext –
+  den bildet Teil 2.
+- `POST` trägt in der Schreibweise des Stammsatzes ein; ein zweites Mal
+  dasselbe Kürzel antwortet „bereits eingetragen“ statt
+  `ON DUPLICATE KEY UPDATE` (MariaDB-Syntax, in SQLite nicht ausführbar).
+  Als Stammsatz zählt ein aktiver (`aktiv = 1`), wie in der Auswahl der
+  Stammdaten; gesetzt wird `aktiv = 0` heute nirgends im Code.
+- `DELETE`: Die Wache gegen das Selbst-Entfernen bleibt, wie sie war. Neu
+  sind 404 für eine unbekannte Id (bisher still „ok“) und die Hinweise
+  „bleibt Administrator … Notzugang“ und „Über die Oberfläche ist jetzt
+  niemand mehr Administrator“, je nachdem, ob `admin_kuerzel` etwas
+  enthält.

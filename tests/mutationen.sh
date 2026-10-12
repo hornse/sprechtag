@@ -1044,11 +1044,13 @@ mut AK9 $ADP 's/return wu_kuerzel_liste\(\$wcfg\[\x27admin_kuerzel\x27\] \?\? \[
   $RAK "… aus der Zeichenkette 'Hq' das ganze Kürzel"
 mut AK10 $ADP 's/\$ergebnis\[\x27kuerzel\x27\] = wu_admin_eigenes_kuerzel\(\$wcfg\);/\$ergebnis[\x27kuerzel\x27] = \$wcfg[\x27admin_kuerzel\x27][0] ?? null;/' \
   $RAK "wu_login, personType 16"
-mut AK11 $ADP 's/\$ausConfig = wu_ist_config_admin\(\$ergebnis\[\x27kuerzel\x27\], \$wcfg\);/\$ausConfig = in_array(\$ergebnis[\x27kuerzel\x27], (array)(\$wcfg[\x27admin_kuerzel\x27] ?? []), true);/' \
+# AK11 und AK13 seit v0.9.98 in admins.php (E29): Die Entscheidung über den
+# Notzugang steht in adm_herkunft, die Wache in adm_entfernen.
+mut AK11 backend/api/admins.php 's/if \(wu_ist_config_admin\(\$kuerzel, \$wcfg\)\) return \x27notzugang\x27;/if (in_array(\$kuerzel, (array)(\$wcfg[\x27admin_kuerzel\x27] ?? []), true)) return \x27notzugang\x27;/' \
   $RAK "wu_login, Lehrkraft"
 mut AK12 $ADP 's/foreach \(wu_kuerzel_liste\(\$wcfg\[\x27admin_kuerzel\x27\] \?\? \[\]\) as \$k\)/foreach ((array)(\$wcfg[\x27admin_kuerzel\x27] ?? []) as \$k)/' \
   $RAK "Engstelle: admin_kuerzel wird nur über wu_kuerzel_liste gelesen"
-mut AK13 $IX 's/wu_kuerzel_gleich\(\(string\)\$ziel, \(string\)\(\$u\[\x27kuerzel\x27\] \?\? \x27\x27\)\)/\$ziel === (\$u[\x27kuerzel\x27] ?? null)/' \
+mut AK13 backend/api/admins.php 's/wu_kuerzel_gleich\(\$ziel, \(string\)\(\$eigenes \?\? \x27\x27\)\)/\$ziel === \$eigenes/' \
   $RAK "Selbst-Entfernen-Wache (app_admins) vergleicht unempfindlich"
 mut AK14 $CFE 's/        \/\/     \x27admin_kuerzel\x27 => \[\x27Hq\x27, \x27Mq\x27, \x27Sq\x27\],\n//' \
   $RAK "Kommentar zeigt die Array-Form"
@@ -1590,6 +1592,58 @@ mut PV5 $MIT 's/\(string\)\$m\[\x27text\x27\], \$bevorzugt\);/(string)\$m[\x27te
   $RVV "gemerkte Variante zuerst"
 mut PV6 $MIT 's/\x27protokoll\x27 => \[\], \x27variante_lesefehler\x27 => null\];/\x27protokoll\x27 => []];/' \
   $RVV "auch ohne Versand ist variante_lesefehler da (null)"
+
+# ------------------------------------------------------------
+# AD1–AD21 (v0.9.98, E29, Aufräumliste 10 Teil 1): wer Administrator ist und
+# woher. run_admins führt die Route /api/admins, den Vorspann von index.php
+# (Nachprüfung der Sitzung) und adm_herkunft() aus; AD17 und AD18 treffen
+# Quelltextprüfungen (Aufrufstelle in wu_login, Engstelle). AD15 ist der
+# Grund für den Fall „letzter Eintrag, während AQ bleibt“ – die Prüfung dazu
+# war beim Schreiben schon grün und ist nur durch diese Mutation belegt.
+RAD=tests/run_admins.php
+ADM=backend/api/admins.php
+mut AD1 $ADM 's/    if \(\$adminKonto\) return \x27webuntis\x27;\n//' \
+  $RAD "WebUntis-Konto: webuntis, auch ohne Kürzel und ohne config"
+mut AD2 $ADM 's/if \(wu_kuerzel_gleich\(\(string\)\$z\[\x27lehrer_kuerzel\x27\], \$kuerzel\)\) return \x27oberflaeche\x27;/if ((string)\$z[\x27lehrer_kuerzel\x27] === \$kuerzel) return \x27oberflaeche\x27;/' \
+  $RAD "Tabelle, Vergleich in PHP"
+mut AD3 $ADM 's/        \$_SESSION\[\x27rolle\x27\] = \x27lehrkraft\x27;\n//' \
+  $RAD "entfernt (Cq) während der Sitzung"
+mut AD4 $IX 's/\nadm_sitzung_nachpruefen\(\$cfg\);\n/\n/' \
+  $RAD "entfernt (Cq) während der Sitzung"
+mut AD5 $ADM 's/    if \(\(\$_SESSION\[\x27rolle\x27\] \?\? null\) !== \x27admin\x27\) return;\n//' \
+  $RAD "nicht angemeldet: keine Datenbank"
+mut AD6 $ADM 's/ \$id = \(int\)\$z\[\x27id\x27\]; \$vergeben\[\$i\] = true; / \$id = (int)\$z[\x27id\x27]; /' \
+  $RAD "Kürzel in beiden Listen (AQ): einmal"
+mut AD7 $ADM 's/    if \(wu_ist_config_admin\(\$kuerzel, \$wcfg\)\) \{\n        return \[\x27status\x27 => 409,/    if (false) {\n        return [\x27status\x27 => 409,/' \
+  $RAD "Kürzel aus dem Notzugang (zQ, auch ohne Stammsatz)"
+mut AD8 $ADM 's/    if \(\$l === null\) \{\n        return \[\x27status\x27 => 404,/    if (false) {\n        return [\x27status\x27 => 404,/' \
+  $RAD "Kürzel ohne Stammsatz"
+mut AD9 $ADM 's/FROM lehrer WHERE aktiv = 1 ORDER BY kuerzel/FROM lehrer ORDER BY kuerzel/' \
+  $RAD "Kürzel mit stillgelegtem Stammsatz"
+mut AD10 $ADM 's/->execute\(\[\(string\)\$l\[\x27kuerzel\x27\], \(string\)\$l\[\x27name\x27\], \$von\]\);/->execute([\$kuerzel, (string)\$l[\x27name\x27], \$von]);/' \
+  $RAD "Lehrkraft mit Stammsatz"
+mut AD11 $ADM 's/if \(wu_kuerzel_gleich\(\(string\)\$z\[\x27lehrer_kuerzel\x27\], \(string\)\$l\[\x27kuerzel\x27\]\)\) \{/if (false) {/' \
+  $RAD "dasselbe Kürzel noch einmal"
+mut AD12 $ADM 's/if \(\$ziel === null\) return \[\x27status\x27 => 404,/if (false) return [\x27status\x27 => 404,/' \
+  $RAD "unbekannte Id"
+mut AD13 $ADM 's/    if \(wu_ist_config_admin\(\$ziel, \$wcfg\)\) \{/    if (false) {/' \
+  $RAD "Eintrag, der auch Notzugang ist (AQ)"
+mut AD14 $ADM 's/        if \(\$rest === \[\]\) \{/        if (false) {/' \
+  $RAD "letzter Eintrag der Oberfläche (Bq, durch Notzugang Aq)"
+mut AD15 $ADM 's/\$rest = array_filter\(adm_tabelle\(\$pdo\), fn\(\$z\) => !wu_ist_config_admin\(\(string\)\$z\[\x27lehrer_kuerzel\x27\], \$wcfg\)\);/\$rest = adm_tabelle(\$pdo);/' \
+  $RAD "letzter Eintrag der Oberfläche, während AQ"
+mut AD16 $ADM 's/\x27entfernbar\x27 => !\$selbst\(\$kz\),/\x27entfernbar\x27 => true,/' \
+  $RAD "Oberfläche: eigener Eintrag (Bq)"
+mut AD17 $ADP 's/&& adm_herkunft\(\$pdo, \$wcfg, \$ergebnis\[\x27kuerzel\x27\], false\) !== null\)/\&\& wu_ist_config_admin(\$ergebnis[\x27kuerzel\x27], \$wcfg))/' \
+  $RAD "wu_login: eine Lehrkraft wird Admin über adm_herkunft"
+mut AD18 $IX 's/json_ok\(\[\x27admins\x27 => adm_liste\(\$pdo, \$wcfg, \$u\[\x27kuerzel\x27\] \?\? null\)\]\);/json_ok([\x27admins\x27 => \$pdo->query(\x27SELECT * FROM app_admins\x27)->fetchAll()]);/' \
+  $RAD "Engstelle: app_admins steht nur in admins.php"
+mut AD19 $IX 's/adm_entfernen\(\$pdo, \$wcfg, \(int\)\$seg\[1\], \$u\[\x27kuerzel\x27\] \?\? null\)/adm_entfernen(\$pdo, \$wcfg, (int)\$seg[1], null)/' \
+  $RAD "eigener Eintrag (Sitzung BQ, Eintrag Bq)"
+mut AD20 $ADM 's/        \(\$_SESSION\[\x27wu_admin_konto\x27\] \?\? false\) === true\);/        false);/' \
+  $RAD "WebUntis-Konto ohne Kürzel und ohne Notzugang in der config: bleibt admin"
+mut AD21 $ADM 's/\. \(\$notzugang !== \[\]\n/. (true\n/' \
+  $RAD "… ohne Notzugang in der config"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi

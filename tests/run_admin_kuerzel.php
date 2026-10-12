@@ -15,7 +15,9 @@
 // Die Datenbankvergleiche (lehrer.kuerzel, app_admins.lehrer_kuerzel)
 // laufen unter utf8mb4_unicode_ci und sind laut Schema schon unempfindlich
 // (sql/02_sprechtag.sql, ohne eigene Kollation je Spalte; nicht am Server
-// gemessen).
+// gemessen). Seit v0.9.98 (E29) wird app_admins in PHP verglichen
+// (backend/api/admins.php, ausgeführt in run_admins.php); die Entscheidung
+// über den Notzugang und die Wache stehen seitdem dort.
 //
 // Ausgeführt: wu_kuerzel_gleich, wu_kuerzel_liste, wu_ist_config_admin,
 // wu_admin_eigenes_kuerzel. Quelltext: die Aufrufstellen in wu_login (die
@@ -97,8 +99,9 @@ $ohneKommentar = function (string $datei): string {
 $ad = $ohneKommentar($wurzel . '/backend/api/webuntis_adapter.php');
 pruefe('wu_login, personType 16: Kürzel über wu_admin_eigenes_kuerzel',
     str_contains($ad, "\$ergebnis['kuerzel'] = wu_admin_eigenes_kuerzel(\$wcfg);"));
-pruefe('wu_login, Lehrkraft: Admin über wu_ist_config_admin',
-    str_contains($ad, "\$ausConfig = wu_ist_config_admin(\$ergebnis['kuerzel'], \$wcfg);"));
+$adm = $ohneKommentar($wurzel . '/backend/api/admins.php');
+pruefe('wu_login, Lehrkraft: Admin über wu_ist_config_admin (seit v0.9.98 in adm_herkunft, admins.php)',
+    str_contains($adm, "if (wu_ist_config_admin(\$kuerzel, \$wcfg)) return 'notzugang';"));
 
 $dateien = array_merge(glob($wurzel . '/backend/*.php'), glob($wurzel . '/backend/*/*.php'));
 $dateien = array_values(array_filter($dateien, fn($f) => !preg_match('/config(\.example)?\.php$/', $f)));
@@ -117,10 +120,9 @@ if ($wo !== []) echo '    (unmittelbar gelesen in: ' . implode(', ', $wo) . ")\n
 pruefe('kein strenger in_array-Vergleich auf Kürzel mehr im Adapter (die alte Fassung)',
     preg_match("/in_array\(\\\$ergebnis\['kuerzel'\]/", $ad) === 0);
 
-$ix = $ohneKommentar($wurzel . '/backend/api/index.php');
-pruefe('Selbst-Entfernen-Wache (app_admins) vergleicht unempfindlich',
-    str_contains($ix, "wu_kuerzel_gleich((string)\$ziel, (string)(\$u['kuerzel'] ?? ''))")
-    && !str_contains($ix, "\$ziel === (\$u['kuerzel'] ?? null)"));
+pruefe('Selbst-Entfernen-Wache (app_admins) vergleicht unempfindlich (seit v0.9.98 in adm_entfernen, admins.php)',
+    str_contains($adm, "wu_kuerzel_gleich(\$ziel, (string)(\$eigenes ?? ''))")
+    && !str_contains($adm, "\$ziel === \$eigenes") && !str_contains($adm, "\$ziel === (\$u['kuerzel'] ?? null)"));
 
 // ------------------------------------------------------------
 echo "config.example.php erklärt die Schreibweise\n";

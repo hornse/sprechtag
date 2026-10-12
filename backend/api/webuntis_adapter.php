@@ -307,14 +307,11 @@ function wu_login(array $cfg, PDO $pdo, string $benutzer, string $passwort): arr
         $treffer = $st->fetchColumn();
         if ($treffer !== false) $ergebnis['lehrer_id'] = (int)$treffer;
 
-        if ($ergebnis['rolle'] === 'lehrkraft') {
-            // Admin über config-Liste ODER app_admins-Tabelle
-            $ausConfig = wu_ist_config_admin($ergebnis['kuerzel'], $wcfg);
-            $st = $pdo->prepare('SELECT COUNT(*) FROM app_admins WHERE lehrer_kuerzel = ?');
-            $st->execute([$ergebnis['kuerzel']]);
-            if ($ausConfig || (int)$st->fetchColumn() > 0) {
-                $ergebnis['rolle'] = 'admin';
-            }
+        // Admin über Notzugang (config) oder Oberfläche (app_admins) – die
+        // eine Entscheidung in admins.php (E29), Vergleich in PHP.
+        if ($ergebnis['rolle'] === 'lehrkraft'
+            && adm_herkunft($pdo, $wcfg, $ergebnis['kuerzel'], false) !== null) {
+            $ergebnis['rolle'] = 'admin';
         }
     }
 

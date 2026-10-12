@@ -34,6 +34,7 @@ require_once __DIR__ . '/anmeldebremse.php';
 require_once __DIR__ . '/slots.php';
 require_once __DIR__ . '/absagen.php';
 require_once __DIR__ . '/webuntis_adapter.php';
+require_once __DIR__ . '/admins.php';
 require_once __DIR__ . '/sondierung.php';
 require_once __DIR__ . '/messung_sitzung.php';
 require_once __DIR__ . '/mitteilungen.php';
@@ -47,11 +48,16 @@ $seg     = array_values(array_filter(explode('/', trim($pfad, '/'))));
 array_shift($seg);   // 'api' entfernen
 $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : [];
 
+// Rolle einer Admin-Sitzung bei JEDEM Aufruf neu prüfen (E29), vor der
+// ersten Route: Wer entfernt wurde, ist ab jetzt Lehrkraft – für alle
+// Prüfungen, auch die, die $u['rolle'] unmittelbar lesen.
+adm_sitzung_nachpruefen($cfg);
+
 // ---- GET /api/health ---------------------------------------
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.97', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.98', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -582,36 +588,21 @@ if (($seg[0] ?? '') === 'anzeige-einstellungen') {
 // APP-ADMINS
 // ============================================================
 if (($seg[0] ?? '') === 'admins') {
-    auth_require_admin();        // Guard VOR db()
+    $u = auth_require_admin();        // Guard VOR db()
     $pdo = db($cfg);
+    $wcfg = $cfg['webuntis'] ?? [];
 
+    // Drei Herkünfte (E29): WebUntis-Konto, Notzugang, Oberfläche – admins.php.
     if ($methode === 'GET') {
-        json_ok(['admins' => $pdo->query('SELECT id, lehrer_kuerzel, anzeigename,
-            angelegt_von, angelegt_am FROM app_admins ORDER BY lehrer_kuerzel')->fetchAll()]);
+        json_ok(['admins' => adm_liste($pdo, $wcfg, $u['kuerzel'] ?? null)]);
     }
     if ($methode === 'POST') {
-        $u = auth_user();
-        $kuerzel = req($body, 'kuerzel');
-        $st = $pdo->prepare('SELECT name FROM lehrer WHERE kuerzel = ? LIMIT 1');
-        $st->execute([$kuerzel]);
-        $name = (string)($st->fetchColumn() ?: '');
-        $pdo->prepare('INSERT INTO app_admins (lehrer_kuerzel, anzeigename, angelegt_von)
-             VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE anzeigename = VALUES(anzeigename)')
-            ->execute([$kuerzel, $name, (string)($u['kuerzel'] ?? '')]);
-        json_ok(['ok' => true]);
+        adm_antworten(adm_eintragen($pdo, $wcfg, req($body, 'kuerzel'), (string)($u['kuerzel'] ?? '')));
     }
     if ($methode === 'DELETE' && isset($seg[1])) {
-        $u = auth_user();
-        $st = $pdo->prepare('SELECT lehrer_kuerzel FROM app_admins WHERE id = ?');
-        $st->execute([(int)$seg[1]]);
-        $ziel = $st->fetchColumn();
-        // Unempfindlich wie die Anmeldung (E22): 'hq' in app_admins ist 'Hq'.
-        if ($ziel !== false && wu_kuerzel_gleich((string)$ziel, (string)($u['kuerzel'] ?? ''))) {
-            json_err('Du kannst dich nicht selbst als Administrator entfernen', 403);
-        }
-        $pdo->prepare('DELETE FROM app_admins WHERE id = ?')->execute([(int)$seg[1]]);
-        json_ok(['ok' => true]);
+        adm_antworten(adm_entfernen($pdo, $wcfg, (int)$seg[1], $u['kuerzel'] ?? null));
     }
+    json_err('Methode nicht unterstützt.', 405);
 }
 
 // ============================================================

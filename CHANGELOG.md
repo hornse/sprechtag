@@ -1,5 +1,64 @@
 # Changelog - sprechtag
 
+## v0.9.98 (Oktober 2026) – Admin-Rechte, Teil 1: drei Herkünfte, eine Entscheidung, jeder Aufruf geprüft
+
+Entscheidung des Betreibers zu Aufräumliste 10 (E29): `admin_kuerzel` in
+`config.php` ist der **Notzugang**, alles Weitere wird über die Oberfläche
+in `app_admins` gepflegt; das WebUntis-Admin-Konto bleibt ohne Bedingung
+Admin. Teil 1 von 3: das Backend. Die Oberfläche (Teil 2) und die
+Dokumentation (Teil 3) folgen als eigene Versionen.
+
+- **Neu `backend/api/admins.php`.** `adm_herkunft()` entscheidet als
+  einzige Stelle, ob und woher jemand Admin ist: `webuntis`, `notzugang`
+  oder `oberflaeche`. Die Anmeldung fragt sie, statt selbst `app_admins`
+  zu lesen. **Verglichen wird in PHP** mit `wu_kuerzel_gleich()`, nicht in
+  SQL – vorher hing das Ergebnis an der Kollation (MariaDB unempfindlich,
+  SQLite empfindlich).
+- **Die Rolle wird bei jedem Aufruf einer Admin-Sitzung neu geprüft**
+  (`adm_sitzung_nachpruefen`, im Vorspann von `index.php` vor der ersten
+  Route). Wer entfernt wird, ist ab dem nächsten Aufruf Lehrkraft, nicht
+  erst nach der nächsten Anmeldung. Die Prüfung liegt nicht in
+  `auth_require_admin()`, weil gut ein Dutzend Stellen die Rolle selbst
+  prüfen; im Vorspann sehen alle dasselbe (E29). Andere Sitzungen fassen
+  die Datenbank dabei nicht an.
+- **`GET /api/admins`** liefert alle drei Herkünfte, je mit `herkunft`,
+  `selbst`, `entfernbar`, `auch_oberflaeche` und `ohne_stammsatz`. Ein
+  Kürzel, das in beiden Listen steht, erscheint einmal, als Notzugang; sein
+  Tabelleneintrag bleibt entfernbar.
+- **`POST /api/admins`** lehnt ab: ein Kürzel ohne (aktiven) Stammsatz
+  (404) und ein Kürzel aus `admin_kuerzel` (409). Eingetragen wird in der
+  Schreibweise des Stammsatzes; ein zweites Mal dasselbe Kürzel antwortet
+  „bereits eingetragen“. `ON DUPLICATE KEY UPDATE` entfällt.
+- **`DELETE /api/admins/{id}`:** Die Wache gegen das Selbst-Entfernen
+  bleibt. Neu: 404 für eine unbekannte Id (bisher still „ok“) und Hinweise,
+  wenn das Recht über den Notzugang bleibt oder über die Oberfläche
+  niemand mehr Administrator ist.
+- **Neu `tests/werkzeuge/admin_bestand.php`:** zählt auf dem Server, ob es
+  Kürzel in beiden Listen und Einträge ohne Stammsatz gibt. Nur Zahlen,
+  keine Kürzel. Im Probebaum mit bekanntem Bestand gegengeprüft; im
+  Betrieb noch nicht gelaufen (Aufruf durch den Betreiber).
+
+### Prüfungen
+- **Neue Suite `run_admins.php`, 38 Prüfzeilen.** Sie führt die Route aus
+  (Zweig aus `index.php` in eigenem Prozess, SQLite mit unempfindlichem
+  eindeutigem Schlüssel wie im Betrieb), den Vorspann von `index.php`
+  mit `/api/auth/me` und `adm_herkunft()`. Gegen den alten Stand: 23 von
+  33 rot (die vier Prüfungen zu `adm_herkunft` fehlten, weil die Funktion
+  fehlte). Die POST-Fälle scheiterten dort schon an
+  `ON DUPLICATE KEY UPDATE` in SQLite, nicht erst am Verhalten. Ein Fall
+  kam nach dem Bau dazu (der letzte Oberflächen-Eintrag geht, während ein
+  Doppel-Eintrag bleibt); er war sofort grün und ist durch AD15 belegt.
+- **`run_admin_kuerzel.php`:** Zwei Quelltextprüfungen lesen jetzt
+  `admins.php` statt `webuntis_adapter.php` und `index.php`, weil die
+  geprüften Zeilen dorthin umgezogen sind; Kopfkommentar nachgetragen.
+- **Prüfzeilen 1680 → 1718, Suiten 76 → 77,** alle grün;
+  `tests-sprechtag.sh` 29.
+- **Mutationen 576 → 597:** AD1–AD21 neu; AK11 und AK13 an ihren neuen Ort
+  in `admins.php` umgezogen, Namen behalten. Jedes neue und umgezogene
+  Suchmuster trifft genau einmal (Zähler gegengeprüft). 596 angeschlagen,
+  H4 bleibt grün wie verlangt; Rücknahme über 189 Prüfsummen und
+  `git diff --stat` belegt.
+
 ## v0.9.97 (Oktober 2026) – Keine echten Namen, Kürzel und Kennungen mehr in Testdaten und Beispielen
 
 Regel des Betreibers (12.10.2026): **Alle Paulowski-Namen sind erfunden und
