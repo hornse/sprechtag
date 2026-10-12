@@ -95,3 +95,14 @@ unter 9, weil vergebene Nummern nicht verschoben werden.
     über die Oberfläche gepflegt werden können – dann bekommt die Route
     eine Oberfläche –, oder genügt `admin_kuerzel` in `config.php` – dann
     entfallen Route und Tabelle.
+11. **`run_elternzuordnung`: der Rollenfilter wird nie gefragt** (vorgemerkt
+    12.10.2026). Die Prüfung „KEINE Schüler-Konten“ bleibt grün, auch wenn
+    man in `mit_eltern_zu_kind()` den Rollenfilter entfernt: Die
+    Schülerkonten in den Testdaten haben leere `tags` und können gar nicht
+    zugeordnet werden. Es fehlt ein Schülerkonto mit passendem Tag. Gefunden
+    durch einen Eingriff ohne rote Zeile beim Wirkungsnachweis für v0.9.94.
+    **Erstes Beispiel zu Art 6** („Die Testdaten stellen den Fall nicht
+    her“, `docs/BEFUND-2026-10-11-pruefungen-in-der-datei.md`) – wer den
+    Punkt behebt, hat zugleich ein Vorbild für die übrigen. Prüfung zuerst:
+    den Eingriff (Rollenfilter fort) gegen die ergänzten Testdaten rot
+    zeigen.
