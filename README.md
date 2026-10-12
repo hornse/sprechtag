@@ -151,6 +151,10 @@ einer roten an; `php -l` gehört nicht dazu (`docs/ENTSCHEIDUNGEN.md`, E4).
 |---|---|
 | `docs/WEBUNTIS.md` | was WebUntis bereitstellen muss, was sich ändern kann |
 | `docs/BETRIEB.md` | Einrichtung und Betrieb der Referenzinstallation |
+| `docs/BEDIENUNG.md` | Ablauf eines Sprechtags für die Verwaltung |
+| `docs/MITTEILUNGEN.md` | wie Nachrichten über WebUntis hinausgehen |
+| `docs/VERSANDWEG_ERMITTELN.md` | den Versandweg selbst mitschneiden, falls WebUntis abweicht |
+| `docs/SONDIERUNG.md` | das Sondierwerkzeug und seine Befunde vom Juli 2026 (Arbeitsdatei, mit Vermerk) |
 | `docs/ENTSCHEIDUNGEN.md` | Entscheidungen mit Begründung (E1, E2, …) |
 | `CHANGELOG.md` | was sich je Version geändert hat |
 | `docs/BEFUND-*.md` | einzelne Befunde mit Datum; Protokoll |

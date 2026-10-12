@@ -1,5 +1,13 @@
 # Versandweg für WebUntis-Mitteilungen ermitteln
 
+> **Vermerk 12.10.2026 (Stand v0.9.93):** Der Weg an ein **Konto** ist seit
+> dem 24.07.2026 belegt (`/v2/messages/users`, Multipart); die sieben
+> Varianten gibt es noch, und dieses Vorgehen bleibt der Rückfall, falls
+> eine WebUntis-Fassung abweicht. **An die Eltern eines Kindes** geht es
+> heute aber anders: über `recipientOption: PARENTS` auf `/v2/messages`,
+> ohne Varianten (E16, E17). Der heutige Stand steht in
+> `docs/MITTEILUNGEN.md`; der Text darunter bleibt, wie er war.
+
 Der POST-Weg der internen WebUntis-API ist nicht dokumentiert. Das System
 probiert sieben plausible Feldstrukturen durch; akzeptiert die Instanz
 keine davon, lässt sich der richtige Weg in fünf Minuten direkt ablesen.

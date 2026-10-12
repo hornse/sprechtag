@@ -126,3 +126,9 @@ Frist und keinen Löschweg.
 Dienstkonto mehr; eine Bestätigung nach einer eigenen Buchung gibt es nicht
 mehr (E17-Nachtrag).
 
+
+**Nachtrag 12.10.2026 zu D4:** Seit v0.9.83 löscht das Archivieren auch die
+**abgesagten Termine** (`abgesagte_termine`, E19); der Dialog nennt sie
+ebenso wenig wie die Mitteilungen. Gefunden beim Neuschreiben von
+`docs/BEDIENUNG.md`, die jetzt vollständig aufzählt, was gelöscht wird. Der
+Dialog ist weiterhin nicht geändert.

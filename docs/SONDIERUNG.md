@@ -1,5 +1,26 @@
 # Sondierung – Anleitung und Interpretation
 
+> **Vermerk 12.10.2026 (Stand v0.9.93) – Arbeitsdatei vom Juli, der Text
+> darunter bleibt als damaliger Stand stehen. Vier Stellen gelten so nicht
+> mehr:**
+>
+> - **„Lediglich der Aufruf selbst wird in `login_log` protokolliert
+>   (Brute-Force-Bremse)“ stimmte bis v0.9.92 nicht:** Die Route hatte
+>   weder Bremse noch Protokoll noch eine Zugangsprüfung. Seit v0.9.93 geht
+>   sie durch die Bremse; **Fehlschläge** stehen immer im Login-Protokoll,
+>   **Erfolge** nur, wenn die Schule es eingestellt hat – wie bei der
+>   Anmeldung. Gemeldet an `koordination`
+>   (`docs/BEFUND-2026-10-11-sprechtag-sondierung-offen.md`).
+> - **Erreichbar ist das Werkzeug nur noch für die Verwaltung** und nur,
+>   wenn `sondierung_freigeschaltet` gesetzt ist; die Vorlage steht auf
+>   `false` (v0.9.93). „Startseite der App“ gilt nicht mehr.
+> - **„Kind → Lehrkräfte: offen“ ist gelöst:** Die Anwendung ermittelt die
+>   Lehrkräfte eines Kindes aus `timetable/entries` im Referenzzeitraum
+>   (`docs/WEBUNTIS.md`).
+> - **„Nach der Sondierung … `false` setzen“ (letzter Abschnitt) ist im
+>   Betrieb bis zum 11.10.2026 nicht geschehen;** gemessen an diesem Tag
+>   (ohne Zugangsdaten 400 statt 403), danach abgeschaltet.
+
 Das Sondierwerkzeug (Startseite der App) beantwortet die drei offenen
 Machbarkeitsfragen des Projekts. Es arbeitet **ausschließlich lesend**
 (authenticate, GET-Aufrufe, logout) und speichert weder Passwörter noch

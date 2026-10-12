@@ -252,3 +252,28 @@ an diesen Stellen nicht mehr:
   Schuljahren scheitern, ist nicht gemessen. Belegt ist nur, dass sie
   nichts dagegen tut. Entscheiden würde es ein Lauf in der Zeit zwischen
   zwei Schuljahren.
+
+## Nachtrag 12.10.2026 — Namen in Testdaten und Doku; Einladungen ohne Phasensperre
+
+**Erledigt, nicht noch einmal prüfen:** „Paul Paulowski“ und „Petra
+Paulowski“ (auch in den Formen „Paulowski Paul“, „Paulowski, Petra“, als
+Klassenzeile in `docs/SCHUELERLISTE.md`) sind **erfundene Testkonten**, der
+Nachname ist erfunden – geprüft vom Betreiber am 10.10.2026. Sie standen in
+der alten `docs/MITTEILUNGEN.md` und stehen in `CHANGELOG.md`, Tests,
+`backend/api/mitteilungen.php` und `docs/SCHUELERLISTE.md`. Kein
+Handlungsbedarf.
+
+**Nicht davon gedeckt, gemeldet am 12.10.2026 und offen:** In denselben
+Dateien stehen weitere Namen – zwei weitere Vornamen mit dem erfundenen
+Nachnamen (`tests/run_elternzuordnung.php`), der Name des Betreibers als
+Anzeigename des Elternkontos der Testkinder (`tests/run_slots.php:239`,
+`tests/run_elternzuordnung.php:8`) und ein weiterer Personenname als
+Lehrkraft (`tests/run_einladungstext.php:8`); dazu Kennungen, deren Herkunft
+nicht vermerkt ist. Ob sie erfunden sind, entscheidet der Betreiber.
+
+**Offene Frage, nicht auf der Aufräumliste:** Die Route, die Einladungen
+anlegt, prüft die Phase nicht (am Code gelesen). Für die Vorbereitung ist
+das gewollt (Hilfe). Ob man auch zu einem **geschlossenen** Sprechtag
+einladen kann, ist nicht ausprobiert; ob es stört, ist eine Nutzungsfrage.
+Eine Einladung zu einem geschlossenen Sprechtag wäre für die Eltern
+irreführend.

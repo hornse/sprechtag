@@ -4,6 +4,9 @@ Punkte, die der Betreiber für einen eigenen Aufräum-Zug vorgesehen hat.
 Nichts davon ist ein Fehler im Betrieb. Neue Punkte kommen ans Ende;
 erledigte werden mit Version vermerkt, nicht gestrichen.
 
+**Vorrang (12.10.2026, Betreiber): Punkt 9 zuerst.** Er steht trotzdem
+unter 9, weil vergebene Nummern nicht verschoben werden.
+
 1. **Ältere Tags nachtragen** (vorgemerkt 11.10.2026). `v0.9.83` war der
    erste Tag im Repo. Die älteren Versionen werden über die Überschriften
    im CHANGELOG zugeordnet. Jeder Tag zeigt auf den Commit, der seine
@@ -67,3 +70,24 @@ erledigte werden mit Version vermerkt, nicht gestrichen.
    Datenbank aufsetzt: Ausgabe der Schleife ansehen, danach den Testlauf
    gegen das Schema halten. Bis dahin bleibt der Vermerk „nicht
    ausprobiert“ stehen.
+9. **Leeres `catch (Throwable)` in `mit_versand_ausfuehren()`** (vorgemerkt
+   12.10.2026, **Vorrang**). `backend/api/mitteilungen.php`, beim Lesen der
+   gemerkten Versandvariante: `catch (Throwable $e) { /* Tabelle ggf. noch
+   leer */ }`. Jeder Fehler – auch ein Programmierfehler – wird zu „keine
+   Variante gemerkt“, und der Versand fällt still auf die Reihenfolge aller
+   Varianten zurück. Das ist das Muster aus E9 („Daneben gefunden“: dort
+   verschluckte `catch (Throwable …)` die Ursachen, und der Rückfall auf das
+   Dienstkonto sah aus wie ein geordneter Ablauf) und aus FALLSTRICKE 3
+   (leeres `catch`, begründender Kommentar daneben). `koordination` hat es
+   in M47 festgehalten: „Ein Rückfall macht den Fehler unsichtbar, nicht
+   harmlos … Ein `catch` mit Rückfall meldet Erfolg.“ Wo ein Fehlerfall
+   einen Rückfall auslöst, muss der Rückfall unterscheidbar bleiben. Prüfung
+   zuerst (rot zeigen), dann die Behebung.
+10. **`app_admins` ohne Oberfläche** (vorgemerkt 12.10.2026). Die Anmeldung
+    liest die Tabelle, und es gibt die Route `GET/POST/DELETE /api/admins`,
+    aber `frontend/app.js` ruft sie nirgends – ein Weg, den niemand aufruft
+    (REIHENREGELN 2), wie der tote Buchungszweig, der in v0.9.84 entfiel.
+    **Offene Frage an den Betreiber (Funktionsfrage):** Soll die Verwaltung
+    über die Oberfläche gepflegt werden können – dann bekommt die Route
+    eine Oberfläche –, oder genügt `admin_kuerzel` in `config.php` – dann
+    entfallen Route und Tabelle.
