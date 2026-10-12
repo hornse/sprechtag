@@ -23,8 +23,8 @@
 //
 // Die Attrappe für getCurrentSchoolyear() verhält sich wie v2.0.0: [] heißt
 // „kein Schuljahr aktiv“, ein Netzfehler wird geworfen. Die vendorte Kopie in
-// backend/auth/ fängt bis zur Verteilung noch jeden Fehler selbst; geprüft
-// wird hier, wie die Sondierung mit der neuen Form umgeht.
+// backend/auth/ ist seit dem 12.10.2026 v2.0.0 (Commit f1df63e) und verhält
+// sich ebenso; geprüft wird, wie die Sondierung mit dieser Form umgeht.
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 // ============================================================

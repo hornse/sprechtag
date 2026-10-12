@@ -1570,6 +1570,27 @@ mut SS4 $SON 's/(        \$pcIds = \[\];\n)/$1        \$wu->getStudents();\n/' \
 mut SS5 $SON 's/if \(\(int\)\(\$e\[\x27klasseId\x27\] \?\? 0\) > 0\) \$mitKlasse\+\+;//' \
   $RSS "pageconfig: Anzahl, mit Klasse, mit externKey"
 
+# ------------------------------------------------------------
+# PV1–PV6 (v0.9.96, Aufräumliste 9): das Lesen der gemerkten Versandvariante
+# in mit_versand_ausfuehren(), ausgeführt gegen SQLite und eine ablehnende
+# REST-Attrappe. PV1 und PV2 trennen „fängt nur den Datenbankfehler“ von
+# „fängt alles“ und „fängt nichts“; PV3 und PV4 belegen, dass der Rückfall
+# sichtbar bleibt – im Feld und im Grund.
+RVV=tests/run_versand_variante.php
+MIT=backend/api/mitteilungen.php
+mut PV1 $MIT 's/    \} catch \(PDOException \$e\) \{\n        \$lesefehler/    } catch (Throwable \$e) {\n        \$lesefehler/' \
+  $RVV "Error beim Lesen fliegt heraus"
+mut PV2 $MIT 's/    \} catch \(PDOException \$e\) \{\n        \$lesefehler/    } catch (LogicException \$e) {\n        \$lesefehler/' \
+  $RVV "fehlende Tabelle bricht den Versand nicht ab"
+mut PV3 $MIT 's/        \$lesefehler = \$e->getMessage\(\);\n//' \
+  $RVV "Lesefehler steht im Ergebnis, mit der Meldung der Datenbank"
+mut PV4 $MIT 's/\x27grund\x27 => \$grund \. \$hinweis,/\x27grund\x27 => \$grund,/' \
+  $RVV "Lesefehler steht im Grund, nicht nur in einem Feld"
+mut PV5 $MIT 's/\(string\)\$m\[\x27text\x27\], \$bevorzugt\);/(string)\$m[\x27text\x27], null);/' \
+  $RVV "gemerkte Variante zuerst"
+mut PV6 $MIT 's/\x27protokoll\x27 => \[\], \x27variante_lesefehler\x27 => null\];/\x27protokoll\x27 => []];/' \
+  $RVV "auch ohne Versand ist variante_lesefehler da (null)"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1

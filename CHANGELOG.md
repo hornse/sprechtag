@@ -1,11 +1,59 @@
 # Changelog - sprechtag
 
+## v0.9.96 (Oktober 2026) – Gemerkte Versandvariante: kein Fehler wird mehr still zum Rückfall
+
+Aufräumliste 9, mit Vorrang (E27).
+
+- **`mit_versand_ausfuehren()` fängt beim Lesen der gemerkten
+  Versandvariante nur noch `PDOException`, nicht jeden `Throwable`.** Bisher
+  wurde jeder Fehler, auch ein Programmierfehler, zu „nichts gemerkt“, und
+  der Versand probierte still alle Varianten (FALLSTRICKE 3). Der Kommentar
+  „Tabelle ggf. noch leer“ nannte einen Fall, der das `catch` nicht braucht:
+  Ist nichts gemerkt, liefert die Abfrage `false`.
+- **Der Rückfall bleibt und ist sichtbar.** Scheitert das Lesen an der
+  Datenbank, werden weiter alle Varianten probiert; die Meldung steht im
+  neuen Feld `variante_lesefehler` (sonst `null`) und als Zusatz im Grund.
+  Über den Grund erreicht sie auch die Wege, die nur ihn weitergeben.
+- **Warum es so lange stand:** Die Begründung neben dem `catch` traf nicht
+  zu, und wer sie las, sah nicht hin (E27).
+- **Nicht angefasst:** `backend/api/index.php` baut für die leere ID-Liste
+  eine eigene Rückgabe derselben Form, ohne das neue Feld (E27, „Was
+  bleibt“; Aufräumliste 12).
+- **Nebenbei:** Der Kopfkommentar von `tests/run_sondierung_stammdaten.php`
+  sagte, die vendorte Kopie in `backend/auth/` sei noch nicht v2.0.0. Seit
+  `f1df63e` stimmt das nicht mehr; der Kommentar ist geändert, weil er im
+  Code steht und beim Lesen für gültig gehalten wird. Die gleichlautende
+  Zeile in CHANGELOG v0.9.95 bekommt einen Nachtrag.
+
+### Prüfungen
+- **1669 → 1680 Prüfzeilen, 75 → 76 Suiten, alle grün;**
+  `tests-sprechtag.sh` 29.
+- **Neue Suite `tests/run_versand_variante.php`, 11 Prüfungen.** Sie führt
+  die echte Funktion gegen SQLite aus; das Netz ist eine Unterklasse von
+  `WebUntisRest`, die jede Variante ablehnt, sodass die Reihenfolge der
+  Versuche zeigt, ob die gemerkte Variante gelesen wurde. Den
+  Programmierfehler erzeugt eine Unterklasse von `PDO`. **Vor der Änderung
+  6 von 11 rot.**
+- **Mutationen 570 → 576, alle angeschlagen** (575 rot wie verlangt, H4
+  grün wie verlangt). Neu sind PV1–PV6: `catch (Throwable)` und
+  `catch (LogicException)` statt `PDOException`, Meldung nicht
+  festgehalten, Zusatz im Grund fort, gemerkte Variante nicht übergeben,
+  Feld in der leeren Rückgabe fort. Die Rücknahme ist belegt: Prüfsummen
+  der drei geänderten Dateien und aller PHP-Dateien in `backend/` und
+  `backend/api/` vor und nach dem Lauf gleich; `git diff --stat` gleich
+  bis auf zwei Doku-Dateien, die während des Laufs geschrieben wurden und
+  die kein Eingriff berührt.
+
 ## v0.9.95 (Oktober 2026) – Sondierung bereit für das WebUntis-Modul v2.0.0
 
 Anlass: `koordination` hat das Client-Modul zusammengeführt und auf v2.0.0
 getaggt. Vor der Verteilung war hier zu entscheiden, weil sich drei Stellen
 in `backend/api/sondierung.php` anders verhalten würden (E26). Verteilt ist
 das Modul damit noch nicht; `backend/auth/` ist unverändert.
+
+> **Nachtrag 12.10.2026 (v0.9.96):** Verteilt ist das Modul inzwischen, mit
+> Commit `f1df63e` („webuntis-client-php v2.0.0 übernommen“). Die beiden
+> Sätze oben beschreiben den Stand von v0.9.95.
 
 - **`getStudents` wird nicht mehr gerufen.** Das Modul führt die Abfrage ab
   v2.0.0 nicht (personenbezogen, REIHENREGELN 9), und ihr `rpc()` ist

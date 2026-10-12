@@ -592,24 +592,34 @@ function mit_senden_eltern(WebUntisRest $rest, int $kind, string $betreff, strin
  * – keine eigene Anmeldung mit Zugangsdaten mehr (E17).
  *
  * Rückgabe: ['gesendet' => int, 'fehler' => int, 'grund' => string,
- *            'variante' => string|null, 'protokoll' => [...]]
+ *            'variante' => string|null, 'protokoll' => [...],
+ *            'variante_lesefehler' => string|null]
  */
 function mit_versand_ausfuehren(PDO $pdo, array $ids, WebUntisRest $rest): array
 {
     if ($ids === []) {
         return ['gesendet' => 0, 'fehler' => 0, 'grund' => 'Nichts zu senden.',
-                'variante' => null, 'protokoll' => []];
+                'variante' => null, 'protokoll' => [], 'variante_lesefehler' => null];
     }
 
     $gesendet = 0; $fehlgeschlagen = 0; $protokoll = []; $letzteVariante = null;
 
-    // Zuvor erfolgreiche Variante aus den Einstellungen holen
-    $bevorzugt = null;
+    // Zuvor erfolgreiche Variante aus den Einstellungen holen. Ist nichts
+    // gemerkt, liefert die Abfrage false, keinen Fehler. Scheitert das Lesen
+    // an der Datenbank, werden alle Varianten der Reihe nach probiert – der
+    // Rückfall steht dann im Ergebnis und im Grund (Aufräumliste 9,
+    // FALLSTRICKE 3). Ein Programmierfehler wird nicht gefangen.
+    $bevorzugt = null; $lesefehler = null;
     try {
         $st = $pdo->query("SELECT wert FROM einstellungen
                            WHERE schluessel = 'mitteilung_variante'");
         $bevorzugt = $st->fetchColumn() ?: null;
-    } catch (Throwable $e) { /* Tabelle ggf. noch leer */ }
+    } catch (PDOException $e) {
+        $lesefehler = $e->getMessage();
+    }
+    $hinweis = $lesefehler === null ? ''
+        : ' (Die gemerkte Versandvariante war nicht lesbar, alle wurden probiert: '
+          . $lesefehler . ')';
 
     try {
         $platzhalter = implode(',', array_fill(0, count($ids), '?'));
@@ -653,8 +663,9 @@ function mit_versand_ausfuehren(PDO $pdo, array $ids, WebUntisRest $rest): array
         }
     } catch (RuntimeException $e) {
         return ['gesendet' => $gesendet, 'fehler' => count($ids) - $gesendet,
-                'grund' => 'WebUntis-Fehler beim Versand: ' . $e->getMessage(),
-                'variante' => null, 'protokoll' => $protokoll];
+                'grund' => 'WebUntis-Fehler beim Versand: ' . $e->getMessage() . $hinweis,
+                'variante' => null, 'protokoll' => $protokoll,
+                'variante_lesefehler' => $lesefehler];
     }
 
     $grund = $gesendet > 0
@@ -663,6 +674,7 @@ function mit_versand_ausfuehren(PDO $pdo, array $ids, WebUntisRest $rest): array
         : 'Kein Versand möglich – die Mitteilungen bleiben vorgemerkt.'
             . ($protokoll !== [] ? ' Grund: ' . $protokoll[0]['grund'] : '');
 
-    return ['gesendet' => $gesendet, 'fehler' => $fehlgeschlagen, 'grund' => $grund,
-            'variante' => $letzteVariante, 'protokoll' => $protokoll];
+    return ['gesendet' => $gesendet, 'fehler' => $fehlgeschlagen, 'grund' => $grund . $hinweis,
+            'variante' => $letzteVariante, 'protokoll' => $protokoll,
+            'variante_lesefehler' => $lesefehler];
 }

@@ -87,6 +87,8 @@ unter 9, weil vergebene Nummern nicht verschoben werden.
    Lesen scheiterte. Betroffen ist nur der Weg an ein Konto, nicht PARENTS
    (am Code gelesen). Der Vorrang gilt dem Muster, nicht der Wirkung.
    Prüfung zuerst (rot zeigen), dann die Behebung.
+   **Erledigt mit v0.9.96 (E27):** gefangen wird `PDOException`, der
+   Rückfall steht in `variante_lesefehler` und im Grund.
 10. **`app_admins` ohne Oberfläche** (vorgemerkt 12.10.2026). Die Anmeldung
     liest die Tabelle, und es gibt die Route `GET/POST/DELETE /api/admins`,
     aber `frontend/app.js` ruft sie nirgends – ein Weg, den niemand aufruft
@@ -106,3 +108,11 @@ unter 9, weil vergebene Nummern nicht verschoben werden.
     Punkt behebt, hat zugleich ein Vorbild für die übrigen. Prüfung zuerst:
     den Eingriff (Rollenfilter fort) gegen die ergänzten Testdaten rot
     zeigen.
+12. **Zweite Rückgabe des Sammelversands ohne `variante_lesefehler`**
+    (vorgemerkt 12.10.2026, aus E27). `backend/api/index.php` baut im
+    Sammelversand für die leere ID-Liste eine eigene Rückgabe in der Form
+    von `mit_versand_ausfuehren()`, und ihr fehlt das Feld, das v0.9.96
+    eingeführt hat. Eine Rückgabe derselben Form, der ein Feld fehlt,
+    erscheint später jemandem als Fehler. Abhilfe ohne zweite Wahrheit:
+    die Funktion auch für die leere Liste rufen, die ohnehin früh
+    zurückkehrt, statt die Form nachzubauen.

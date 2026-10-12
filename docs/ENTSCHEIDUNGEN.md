@@ -1818,3 +1818,48 @@ prüften, sind entfernt (CHANGELOG v0.9.95).
 **Was bleibt:** Bei Schuljahren und Klassen fängt dieselbe Funktion noch
 `Throwable` (drei Stellen). Das Modul selbst ist hier noch nicht verteilt;
 `backend/auth/` ist unverändert.
+
+---
+
+## E27 — Die gemerkte Versandvariante: nur der Datenbankfehler wird gefangen, und der Rückfall steht im Ergebnis
+
+**Datum:** 12.10.2026 · **Version:** v0.9.96 · **Aufräumliste 9**, Vorrang
+und Form bestätigt vom Betreiber
+
+**Lage:** `mit_versand_ausfuehren()` las die zuletzt erfolgreiche
+Versandvariante in `catch (Throwable $e) { /* Tabelle ggf. noch leer */ }`.
+Jeder Fehler wurde zu „nichts gemerkt“, und der Versand probierte still
+alle Varianten. Der Kommentar nannte einen Fall, der das `catch` gar nicht
+braucht: Ist nichts gemerkt, liefert die Abfrage `false`, keinen Fehler
+(gemessen: Prüfung „nichts gemerkt“ in `tests/run_versand_variante.php`).
+
+**Warum es so lange stand:** Das ist die Steigerung von FALLSTRICKE 3. Dort
+steht ein leeres `catch` mit einer Begründung daneben; hier stand eine
+Begründung, die **nicht zutraf**. Wer den Kommentar las, hielt das `catch`
+für nötig und sah nicht hin. Ein begründender Kommentar an einem `catch`
+ist deshalb eine Behauptung, die sich prüfen lässt: Den genannten Fall
+herstellen und nachsehen, ob er überhaupt wirft.
+
+**Entschieden:**
+
+- **Gefangen wird `PDOException`**, also das Scheitern der Datenbank, etwa
+  eine fehlende Tabelle. Ein Programmierfehler (`Error`) fliegt durch
+  (FALLSTRICKE 3). `PDOException` ist enger als die `RuntimeException`, die
+  der umgebende Versandblock fängt.
+- **Der Rückfall bleibt:** Alle Varianten werden der Reihe nach probiert, wie
+  bisher. Die Folge ist mild (Aufräumliste 9), Nachrichten gehen weiter
+  hinaus.
+- **Er ist aber unterscheidbar,** an zwei Stellen: im neuen Feld
+  `variante_lesefehler` (sonst `null`, in jeder Rückgabe der Funktion) und
+  als Zusatz im `grund`. Der `grund` erreicht auch die Wege, die das Feld
+  nicht weitergeben (`mit_senden_oder_vormerken()` gibt nur den Grund
+  zurück).
+
+**Belegt:** `tests/run_versand_variante.php` führt die echte Funktion gegen
+SQLite und eine REST-Attrappe aus, die jede Variante ablehnt; vor der
+Änderung 6 von 11 rot. Mutationen PV1–PV6.
+
+**Was bleibt:** `backend/api/index.php` baut für die leere ID-Liste eine
+eigene Rückgabe derselben Form (`POST /api/mitteilungen/senden`); sie führt
+das neue Feld nicht. Das ist eine zweite Darstellung derselben Antwort,
+nicht behoben, gemeldet, und als Aufräumliste 12 vorgemerkt.
