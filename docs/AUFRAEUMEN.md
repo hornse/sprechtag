@@ -81,8 +81,12 @@ unter 9, weil vergebene Nummern nicht verschoben werden.
    (leeres `catch`, begründender Kommentar daneben). `koordination` hat es
    in M47 festgehalten: „Ein Rückfall macht den Fehler unsichtbar, nicht
    harmlos … Ein `catch` mit Rückfall meldet Erfolg.“ Wo ein Fehlerfall
-   einen Rückfall auslöst, muss der Rückfall unterscheidbar bleiben. Prüfung
-   zuerst (rot zeigen), dann die Behebung.
+   einen Rückfall auslöst, muss der Rückfall unterscheidbar bleiben. **Die
+   Folge ist hier mild:** Der Rückfall probiert alle Varianten der Reihe
+   nach, Nachrichten gehen weiter hinaus; unsichtbar bleibt nur, dass das
+   Lesen scheiterte. Betroffen ist nur der Weg an ein Konto, nicht PARENTS
+   (am Code gelesen). Der Vorrang gilt dem Muster, nicht der Wirkung.
+   Prüfung zuerst (rot zeigen), dann die Behebung.
 10. **`app_admins` ohne Oberfläche** (vorgemerkt 12.10.2026). Die Anmeldung
     liest die Tabelle, und es gibt die Route `GET/POST/DELETE /api/admins`,
     aber `frontend/app.js` ruft sie nirgends – ein Weg, den niemand aufruft
