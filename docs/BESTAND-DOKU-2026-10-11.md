@@ -234,3 +234,21 @@ Fehlt heute in jeder Datei. Für eine eigene Datei (Vorschlag
 
 Zuschnitt wie vorgeschlagen bestätigt. Schritt 1 erledigt:
 `docs/WEBUNTIS.md`.
+
+## Nachtrag 12.10.2026 — drei Abweichungen beim Schreiben von `WEBUNTIS.md`
+
+Am Code nachgesehen; die Abschnitte oben bleiben, wie sie sind, und gelten
+an diesen Stellen nicht mehr:
+
+- **Volljährige Schülerinnen und Schüler: eine oder mehrere
+  Benutzergruppen**, nicht eine (`POST /api/schueler-gruppen`, eine Gruppe
+  je Zeile). An der Referenzschule sind es zwei (Auskunft des Betreibers).
+- **Der Referenzzeitraum lässt sich je Sprechtag überschreiben**
+  (`referenz_von`/`referenz_bis`); die vier Wochen sind nur die Vorgabe.
+- **Schuljahr:** Die Anwendung setzt die Schuljahres-Kopfzeile nicht; nur
+  das Sondierwerkzeug befasst sich mit dem Schuljahr. **Daraus folgt
+  nicht**, dass FALLSTRICKE 6 für die Anwendung nicht gilt: Ob ihre Aufrufe
+  (`timetable/entries`, `pageconfig`, die Mitteilungswege) zwischen zwei
+  Schuljahren scheitern, ist nicht gemessen. Belegt ist nur, dass sie
+  nichts dagegen tut. Entscheiden würde es ein Lauf in der Zeit zwischen
+  zwei Schuljahren.
