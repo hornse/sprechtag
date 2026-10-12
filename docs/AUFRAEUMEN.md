@@ -116,3 +116,18 @@ unter 9, weil vergebene Nummern nicht verschoben werden.
     erscheint später jemandem als Fehler. Abhilfe ohne zweite Wahrheit:
     die Funktion auch für die leere Liste rufen, die ohnehin früh
     zurückkehrt, statt die Form nachzubauen.
+13. **Absage: der Name der Lehrkraft steht zweimal, geprüft wird das
+    Vorkommen** (vorgemerkt 12.10.2026, gefunden beim Wirkungsnachweis für
+    v0.9.97). **Art 1** („zweites Vorkommen“,
+    `docs/BEFUND-2026-10-11-pruefungen-in-der-datei.md`). `mit_text_absage()`
+    nennt die Lehrkraft in „… Uhr bei <Name>“ und im Gruß;
+    `run_mitteilungen` prüft nur `str_contains`. Entfernt man den Namen an
+    einer Stelle, bleibt die Prüfung grün. Suchfrage: Zählt die Prüfung die
+    Vorkommen, oder sucht sie eines?
+14. **Drei Suiten prüfen eine Nachbildung** (vorgemerkt 12.10.2026, gefunden
+    beim Wirkungsnachweis für v0.9.97). **Art 5** („geprüft wird eine
+    Kopie“). `run_stammsatz.php` baut `wu_kind_lehrer_ermitteln` im Test
+    nach; `frontend_reihenfolge_test.js` und `frontend_zustand_test.js`
+    spielen die Reihenfolge Lesen/Zeichnen mit eigenen Funktionen nach und
+    laden `app.js` nicht. Kein Eingriff am Code macht sie rot. Suchfrage:
+    Prüft die Suite den Code oder eine Kopie davon?

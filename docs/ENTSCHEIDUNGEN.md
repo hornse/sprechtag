@@ -1485,6 +1485,19 @@ dabei eine Prüfung rot wird, gehören die übrigen derselben Suite mit
 angesehen (`docs/BEFUND-2026-10-11-pruefungen-in-der-datei.md`, sechstes
 Beispiel).
 
+**Dritter Nachtrag 12.10.2026 (v0.9.97) zur selben Lehre: auch escapte
+Schreibweisen.** Vor dem Ersetzen echter Kürzel waren `tests/mutationen.sh`
+und die Suiten nach den alten Werten durchsucht, mit Wortgrenzen. AK14
+schreibt die Kürzel als `\x27…\x27`; zwischen der `7` und dem ersten
+Buchstaben liegt keine Wortgrenze, also sah die Suche die Stelle nicht, und
+die Serie meldete danach „MUTATION NICHT ANGEKOMMEN“. Gefunden waren nur
+die erwarteten Zeilen, wo die Werte im Klartext standen. Nach den
+entfernten Bezeichnern (E20) und dem verschobenen Text samt Zeilenform
+(v0.9.90, v0.9.93) ist das die dritte Variante derselben Lehre. **Die
+gemeinsame Form (Betreiber): Vor einem Umbau wird nach dem WERT gesucht,
+nicht nach seiner erwarteten Schreibweise** – ohne Wortgrenzen und in den
+escapten Formen, mit einer Gegenprobe, die eine solche Form treffen muss.
+
 ## E21 — Das Kalender-Abo liefert nur kommende Sprechtage
 
 **Datum:** 10.10.2026 · **Version:** 0.9.77 · **Anlass:** Fehler aus dem
@@ -1541,30 +1554,35 @@ Sprechtag. Begründung: Ein Kalender zeigt, was kommt.
 
 ## E22 — Kürzel unempfindlich vergleichen; admin_kuerzel ist ein Array
 
+> **Ersetzt 12.10.2026 (v0.9.97):** Die Kürzel in den Beispielen unten standen für echte Lehrkräfte,
+> darunter der Betreiber. Ein Beispiel lässt sich erfinden, ohne dass das
+> Protokoll leidet. Sie sind durch erfundene
+> gleicher Länge ersetzt, wie überall im heutigen Stand (E28).
+
 **Datum:** 10.10.2026 · **Version:** 0.9.78 · **Anlass:** Ergänzung des
 Betreibers zu einem „Fund 1“. Dieser Fund ist in der Sitzung, die das hier
 gebaut hat, nicht angekommen; was er betraf, ist aus dem Code erschlossen.
 
 **Stand bis v0.9.77:**
 - `wu_login()` prüfte `admin_kuerzel` mit `in_array(…, true)`, also mit
-  Rücksicht auf Groß- und Kleinschreibung. `['ho']` traf die Lehrkraft
-  „Ho“ nicht.
+  Rücksicht auf Groß- und Kleinschreibung. `['hq']` traf die Lehrkraft
+  „Hq“ nicht.
 - Ein WebUntis-Admin (personType 16) bekam `admin_kuerzel[0]`. Bei einer
   Zeichenkette statt eines Arrays war das nur der erste Buchstabe.
 - Die Wache „nicht sich selbst als Administrator entfernen“ verglich
-  `app_admins.lehrer_kuerzel` streng mit dem Kürzel der Sitzung. Bei „ho“
-  gegen „Ho“ griff sie nicht. Das ist derselbe Fehler an einer anderen
+  `app_admins.lehrer_kuerzel` streng mit dem Kürzel der Sitzung. Bei „hq“
+  gegen „Hq“ griff sie nicht. Das ist derselbe Fehler an einer anderen
   Stelle, deshalb mitbehoben.
 - Die Datenbankvergleiche (`lehrer.kuerzel`, `app_admins`) laufen laut
   Schema unter `utf8mb4_unicode_ci` und waren schon unempfindlich. Am
   Server gemessen ist das nicht.
 
 **Entscheidung (Betreiber):**
-- **Der Vergleich ist unempfindlich, in beide Richtungen.** `['ho']`,
-  `['Ho']` und `['HO']` treffen dasselbe Kürzel. **Nicht** auf
+- **Der Vergleich ist unempfindlich, in beide Richtungen.** `['hq']`,
+  `['Hq']` und `['HQ']` treffen dasselbe Kürzel. **Nicht** auf
   Kleinschreibung festlegen: Das bräche bestehende Konfigurationen und
   verlangte wieder Wissen über eine Konvention.
-- **`admin_kuerzel` ist ein Array.** Ein Eintrag mit Komma (`['Ho, Mu']`)
+- **`admin_kuerzel` ist ein Array.** Ein Eintrag mit Komma (`['Hq, Mq']`)
   traf bisher still niemanden.
 
 **Gebaut:**
@@ -1863,3 +1881,51 @@ SQLite und eine REST-Attrappe aus, die jede Variante ablehnt; vor der
 eigene Rückgabe derselben Form (`POST /api/mitteilungen/senden`); sie führt
 das neue Feld nicht. Das ist eine zweite Darstellung derselben Antwort,
 nicht behoben, gemeldet, und als Aufräumliste 12 vorgemerkt.
+
+---
+
+## E28 — Alle Personennamen außer Paulowski sind echt und kommen heraus, mit Kürzeln und Kennungen
+
+**Datum:** 12.10.2026 · **Version:** v0.9.97 · **Entschieden vom Betreiber**
+
+**Lage:** Die Bestandsaufnahme (`docs/BESTAND-DOKU-2026-10-11.md`,
+Nachträge vom 12.10.2026) fand in Testdaten Namen und Kennungen ohne
+Herkunftsvermerk. Stelle für Stelle nachzufragen hätte jede neue Fundstelle
+zu einer neuen Frage gemacht.
+
+**Entschieden:**
+
+- **Alle Paulowski-Namen sind erfunden und bleiben,** gleich ob Eltern oder
+  Schüler, gleich welcher Vorname; ebenso ihre Kennungen.
+- **Alle anderen Personennamen sind echt und kommen heraus,** mit ihren
+  Kürzeln und den Kennungen, die zu ihnen gehören. **Das gilt auch für den
+  Betreiber selbst**, wie schon bei seiner `user.id` und `person_id` (E25).
+- **Ein Platzhalter, der als solcher lesbar ist, bleibt** (Erfunden…,
+  Muster…, Beispiel…, Testkind). Ein Name, der echt wirkt, wird ersetzt, auch
+  wenn er erfunden sein könnte: Wer die Datei liest, kann es nicht
+  unterscheiden.
+- **Außerhalb der Tests gilt die Abwägung aus v0.9.88, Adressierbarkeit:**
+  - **Ein Anmeldename ist adressierbar:** Gegen ihn lassen sich Passwörter
+    probieren. Er wird ersetzt, auch im CHANGELOG, mit Vermerk.
+  - **Ein Beispiel wird ersetzt:** Es steht nicht als Zeugnis eines
+    Vorgangs, und es lässt sich erfinden, ohne dass das Protokoll leidet
+    (CHANGELOG v0.9.78, E22, `config.example.php`).
+  - **Ein Kürzel als Zeugnis eines Vorgangs bleibt:** die Befundtabelle
+    unter CHANGELOG v0.6.0. Ohne die Namen in den Tests verweist es auf
+    niemanden mehr.
+  - **Die Urheberangabe bleibt** (`frontend/index.html`): Sie ist kein
+    Testdatum.
+- **Wo eine Stelle schon unter einer Entscheidung von `koordination` steht,
+  wartet sie auf `koordination`:** der Anmeldename des Lehrkraftkontos in
+  CHANGELOG v0.9.4 (Aufräumliste 5).
+
+**Wie:** wie v0.9.94 – erfundene Werte gleicher Länge, Sortierstellen
+erhalten, im heutigen Stand, nicht in der Historie. Wirkungsnachweis mit
+`tests/werkzeuge/ersatz_belegen.sh` und dem Satz
+`tests/werkzeuge/ersatz_v0997.sh` (CHANGELOG v0.9.97).
+
+**Was bleibt:** Drei Suiten bilden den geprüften Ablauf selbst nach und sind
+deshalb durch keinen Eingriff belegbar (`run_stammsatz.php`,
+`frontend_reihenfolge_test.js`, `frontend_zustand_test.js`; Art 5). Und die
+Absage nennt die Lehrkraft zweimal, geprüft wird nur das Vorkommen (Art 1).
+Beides gemeldet, nicht behoben.

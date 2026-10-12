@@ -1,5 +1,85 @@
 # Changelog - sprechtag
 
+## v0.9.97 (Oktober 2026) – Keine echten Namen, Kürzel und Kennungen mehr in Testdaten und Beispielen
+
+Regel des Betreibers (12.10.2026): **Alle Paulowski-Namen sind erfunden und
+bleiben; alle anderen Personennamen sind echt und kommen heraus**, mit ihren
+Kürzeln und Kennungen. Das gilt auch für den Betreiber selbst (E28).
+
+- **Ersetzt durch erfundene Werte gleicher Länge,** im heutigen Stand:
+  - in `tests/`: vier Lehrkraft-Nachnamen mit ihren Kürzeln (`run_einladungstext`,
+    `run_klausuren`, `run_mitteilungen`, `run_slots`, `run_stammsatz`),
+    dazu drei Vornamen; zwei Kürzel von Vertretungslehrkräften
+    (`run_klausuren`); zwei Elternkonten mit Namen und Kennung und ein
+    weiterer Personenname (`run_elternzuordnung`); das Kürzel des
+    Betreibers mit seiner Kennung (`run.php`) und mit vier weiteren
+    Kürzeln (`run_admin_kuerzel`); sein Anmeldename für das Admin-Konto
+    (`frontend_reihenfolge_test.js`, `frontend_zustand_test.js`).
+  - außerhalb: das Beispiel für `admin_kuerzel` in
+    `backend/config.example.php` (kopierbare Vorlage, wie `deploy.sh` in
+    E25), zwei Code-Kommentare in `webuntis_adapter.php` und `index.php`,
+    die beiden Anmeldenamen in `docs/SONDIERUNG.md` und CHANGELOG v0.4.2
+    (gegen einen Anmeldenamen lassen sich Passwörter probieren), die
+    Beispiel-Kürzel in CHANGELOG v0.9.78 und E22. Jede dieser Stellen trägt
+    einen Vermerk.
+- Kennungen behalten ihre Stelle in jeder sortierten Liste; die Kürzel ihre
+  Reihenfolge gegeneinander und gegen die übrigen Kürzel derselben Suite.
+  Die Kommentare an den Testdaten sagen, was erfunden ist.
+- **Das Ersetzen nimmt die Werte aus dem heutigen Stand, nicht aus der
+  Historie; das Repo ist öffentlich. Wer sie wirklich entfernen wollte,
+  müsste die Historie umschreiben, und das bricht jeden Klon.** (Wortlaut
+  des Nachtrags von `koordination` unter v0.9.87.)
+- **Stehen geblieben:**
+  - der Anmeldename des Lehrkraftkontos in CHANGELOG v0.9.4. Über genau
+    dieses Kürzel hat `koordination` entschieden (Vermerk dort,
+    Aufräumliste 5); es wartet auf `koordination`.
+  - die Kürzel dreier Lehrkräfte in der Befundtabelle unter v0.6.0
+    („Befunde der Sondierung vom 24.07.2026“): nur Kürzel, und ohne die
+    Namen in den Tests verweisen sie auf niemanden mehr.
+  - die Urheberangabe in der Fußzeile (`frontend/index.html`) und der
+    Schulname: keine Testdaten, keine Personennamen im Sinn der Regel.
+  - Platzhalter, die als solche lesbar sind (Erfunden…, Muster…,
+    Beispiel…, Testkind, Eins/Zwei/Drei mit ihren Kürzeln).
+
+### Prüfungen
+- **1680 Prüfzeilen in 76 Suiten, unverändert, alle grün;**
+  `tests-sprechtag.sh` 29.
+- **Dieselbe Prüfung wie vorher, belegt im Probebaum** mit
+  `tests/werkzeuge/ersatz_belegen.sh` gegen `1277cac` und dem neuen Satz
+  `tests/werkzeuge/ersatz_v0997.sh`: 15 Eingriffe am geprüften Code, je
+  einer an genau einer Stelle (Treffer 1 in alt und neu), angekommen
+  (Prüfsumme) und zurückgenommen (`cmp`); rote Positionen in alter und
+  neuer Testfassung gleich. Sieben der zehn Suiten werden mindestens
+  einmal rot.
+- **Drei Suiten sind nicht durch einen Eingriff belegbar**, nur durch
+  „ohne Eingriff grün in alt und neu“: `run_stammsatz.php`,
+  `frontend_reihenfolge_test.js` und `frontend_zustand_test.js` bilden den
+  geprüften Ablauf im Test selbst nach (Art 5). Gemeldet, nicht behoben.
+- **Das Werkzeug ist erweitert:** Satzdatei als zweites Argument,
+  JS-Suiten, gekoppelte Dateien (`ALT_AUCH`, hier `config.example.php`,
+  deren Beispiel `run_admin_kuerzel` prüft) und eine Trefferprüfung je
+  Eingriff. Gegenproben: Die Trefferprüfung schlug beim ersten Lauf an
+  einem Muster mit zwei Treffern an; ohne `ALT_AUCH` ist der alte Baum
+  schon ohne Eingriff rot (Positionen 23, 24). Der Satz von v0.9.94 läuft
+  weiter durch gegen `308c09a`; sein Eingriff an `mit_varianten` trägt
+  jetzt die erwartete Trefferzahl 2, wie unter v0.9.94 beschrieben („der
+  erste im belegten Weg“).
+- **Gefunden beim Nachweis, nicht behoben:** Der Name der Lehrkraft steht
+  in der Absage zweimal, und `run_mitteilungen` fragt nur, ob er vorkommt.
+  Entfernt man ihn an einer Stelle, bleibt die Prüfung grün (Art 1). Für den
+  Nachweis wird er deshalb am Anfang der Funktion geleert.
+- **Mutationen 576, alle wie verlangt** (575 angeschlagen, H4 grün). Die
+  erwarteten Zeilen von AK1, AK2, AK5, AK8 und AK9 nennen die neuen
+  Kürzel; AK14 sucht das neue Beispiel. **AK14 meldete im ersten Lauf
+  „MUTATION NICHT ANGEKOMMEN“:** Die Suche vor dem Umbau lief mit
+  Wortgrenzen, und in AK14 stehen die Kürzel als `\x27…\x27`; zwischen der
+  `7` und dem ersten Buchstaben liegt keine Wortgrenze. Danach dieselbe
+  Suche ohne Wortgrenzen und mit der `\x27`-Form über alle Dateien (Gegenprobe
+  an AK14): keine weitere Stelle. Nachgetragen in E20. Die Rücknahme ist
+  belegt: Prüfsummen von 146 Dateien (alle geänderten, alle unter
+  `backend/`, `tests/`, `frontend/`, `sql/`) und `git diff --stat` vor und
+  nach dem Lauf gleich.
+
 ## v0.9.96 (Oktober 2026) – Gemerkte Versandvariante: kein Fehler wird mehr still zum Rückfall
 
 Aufräumliste 9, mit Vorrang (E27).
@@ -972,11 +1052,16 @@ der Anwendung, nur `tests/frontend_halbtags_test.js` und die Mutationen.
 
 ## v0.9.78 (Oktober 2026) – Admin-Kürzel unempfindlich, Komma-Einträge aufgeteilt (E22)
 
+> **Ersetzt 12.10.2026 (v0.9.97):** Die Kürzel in den Beispielen unten standen für echte Lehrkräfte,
+> darunter der Betreiber. Ein Beispiel lässt sich erfinden, ohne dass das
+> Protokoll leidet. Sie sind durch erfundene
+> gleicher Länge ersetzt, wie überall im heutigen Stand (E28).
+
 - **Kürzelvergleich unempfindlich, in beide Richtungen** (Entscheidung des
-  Betreibers): `['ho']`, `['Ho']` und `['HO']` treffen die Lehrkraft „Ho“.
+  Betreibers): `['hq']`, `['Hq']` und `['HQ']` treffen die Lehrkraft „Hq“.
   Bisher verglich die Anmeldung `admin_kuerzel` streng (`in_array(…,
   true)`).
-- **`admin_kuerzel` ist ein Array.** `['Ho, Mu']` ist ein Eintrag und traf
+- **`admin_kuerzel` ist ein Array.** `['Hq, Mq']` ist ein Eintrag und traf
   bisher still niemanden; jetzt wird er aufgeteilt. Eine Zeichenkette statt
   eines Arrays ebenso; bisher bekam der WebUntis-Admin (personType 16)
   davon nur den ersten Buchstaben.
@@ -985,7 +1070,7 @@ der Anwendung, nur `tests/frontend_halbtags_test.js` und die Mutationen.
 - **Engstelle:** `admin_kuerzel` wird nur noch über `wu_kuerzel_liste()`
   gelesen.
 - **`config.example.php`:** erklärt die Array-Form mit einem Beispiel, warnt
-  vor `['Ho, Mu']` und sagt, dass die Schreibweise keine Rolle spielt.
+  vor `['Hq, Mq']` und sagt, dass die Schreibweise keine Rolle spielt.
 - **Folge:** Wer in `config.php` in anderer Schreibweise oder in einem
   Komma-Eintrag steht, ist ab jetzt Admin.
 
@@ -3798,9 +3883,14 @@ korrekt ignoriert – die Vertretungslehrkräfte tauchen nirgends auf.
   Klassennamen werden im Klartext gezeigt, da für die Zuordnung nötig.
 
 ### Hinweis zur Konfiguration
+> **Ersetzt 12.10.2026 (v0.9.97):** Kürzel und Anmeldename des Admin-Kontos unten waren die
+> echten des Betreibers. Gegen einen Anmeldenamen lassen sich Passwörter
+> probieren; er ist adressierbar. Sie sind durch erfundene
+> gleicher Länge ersetzt, wie überall im heutigen Stand (E28).
+
 `admin_kuerzel` erwartet ein **Lehrkraft-Kürzel** aus der Tabelle `lehrer`
-(z. B. `Ho`), nicht den WebUntis-Benutzernamen des Admin-Kontos
-(`adminho`). Grund: Das WebUntis-Admin-Konto hat `personId -1` und
+(z. B. `Hq`), nicht den WebUntis-Benutzernamen des Admin-Kontos
+(`adminhq`). Grund: Das WebUntis-Admin-Konto hat `personId -1` und
 erscheint nicht in `getTeachers()`; über das Kürzel wird ihm der
 Lehrkraft-Stammsatz zugeordnet, damit „Meine Termine" funktioniert.
 Der Feldname wird in einer kommenden Version in `admin_lehrer_kuerzel`

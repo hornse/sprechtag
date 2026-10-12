@@ -302,3 +302,28 @@ Gesucht wurde nach Zuweisungen an Namensfelder (`displayName`, `name`,
 `vorname`, `nachname`, `lehrer_name`, `kind_name`); Namen in anderer Form –
 als Funktionsargument, in doppelten Anführungszeichen – deckt die Suche
 nicht ab. Ob die Namen erfunden sind, entscheidet der Betreiber.
+
+## Nachtrag 12.10.2026 (v0.9.97) — Namen, Kürzel und Kennungen ersetzt
+
+**Erledigt:** Die Namen aus den beiden vorigen Nachträgen sind ersetzt,
+dazu ihre Kürzel und Kennungen, nach der Regel des Betreibers: alles außer
+Paulowski (E28, CHANGELOG v0.9.97). Nicht in der Historie.
+
+**Berichtigung zum vorigen Nachtrag:** Auch dessen Liste war
+unvollständig. Die breitere Suche – Kürzel, Anmeldenamen, Namen in
+Mitteilungstexten, Kommentaren und `docs/` – fand zusätzlich (Stellen,
+ohne die Werte):
+
+- einen fünften Lehrkraft-Nachnamen als Eintrag `Kürzel => Name` in
+  `tests/run_slots.php:208` (keine Zuweisung an ein Namensfeld, deshalb
+  bei der vorigen Suche nicht gefunden);
+- die Kürzel zweier Vertretungslehrkräfte in `tests/run_klausuren.php`;
+- das Kürzel des Betreibers mit seiner Kennung in `tests/run.php` und mit
+  weiteren Kürzeln in `tests/run_admin_kuerzel.php`, dessen Kopf die Kürzel
+  als ERFUNDEN auswies;
+- den Anmeldenamen des Admin-Kontos des Betreibers in zwei JS-Suiten;
+- die Kürzel in `backend/config.example.php`, zwei Code-Kommentaren,
+  CHANGELOG v0.9.78, E22 und die Anmeldenamen in `docs/SONDIERUNG.md` und
+  CHANGELOG v0.4.2 und v0.9.4.
+
+**Offen:** CHANGELOG v0.9.4 wartet auf `koordination` (Aufräumliste 5).

@@ -34,18 +34,18 @@ console.log('Muster 1: Eingaben vor der Meldung sichern');
 {
   // FALSCH: erst melden, dann lesen
   const w = neueWelt();
-  w.felder['so-benutzer'] = 'adminho';
+  w.felder['so-benutzer'] = 'adminhq';
   zeichne(w, []);                       // meldung('läuft')
   const falsch = w.felder['so-benutzer'] || '';
   pruefe('alte Reihenfolge verliert die Eingabe', falsch === '');
 
   // RICHTIG: erst lesen (in den Zustand), dann melden
   const w2 = neueWelt();
-  w2.felder['so-benutzer'] = 'adminho';
+  w2.felder['so-benutzer'] = 'adminhq';
   w2.zustand.eingaben.benutzer = w2.felder['so-benutzer'];
   zeichne(w2, []);
   pruefe('neue Reihenfolge behält die Eingabe',
-    w2.zustand.eingaben.benutzer === 'adminho');
+    w2.zustand.eingaben.benutzer === 'adminhq');
   pruefe('Wert kann nach dem Zeichnen wieder angezeigt werden',
     w2.zustand.eingaben.benutzer !== '');
 }
@@ -74,7 +74,7 @@ console.log('Muster 2: Ergebnis in den Zustand, nicht ins DOM');
 console.log('Muster 3: Passwörter gehören NICHT in den Zustand');
 {
   // Sicherheitsregel: Benutzername darf gemerkt werden, das Passwort nicht.
-  const zustand = { benutzer: 'adminho', von: '2026-06-15' };
+  const zustand = { benutzer: 'adminhq', von: '2026-06-15' };
   pruefe('kein Passwortfeld im Zustand',
     !Object.keys(zustand).some((k) => /pass|pw|kennwort/i.test(k)));
   pruefe('kein Passwortwert im Zustand',

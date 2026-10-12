@@ -4,9 +4,9 @@
 // Aufruf: php tests/run_admin_kuerzel.php   → Exit-Code 0 = alles grün
 //
 // Entscheidung des Betreibers: Der Kürzelvergleich ist unempfindlich gegen
-// Groß- und Kleinschreibung, in BEIDE Richtungen – ['ho'], ['Ho'] und
-// ['HO'] treffen dasselbe Kürzel. Nicht: auf Kleinschreibung festlegen.
-// Zweiter Stolperstein derselben Art: ['Ho, Mu'] ist EIN Eintrag und traf
+// Groß- und Kleinschreibung, in BEIDE Richtungen – ['hq'], ['Hq'] und
+// ['HQ'] treffen dasselbe Kürzel. Nicht: auf Kleinschreibung festlegen.
+// Zweiter Stolperstein derselben Art: ['Hq, Mq'] ist EIN Eintrag und traf
 // still niemanden. Er wird jetzt aufgeteilt.
 //
 // Bis v0.9.77 verglich wu_login() mit in_array(…, true) – streng, also
@@ -20,7 +20,8 @@
 // Ausgeführt: wu_kuerzel_gleich, wu_kuerzel_liste, wu_ist_config_admin,
 // wu_admin_eigenes_kuerzel. Quelltext: die Aufrufstellen in wu_login (die
 // Anmeldung braucht WebUntis) und die Engstelle über alle Backend-Dateien.
-// Kürzel ERFUNDEN.
+// Kürzel ERFUNDEN (seit v0.9.97; bis dahin standen hier echte, darunter das
+// des Betreibers).
 // ============================================================
 
 declare(strict_types=1);
@@ -46,11 +47,11 @@ if ($fehlt !== []) { echo '    (fehlen: ' . implode(', ', $fehlt) . ")\n\n$fehle
 // ------------------------------------------------------------
 echo "Vergleich: unempfindlich, in beide Richtungen\n";
 $alle = true;
-foreach (['ho', 'Ho', 'HO', 'hO'] as $a) foreach (['ho', 'Ho', 'HO'] as $b) $alle = $alle && wu_kuerzel_gleich($a, $b);
-pruefe('ho, Ho, HO, hO treffen einander je paarweise', $alle);
-pruefe('Leerzeichen am Rand zählen nicht', wu_kuerzel_gleich(' Ho ', 'ho'));
-pruefe('verschiedene Kürzel bleiben verschieden (Ho/Hu, Ho/Hoe)',
-    !wu_kuerzel_gleich('Ho', 'Hu') && !wu_kuerzel_gleich('Ho', 'Hoe') && !wu_kuerzel_gleich('Hoe', 'Ho'));
+foreach (['hq', 'Hq', 'HQ', 'hQ'] as $a) foreach (['hq', 'Hq', 'HQ'] as $b) $alle = $alle && wu_kuerzel_gleich($a, $b);
+pruefe('hq, Hq, HQ, hQ treffen einander je paarweise', $alle);
+pruefe('Leerzeichen am Rand zählen nicht', wu_kuerzel_gleich(' Hq ', 'hq'));
+pruefe('verschiedene Kürzel bleiben verschieden (Hq/Hx, Hq/Hqe)',
+    !wu_kuerzel_gleich('Hq', 'Hx') && !wu_kuerzel_gleich('Hq', 'Hqe') && !wu_kuerzel_gleich('Hqe', 'Hq'));
 pruefe('leer trifft nie, auch nicht leer', !wu_kuerzel_gleich('', '') && !wu_kuerzel_gleich(' ', ''));
 if (!function_exists('mb_strtolower')) {
     pruefe('Voraussetzung: mbstring für Kürzel mit Umlaut (fehlt hier – Mü/MÜ träfen sich nicht)', false);
@@ -60,28 +61,28 @@ if (!function_exists('mb_strtolower')) {
 
 // ------------------------------------------------------------
 echo "Liste: Array wie dokumentiert, Komma-Einträge aufgeteilt\n";
-pruefe('[\'Ho\', \'Mu\', \'Sr\'] bleibt, wie es ist', wu_kuerzel_liste(['Ho', 'Mu', 'Sr']) === ['Ho', 'Mu', 'Sr']);
-pruefe('[\'Ho, Mu\'] wird aufgeteilt (traf bisher still niemanden)', wu_kuerzel_liste(['Ho, Mu']) === ['Ho', 'Mu']);
-pruefe('gemischt, ohne Leerzeichen, Rand entfernt', wu_kuerzel_liste(['Ho,Mu', ' Sr ']) === ['Ho', 'Mu', 'Sr']);
-pruefe('Zeichenkette statt Array: \'Ho\' bleibt \'Ho\', \'Ho, Mu\' wird geteilt',
-    wu_kuerzel_liste('Ho') === ['Ho'] && wu_kuerzel_liste('Ho, Mu') === ['Ho', 'Mu']);
+pruefe('[\'Hq\', \'Mq\', \'Sq\'] bleibt, wie es ist', wu_kuerzel_liste(['Hq', 'Mq', 'Sq']) === ['Hq', 'Mq', 'Sq']);
+pruefe('[\'Hq, Mq\'] wird aufgeteilt (traf bisher still niemanden)', wu_kuerzel_liste(['Hq, Mq']) === ['Hq', 'Mq']);
+pruefe('gemischt, ohne Leerzeichen, Rand entfernt', wu_kuerzel_liste(['Hq,Mq', ' Sq ']) === ['Hq', 'Mq', 'Sq']);
+pruefe('Zeichenkette statt Array: \'Hq\' bleibt \'Hq\', \'Hq, Mq\' wird geteilt',
+    wu_kuerzel_liste('Hq') === ['Hq'] && wu_kuerzel_liste('Hq, Mq') === ['Hq', 'Mq']);
 pruefe('leere Teile fallen weg; fehlt der Eintrag: leere Liste',
-    wu_kuerzel_liste(['Ho,', '', ' ', ',']) === ['Ho'] && wu_kuerzel_liste(null) === [] && wu_kuerzel_liste([]) === []);
+    wu_kuerzel_liste(['Hq,', '', ' ', ',']) === ['Hq'] && wu_kuerzel_liste(null) === [] && wu_kuerzel_liste([]) === []);
 
 // ------------------------------------------------------------
 echo "Wer ist Admin aus der config\n";
-pruefe('Lehrkraft HO, config [\'ho\']: Admin (und umgekehrt)',
-    wu_ist_config_admin('HO', ['admin_kuerzel' => ['ho']]) && wu_ist_config_admin('ho', ['admin_kuerzel' => ['HO']]));
-pruefe('config [\'Ho, Mu\']: beide sind Admin', wu_ist_config_admin('Ho', ['admin_kuerzel' => ['Ho, Mu']])
-    && wu_ist_config_admin('MU', ['admin_kuerzel' => ['Ho, Mu']]));
+pruefe('Lehrkraft HQ, config [\'hq\']: Admin (und umgekehrt)',
+    wu_ist_config_admin('HQ', ['admin_kuerzel' => ['hq']]) && wu_ist_config_admin('hq', ['admin_kuerzel' => ['HQ']]));
+pruefe('config [\'Hq, Mq\']: beide sind Admin', wu_ist_config_admin('Hq', ['admin_kuerzel' => ['Hq, Mq']])
+    && wu_ist_config_admin('MQ', ['admin_kuerzel' => ['Hq, Mq']]));
 pruefe('anderes Kürzel, leeres Kürzel, kein Eintrag: kein Admin',
-    !wu_ist_config_admin('Hu', ['admin_kuerzel' => ['Ho, Mu']]) && !wu_ist_config_admin('', ['admin_kuerzel' => ['Ho']])
-    && !wu_ist_config_admin(null, ['admin_kuerzel' => ['Ho']]) && !wu_ist_config_admin('Ho', []));
-pruefe('WebUntis-Admin (personType 16): erstes Kürzel der Liste, auch aus [\'Ho, Mu\']',
-    wu_admin_eigenes_kuerzel(['admin_kuerzel' => ['Ho, Mu']]) === 'Ho'
-    && wu_admin_eigenes_kuerzel(['admin_kuerzel' => ['Ho', 'Mu']]) === 'Ho');
-pruefe('… aus der Zeichenkette \'Ho\' das ganze Kürzel, nicht \'H\'; ohne Eintrag null',
-    wu_admin_eigenes_kuerzel(['admin_kuerzel' => 'Ho']) === 'Ho' && wu_admin_eigenes_kuerzel([]) === null);
+    !wu_ist_config_admin('Hx', ['admin_kuerzel' => ['Hq, Mq']]) && !wu_ist_config_admin('', ['admin_kuerzel' => ['Hq']])
+    && !wu_ist_config_admin(null, ['admin_kuerzel' => ['Hq']]) && !wu_ist_config_admin('Hq', []));
+pruefe('WebUntis-Admin (personType 16): erstes Kürzel der Liste, auch aus [\'Hq, Mq\']',
+    wu_admin_eigenes_kuerzel(['admin_kuerzel' => ['Hq, Mq']]) === 'Hq'
+    && wu_admin_eigenes_kuerzel(['admin_kuerzel' => ['Hq', 'Mq']]) === 'Hq');
+pruefe('… aus der Zeichenkette \'Hq\' das ganze Kürzel, nicht \'H\'; ohne Eintrag null',
+    wu_admin_eigenes_kuerzel(['admin_kuerzel' => 'Hq']) === 'Hq' && wu_admin_eigenes_kuerzel([]) === null);
 
 // ------------------------------------------------------------
 echo "Aufrufstellen und Engstelle (Quelltext)\n";
@@ -128,9 +129,9 @@ foreach (token_get_all((string)file_get_contents($wurzel . '/backend/config.exam
     if (is_array($t) && $t[0] === T_COMMENT) $bsp .= $t[1] . "\n";
 }
 pruefe('Kommentar zeigt die Array-Form mit mehreren Kürzeln',
-    str_contains($bsp, "'admin_kuerzel' => ['Ho', 'Mu', 'Sr']"));
-pruefe('Kommentar warnt vor [\'Ho, Mu\'] und nennt die Groß-/Kleinschreibung',
-    str_contains($bsp, "['Ho, Mu']") && preg_match('/Groß- und Kleinschreibung/', $bsp) === 1);
+    str_contains($bsp, "'admin_kuerzel' => ['Hq', 'Mq', 'Sq']"));
+pruefe('Kommentar warnt vor [\'Hq, Mq\'] und nennt die Groß-/Kleinschreibung',
+    str_contains($bsp, "['Hq, Mq']") && preg_match('/Groß- und Kleinschreibung/', $bsp) === 1);
 
 echo $fehler === 0 ? "\nALLE TESTS GRÜN\n" : "\n$fehler ROT\n";
 exit($fehler === 0 ? 0 : 1);

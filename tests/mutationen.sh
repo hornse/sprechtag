@@ -1025,23 +1025,23 @@ mut KO13 $APP 's/am Tag nach dem Sprechtag fallen sie/nach dem Archivieren falle
 RAK=tests/run_admin_kuerzel.php
 CFE=backend/config.example.php
 mut AK1 $ADP 's/\? mb_strtolower\(trim\(\$k\), \x27UTF-8\x27\) : strtolower\(trim\(\$k\)\)/? trim(\$k) : trim(\$k)/' \
-  $RAK "ho, Ho, HO, hO treffen einander je paarweise"
+  $RAK "hq, Hq, HQ, hQ treffen einander je paarweise"
 mut AK2 $ADP 's/return \$a !== \x27\x27 && \$a === \$n\(\$b\);/return \$a !== \x27\x27 && \$a === trim(\$b);/' \
-  $RAK "ho, Ho, HO, hO treffen einander je paarweise"
+  $RAK "hq, Hq, HQ, hQ treffen einander je paarweise"
 mut AK3 $ADP 's/\? mb_strtolower\(trim\(\$k\), \x27UTF-8\x27\) : strtolower\(trim\(\$k\)\)/? mb_strtolower(\$k, \x27UTF-8\x27) : strtolower(\$k)/' \
   $RAK "Leerzeichen am Rand zählen nicht"
 mut AK4 $ADP 's/return \$a !== \x27\x27 && \$a === \$n\(\$b\);/return \$a === \$n(\$b);/' \
   $RAK "leer trifft nie"
 mut AK5 $ADP 's/foreach \(explode\(\x27,\x27, \(string\)\$eintrag\) as \$k\)/foreach ([(string)\$eintrag] as \$k)/' \
-  $RAK "['Ho, Mu'] wird aufgeteilt"
+  $RAK "['Hq, Mq'] wird aufgeteilt"
 mut AK6 $ADP 's/            \$k = trim\(\$k\);\n//' \
   $RAK "gemischt, ohne Leerzeichen, Rand entfernt"
 mut AK7 $ADP 's/if \(\$k !== \x27\x27\) \$aus\[\] = \$k;/\$aus[] = \$k;/' \
   $RAK "leere Teile fallen weg"
 mut AK8 $ADP 's/if \(wu_kuerzel_gleich\(\$kuerzel, \$k\)\) return true;/if (\$kuerzel === \$k) return true;/' \
-  $RAK "Lehrkraft HO, config ['ho']: Admin"
+  $RAK "Lehrkraft HQ, config ['hq']: Admin"
 mut AK9 $ADP 's/return wu_kuerzel_liste\(\$wcfg\[\x27admin_kuerzel\x27\] \?\? \[\]\)\[0\] \?\? null;/return \$wcfg[\x27admin_kuerzel\x27][0] ?? null;/' \
-  $RAK "… aus der Zeichenkette 'Ho' das ganze Kürzel"
+  $RAK "… aus der Zeichenkette 'Hq' das ganze Kürzel"
 mut AK10 $ADP 's/\$ergebnis\[\x27kuerzel\x27\] = wu_admin_eigenes_kuerzel\(\$wcfg\);/\$ergebnis[\x27kuerzel\x27] = \$wcfg[\x27admin_kuerzel\x27][0] ?? null;/' \
   $RAK "wu_login, personType 16"
 mut AK11 $ADP 's/\$ausConfig = wu_ist_config_admin\(\$ergebnis\[\x27kuerzel\x27\], \$wcfg\);/\$ausConfig = in_array(\$ergebnis[\x27kuerzel\x27], (array)(\$wcfg[\x27admin_kuerzel\x27] ?? []), true);/' \
@@ -1050,7 +1050,7 @@ mut AK12 $ADP 's/foreach \(wu_kuerzel_liste\(\$wcfg\[\x27admin_kuerzel\x27\] \?\
   $RAK "Engstelle: admin_kuerzel wird nur über wu_kuerzel_liste gelesen"
 mut AK13 $IX 's/wu_kuerzel_gleich\(\(string\)\$ziel, \(string\)\(\$u\[\x27kuerzel\x27\] \?\? \x27\x27\)\)/\$ziel === (\$u[\x27kuerzel\x27] ?? null)/' \
   $RAK "Selbst-Entfernen-Wache (app_admins) vergleicht unempfindlich"
-mut AK14 $CFE 's/        \/\/     \x27admin_kuerzel\x27 => \[\x27Ho\x27, \x27Mu\x27, \x27Sr\x27\],\n//' \
+mut AK14 $CFE 's/        \/\/     \x27admin_kuerzel\x27 => \[\x27Hq\x27, \x27Mq\x27, \x27Sq\x27\],\n//' \
   $RAK "Kommentar zeigt die Array-Form"
 mut AK15 $CFE 's/Groß- und Kleinschreibung spielt/Die Schreibweise spielt/' \
   $RAK "Kommentar warnt vor"

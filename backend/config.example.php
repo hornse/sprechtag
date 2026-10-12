@@ -17,11 +17,11 @@ return [
         'allowed_person_types' => [2, 5, 12, 16],
         // Kürzel der Lehrkräfte mit Admin-Rechten in der App. Ein ARRAY, je
         // Kürzel ein Eintrag:
-        //     'admin_kuerzel' => ['Ho', 'Mu', 'Sr'],
-        // NICHT ['Ho, Mu'] – das ist EIN Eintrag mit Komma. Die App teilt
+        //     'admin_kuerzel' => ['Hq', 'Mq', 'Sq'],
+        // NICHT ['Hq, Mq'] – das ist EIN Eintrag mit Komma. Die App teilt
         // ihn zur Sicherheit auf (seit v0.9.78), gemeint ist aber die
-        // Array-Form. Groß- und Kleinschreibung spielt keine Rolle: 'ho',
-        // 'Ho' und 'HO' treffen dasselbe Kürzel. Das erste Kürzel gilt auch
+        // Array-Form. Groß- und Kleinschreibung spielt keine Rolle: 'hq',
+        // 'Hq' und 'HQ' treffen dasselbe Kürzel. Das erste Kürzel gilt auch
         // für den WebUntis-Admin (personType 16), der selbst keines hat.
         'admin_kuerzel' => ['XYZ'],
     ],

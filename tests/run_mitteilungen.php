@@ -71,16 +71,16 @@ pruefe('leer bleibt leer', mit_datum_deutsch('') === '');
 
 echo "mit_text_bestaetigung\n";
 $t = mit_text_bestaetigung('Elternsprechtag Herbst', '2026-11-20', [
-    ['slot_beginn' => '15:00:00', 'name' => 'Anna Greitemann',
-     'kuerzel' => 'Gr', 'raum_kuerzel' => 'A101'],
-    ['slot_beginn' => '15:30:00', 'name' => 'Bernd Klein',
-     'kuerzel' => 'Kl', 'raum_kuerzel' => ''],
+    ['slot_beginn' => '15:00:00', 'name' => 'Inge Erfundmann',
+     'kuerzel' => 'Gq', 'raum_kuerzel' => 'A101'],
+    ['slot_beginn' => '15:30:00', 'name' => 'Horst Erful',
+     'kuerzel' => 'Kq', 'raum_kuerzel' => ''],
 ]);
 pruefe('Betreff nennt Sprechtag', str_contains($t['betreff'], 'Elternsprechtag Herbst'));
 pruefe('Datum deutsch im Text', str_contains($t['text'], '20.11.2026'));
 pruefe('erster Termin mit Uhrzeit', str_contains($t['text'], '15:00 Uhr'));
 pruefe('Sekunden abgeschnitten', !str_contains($t['text'], '15:00:00'));
-pruefe('Lehrkraft genannt', str_contains($t['text'], 'Anna Greitemann'));
+pruefe('Lehrkraft genannt', str_contains($t['text'], 'Inge Erfundmann'));
 pruefe('Raum genannt', str_contains($t['text'], 'Raum A101'));
 pruefe('leerer Raum ohne Klammer', !str_contains($t['text'], '(Raum )'));
 pruefe('beide Termine enthalten',
@@ -94,19 +94,19 @@ pruefe('neutraler Standard ohne feste Schule',
 
 echo "mit_text_absage\n";
 $a = mit_text_absage('Elternsprechtag Herbst', '2026-11-20', '15:00:00',
-    'Anna Greitemann', 'Ich bin leider erkrankt.');
+    'Inge Erfundmann', 'Ich bin leider erkrankt.');
 pruefe('Betreff kennzeichnet Absage', str_contains($a['betreff'], 'Terminabsage'));
 pruefe('Uhrzeit genannt', str_contains($a['text'], '15:00 Uhr'));
 pruefe('Datum deutsch', str_contains($a['text'], '20.11.2026'));
 pruefe('Freitext übernommen', str_contains($a['text'], 'Ich bin leider erkrankt.'));
-pruefe('Lehrkraft als Absender', str_contains($a['text'], 'Anna Greitemann'));
+pruefe('Lehrkraft als Absender', str_contains($a['text'], 'Inge Erfundmann'));
 
-$a2 = mit_text_absage('Sprechtag', '2026-11-20', '15:00', 'Gr', '');
+$a2 = mit_text_absage('Sprechtag', '2026-11-20', '15:00', 'Gq', '');
 pruefe('ohne Freitext keine Leerzeile zu viel',
     !str_contains($a2['text'], "\n\n\n"));
 pruefe('Hinweis auf Neubuchung', str_contains($a2['text'], 'neuen Termin'));
 
-$a3 = mit_text_absage('Sprechtag', '2026-11-20', '15:00', 'Gr', '   ');
+$a3 = mit_text_absage('Sprechtag', '2026-11-20', '15:00', 'Gq', '   ');
 pruefe('nur-Leerzeichen-Freitext ignoriert',
     substr_count($a3['text'], "\n\n") === substr_count($a2['text'], "\n\n"));
 

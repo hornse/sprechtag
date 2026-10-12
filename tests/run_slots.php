@@ -203,9 +203,9 @@ $eintrag = function (string $status, array $lehrer, string $fach = 'M',
             'position3' => [['current' => ['type' => 'ROOM', 'shortName' => 'A1']]]];
 };
 $plan = ['days' => [['gridEntries' => [
-    $eintrag('REGULAR',      ['Gr' => 'Greitemann']),
-    $eintrag('REGULAR',      ['Gr' => 'Greitemann'], 'D'),
-    $eintrag('CANCELLED',    ['Kl' => 'Klein'], 'E'),
+    $eintrag('REGULAR',      ['Gq' => 'Erfundmann']),
+    $eintrag('REGULAR',      ['Gq' => 'Erfundmann'], 'D'),
+    $eintrag('CANCELLED',    ['Kq' => 'Erful'], 'E'),
     $eintrag('SUBSTITUTION', ['Ve' => 'Vertretung'], 'M'),
     $eintrag('REGULAR',      ['Au' => 'Aufsicht'], '', 'BREAK_SUPERVISION'),
     $eintrag('REGULAR',      ['Ev' => 'Event'], '', 'EVENT'),
@@ -215,13 +215,13 @@ $kuerzel = array_keys($ex['lehrkraefte']);
 pruefe('Vertretung NICHT gewertet', !in_array('Ve', $kuerzel, true));
 pruefe('Pausenaufsicht NICHT gewertet', !in_array('Au', $kuerzel, true));
 pruefe('Event NICHT gewertet', !in_array('Ev', $kuerzel, true));
-pruefe('Ausfall (CANCELLED) GEWERTET', in_array('Kl', $kuerzel, true));
-pruefe('reguläre Lehrkraft gewertet', in_array('Gr', $kuerzel, true));
-pruefe('Stunden gezählt', $ex['lehrkraefte']['Gr']['stunden'] === 2);
-pruefe('nach Stunden sortiert', $kuerzel[0] === 'Gr');
+pruefe('Ausfall (CANCELLED) GEWERTET', in_array('Kq', $kuerzel, true));
+pruefe('reguläre Lehrkraft gewertet', in_array('Gq', $kuerzel, true));
+pruefe('Stunden gezählt', $ex['lehrkraefte']['Gq']['stunden'] === 2);
+pruefe('nach Stunden sortiert', $kuerzel[0] === 'Gq');
 pruefe('Fächer gesammelt',
-    array_keys($ex['lehrkraefte']['Gr']['faecher']) === ['M', 'D']);
-pruefe('Langname übernommen', $ex['lehrkraefte']['Gr']['name'] === 'Greitemann');
+    array_keys($ex['lehrkraefte']['Gq']['faecher']) === ['M', 'D']);
+pruefe('Langname übernommen', $ex['lehrkraefte']['Gq']['name'] === 'Erfundmann');
 pruefe('robust bei Unsinn', rest_lehrkraefte_aus_entries('x')['lehrkraefte'] === []);
 
 // removed wird ignoriert (nur current zählt)

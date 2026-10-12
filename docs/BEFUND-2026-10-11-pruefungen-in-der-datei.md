@@ -174,3 +174,27 @@ als eigene rote Zeile („✗ Suite abgebrochen: …“).
 - **Art 6:** Stellen die Testdaten den Fall her, den die Prüfung
   ausschließen soll? – Das gilt für Attrappen ebenso wie für Daten.
 - **Art 7:** Sagt die Suite, wenn sie aufgehört hat?
+
+## Nachtrag 12.10.2026 (v0.9.97) — eine falsche Angabe über die Daten
+
+**Eigene Beobachtung, keine Art von Prüfungsschwäche:** Es geht nicht um eine
+Prüfung, sondern um eine Angabe **über** die Testdaten. Der Kopf von
+`tests/run_admin_kuerzel.php` sagte „Kürzel ERFUNDEN.“, und darunter stand
+das echte Kürzel des Betreibers, mit weiteren echten. **Eine falsche
+Herkunftsangabe ist schlimmer als keine:** Wer den Kopf las, hatte die
+Frage beantwortet und sah nicht hin. Verwandt mit Art 5 und mit dem
+Kommentar zum Kalender-Abo (E21), aber eigenständig.
+
+Mit v0.9.97 ist die Angabe wahr geworden, und das steht dabei. Das ändert
+nichts daran, dass sie zwischenzeitlich falsch war, und andere Dateiköpfe
+können dieselbe Angabe tragen.
+
+**Suchfrage:** Stimmt, was der Dateikopf über die Herkunft der Daten sagt?
+
+**Ausgangslage (gezählt, nicht bewertet):** 16 Suiten unter `tests/`
+machen in einer Kommentarzeile unter ihren ersten 40 Zeilen eine
+Herkunftsangabe („erfunden“, „Mitschnitt“, „echte Daten/Antwort/Instanz“).
+Drei davon sind mit v0.9.97 nachgesehen (`run_admin_kuerzel`,
+`run_elternzuordnung`, `run_klausuren`); die übrigen 13 nicht. Eine erste
+Zählung ohne die Einschränkung auf Kommentare ergab 18 – sie zählte auch
+Datenwerte wie „ErfundenE“ mit.

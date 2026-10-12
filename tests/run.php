@@ -73,13 +73,13 @@ pruefe('max begrenzt',
 echo "sondierung_lehrer_aus_entries\n";
 $entries = ['days' => [['gridEntries' => [[
     'position1' => [['current' => ['type' => 'CLASS',   'shortName' => '7a', 'id' => 3]]],
-    'position2' => [['current' => ['type' => 'TEACHER', 'shortName' => 'Ho', 'id' => 1013]],
-                    ['current' => ['type' => 'TEACHER', 'shortName' => 'Mu', 'id' => 7]]],
+    'position2' => [['current' => ['type' => 'TEACHER', 'shortName' => 'Hq', 'id' => 2086]],
+                    ['current' => ['type' => 'TEACHER', 'shortName' => 'Mq', 'id' => 7]]],
     'position3' => [['current' => ['type' => 'SUBJECT', 'shortName' => 'M',  'id' => 9]]],
 ]]]]];
 $lehrer = sondierung_lehrer_aus_entries($entries);
 pruefe('findet beide Lehrkräfte, keine Fächer/Klassen',
-    $lehrer === ['Ho (1013)', 'Mu (7)']);
+    $lehrer === ['Hq (2086)', 'Mq (7)']);
 pruefe('dedupliziert', count(sondierung_lehrer_aus_entries(
     ['a' => $entries, 'b' => $entries])) === 2);
 pruefe('robust bei Nicht-Array', sondierung_lehrer_aus_entries('x') === []);

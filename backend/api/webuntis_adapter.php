@@ -452,7 +452,7 @@ function wu_referenzzeitraum(string $sprechtagDatum): array
 
 /**
  * Vergleicht zwei Kürzel unempfindlich gegen Groß- und Kleinschreibung, in
- * beide Richtungen (Entscheidung Betreiber, E22): 'ho', 'Ho' und 'HO'
+ * beide Richtungen (Entscheidung Betreiber, E22): 'hq', 'Hq' und 'HQ'
  * treffen einander. Niemand muss wissen, wie das Kürzel in der Tabelle
  * lehrer steht. Leer trifft nie. mb_strtolower nur, wo vorhanden
  * (FALLSTRICKE 3); ohne mbstring treffen sich Kürzel mit Umlaut nicht.
@@ -467,7 +467,7 @@ function wu_kuerzel_gleich(string $a, string $b): bool
 
 /**
  * admin_kuerzel aus der config als Liste (E22). Dokumentiert ist ein Array
- * (['Ho', 'Mu', 'Sr']). Ein Eintrag mit Komma (['Ho, Mu']) traf bisher
+ * (['Hq', 'Mq', 'Sq']). Ein Eintrag mit Komma (['Hq, Mq']) traf bisher
  * still niemanden und wird aufgeteilt; eine Zeichenkette statt eines Arrays
  * ebenso (bisher nahm personType 16 davon nur den ersten Buchstaben).
  */
