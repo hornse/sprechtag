@@ -25,9 +25,9 @@ unter 9, weil vergebene Nummern nicht verschoben werden.
 4. **Andere Suiten durchsehen, Suite für Suite** (vorgemerkt 11.10.2026,
    eigener Schritt). Weg wie bei `frontend_halbtags_test.js`: Probebaum,
    Eingriff an der gemeinten Stelle gegen die Suite, wo nötig umstellen,
-   wo möglich ausführen. Gesucht wird nach allen vier Arten von Schwäche
-   aus `docs/BEFUND-2026-10-11-pruefungen-in-der-datei.md`, nicht nur nach
-   doppelten Fundstellen.
+   wo möglich ausführen. Gesucht wird nach allen sieben Arten von Schwäche
+   aus `docs/BEFUND-2026-10-11-pruefungen-in-der-datei.md` (bis 12.10.2026
+   vier; 5 bis 7 im Nachtrag dort), nicht nur nach doppelten Fundstellen.
    - Ausgangslage (gezählt, nicht bewertet): 15 Suiten suchen 4- bis
      16-mal in ganz `app.js`, am häufigsten `frontend_sidebar` (16),
      `frontend_anzeige` (14), `frontend_hilfetext` (12) und

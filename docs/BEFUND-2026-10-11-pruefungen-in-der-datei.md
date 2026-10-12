@@ -23,6 +23,10 @@ nur nach doppelten Fundstellen:
 | **3. Kommentar zählt als Code** | Auskommentierter Code besteht die Prüfung. | „Schema idempotent“ (SQL-Kommentar), „Halbtags-Toggle-Route“ (PHP-Kommentar) | HB11, HB12 |
 | **4. Namensanfang zählt als Name** | `includes('function x')` trifft auch `function x_alt(`. | „slot_haelfte_fenster vorhanden“ | HB13 |
 
+> **Nachtrag 12.10.2026:** Es sind inzwischen **sieben Arten**; 5 bis 7
+> stehen im Nachtrag am Ende. „Vier“ oben und unten ist der Stand vom
+> 11.10.2026.
+
 **Dazu eine Grenze der Abhilfe selbst:** Auch die Suche im Rumpf (v0.9.85)
 misst Text. Ein Rücksprung vor dem Block lässt Bedingung und Aufruf
 unverändert dastehen. Die Rumpf-Prüfung blieb grün, und erst die
@@ -117,3 +121,56 @@ tragen, ist ungemessen.
 selbst erweitert worden und sucht einige Sätze in der ganzen Datei, etwa
 „Abo-Link, mit dem Ihre kommenden Termine“. Dasselbe Muster, in einer
 Suite dieses Strangs.
+
+## Nachtrag 12.10.2026 — Arten 5 bis 7
+
+Art 5 ist in v0.9.95 gefunden. Arten 6 und 7 waren schon gefunden und
+besprochen, standen aber nur im Verlauf, nicht hier (Betreiber,
+12.10.2026). Sie kommen in der Reihenfolge an, in der sie eingetragen
+werden, nicht in der, in der sie gefunden wurden.
+
+| Art | Woran sie scheitert | Fall | gefunden durch |
+|---|---|---|---|
+| **5. Geprüft wird eine Kopie** | Die Prüfung sucht richtig, die Testdaten stellen den Fall her – aber geprüft wird ein **Nachbau** des Codes, nicht das Original. Sie bleibt grün, gleich was der echte Code tut. | `tests/run.php`, elf Prüfungen zu Anonymisierung und Gruppenfeldern der Stammdaten-Sondierung (bis v0.9.94) | Lesen, beim Entfernen von Weg B (v0.9.95) |
+| **6. Die Testdaten stellen den Fall nicht her** | Die Prüfung sucht richtig, aber den Fall, den sie ausschließen soll, gibt es in ihren Daten nicht. | `run_elternzuordnung`: „KEINE Schüler-Konten“ bleibt grün ohne Rollenfilter (v0.9.94) | Mutation |
+| **7. Die Suite bricht ab und meldet es nicht** | Ein Abbruch erzeugt keine rote Zeile; die Prüfungen danach fehlen einfach. | E5 (Node), `run_kalender_abo` (PHP), AT11 (`run_abgesagte_termine`) | Laufzeitverhalten, Zählung, Mutation |
+
+**Art 5.** Der Kommentar über den elf Prüfungen sagte es selbst: „Die
+Funktion braucht Client-Objekte; hier wird nur die Logik der Feldauswahl
+geprüft, indem der relevante Code nachgebildet wird.“ **Jemand wusste es
+und hat es trotzdem so gebaut.** Das ist dieselbe Lage wie beim Kommentar
+zum Kalender-Abo (E21), nur umgekehrt: Dort versprach der Kommentar mehr,
+als der Code tat; hier gesteht er weniger ein, als man beim Lesen der
+Prüfungsnamen annimmt („Vorname anonymisiert“ klingt nach der Funktion).
+Die Prüfungen sind entfernt; der Gegenentwurf ist
+`tests/run_sondierung_stammdaten.php`, die die echte Funktion mit Attrappen
+der Außenwelt ausführt. **Elf Prüfungen, die nichts prüfen, sind schlechter
+als keine, weil sie Sicherheit vortäuschen.**
+
+**Art 6.** Die Schülerkonten in den Testdaten von `run_elternzuordnung`
+haben leere `tags` und können gar nicht zugeordnet werden; der Rollenfilter
+in `mit_eltern_zu_kind()` ist deshalb nie gefragt. Gefunden hat es ein
+Eingriff ohne rote Zeile beim Wirkungsnachweis für v0.9.94, nicht das Lesen.
+**Nicht behoben.** Zweites Beispiel, in einer Attrappe statt in Daten
+(v0.9.95): Die erste Attrappe für `getStudents` in
+`run_sondierung_stammdaten` lieferte Kennungen, die in pageconfig nicht
+vorkamen. Der alte Code wählte daraufhin eine Bewertung ohne
+„getStudents“, und die Prüfung „Bewertung nennt getStudents nicht“ war grün,
+ohne hinzusehen. Behoben vor dem Einchecken; der Grund steht an der
+Attrappe.
+
+**Art 7.** Dreimal: In `frontend_laufzeit_test.js` greift das `catch`
+nie, rot wird es nur durch Nodes Exit 1 (E5). `run_kalender_abo` endete
+mit einem PHP-Fatal nach 10 von 16 Prüfungen, ohne eine Zeile mit ✗ (E5,
+Nachtrag 11.10.2026). AT11: `run_abgesagte_termine` endete nach 23 Zeilen
+mit Exit 255, weil die eigene Hilfsfunktion nur
+`InvalidArgumentException` fing (E5, drittes Vorkommen). **Vorbild für die
+Behebung:** `tests/frontend_abgesagte_termine_test.js` meldet einen Abbruch
+als eigene rote Zeile („✗ Suite abgebrochen: …“).
+
+### Wonach in anderen Suiten zu suchen ist (Fortsetzung)
+
+- **Art 5:** Prüft die Suite den Code oder eine Kopie davon?
+- **Art 6:** Stellen die Testdaten den Fall her, den die Prüfung
+  ausschließen soll? – Das gilt für Attrappen ebenso wie für Daten.
+- **Art 7:** Sagt die Suite, wenn sie aufgehört hat?
