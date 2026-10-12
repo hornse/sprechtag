@@ -2037,3 +2037,21 @@ festgeschrieben, statt die Frage zu klären. Die Arbeitsteilung klärt sie.
   „bleibt Administrator … Notzugang“ und „Über die Oberfläche ist jetzt
   niemand mehr Administrator“, je nachdem, ob `admin_kuerzel` etwas
   enthält.
+
+## E30 — Versionsnummern: 1.0.0 erst nach dem Praxistest
+
+**Datum:** 12.10.2026 · **Version:** v0.9.100 · **Entschieden vom
+Betreiber**
+
+**Lage:** Nach v0.9.99 stand die nächste Nummer an. Vergeben ist v0.9.100
+als mechanische Fortsetzung; 1.0.0 wäre eine Aussage über den Stand
+gewesen.
+
+**Entschieden:** 1.0.0 vergibt der Betreiber, **nach dem Praxistest, nicht
+davor.** Eine Nummer, die Reife behauptet, steht erst, wenn jemand anderes
+das System benutzt hat. Bis dahin zählt die dritte Stelle weiter (0.9.101,
+…).
+
+**Folge für Werkzeuge:** Ab 0.9.100 hat die dritte Stelle drei Ziffern.
+`git tag | sort -V` ordnet richtig; ein einfaches `sort` stellt 0.9.100
+zwischen 0.9.10 und 0.9.11. Wer Versionen sortiert, sortiert nach Version.

@@ -211,3 +211,25 @@ Drei davon sind mit v0.9.97 nachgesehen (`run_admin_kuerzel`,
 `run_elternzuordnung`, `run_klausuren`); die übrigen 13 nicht. Eine erste
 Zählung ohne die Einschränkung auf Kommentare ergab 18 – sie zählte auch
 Datenwerte wie „ErfundenE“ mit.
+
+## Nachtrag 12.10.2026 (v0.9.100) — eine berichtigte Aussage steht an mehr Stellen, als genannt sind
+
+**Eigene Beobachtung, keine Art von Prüfungsschwäche;** es geht um das
+Suchen vor einer Berichtigung. Der Auftrag für Teil 3 von E29 nannte fünf
+Stellen, die nur `admin_kuerzel` als Weg zur Verwaltung beschrieben. Beim
+Nachziehen fiel eine zweite Aussage auf, die E29 (A) widersprach: Das
+WebUntis-Administrationskonto werde „nur einmal gebraucht“. Sie stand an
+drei der genannten Stellen gleichzeitig – Hilfe, `BEDIENUNG.md`,
+`WEBUNTIS.md`. Und die Aussage über `admin_kuerzel` stand an zwei Stellen,
+die nicht genannt waren: `README.md` und `docs/MITTEILUNGEN.md`. Gefunden
+hat sie eine Suche über das ganze Repo nach der Aussage, nicht das
+Abarbeiten der Liste.
+
+**Lehre (Betreiber, 12.10.2026):** Wenn eine Aussage berichtigt wird, wird
+nach der **Aussage** gesucht, nicht nach den Dateien, die jemand genannt
+hat. Eine Liste von Fundstellen ist eine Vermutung darüber, wo die Aussage
+steht. Verwandt mit E20 und seinen drei Nachträgen („nach dem WERT
+suchen, nicht nach seiner erwarteten Schreibweise“): dort für Code und
+Prüfmuster, hier für Text, der Menschen etwas sagt.
+
+**Suchfrage:** Wo steht dieselbe Aussage noch – auch in anderen Worten?
