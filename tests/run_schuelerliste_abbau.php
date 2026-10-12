@@ -11,6 +11,9 @@
 //
 // Was bleibt: die Sondierung (Diagnose, speichert nichts, abschaltbar –
 // Betreiber 10.10.2026, F4) und getStudents im vendorten Client.
+// v0.9.95: Auch die Sondierung ruft getStudents nicht mehr – das Modul führt
+// es ab v2.0.0 nicht (personenbezogen, REIHENREGELN 9). Geprüft ist deshalb
+// „nirgends unter backend/“.
 // ============================================================
 
 declare(strict_types=1);
@@ -65,9 +68,9 @@ foreach ($backend as $p) {
 pruefe('Voraussetzung: PHP-Dateien unter backend/ gefunden (mind. 15)', count($backend) >= 15);
 pruefe('keine Funktion des alten Imports, Austritts oder Abgleichs unter backend/ definiert', $definiert === []);
 if ($definiert !== []) echo '    (' . implode(', ', $definiert) . ")\n";
-pruefe('getStudents wird nur noch in der Sondierung gerufen (der Abgleich mit eingetippten Zugangsdaten ist fort)',
-    $rufen === ['backend/api/sondierung.php']);
-if ($rufen !== ['backend/api/sondierung.php']) echo '    (' . implode(', ', $rufen) . ")\n";
+pruefe('getStudents wird unter backend/ nirgends gerufen (Modul v2.0.0 führt es nicht)',
+    $rufen === []);
+if ($rufen !== []) echo '    (' . implode(', ', $rufen) . ")\n";
 
 // ------------------------------------------------------------
 echo "Migration 23: Prüfdatei (gegen SQLite AUSGEFÜHRT)\n";

@@ -113,9 +113,16 @@ function sondierung_schueler_ids(array $funde, string $manuell = '', int $max = 
 }
 
 /**
- * Sondiert die Stammdaten für die Zuordnungsvorbereitung:
- * getKlassen (Weg A) und getStudents (Weg B), dazu die Frage, ob
- * WebUntis eine Gruppenzugehörigkeit (z. B. "SuS über 18") mitliefert.
+ * Sondiert die Stammdaten für die Zuordnungsvorbereitung: Schuljahre,
+ * getKlassen (Weg A), pageconfig, Klassenstundenplan und REST-Varianten.
+ * Weg B (getStudents) ist seit v0.9.95 fort: Das WebUntis-Modul führt die
+ * Abfrage ab v2.0.0 nicht mehr (personenbezogen, REIHENREGELN 9).
+ *
+ * Beim aktuellen Schuljahr und bei pageconfig werden seit v0.9.95 nur
+ * Betriebsfehler gefangen (RuntimeException: nicht erreichbar,
+ * WebUntis-Fehlercode); ein Programmierfehler (Error) fliegt durch, statt im
+ * Bericht wie ein Netzfehler auszusehen (FALLSTRICKE 3). Schuljahre und
+ * Klassen fangen noch jeden Throwable.
  *
  * DATENSCHUTZ: Der Bericht enthält KEINE Klarnamen von Schüler:innen.
  * Ausgegeben werden nur Feldnamen, Anzahlen und – zur Strukturprüfung –
@@ -146,13 +153,19 @@ function sondierung_stammdaten(WebUntisAuth $wu, WebUntisRest $rest,
         $bericht['getSchoolyears'] = ['fehler' => $e->getMessage()];
     }
 
-    $aktuell = $wu->getCurrentSchoolyear();
-    $bericht['getCurrentSchoolyear'] = $aktuell === []
-        ? ['aktiv' => false,
-           'hinweis' => 'Kein aktives Schuljahr (Ferien zwischen zwei '
-               . 'Schuljahren) – Aufrufe ohne schoolyearId scheitern.']
-        : ['aktiv' => true, 'id' => $aktuell['id'] ?? null,
-           'name' => $aktuell['name'] ?? ''];
+    // [] heißt nur „kein Schuljahr aktiv“; ab Modul v2.0.0 wirft ein
+    // Netzfehler, statt ebenfalls [] zu liefern.
+    try {
+        $aktuell = $wu->getCurrentSchoolyear();
+        $bericht['getCurrentSchoolyear'] = $aktuell === []
+            ? ['aktiv' => false,
+               'hinweis' => 'Kein aktives Schuljahr (Ferien zwischen zwei '
+                   . 'Schuljahren) – Aufrufe ohne schoolyearId scheitern.']
+            : ['aktiv' => true, 'id' => $aktuell['id'] ?? null,
+               'name' => $aktuell['name'] ?? ''];
+    } catch (RuntimeException $e) {
+        $bericht['getCurrentSchoolyear'] = ['fehler' => $e->getMessage()];
+    }
 
     // ---- Klassen (Grundlage für Weg A) ------------------------------
     // Erst ohne Parameter, dann – falls das scheitert – mit der ID des
@@ -222,12 +235,11 @@ function sondierung_stammdaten(WebUntisAuth $wu, WebUntisRest $rest,
         }
     }
 
-    // ---- Kann pageconfig?type=5 die Schild-Liste ablösen? ---------------
-    // Drei Fragen entscheiden das:
-    //   1. Sind es nur AKTIVE Schüler? (getStudents liefert auch Ehemalige)
-    //   2. Ist die Kennung dieselbe wie bei getStudents? (sonst Nummernkreis-
-    //      Problem – Buchungen hingen an falschen Kindern)
-    //   3. Trägt externKey die Schild-ID? (wäre die Brücke zu allem anderen)
+    // ---- Liefert pageconfig?type=5, und wie vollständig? ----------------
+    // Gezählt wird: Datensätze, davon mit Klasse, davon mit externKey.
+    // Ob die Kennung dieselbe ist wie bei getStudents, ist beantwortet
+    // (E8: ein Nummernkreis, gemessen 07.10.2026); der Abgleich ist seit
+    // v0.9.95 fort, weil das Modul getStudents nicht mehr führt.
     //
     // DATENSCHUTZ: Es werden nur Zahlen und Feldnamen festgehalten, keine
     // Namen und keine einzelnen Kennungen.
@@ -239,7 +251,6 @@ function sondierung_stammdaten(WebUntisAuth $wu, WebUntisRest $rest,
             ?? [];
         if (!is_array($liste)) $liste = [];
 
-        // Vergleich mit getStudents: Wie viele Kennungen kommen in BEIDEN vor?
         $pcIds = [];
         $mitKlasse = 0;
         $mitExtern = 0;
@@ -250,40 +261,18 @@ function sondierung_stammdaten(WebUntisAuth $wu, WebUntisRest $rest,
             if ((int)($e['klasseId'] ?? 0) > 0) $mitKlasse++;
             if ((string)($e['externKey'] ?? '') !== '') $mitExtern++;
         }
-        $gsIds = [];
-        try {
-            foreach ($wu->getStudents() as $s) {
-                $id = (int)($s['id'] ?? 0);
-                if ($id > 0) $gsIds[$id] = true;
-            }
-        } catch (Throwable $e) { /* unten als „offen" ausgewiesen */ }
-        $schnitt = $gsIds === [] ? null
-            : count(array_intersect_key($pcIds, $gsIds));
 
         $bericht['pageconfig_schueler'] = [
             'status'            => $pc['status'],
             'anzahl'            => count($pcIds),
             'mit_klasse'        => $mitKlasse,
             'mit_externkey'     => $mitExtern,
-            'getStudents_anzahl' => count($gsIds),
-            'ids_in_beiden'     => $schnitt,
             'bewertung'         => count($pcIds) === 0
                 ? 'Keine Datensätze – Struktur der Antwort prüfen.'
-                : ($schnitt === null
-                    ? 'getStudents nicht abrufbar – Kennungsvergleich offen.'
-                    : ($schnitt === count($pcIds)
-                        ? 'ALLE Kennungen kommen auch in getStudents vor: '
-                            . 'derselbe Nummernkreis. pageconfig kann die '
-                            . 'Schild-Liste ablösen (Klasse + aktive Auswahl).'
-                        : ($schnitt === 0
-                            ? 'KEINE gemeinsame Kennung – zwei Nummernkreise. '
-                                . 'Ablösung nur mit Zuordnung über externKey '
-                                . 'oder Namen möglich.'
-                            : 'Nur ' . $schnitt . ' von ' . count($pcIds)
-                                . ' Kennungen kommen in getStudents vor – '
-                                . 'teilweise Überschneidung, genauer prüfen.'))),
+                : 'pageconfig liefert ' . count($pcIds) . ' Datensätze, '
+                    . $mitKlasse . ' davon mit Klasse.',
         ];
-    } catch (Throwable $e) {
+    } catch (RuntimeException $e) {
         $bericht['pageconfig_schueler'] = ['fehler' => $e->getMessage()];
     }
 
@@ -316,40 +305,6 @@ function sondierung_stammdaten(WebUntisAuth $wu, WebUntisRest $rest,
             $probe['roh_auszug'] = sondierung_kuerzen($r['text'], 300);
         }
         $bericht['klassenstundenplan'] = $probe;
-    }
-
-    // ---- Schüler:innen (Grundlage für Weg B) ------------------------
-    try {
-        $schueler = $wu->getStudents();
-        $felder = $schueler === [] ? [] : array_keys($schueler[0]);
-
-        // Anonymisiertes Struktur-Beispiel: Namensfelder ausblenden
-        $namensfelder = ['name', 'foreName', 'longName', 'displayName', 'key'];
-        $beispiel = [];
-        if ($schueler !== []) {
-            foreach ($schueler[0] as $feld => $wert) {
-                $beispiel[$feld] = in_array($feld, $namensfelder, true)
-                    ? '…' : $wert;
-            }
-        }
-
-        // Gibt es Hinweise auf Gruppen-/Zusatzmerkmale?
-        $gruppenfelder = array_values(array_filter($felder,
-            fn($f) => preg_match('/group|gruppe|category|kategorie|type|typ|flag|klass|class|year|jahr/i', $f)));
-
-        $bericht['getStudents'] = [
-            'anzahl'            => count($schueler),
-            'felder'            => $felder,
-            'beispiel_anonym'   => $beispiel,
-            'gruppen_verdacht'  => $gruppenfelder,
-            'hinweis'           => $gruppenfelder === []
-                ? 'Keine Gruppen-/Klassenfelder – Weg B kann Oberstufenschüler '
-                    . 'nicht vorab bestimmen; Volljährigkeit nur über '
-                    . 'personType 5 beim Login erkennbar.'
-                : 'Mögliche Gruppen-/Klassenfelder gefunden – Werte prüfen.',
-        ];
-    } catch (Throwable $e) {
-        $bericht['getStudents'] = ['fehler' => $e->getMessage()];
     }
 
     // ---- REST-Varianten: liefern sie mehr (z. B. aktiv/Austritt)? ----

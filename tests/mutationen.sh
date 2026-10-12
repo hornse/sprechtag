@@ -1184,7 +1184,7 @@ M23=sql/23_schueler_entfernen.sql
 # und ein Unterordner (auth).
 mut SA1 $IDX 's/(mit_eltern_ids_ermitteln\(\$pdo, \$kind, \$rest\)\)\]\);\n)/$1\$alteZahl = (int)\$pdo->query("SELECT COUNT(*) FROM schueler")->fetchColumn();\n/' \
   $RKN "keine Datei unter backend/ nennt schueler als Tabelle in SQL"
-mut SA2 backend/api/sondierung.php 's/(        \$schueler = \$wu->getStudents\(\);\n)/$1        \$pdo->exec("INSERT INTO schueler (webuntis_id) VALUES (1)");\n/' \
+mut SA2 backend/api/sondierung.php 's/(        \$pcIds = \[\];\n)/$1        \$pdo->exec("INSERT INTO schueler (webuntis_id) VALUES (1)");\n/' \
   $RKN "keine Datei unter backend/ nennt schueler als Tabelle in SQL"
 mut SA3 backend/helfer.php 's/(declare\(strict_types=1\);\n)/$1\nfunction alt_klasse_leeren(PDO \$pdo): void { \$pdo->exec("UPDATE schueler SET klasse = \x27\x27"); }\n/' \
   $RKN "keine Datei unter backend/ nennt schueler als Tabelle in SQL"
@@ -1220,7 +1220,7 @@ mut SA16 $IDX 's/(require_once __DIR__ \. \x27\/sondierung\.php\x27;\n)/$1requir
 mut SA17 $IDX 's/(if \(\(\$seg\[0\] \?\? \x27\x27\) === \x27schueler-gruppen\x27\) \{\n)/if ((\$seg[0] ?? \x27\x27) === \x27schueler\x27) { json_antwort([]); }\n$1/' \
   $RSA "kein Routenzweig für /api/schueler"
 mut SA18 backend/api/buchungen.php 's/(declare\(strict_types=1\);\n)/$1\$altAbgleich = fn(\$wu) => \$wu->getStudents();\n/' \
-  $RSA "getStudents wird nur noch in der Sondierung gerufen"
+  $RSA "getStudents wird unter backend/ nirgends gerufen"
 mut SA19 $APP 's/(function datenschutzAbsaetze\(\) \{\n  return \[\n)/$1    \x27Die Sch\xc3\xbclerliste mit Namen und Klassen bleibt gespeichert.\x27,\n/' \
   $DS "Hilfe nennt keine Schülerliste mehr als gespeichert"
 mut SA20 $APP 's/(  svTreffer: null,)/  schuelerAnzahl: 0,\n$1/' \
@@ -1550,6 +1550,25 @@ mut LL1 $IDX 's/        if \(\(int\)marke_wert\(\$pdo, \x27login_log_aktiv\x27, 
   $LLT "Protokoll nur bei aktiv sichtbar"
 mut LL2 $BRS 's/if \(\$logAktiv && \$logErfolge\)/if (\$logAktiv || \$logErfolge)/' \
   $LLT "Erfolge nur bei aktiv+erfolge geloggt"
+
+# ------------------------------------------------------------
+# SS1–SS5 (v0.9.95): die Stammdaten-Sondierung, ausgeführt mit Attrappen der
+# Außenwelt (Modul v2.0.0: getStudents fort, getCurrentSchoolyear wirft bei
+# Netzfehlern). SS1 und SS2 trennen „fängt nur Betriebsfehler“ von „fängt
+# alles“; die Prüfung zu SS1 war vor und nach der Änderung grün und ist nur
+# durch diese Mutation belegt.
+RSS=tests/run_sondierung_stammdaten.php
+SON=backend/api/sondierung.php
+mut SS1 $SON 's/    \} catch \(RuntimeException \$e\) \{\n        \$bericht\[\x27getCurrentSchoolyear\x27\]/    } catch (Throwable \$e) {\n        \$bericht[\x27getCurrentSchoolyear\x27]/' \
+  $RSS "Programmierfehler (Error) beim Schuljahr wird nicht gefangen"
+mut SS2 $SON 's/    \} catch \(RuntimeException \$e\) \{\n        \$bericht\[\x27pageconfig_schueler\x27\]/    } catch (Throwable \$e) {\n        \$bericht[\x27pageconfig_schueler\x27]/' \
+  $RSS "Programmierfehler (Error) bei pageconfig wird nicht gefangen"
+mut SS3 $SON 's/    \} catch \(RuntimeException \$e\) \{\n        \$bericht\[\x27getCurrentSchoolyear\x27\]/    } catch (LogicException \$e) {\n        \$bericht[\x27getCurrentSchoolyear\x27]/' \
+  $RSS "Netzfehler (RuntimeException) bricht die Sondierung nicht ab"
+mut SS4 $SON 's/(        \$pcIds = \[\];\n)/$1        \$wu->getStudents();\n/' \
+  $RSS "getStudents wird nicht gerufen"
+mut SS5 $SON 's/if \(\(int\)\(\$e\[\x27klasseId\x27\] \?\? 0\) > 0\) \$mitKlasse\+\+;//' \
+  $RSS "pageconfig: Anzahl, mit Klasse, mit externKey"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi

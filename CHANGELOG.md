@@ -1,5 +1,60 @@
 # Changelog - sprechtag
 
+## v0.9.95 (Oktober 2026) – Sondierung bereit für das WebUntis-Modul v2.0.0
+
+Anlass: `koordination` hat das Client-Modul zusammengeführt und auf v2.0.0
+getaggt. Vor der Verteilung war hier zu entscheiden, weil sich drei Stellen
+in `backend/api/sondierung.php` anders verhalten würden (E26). Verteilt ist
+das Modul damit noch nicht; `backend/auth/` ist unverändert.
+
+- **`getStudents` wird nicht mehr gerufen.** Das Modul führt die Abfrage ab
+  v2.0.0 nicht (personenbezogen, REIHENREGELN 9), und ihr `rpc()` ist
+  privat. Ein eigener Nachbau wäre eine zweite Wahrheit für ein
+  abgeschaltetes Werkzeug. Es entfallen:
+  - der Abschnitt „Weg B“ der Stammdaten-Sondierung (Felder, anonymisiertes
+    Beispiel, Gruppenfelder);
+  - im Abschnitt pageconfig der Abgleich mit `getStudents`. Seine Frage,
+    ob es derselbe Nummernkreis ist, ist beantwortet (E8, gemessen am
+    07.10.2026). Er saß in einem leeren `catch (Throwable)`, der einen
+    Programmierfehler als „nicht abrufbar“ ausgewiesen hätte.
+  pageconfig bleibt mit seinen drei Zählwerten (Datensätze, davon mit
+  Klasse, davon mit `externKey`).
+- **Aktuelles Schuljahr:** Ab v2.0.0 wirft `getCurrentSchoolyear()` bei
+  einem Netzfehler, statt wie in den Sommerferien `[]` zu liefern. Der
+  Aufruf steht jetzt in einem `try` mit `catch (RuntimeException)`: Ein
+  Netzfehler steht als Fehler im Bericht, ein Programmierfehler fliegt durch.
+- **pageconfig** fängt ebenso nur noch `RuntimeException` statt `Throwable`.
+- **Nicht angefasst:** die drei `catch (Throwable)` bei Schuljahren und
+  Klassen in derselben Funktion, und Punkt 9 der Aufräumliste
+  (`mitteilungen.php`).
+
+### Prüfungen
+- **1664 → 1669 Prüfzeilen, 74 → 75 Suiten, alle grün;**
+  `tests-sprechtag.sh` 29.
+- **Neue Suite `tests/run_sondierung_stammdaten.php`, 16 Prüfungen.** Sie
+  führt die **echte** `sondierung_stammdaten()` aus; ersetzt ist nur die
+  Außenwelt, durch Unterklassen der beiden Client-Klassen, die mitschreiben,
+  was gerufen wird. Die Attrappe für das Schuljahr verhält sich wie v2.0.0.
+  **Vor der Änderung 8 von 16 rot:** Netzfehler beim Schuljahr (3),
+  `getStudents` gerufen, im Bericht, in pageconfig, in der Bewertung, und
+  ein `Error` in pageconfig gefangen. Die Attrappe liefert dieselben
+  Kennungen wie pageconfig, damit der alte Code die Bewertung wählt, die
+  `getStudents` nennt – sonst wäre die Prüfung darauf zufällig grün gewesen.
+- **`run_schuelerliste_abbau.php`:** „getStudents wird nur noch in der
+  Sondierung gerufen“ heißt jetzt „… unter backend/ nirgends gerufen“; vor
+  der Änderung rot.
+- **`tests/run.php` 34 → 23:** Die elf Prüfungen zur Anonymisierung und zu
+  den Gruppenfeldern von Weg B prüften eine **nachgebildete Kopie** des
+  Codes, nicht den Code; der Kommentar dort sagte es. Mit Weg B prüfen sie
+  nichts mehr. Die Lage kommt als Nachtrag in
+  `docs/BEFUND-2026-10-11-pruefungen-in-der-datei.md`.
+- **Mutationen 565 → 570, alle angeschlagen.** SA2 sitzt jetzt an
+  `$pcIds = [];` (dieselbe Regel: keine Tabelle `schueler`), SA18 erwartet
+  den neuen Prüfungsnamen. Neu sind SS1–SS5. SS1 (`catch (Throwable)` beim
+  Schuljahr) belegt die Prüfung, die vor und nach der Änderung grün war.
+  Die Rücknahme ist belegt: Prüfsummen aller 185 Dateien und
+  `git diff --stat` vorher und nachher gleich.
+
 ## v0.9.94 (Oktober 2026) – Keine Kontodaten des Betreibers mehr im heutigen Stand
 
 - **Die Testdaten trugen die `user.id` und die `person.id` des Elternkontos

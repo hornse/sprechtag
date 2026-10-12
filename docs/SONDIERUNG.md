@@ -21,6 +21,11 @@
 >   Betrieb bis zum 11.10.2026 nicht geschehen;** gemessen an diesem Tag
 >   (ohne Zugangsdaten 400 statt 403), danach abgeschaltet.
 
+> **Nachtrag 12.10.2026 (v0.9.95):** Die Stammdaten-Sondierung ruft
+> `getStudents` nicht mehr; der Abschnitt dazu und der Abgleich bei
+> pageconfig sind entfallen (E26). Das WebUntis-Modul führt die Abfrage ab
+> v2.0.0 nicht. Was unten zu `getStudents` steht, ist der Stand vom Juli.
+
 Das Sondierwerkzeug (Startseite der App) beantwortet die drei offenen
 Machbarkeitsfragen des Projekts. Es arbeitet **ausschließlich lesend**
 (authenticate, GET-Aufrufe, logout) und speichert weder Passwörter noch

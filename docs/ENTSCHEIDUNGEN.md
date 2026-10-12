@@ -1778,3 +1778,43 @@ v0.9.94).
 
 **Offen beim Betreiber:** die übrigen Namen und Kennungen in den Testdaten
 (Bestandsaufnahme, Nachtrag 12.10.2026).
+
+---
+
+## E26 — Die Sondierung ruft getStudents nicht mehr; zwei catch fangen nur Betriebsfehler
+
+**Datum:** 12.10.2026 · **Version:** v0.9.95 · **Entschieden vom Betreiber**,
+auf eine Mitteilung von `koordination`
+
+**Lage:** Das WebUntis-Client-Modul ist in `koordination` zusammengeführt
+und auf v2.0.0 getaggt (`hornse/webuntis-client-php`, gelesen in
+`src/WebUntisAuth.php`). Zwei Änderungen treffen `sondierung.php`:
+`getStudents()` ist nicht mehr im Modul (personenbezogen, REIHENREGELN 9;
+`rpc()` ist privat), und `getCurrentSchoolyear()` liefert `[]` nur noch für
+„kein Schuljahr aktiv“ und wirft bei jedem anderen Fehler. `koordination`
+verlangte vor der Verteilung eine Entscheidung: Abfrage in die Anwendung
+oder die Abschnitte fallen weg – nicht „bleibt im Modul“.
+
+**Entschieden:**
+
+- **Beide Stellen mit `getStudents` fallen weg** – der Abschnitt „Weg B“ und
+  im Abschnitt pageconfig der Abgleich. Begründung: Ein Nachbau wäre eine
+  zweite Wahrheit für ein abgeschaltetes Werkzeug, und dass `rpc()` privat
+  ist, sagt zusätzlich, dass der Weg nicht von außen gegangen werden soll.
+  Der Abgleich hatte genau einen Zweck – derselbe Nummernkreis –, und der
+  ist beantwortet (E8). **pageconfig bleibt** mit seinen drei Zählwerten;
+  sie sagen weiter, ob pageconfig liefert und wie vollständig.
+- **Aktuelles Schuljahr und pageconfig fangen `RuntimeException`, nicht
+  `Throwable`** (FALLSTRICKE 3). Ein Netzfehler steht als Fehler im
+  Bericht und nicht mehr als Sommerferien; ein Programmierfehler fliegt
+  durch.
+- **Punkt 9 der Aufräumliste bleibt getrennt** (`mitteilungen.php`).
+
+**Belegt:** `tests/run_sondierung_stammdaten.php` führt die echte Funktion
+mit Attrappen der Außenwelt aus; vor der Änderung 8 von 16 rot. Die elf
+Prüfungen in `tests/run.php`, die eine nachgebildete Kopie von Weg B
+prüften, sind entfernt (CHANGELOG v0.9.95).
+
+**Was bleibt:** Bei Schuljahren und Klassen fängt dieselbe Funktion noch
+`Throwable` (drei Stellen). Das Modul selbst ist hier noch nicht verteilt;
+`backend/auth/` ist unverändert.
