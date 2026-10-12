@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v2.0.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v2.1.0 – dort ändern, hierher kopieren! -->
 # Fallstricke: PHP, Router, WebUntis
 
 Ergänzung zu `REIHENREGELN.md`. **Quelle ist `hornse/koordination`**; die
@@ -97,6 +97,14 @@ und die Anwendung meldete „nicht erreichbar", **ohne je eine Verbindung
 versucht zu haben**. Zwei Tage Fehlersuche an der falschen Stelle. **Wo
 nur Betriebsfehler behandelt werden sollen, fängt `catch (Exception …)`
 das Richtige.**
+
+**Ein `catch` mit Rückfall ist schlimmer als ein leeres.** Das leere
+meldet nichts, der Rückfall meldet Erfolg: Einmal gab ein
+`catch (Throwable)` denselben Wert zurück wie eine abgelaufene Sitzung,
+und ein Versand fiel still auf genau das Konto zurück, von dem weggewollt
+wurde. **Der Rückfall bleibt vom Normalfall unterscheidbar** — im
+Protokoll oder in der Antwort, **mit Grund**: Ein Zähler je Grund trennt
+„Sitzung abgelaufen" von „etwas ist kaputt".
 
 **`?? 'x'` liefert den Ersatzwert auch bei `null`.** Eine Prüfung, die so
 schreibt, kann **„fehlt" und „ist null" nicht unterscheiden** — und das

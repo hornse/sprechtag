@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v2.0.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v2.1.0 – dort ändern, hierher kopieren! -->
 # Regeln der Reihe
 
 Gilt für alle Projekte, die diese Datei führen. **Quelle ist
@@ -79,6 +79,10 @@ gleichwertig und billig.**
 **Bei einem roten Testlauf anhalten und melden, nicht reparieren.** Das
 ist die Grenze der vorigen Regel: Ein Fund nebenbei darf mitbehoben
 werden, ein rotes Testergebnis nicht.
+
+**Drei Einzelfälle sind ein Muster.** Wer denselben Fall zum dritten Mal
+einzeln entscheidet, entscheidet ihn zum dritten Mal falsch. Die Frage
+gehört dazu: Braucht es eine Regel?
 
 ---
 
@@ -205,9 +209,11 @@ muss, wird nie ausgeführt.** Das ist nicht derselbe Fall: Bei einer
 fehlenden Voraussetzung meldet sich die Prüfung. Hier schweigt sie, und
 **Schweigen ist von Bestehen nicht zu unterscheiden.**
 
-Ein solcher Schritt stellt seine Voraussetzung selbst her, oder er ist
-keine Prüfung, sondern eine Anleitung. Beides ist zulässig; nur muss
-dabeistehen, was von beidem es ist.
+Ein solcher Schritt stellt seine Voraussetzung selbst her, **oder er
+läuft mit und meldet sichtbar, dass er übersprungen wurde** — oder er
+ist keine Prüfung, sondern eine Anleitung. Alles drei ist zulässig; nur
+muss dabeistehen, was davon es ist. **Nur von Hand gestartet, läuft er
+nicht.**
 
 **Wird eine Prüfung erweitert, muss die Prüfungszahl um den erwarteten
 Betrag steigen.** Bleibt sie gleich oder steigt sie um weniger, ist die
@@ -552,12 +558,15 @@ Schritt geprüft.
 **Eine Aussage über einen Zustand wird mit Datum weitergegeben oder vor
 der Verwendung geprüft.** Versionsstand, Prüfungszahl, welches Repo was
 führt — das veraltet von selbst. **Eine Entscheidung gilt, bis sie
-aufgehoben wird; ein Zustand nicht.**
+aufgehoben wird; ein Zustand nicht.** **Eine Messung geht in der Form
+weiter, in der gemessen wurde** — Aufruf, Konto, Zeit, Ergebnis. Eine
+Antwort ohne ihren Aufruf hat dreimal zu einem Fehlschluss geführt.
 
 **Und ein Datum aus einem Auftrag ist keine Messung.** **Ein relatives
 Wort ist dieselbe Falle** — „gestern" wird ausgerechnet, und wer es
 ausrechnet, braucht einen Bezugspunkt, den er ebenfalls nicht gemessen
-hat.
+hat. **Ebenso eine Zahl:** Nennt ein Auftrag eine aus einem Bericht,
+verlangt er ihre Prüfung an der Quelle.
 
 Das ist dieselbe Einsicht wie bei einem Prüfschritt, dessen Voraussetzung
 von Hand hergestellt werden muss — eine Ebene höher: **Eine
@@ -611,7 +620,10 @@ nicht überall dieselbe Seite.
 **Ein Push auf die Server-Gegenstelle ist eine Auslieferung**, keine
 Vorbereitung: Am Bare-Repo hängt ein Hook, der auscheckt oder ausrollt.
 Was mit hochgeht, geht damit in den Betrieb — auch Commits aus einem
-anderen Vorhaben, die zufällig darunter liegen.
+anderen Vorhaben, die zufällig darunter liegen. **Und umgekehrt:**
+Namentliches Addieren trennt Commits, nicht Pushes. Ein fremder Push
+liefert eigene Commits mit aus — beim eigenen sieht man, was mitgeht,
+beim fremden nicht.
 
 **Der Bericht jedes Laufs wird ins Repo committet.** Ohne abgelegten
 Vorbericht ist keine Vorher-Nachher-Aussage prüfbar — und darauf beruht
@@ -691,9 +703,21 @@ sieht sie, kein `git diff`, kein Test.
 Werte:** Schlüssel, Aufbau, Vorhandensein. Werte müssen abweichen — das
 ist ihr Zweck.
 
+**Ein Auslieferungsskript addiert namentlich und lässt vor dem Commit
+die Prüfungen laufen.** Pauschales Addieren hätte einmal eine Datei mit
+einer Personenkennung ausgeliefert und hat einmal einen stillen
+Rückschritt über vier Auslieferungen getragen; ohne Prüfung ging ein
+roter Stand mit 17 Fehlern hinaus. **Bei unverfolgten Dateien hält es an
+und nennt sie** — das fängt auch die vergessene Datei, die hineingehört.
+
+**Wer eine Arbeitskopie aus einer Lieferung spiegelt, sieht vorher den
+Stand beider Seiten an.** Ein Protokoll der Arbeitskopie allein sagt
+nicht, dass die Lieferung älter ist.
+
 **`deploy.sh` muss den Push auch dann erreichen, wenn es nichts zu
 committen gibt.** `git commit` bricht sonst unter `set -e` ab. Muster:
-`git add -A`, dann `if ! git diff --cached --quiet; then git commit …`.
+namentlich stagen, dann `if ! git diff --cached --quiet; then git commit
+…`.
 
 **Cache-Busting mit einem Ausdruck über beliebige Zeichen**, nicht nur
 Ziffern. `?v=DEV` ändert sich sonst nie.
@@ -871,7 +895,19 @@ anderes.
 
 **Wird ein Mitschnitt zu Testdaten, werden zuerst alle Zugangsdaten
 ersetzt**, dann der Rest übernommen. Platzhalter gleicher Länge, damit
-Längenprüfungen weiter etwas prüfen. Nicht umgekehrt.
+Längenprüfungen weiter etwas prüfen. Nicht umgekehrt. **Und übernommen
+wird die Struktur, nicht die Werte:** Namen, Kennungen und Adressen
+werden ebenso ersetzt, **vor dem ersten Commit** — danach stehen sie in
+der Historie, und die ist öffentlich. Die Platzhalter haben gleiche
+Länge und Form und **gleichen keiner echten Kennung**: Eine erfundene
+dreistellige Nummer hat einmal eine Prüfung ausgelöst und eine ganze
+Klasse blockiert.
+
+**Der Vermerk „aus Mitschnitt" ist ein Signal zum Nachsehen, nicht zum
+Vertrauen.** Wo ein Wert adressierbar ist, geht das Ersetzen der Regel
+vor, alte Protokolleinträge nicht zu ändern (Abschnitt 10) — eine
+Adresse kann jemand benutzen, ein Kürzel sagt außerhalb der Schule
+niemandem etwas. Eine Arbeitsdatei ist ohnehin kein Protokolleintrag.
 
 **Anonymisierung darf die Auskunft nicht zerstören.** Wo eine Antwortform
 belegt ist und keine Personendaten enthält, tritt eine gezielte
