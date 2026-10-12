@@ -110,8 +110,11 @@ WebUntis kann sie mit jedem Update ändern, ohne Ankündigung.
   wird es nicht gebraucht.
 
 **Zwischen zwei Schuljahren ist in WebUntis keines aktiv** (FALLSTRICKE 6).
-Die Anwendung setzt die Schuljahres-Kopfzeile nicht (am Code gelesen); was
-in diesem Zeitraum geschieht, ist nicht gemessen.
+Die Anwendung setzt die Schuljahres-Kopfzeile nicht (am Code gelesen). **Ob
+ihre Aufrufe in dieser Zeit scheitern, ist nicht gemessen** – belegt ist
+nur, dass sie nichts dagegen tut, nicht, dass es sie nicht betrifft.
+Entscheiden würde es ein Lauf im Sommer, zwischen dem Ende des einen und
+dem Beginn des nächsten Schuljahrs in WebUntis.
 
 **Feldnamen und Antwortformen** sind an der Referenzschule beobachtet, nicht
 zugesagt. Wo `sprechtag` mehrere Formen probiert – etwa beim Versand an
