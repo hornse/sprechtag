@@ -1728,3 +1728,53 @@ Beschreibung der Regel anschlagen“), nur im Werkzeug statt im Code.
 dass der Eingriff an der gemeinten Stelle sitzt.** Gefunden hat es der
 Nichttreffer in der Serie, nicht eine Prüfung. Behoben ist der Anlass:
 ET8 ist an `ALTER TABLE` verankert.
+
+---
+
+## E25 — Kontodaten raus aus dem heutigen Stand; Betriebswerte nur, wo nichts kopiert wird
+
+**Datum:** 12.10.2026 · **Version:** v0.9.94 · **Entschieden vom Betreiber**
+
+**Lage:** Die Bestandsaufnahme der Doku (12.10.2026) fand in den Testdaten
+die `user.id` und die `person.id` des Elternkontos des Betreibers, dazu
+seinen Namen als Anzeigenamen – beide Kennungen gemeldet am 10.10.2026 aus
+`/api/auth/me`. Die `user.id` stand außerdem in einem Code-Kommentar, in
+einer Migration und im CHANGELOG (v0.9.0), die `person.id` in
+`docs/SONDIERUNG.md`. Das Repo ist öffentlich. Daneben trug der Kopf von
+`deploy.sh` den echten Datenbanknamen, während `docs/BETRIEB.md` seit dem
+Doku-Umbau `DATENBANK` schreibt.
+
+**Entschieden:**
+
+- **Kennungen und Name werden überall im heutigen Stand ersetzt**, durch
+  erfundene Werte gleicher Länge, wie in v0.9.87 – auch im CHANGELOG, mit
+  Vermerk. Maßstab ist die **Adressierbarkeit**, nicht die Unterscheidung
+  Arbeitsdatei gegen Protokolleintrag (Entscheidung von `koordination` zu
+  REIHENREGELN 9 gegen 10, mitgeteilt am 11.10.2026): Allein sagt eine
+  WebUntis-Kennung nichts, zusammen mit dem Autor des Repos und der Schule
+  wird sie zuordenbar. Das Kürzel unter v0.9.4 ist außerhalb der Schule
+  bedeutungslos und bleibt. Begründung des Betreibers für das CHANGELOG:
+  Eine Kennung, die überall sonst verschwindet und nur dort stehen bleibt,
+  wäre eine seltsame Hälfte.
+- **Der Datenbankname wird nur in `deploy.sh` ersetzt, nicht in den 16
+  Köpfen unter `sql/`.** Begründung des Betreibers: Der Datenbankname ist
+  kein personenbezogener Wert; er gehört zu Hostname und Benutzername –
+  unschön im öffentlichen Repo, aber nicht schützenswert. Die Köpfe unter
+  `sql/` sind das Arbeitswerkzeug beim Einspielen, dort steht ein
+  kopierbarer Befehl, und **ein Befehl, den man ersetzen muss, bevor er
+  läuft, ist fehleranfälliger als einer, der läuft.** In `deploy.sh` stand
+  ohnehin `sql/NN_*.sql`, nicht kopierbar; dort kostet ein Platzhalter
+  nichts, und der Satz daneben sagt, dass er zu ersetzen ist.
+
+**Was es nicht leistet:** Das Ersetzen nimmt die Werte aus dem heutigen
+Stand, nicht aus der Historie; das Repo ist öffentlich. Wer sie wirklich
+entfernen wollte, müsste die Historie umschreiben, und das bricht jeden
+Klon. (Wortlaut aus dem Nachtrag von `koordination` zu v0.9.87.)
+
+**Belegt:** dass die Prüfungen dasselbe prüfen wie vorher – sieben
+Eingriffe am geprüften Code im Probebaum, alte und neue Testfassung mit
+denselben roten Positionen (`tests/werkzeuge/ersatz_belegen.sh`, CHANGELOG
+v0.9.94).
+
+**Offen beim Betreiber:** die übrigen Namen und Kennungen in den Testdaten
+(Bestandsaufnahme, Nachtrag 12.10.2026).

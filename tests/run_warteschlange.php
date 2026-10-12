@@ -27,13 +27,13 @@ $cfg = ['webuntis' => ['base_url' => 'https://example.invalid', 'school' => 'x',
 
 // Ohne nutzbare Sitzung -> bleibt offen, kein Netzzugriff (seit v0.9.72
 // gibt es keine Zugangsdaten mehr, nur die Sitzung; E17)
-$e = mit_einreihen_und_senden($pdo, 1, 5984, 'bestaetigung', 'Betreff', 'Text', null, null,
+$e = mit_einreihen_und_senden($pdo, 1, 7350, 'bestaetigung', 'Betreff', 'Text', null, null,
     ['rest' => null, 'art' => 'abgelaufen', 'grund' => 'kein_cookie']);
 $e['id'] = $e['ids'][0] ?? 0;
 pruefe('Mitteilung angelegt', $e['id'] > 0);
 pruefe('Status offen ohne nutzbare Sitzung', $e['status'] === 'offen');
 $row = $pdo->query('SELECT * FROM mitteilungen WHERE id = ' . $e['id'])->fetch();
-pruefe('Empfänger gespeichert', (int)$row['empfaenger_user_id'] === 5984);
+pruefe('Empfänger gespeichert', (int)$row['empfaenger_user_id'] === 7350);
 pruefe('Anlass gespeichert', $row['anlass'] === 'bestaetigung');
 pruefe('Versuche zunächst 0', (int)$row['versuche'] === 0);
 pruefe('kein Sendezeitpunkt', $row['gesendet_am'] === null);

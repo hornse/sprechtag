@@ -120,7 +120,8 @@ Die Adresse der Testeltern ist erfunden; bis v0.9.87 stand hier die echte
 
 Die automatische Schüler-ID-Erkennung nahm die *erste* gefundene Struktur –
 und das war `user.person`, also die Person des angemeldeten Elternteils
-selbst (476). Die STUDENT-Stundenplanprobe lief damit gegen die falsche ID
+selbst (813; die Zahl ist erfunden, die echte am 12.10.2026 ersetzt,
+v0.9.94). Die STUDENT-Stundenplanprobe lief damit gegen die falsche ID
 und meldete folgerichtig `NOT_FOUND`. Seit v0.2.0 wählt
 `sondierung_schueler_ids()` nur Pfade, die nach Schüler/Kind aussehen,
 verwirft `-1` und sondiert **je Kind einzeln**.

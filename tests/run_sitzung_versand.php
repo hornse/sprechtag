@@ -87,7 +87,7 @@ $zeile = fn(PDO $pdo, int $id) => $pdo->query('SELECT * FROM mitteilungen WHERE 
 echo "Abgelaufen: die Mitteilung bleibt stehen, die Antwort sagt es\n";
 $pdo = neue_db();
 $text = "Guten Tag,\n\nleider muss Ihr Termin entfallen.\n\nMit freundlichen Grüßen";
-$e = mit_einreihen_und_senden($pdo, 1, 5984, 'absage', 'Terminabsage', $text, 90001, 7,
+$e = mit_einreihen_und_senden($pdo, 1, 7350, 'absage', 'Terminabsage', $text, 90001, 7,
     $weg('abgelaufen', 'kein_token'));
 $z = $zeile($pdo, $e['ids'][0]);
 pruefe('Status offen, Ursache abgelaufen, eine Kennung der Mitteilung',
@@ -110,7 +110,7 @@ $z = $zeile($pdo, $e['ids'][0]);
 pruefe('gesendet: ein Aufruf an /v2/messages/users, Text und Empfänger aus der Warteschlange',
     $g['status'] === 'gesendet' && $g['sitzung'] === null && count($r->aufrufe) === 1
     && $r->aufrufe[0][0] === P_USERS && ($r->aufrufe[0][1]['content'] ?? null) === $text
-    && ($r->aufrufe[0][1]['recipientUserIds'] ?? null) === [5984]);
+    && ($r->aufrufe[0][1]['recipientUserIds'] ?? null) === [7350]);
 pruefe('… in der Datenbank gesendet, mit Zeitpunkt', $z['status'] === 'gesendet' && $z['gesendet_am'] !== null);
 $r2 = new VersandRest([P_USERS => $ok]);
 mit_senden_oder_vormerken($pdo, $e['ids'], ['rest' => $r2, 'art' => null, 'grund' => null]);
@@ -125,11 +125,11 @@ $fehlerKind = false;
 try { mit_einreihen($pdo, 1, 0, 'einladung', 'B', 'T', null, 7, 'eltern'); }
 catch (InvalidArgumentException $x) { $fehlerKind = true; }
 pruefe('PARENTS nur mit der Kennung des Kindes', $fehlerKind);
-$id = mit_einreihen($pdo, 1, 5984, 'einladung', 'Einladung', 'Einladungstext', 90042, 7, 'eltern');
+$id = mit_einreihen($pdo, 1, 7350, 'einladung', 'Einladung', 'Einladungstext', 90042, 7, 'eltern');
 $z = $zeile($pdo, $id);
 pruefe('gespeichert als Empfängerart eltern, ohne Konto-Kennung (0)',
     $z['empfaenger_art'] === 'eltern' && (int)$z['empfaenger_user_id'] === 0 && (int)$z['schueler_id'] === 90042);
-$idK = mit_einreihen($pdo, 1, 5984, 'absage', 'Absage', 'Absagetext', 90001, 7);
+$idK = mit_einreihen($pdo, 1, 7350, 'absage', 'Absage', 'Absagetext', 90001, 7);
 $r = new VersandRest([P_MSG => $ok4, P_USERS => $ok]);
 $g = mit_senden_oder_vormerken($pdo, [$id, $idK], ['rest' => $r, 'art' => null, 'grund' => null]);
 $aufP = array_values(array_filter($r->aufrufe, fn($a) => $a[0] === P_MSG));
@@ -164,7 +164,7 @@ pruefe('mit_absage_art: ohne Kind-Kennung (0) an das gebuchte Konto – nie ohne
     function_exists('mit_absage_art') && mit_absage_art(0) === 'konto');
 if (function_exists('mit_absage_art')) {
     $pdo = neue_db();
-    $ia = mit_einreihen($pdo, 1, 5984, 'absage', 'Terminabsage', 'Absagetext', 90001, 7, mit_absage_art(90001));
+    $ia = mit_einreihen($pdo, 1, 7350, 'absage', 'Terminabsage', 'Absagetext', 90001, 7, mit_absage_art(90001));
     $r = new VersandRest([P_MSG => $ok4, P_USERS => $ok]);
     mit_senden_oder_vormerken($pdo, [$ia], ['rest' => $r, 'art' => null, 'grund' => null]);
     pruefe('eine Absage geht als EIN Aufruf über PARENTS mit der Kind-Kennung, nicht an das Konto',
@@ -205,7 +205,7 @@ function route(string $zweig, array $sitzung, string $methode, array $seg, array
 }
 $pdo = neue_db(); $GLOBALS['testPdo'] = $pdo;
 // Absage der Lehrkraft 7: die Buchung ist danach gelöscht (keine Zeile in buchungen).
-$eigen  = mit_einreihen($pdo, 1, 5984, 'absage', 'A', 'T', 90001, 7);
+$eigen  = mit_einreihen($pdo, 1, 7350, 'absage', 'A', 'T', 90001, 7);
 $fremd  = mit_einreihen($pdo, 1, 6000, 'absage', 'A', 'T', 90002, 8);
 $alt    = mit_einreihen($pdo, 1, 6100, 'bestaetigung', 'B', 'T', 90003, null);   // vor v0.9.72: ohne Lehrkraft
 $pdo->exec('INSERT INTO buchungen VALUES (1, 1, 7, 6100, 90003, "15:00:00")');

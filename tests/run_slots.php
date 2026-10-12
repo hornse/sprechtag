@@ -155,12 +155,12 @@ pruefe('Lehrkraft ignoriert Eltern-Maximum',
 
 // ------------------------------------------------------------
 echo "slot_storno_erlaubt\n";
-$b2 = ['eltern_user_id' => 5984, 'phase' => 'phase2'];
-$b1 = ['eltern_user_id' => 5984, 'phase' => 'phase1'];
+$b2 = ['eltern_user_id' => 7350, 'phase' => 'phase2'];
+$b1 = ['eltern_user_id' => 7350, 'phase' => 'phase1'];
 pruefe('Eltern stornieren eigene Phase-2-Buchung',
-    slot_storno_erlaubt($b2, 'eltern', 5984)['ok'] === true);
+    slot_storno_erlaubt($b2, 'eltern', 7350)['ok'] === true);
 pruefe('Eltern stornieren KEINE Phase-1-Buchung',
-    slot_storno_erlaubt($b1, 'eltern', 5984)['ok'] === false);
+    slot_storno_erlaubt($b1, 'eltern', 7350)['ok'] === false);
 pruefe('Lehrkraft storniert Phase-1-Buchung',
     slot_storno_erlaubt($b1, 'lehrkraft', 0)['ok'] === true);
 pruefe('Admin storniert immer',
@@ -236,13 +236,15 @@ pruefe('removed ignoriert',
 
 // ------------------------------------------------------------
 echo "rest_konto_aus_appdata\n";
-$app = ['user' => ['id' => 5984, 'person' => ['id' => 476, 'displayName' => 'Horn Sebastian'],
+// Aufbau aus app/data; user.id, person.id und displayName ERFUNDEN (v0.9.94,
+// gleiche Länge). Die Kennungen der Kinder sind nicht eingeordnet.
+$app = ['user' => ['id' => 7350, 'person' => ['id' => 813, 'displayName' => 'Beispiel Anton'],
     'roles' => ['LEGAL_GUARDIAN'],
     'students' => [['id' => 13914, 'displayName' => 'Paulowski Paul'],
                    ['id' => 14069, 'displayName' => 'Paulowski Petra']]]];
 $k = rest_konto_aus_appdata($app);
-pruefe('userId gelesen', $k['userId'] === 5984);
-pruefe('personId gelesen', $k['personId'] === 476);
+pruefe('userId gelesen', $k['userId'] === 7350);
+pruefe('personId gelesen', $k['personId'] === 813);
 pruefe('Rolle gelesen', $k['rollen'] === ['LEGAL_GUARDIAN']);
 pruefe('zwei Kinder', count($k['kinder']) === 2);
 pruefe('Kind-ID korrekt', $k['kinder'][0]['id'] === 13914);

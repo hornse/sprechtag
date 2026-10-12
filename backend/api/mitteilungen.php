@@ -15,7 +15,7 @@
 //         Content-Type: multipart/form-data
 //         Teil name="request", filename="blob", Content-Type: application/json
 //         {"subject":"…","content":"…","requestConfirmation":false,
-//          "recipientUserIds":[5984],"oneDriveAttachments":[],
+//          "recipientUserIds":[7350],"oneDriveAttachments":[],
 //          "forbidReply":false}
 //     Entscheidend: KEIN reiner JSON-Body, sondern ein Multipart-Teil.
 //     Empfänger werden über recipientUserIds (user.id) adressiert.

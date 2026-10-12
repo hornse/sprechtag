@@ -12,16 +12,16 @@ pruefe('belegter Weg ist multipart',
     ($v['v2_users_multipart']['multipart'] ?? false) === true);
 pruefe('belegter Pfad korrekt',
     $v['v2_users_multipart']['pfad'] === '/WebUntis/api/rest/view/v2/messages/users');
-$b = ($v['v2_users_multipart']['body'])(5984, 'B', 'T');
-pruefe('recipientUserIds als Feld', $b['recipientUserIds'] === [5984]);
+$b = ($v['v2_users_multipart']['body'])(7350, 'B', 'T');
+pruefe('recipientUserIds als Feld', $b['recipientUserIds'] === [7350]);
 pruefe('alle Pflichtfelder des Mitschnitts vorhanden',
     isset($b['subject'], $b['content'], $b['requestConfirmation'],
           $b['recipientUserIds'], $b['oneDriveAttachments'], $b['forbidReply']));
 $ok = true; $ids = true;
 foreach ($v as $name => $e) {
     if (!str_starts_with($e['pfad'], '/WebUntis/')) $ok = false;
-    $b = ($e['body'])(5984, 'Betreff', 'Text');
-    if (!str_contains(json_encode($b), '5984')) $ids = false;
+    $b = ($e['body'])(7350, 'Betreff', 'Text');
+    if (!str_contains(json_encode($b), '7350')) $ids = false;
 }
 pruefe('alle Pfade unter /WebUntis/', $ok);
 pruefe('alle Bodies enthalten die Empfänger-ID', $ids);

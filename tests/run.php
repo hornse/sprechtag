@@ -54,8 +54,9 @@ pruefe('langer Text gekürzt + markiert',
 
 echo "sondierung_schueler_ids\n";
 // Befund 07/2026: user.person (Eltern-Person!) darf NICHT als Kind gelten
+// Die Personen-ID ist ERFUNDEN (v0.9.94, gleiche Länge).
 $funde = [
-    ['pfad' => 'user.person',   'ids' => [476]],
+    ['pfad' => 'user.person',   'ids' => [813]],
     ['pfad' => 'user.students', 'ids' => [13914, 14069]],
 ];
 pruefe('ignoriert user.person, nimmt user.students',
@@ -63,7 +64,7 @@ pruefe('ignoriert user.person, nimmt user.students',
 pruefe('manuelle ID hat Vorrang',
     sondierung_schueler_ids($funde, '999') === ['999']);
 pruefe('leer ohne Student-Pfade',
-    sondierung_schueler_ids([['pfad' => 'user.person', 'ids' => [476]]]) === []);
+    sondierung_schueler_ids([['pfad' => 'user.person', 'ids' => [813]]]) === []);
 pruefe('-1 wird verworfen (Admin)',
     sondierung_schueler_ids([['pfad' => 'user.students', 'ids' => [-1]]]) === []);
 pruefe('max begrenzt',

@@ -3,7 +3,7 @@
 -- Idempotent. Einspielen: mysql hornse_sprechtag < sql/08_mitteilung_kind.sql
 --
 -- Grund: In der Mitteilungsliste stand bisher nur die WebUntis-User-ID
--- der Eltern (z. B. "5984") – für Lehrkräfte wertlos. Der Name der
+-- der Eltern (z. B. "7350") – für Lehrkräfte wertlos. Der Name der
 -- Eltern wird bewusst NICHT gespeichert (Datensparsamkeit); stattdessen
 -- wird das betroffene Kind vermerkt, dessen Name ohnehin in der
 -- Schülerliste steht. Das ist auch die fachlich relevantere Angabe.

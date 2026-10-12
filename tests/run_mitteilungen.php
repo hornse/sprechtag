@@ -52,15 +52,15 @@ pruefe('mindestens 4 Varianten', count($v) >= 4);
 $allePfade = true; $alleBodies = true;
 foreach ($v as $name => $e) {
     if (!str_starts_with($e['pfad'], '/WebUntis/')) $allePfade = false;
-    $body = ($e['body'])(5984, 'Betreff', 'Text');
+    $body = ($e['body'])(7350, 'Betreff', 'Text');
     if (!is_array($body) || $body === []) $alleBodies = false;
     // Empfänger-ID muss irgendwo im Body auftauchen
-    if (!str_contains(json_encode($body), '5984')) $alleBodies = false;
+    if (!str_contains(json_encode($body), '7350')) $alleBodies = false;
 }
 pruefe('alle Pfade unter /WebUntis/', $allePfade);
 pruefe('alle Bodies enthalten Empfänger-ID', $alleBodies);
 $erste = $v[array_key_first($v)];
-$body = ($erste['body'])(5984, 'B', 'T');
+$body = ($erste['body'])(7350, 'B', 'T');
 pruefe('Betreff im Body', ($body['subject'] ?? '') === 'B');
 pruefe('Text im Body', ($body['content'] ?? '') === 'T');
 

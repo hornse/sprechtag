@@ -13,8 +13,10 @@
 #      Dateien (entfällt, wenn nichts zu committen ist), Push nach
 #      GitHub und Uberspace.
 #
-# DB-Migrationen werden NICHT übertragen – separat einspielen:
-#   mysql hornse_sprechtag < sql/NN_*.sql
+# DB-Migrationen werden NICHT übertragen – separat einspielen, je Datei
+# und in der Reihenfolge aus ihrem Kopf (DATENBANK durch den eigenen
+# Namen ersetzen; der kopierbare Befehl steht im Kopf jeder Datei):
+#   mysql DATENBANK < sql/NN_name.sql
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 # ============================================================

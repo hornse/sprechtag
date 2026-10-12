@@ -277,3 +277,28 @@ das gewollt (Hilfe). Ob man auch zu einem **geschlossenen** Sprechtag
 einladen kann, ist nicht ausprobiert; ob es stört, ist eine Nutzungsfrage.
 Eine Einladung zu einem geschlossenen Sprechtag wäre für die Eltern
 irreführend.
+
+## Nachtrag 12.10.2026 (v0.9.94) — Kontodaten des Betreibers ersetzt; weitere Namen
+
+**Erledigt:** Die `user.id` und die `person.id` des Elternkontos des
+Betreibers und sein Name als Anzeigename sind im heutigen Stand ersetzt
+(CHANGELOG v0.9.94, E25). Nicht in der Historie.
+
+**Berichtigung zum vorigen Nachtrag:** Die Liste der weiteren Namen war
+unvollständig. Eine zweite Durchsicht aller Namensfelder in `tests/` fand
+zusätzlich (Stellen, ohne die Werte):
+
+- `tests/run_elternzuordnung.php:14` und `:16` – zwei Elternkonten mit
+  **anderen** Nachnamen als dem erfundenen, im Block, den der Kommentar als
+  Mitschnitt ausweist (Prüfungsnamen in `:34` und `:42` nennen sie mit).
+- Der Lehrkraft-Name aus `tests/run_einladungstext.php:8` steht nicht an
+  einer Stelle, sondern an dreizehn in fünf Suiten (`run_einladungstext`,
+  `run_klausuren`, `run_mitteilungen`, `run_slots`, `run_stammsatz`).
+- Zwei weitere Nachnamen als Lehrkräfte in `tests/run_klausuren.php` und
+  `tests/run_stammsatz.php` (je zwei Stellen) und ein Personenname in
+  `tests/run_mitteilungen.php:76`.
+
+Gesucht wurde nach Zuweisungen an Namensfelder (`displayName`, `name`,
+`vorname`, `nachname`, `lehrer_name`, `kind_name`); Namen in anderer Form –
+als Funktionsargument, in doppelten Anführungszeichen – deckt die Suche
+nicht ab. Ob die Namen erfunden sind, entscheidet der Betreiber.

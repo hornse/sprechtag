@@ -1,5 +1,54 @@
 # Changelog - sprechtag
 
+## v0.9.94 (Oktober 2026) – Keine Kontodaten des Betreibers mehr im heutigen Stand
+
+- **Die Testdaten trugen die `user.id` und die `person.id` des Elternkontos
+  des Betreibers und seinen Namen als Anzeigenamen** – gemeldet am
+  10.10.2026 aus `/api/auth/me`. Die `user.id` stand in sechs Suiten
+  (`run_elternzuordnung`, `run_slots`, `run_mitteilungen`,
+  `run_sitzung_versand`, `run_varianten`, `run_warteschlange`), dazu im
+  Kopf von `backend/api/mitteilungen.php`, in `sql/08_mitteilung_kind.sql`
+  und im CHANGELOG unter v0.9.0; die `person.id` in `run_slots`, `run.php`
+  und `docs/SONDIERUNG.md`. Alle sind durch erfundene Werte gleicher Länge
+  ersetzt (REIHENREGELN 9); die Kennung behält ihre Stelle in der sortierten
+  Liste von `run_elternzuordnung`. Die Kommentare an den Testdaten sagen,
+  was erfunden ist und was noch wie im Mitschnitt steht. Gefunden in der
+  Bestandsaufnahme der Doku; das Repo ist öffentlich.
+- **Das Ersetzen nimmt die Werte aus dem heutigen Stand, nicht aus der
+  Historie; das Repo ist öffentlich. Wer sie wirklich entfernen wollte,
+  müsste die Historie umschreiben, und das bricht jeden Klon.** (Wortlaut
+  des Nachtrags von `koordination` unter v0.9.87.)
+- **Auch der CHANGELOG-Eintrag v0.9.0 ist ersetzt**, mit Vermerk dort.
+  Maßstab ist die Adressierbarkeit: Allein sagt die Kennung nichts,
+  zusammen mit dem Autor des Repos und der Schule wird sie zuordenbar (E25).
+- **`deploy.sh` nennt im Kopf `DATENBANK` statt des echten Namens**, mit dem
+  Satz, dass er zu ersetzen ist, wie `docs/BETRIEB.md`. Die 16 Köpfe unter
+  `sql/` behalten den echten Namen, weil dort der kopierbare Befehl steht
+  (E25). Geändert sind nur Kommentarzeilen; `bash -n` ohne Befund.
+
+### Prüfungen
+- **1664 Prüfzeilen in 74 Suiten, unverändert, alle grün;**
+  `tests-sprechtag.sh` 29.
+- **Dieselbe Prüfung wie vorher, belegt im Probebaum** mit dem neuen
+  Werkzeug `tests/werkzeuge/ersatz_belegen.sh` (gegen 308c09a): sieben
+  Eingriffe am geprüften Code (Namensvergleich und Kennung in
+  `mit_eltern_zu_kind`, `userId` und `personId` in
+  `rest_konto_aus_appdata`, Empfänger in `mit_varianten`, gespeicherter
+  Empfänger in `mit_einreihen`, Pfadauswahl in `sondierung_schueler_ids`).
+  Alte und neue Testfassung zeigen dieselben roten Positionen; jede der
+  sieben Suiten wird mindestens einmal rot. Je Eingriff ist belegt, dass er
+  angekommen ist (Prüfsumme) und an der gemeinten Stelle sitzt (genau ein
+  Treffer im Code, bei `mit_varianten` der erste im belegten Weg), und dass
+  die Rücknahme angekommen ist (`cmp`).
+- **Gegenprobe zum Werkzeug:** In einer Kopie des Repos ist eine Prüfung
+  der neuen Fassung zu `true` entwertet (Treffer 1 → 0); das Werkzeug meldet
+  bei `userId` „alt=67 neu=- VERSCHIEDEN“ und endet mit Fehler.
+- **Ein erster Eingriff kam nicht an** (der Suchausdruck passte nicht);
+  das Werkzeug meldete es über die gleich gebliebene Prüfsumme. Ein
+  zweiter (Rollenfilter in `mit_eltern_zu_kind` entfernt) kam an, und
+  **keine Suite wurde rot** – eine Lücke der Prüfung, gemeldet, nicht behoben;
+  für den Beleg ersetzt durch den Eingriff am Namensvergleich.
+
 ## v0.9.93 (Oktober 2026) – Sondierung nur für die Verwaltung; Brute-Force-Bremse an jeder Passwortstelle
 
 **Sicherheitsfund, gefunden bei der Durchsicht der Dokumentation.**
@@ -3270,6 +3319,14 @@ Breiten, nicht Bedienbarkeit.**
 
 ## v0.9.0 (Juli 2026) – Einladungen benachrichtigen, Kind statt User-ID
 
+> **Ersetzt 12.10.2026 (v0.9.94):** Die Eltern-User-ID unten war die echte
+> Kennung eines Kontos. Sie ist durch eine erfundene gleicher Länge
+> ersetzt, wie überall im heutigen Stand. Maßstab ist die Adressierbarkeit
+> (Entscheidung von `koordination` zu REIHENREGELN 9 gegen 10, mitgeteilt
+> vom Betreiber am 11.10.2026): Allein sagt die Kennung nichts, zusammen
+> mit dem Autor des Repos und der Schule wird sie zuordenbar. Anders das
+> Kürzel unter v0.9.4, das geprüft und belassen ist. Siehe v0.9.94 und E25.
+
 ### Behoben
 - **Einladungen erzeugten überhaupt keine Benachrichtigung.** Das war
   eine Lücke, kein Fehler im Detail: Der Endpunkt legte nur den
@@ -3277,7 +3334,7 @@ Breiten, nicht Bedienbarkeit.**
   Einladung – obwohl Phase 1 genau darauf beruht. Jetzt entsteht beim
   Einladen eine Mitteilung, die mit hinterlegtem Dienstkonto **sofort**
   versendet wird. Der Umweg „erst anlegen, dann versenden" entfällt.
-- **Die Mitteilungsliste zeigte nur die Eltern-User-ID** („5984"), was
+- **Die Mitteilungsliste zeigte nur die Eltern-User-ID** („7350"), was
   für Lehrkräfte wertlos ist. Jetzt steht dort das betroffene **Kind mit
   Klasse**. Das ist die fachlich relevantere Angabe und kommt ohne
   zusätzliche personenbezogene Speicherung aus – der Name stammt aus der
