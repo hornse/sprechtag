@@ -1,7 +1,7 @@
 <?php
 // ============================================================
 // WebUntisRest.php – Client für die INTERNE WebUntis-REST-API
-// VENDORED aus hornse/webuntis-client-php v1.7.0 – dort ändern, hierher kopieren!
+// VENDORED aus hornse/webuntis-client-php v2.0.0 – dort ändern, hierher kopieren!
 //
 // ⚠️ UNDOKUMENTIERTE API: kann sich mit jedem WebUntis-Update
 // ändern. Für Produktivbetrieb den offiziellen JSON-RPC-Weg
@@ -75,10 +75,14 @@ class WebUntisRest
 
     /**
      * Liest die Nutzlast des JWT aus (ohne Signaturprüfung – rein
-     * informativ). Nützlich für die Diagnose: Das Feld 'scopes' bzw.
-     * 'per' zeigt, welche Rechte das Token trägt. Beispiel: "mg:r"
-     * bedeutet nur LESEN von Mitteilungen, "mg:rw" auch Schreiben.
-     * Ohne Schreibrecht scheitert der Mitteilungsversand mit 403.
+     * informativ). Die Felder 'scopes' bzw. 'per' werden durchgereicht.
+     *
+     * Der Scope sagt NICHTS über das Recht, Mitteilungen zu senden.
+     * Bis v2.0.0 stand hier, "mg:r" bedeute nur Lesen – widerlegt:
+     * Die WebUntis-Oberfläche trägt denselben Scope und sendet
+     * (lernzeiten, 06.10.2026), und eine Lehrkraft-Sitzung hat damit
+     * gesendet (sprechtag, 07.10.2026, dort E1). Maßgeblich ist
+     * GET /WebUntis/api/rest/view/v1/messages/permissions.
      */
     public function jwtDaten(): ?array
     {
@@ -169,7 +173,9 @@ class WebUntisRest
      *
      * Manche WebUntis-Endpunkte erwarten den JSON-Block NICHT als
      * Request-Body, sondern als Datei-Teil einer Multipart-Nachricht –
-     * so verschickt die Weboberfläche z. B. Mitteilungen:
+     * so verschickt die Weboberfläche Mitteilungen (belegt durch
+     * Mitschnitt am 24.07.2026, sprechtag; an /v2/messages am 06. und
+     * 09.10.2026, lernzeiten und koordination M48):
      *
      *   Content-Disposition: form-data; name="request"; filename="blob"
      *   Content-Type: application/json

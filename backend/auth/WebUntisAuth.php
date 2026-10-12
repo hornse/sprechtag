@@ -1,7 +1,7 @@
 <?php
 // ============================================================
 // WebUntisAuth.php – JSON-RPC-Client für WebUntis
-// VENDORED aus hornse/webuntis-client-php – dort ändern, hierher kopieren!
+// VENDORED aus hornse/webuntis-client-php v2.0.0 – dort ändern, hierher kopieren!
 //
 // Bekannte Fallstricke (siehe CLAUDE.md / Projektstunden NRW):
 //  * JSESSIONID aus der authenticate-Antwort (Set-Cookie) merken
@@ -50,13 +50,19 @@ class WebUntisAuth
     public function getSubjects(): array { return $this->rpc('getSubjects'); }
     public function getRooms(): array    { return $this->rpc('getRooms'); }
 
+    // Die drei folgenden Abfragen sind in v2.0.0 aus der Anleitung
+    // docs/WebUntisAuth_ergaenzung_v1.5.0.md übernommen.
+    //
+    // NICHT übernommen ist getStudents(): Die Schülerliste ist
+    // personenbezogen, und das Modul wird in jede Anwendung verteilt –
+    // auch in die, die sie nicht brauchen (REIHENREGELN 9). Wer sie
+    // braucht, ruft sie in der eigenen Anwendung.
+
     /**
-     * Alle Klassen (Ergänzung v1.4.0, Parameter ab v1.5.0).
-     *
-     * WICHTIG: Ohne Parameter bezieht sich der Aufruf auf das AKTUELLE
-     * Schuljahr. Zwischen zwei Schuljahren (Sommerferien) gibt es keines –
-     * WebUntis antwortet dann mit Fehler -8998 ("schoolyear is null").
-     * In dem Fall eine schoolyearId aus getSchoolyears() übergeben.
+     * Alle Klassen. Ohne Parameter bezieht sich der Aufruf auf das
+     * AKTUELLE Schuljahr; zwischen zwei Schuljahren gibt es keines, und
+     * WebUntis antwortet mit -8998 („schoolyear is null“, gemessen im
+     * Sommer 2026). Dann eine schoolyearId aus getSchoolyears() übergeben.
      */
     public function getKlassen(?int $schoolyearId = null): array
     {
@@ -64,30 +70,33 @@ class WebUntisAuth
             $schoolyearId === null ? [] : ['schoolyearId' => $schoolyearId]);
     }
 
-    /** Alle Schuljahre mit id, name, startDate, endDate (Ergänzung v1.5.0). */
+    /** Alle Schuljahre mit id, name, startDate, endDate. */
     public function getSchoolyears(): array { return $this->rpc('getSchoolYears'); }
 
     /**
-     * Aktuelles Schuljahr oder [] in den Ferien (Ergänzung v1.5.0).
-     * Fängt den Fehler -8998 ab und liefert dann ein leeres Array.
+     * Aktuelles Schuljahr, oder [] wenn keines aktiv ist.
+     *
+     * [] heißt NUR „kein Schuljahr aktiv“: das Ergebnis null oder der
+     * Fehler -8998. Jeder andere Fehler – nicht erreichbar, kein JSON,
+     * Sitzung abgelaufen, ein anderer Fehlercode – wird weitergereicht.
+     * Bis v2.0.0 fing die Anleitung jede RuntimeException, und ein
+     * Netzfehler sah aus wie die Sommerferien.
+     *
+     * Nicht gemessen ist, welche der beiden Formen getCurrentSchoolyear
+     * selbst zwischen zwei Schuljahren liefert; beide ergeben [].
      */
     public function getCurrentSchoolyear(): array
     {
         try {
             $r = $this->rpc('getCurrentSchoolyear');
-            return is_array($r) ? $r : [];
         } catch (RuntimeException $e) {
-            return [];
+            if ($e->getCode() === -8998) {
+                return [];
+            }
+            throw $e;
         }
+        return is_array($r) ? $r : [];
     }
-
-    /**
-     * Alle Schüler:innen (Ergänzung v1.4.0).
-     * Liefert je Eintrag mindestens id, key, name, foreName, longName.
-     * ACHTUNG: personenbezogene Daten – nur abrufen, was gebraucht wird,
-     * und nicht mehr speichern als nötig.
-     */
-    public function getStudents(): array { return $this->rpc('getStudents'); }
 
     /** JSESSIONID-Cookie der laufenden Session (für die interne REST-API). */
     public function sessionCookie(): ?string { return $this->sessionCookie; }
@@ -117,7 +126,7 @@ class WebUntisAuth
     {
         $url  = $this->baseUrl . '/WebUntis/jsonrpc.do?school=' . rawurlencode($this->school);
         $body = json_encode([
-            'id'      => uniqid('spr_', false),
+            'id'      => uniqid('fako_', false),
             'method'  => $method,
             'params'  => $params === [] ? new stdClass() : $params,
             'jsonrpc' => '2.0',
