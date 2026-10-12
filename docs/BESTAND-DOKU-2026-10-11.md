@@ -211,3 +211,26 @@ Fehlt heute in jeder Datei. Für eine eigene Datei (Vorschlag
 5. *Beantwortet und umgesetzt am 11.10.2026* (v0.9.93).
 6. Die drei veralteten Code-Kommentare: Doku-Zug oder Aufräumliste?
 7. *Beantwortet*: diese Datei.
+
+---
+
+## Nachtrag 12.10.2026 — Fragen 1, 2, 3, 6 beantwortet (Betreiber)
+
+1. **Schulname:** allgemein halten, die Referenzschule als Einsatz nennen –
+   „entwickelt für und im Einsatz an …“, im Kopf und allenfalls am Ende,
+   nicht durch den Text hindurch. Es sagt zweierlei: dass es an einer
+   echten Schule läuft, und dass es nicht generisch gebaut wurde.
+2. **`BETRIEB.md` mit Platzhaltern.** Das Repo ist öffentlich; Hostname und
+   Benutzername nützen niemandem außer dem Betreiber und erleichtern
+   Dritten die Zuordnung. Dass sie heute in der README stehen, ist der
+   Grund, sie beim Umbau loszuwerden.
+3. **`BEDIENUNG.md` umbauen** zum Ablauf eines Sprechtags für die
+   Verwaltung (anlegen, Phasen schalten, Räume zuordnen, Erinnerungen,
+   archivieren) – in welcher Reihenfolge man vorgeht und worauf man achtet.
+   Was ein Knopf tut, bleibt der Hilfe.
+6. **Aufräumliste**, nicht Doku-Zug: die Kommentare in `mitteilungen.php`,
+   `router.php` und `buchungen.php` (`docs/AUFRAEUMEN.md`, Punkt 6). Den
+   Verweis auf `NEUES_PROJEKT_PROMPT.md` in der README nimmt der Umbau mit.
+
+Zuschnitt wie vorgeschlagen bestätigt. Schritt 1 erledigt:
+`docs/WEBUNTIS.md`.

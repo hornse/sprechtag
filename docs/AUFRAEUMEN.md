@@ -41,3 +41,17 @@ erledigte werden mit Version vermerkt, nicht gestrichen.
    `docs/BEFUND-2026-10-11-sprechtag-modul-und-kontodaten.md`, nicht über
    eine Nummer, weil die Entscheidung dort noch nicht abgelegt ist. Sobald
    sie es ist: je ein Nachtrag mit der Nummer, alter Text unverändert.
+6. **Veraltete Code-Kommentare** (vorgemerkt 12.10.2026, aus
+   `docs/BESTAND-DOKU-2026-10-11.md`, Frage 6: Codeänderungen, nicht
+   Doku-Zug).
+   - `backend/api/mitteilungen.php`, Kommentar über `mit_absage_art()`:
+     „Die Bestätigung nach einer Elternbuchung bleibt beim buchenden
+     Konto“ – diese Bestätigung gibt es seit v0.9.79 nicht mehr.
+   - `backend/api/buchungen.php`, Kopf von `POST /api/lehrer-ermitteln`:
+     nennt `[benutzername, passwort]`; der Code liest beides nicht mehr.
+   - `backend/router.php`, Kopf: Verweis auf `NEUES_PROJEKT_PROMPT.md`, die
+     es nicht gibt.
+   - `backend/config.example.php`, Abschnitt `security`: „für das
+     Sondierwerkzeug (und später den Login)“ – seit v0.9.93 gilt die Bremse
+     an Anmeldung, Sondierung und Stammdaten-Sync (gefunden 12.10.2026,
+     nach der Bestandsaufnahme).
