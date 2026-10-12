@@ -1,170 +1,139 @@
 # WebUntis-Mitteilungen
 
-## Der Versandweg (belegt am 24.07.2026)
+Wie `sprechtag` Nachrichten über WebUntis verschickt: an wen, wann, auf
+welchem Weg, und was geschieht, wenn es nicht klappt. Stand v0.9.93,
+12.10.2026, am Code gelesen; Messungen mit Datum. Die Fassung vom
+24.07.2026 steht in der Git-Geschichte (bis `04251e5`). Was WebUntis dafür
+bereitstellen muss, steht in `docs/WEBUNTIS.md`.
 
-Der Weg wurde durch Mitschnitt der WebUntis-Weboberfläche ermittelt
-(Entwicklerwerkzeuge → Netzwerk → Nachricht senden):
+## Zwei Wege
+
+**An die Erziehungsberechtigten eines Kindes – `recipientOption: PARENTS`**
+(E16, E17). Das ist der Normalfall.
 
 ```
-POST /WebUntis/api/rest/view/v2/messages/users
-Content-Type: multipart/form-data; boundary=----…
+POST /WebUntis/api/rest/view/v2/messages      (Multipart, Teil "request")
+{"subject":"…","content":"…","recipientOption":"PARENTS",
+ "recipientPersonIds":[<Kennung des Kindes>],"recipientGroupIds":[],
+ "copyToStudent":false,"requestConfirmation":false,
+ "oneDriveAttachments":[],"forbidReply":false}
+```
 
-------…
-Content-Disposition: form-data; name="request"; filename="blob"
-Content-Type: application/json
+- Adressiert wird **das Kind**; WebUntis löst daraus alle mit ihm
+  verknüpften Elternkonten auf. `sprechtag` braucht dafür keine Kennungen
+  der Eltern. Ohne Verknüpfung in WebUntis kommt nichts an.
+- `copyToStudent` ist aus: Eine Nachricht an die Eltern landet nicht beim
+  Kind.
+- **Erfolg heißt mindestens ein Empfänger** (`numberOfRecipients ≥ 1`),
+  nicht Status 200. Ein 2xx mit 0 Empfängern hat niemanden erreicht; einer
+  ohne Zahl ist unklar – beides bleibt offen, mit Grund. Bei „unklar“ sagt
+  die Meldung, vor erneutem Senden in WebUntis unter „Gesendet“
+  nachzusehen.
+- `/v2/messages/users` lehnt PARENTS ab (500); der Pfad ist `/v2/messages`.
+  Gemessen am 09.10.2026 an der Referenzschule: angekommen.
 
+**An ein einzelnes Konto – `recipientUserIds`.** Der Weg vom 24.07.2026,
+belegt durch Mitschnitt der WebUntis-Oberfläche:
+
+```
+POST /WebUntis/api/rest/view/v2/messages/users   (Multipart, Teil "request", filename "blob")
 {"subject":"…","content":"…","requestConfirmation":false,
- "recipientUserIds":[5984],"oneDriveAttachments":[],"forbidReply":false}
-------…--
+ "recipientUserIds":[<user.id>],"oneDriveAttachments":[],"forbidReply":false}
 ```
 
-Drei Punkte, die vorher falsch geraten wurden:
+- Der JSON-Block ist ein **Multipart-Teil**, kein Request-Body; reine
+  JSON-POSTs scheitern.
+- Adressiert wird die **`user.id`** aus `app/data`, nicht die `personId`
+  aus `authenticate`.
+- Gebraucht wird der Weg nur noch für die freie Mitteilung (unten) und für
+  eine Absage, zu der keine Kennung des Kindes vorliegt.
+- **Rückfall-Varianten:** Schlägt der belegte Weg fehl, folgen sechs weitere
+  (andere Pfade, JSON statt Multipart, andere Feldnamen) – für eine
+  WebUntis-Fassung, die abweicht (`mit_varianten()`). Die erfolgreiche wird
+  gemerkt und künftig zuerst probiert. 401 und 403 brechen ab
+  (Rechteproblem, weitere Varianten wären sinnlos), ebenso „nicht
+  erreichbar“; bei jedem anderen Fehler kommt die nächste Variante.
+  Für PARENTS gibt es keine Varianten.
 
-* Der Pfad lautet **`/v2/messages/users`**, nicht `/v1/messages`.
-* Der JSON-Block ist **kein Request-Body**, sondern ein **Multipart-Teil**
-  mit `name="request"` und `filename="blob"`. Reine JSON-POSTs scheitern.
-* Empfänger werden über **`recipientUserIds`** adressiert – mit der
-  `user.id` aus `app/data`, nicht der `personId` aus `authenticate`.
-
-## Rechte: der wahrscheinlichste Stolperstein
-
-> **Berichtigt (07.10.2026, ab v0.9.48):** Der Scope `mg:r` sagt nichts über
-> das Senderecht – Lehrkraft-Sitzungen senden damit, maßgeblich ist
-> `messages/permissions`; die Berichtigung steht in `docs/ENTSCHEIDUNGEN.md`
-> E1. Auch der Hinweis auf den Scope in der Fehlermeldung ist fort; die
-> Sondierung zeigt ihn seit v0.9.50 nur noch als Auskunft. Der Abschnitt
-> bleibt als Stand vom 24.07.2026 stehen.
-
-Das JWT aus `/WebUntis/api/token/new` trägt einen Scope für Mitteilungen:
-
-| Scope | Bedeutung |
-|---|---|
-| `mg:r` | nur **lesen** |
-| `mg:rw` | lesen und **senden** |
-
-Im Mitschnitt vom 24.07.2026 trug das Admin-Token nur `mg:r`. Falls der
-Versand mit 403 scheitert, ist das die Ursache – das Konto braucht in
-WebUntis das Recht, Mitteilungen zu senden. Das System liest den Scope aus
-und weist in der Fehlermeldung darauf hin.
-
-## Wie das System vorgeht
-
-Der belegte Weg wird zuerst probiert. Schlägt er fehl, folgen sechs
-Rückfall-Varianten (andere Pfade, JSON statt Multipart, abweichende
-Feldnamen) – falls eine andere Instanz oder WebUntis-Version abweicht.
-Die erfolgreiche Variante wird in `einstellungen` gemerkt und künftig
-zuerst genutzt.
-
-Die Antwort auf jede Variante steht danach unter „Mitteilungen" im
-Bereich **Diagnose des letzten Versands**.
-
-Bewertung der Antworten:
-
-* **2xx** → Erfolg, Variante wird gemerkt.
-* **401/403** → Abbruch. Rechteproblem, weitere Varianten wären sinnlos.
-* **400/404/405/500** → nächste Variante probieren.
-
-**Schlägt alles fehl, geht nichts verloren:** Die Mitteilung bleibt mit
-Status `offen` und der Fehlermeldung stehen. Buchungen und Absagen sind
-davon unabhängig und immer korrekt.
-
-## Empfänger ermitteln: Kind → Elternkonto
-
-Für den Versand wird die WebUntis-**User-ID** der Eltern gebraucht. Sie
-lässt sich über die Empfängersuche des Nachrichtenzentrums auflösen
-(belegt am 24.07.2026):
-
-```
-# Als Lehrkraft – filtert serverseitig auf Erziehungsberechtigte:
-GET /WebUntis/api/rest/view/v1/messages/recipients/PARENTS/search?searchText=Paulow
-
-# Als Admin – liefert alle Rollen:
-POST /WebUntis/api/rest/view/v2/messages/recipients/CUSTOM/filter
-     {"filters":[],"searchText":"Paulow"}
-```
-
-Antwort:
-
-```json
-{"users":[
-  {"id":5984,"displayName":"…","role":"LEGAL_GUARDIAN",
-   "tags":["Paulowski Paul","Paulowski Petra"]},
-  {"id":7480,"displayName":"Paulowski Paul","role":"STUDENT","tags":[]}
-]}
-```
-
-Drei Dinge sind dabei wichtig:
-
-* **Die Verknüpfung läuft über Namen, nicht über IDs.** Unter `tags`
-  stehen die Namen der Kinder als Text. Der Abgleich mit der
-  Schülerliste ist deshalb bewusst streng (normalisiert, aber exakt) –
-  Teiltreffer werden nicht gewertet, damit keine fremden Konten
-  angeschrieben werden.
-* **Mehrere Erziehungsberechtigte pro Kind sind der Normalfall.** Im
-  Beispiel hat ein Kind drei Konten. Die Einladung geht an alle, sonst
-  erführe womöglich nur ein Elternteil davon.
-* **Konten mit `role: "STUDENT"` werden ignoriert.** Eine Einladung an
-  die Eltern darf nicht beim Kind landen. Die dort genannten IDs sind
-  ohnehin andere als die Schüler-IDs aus `app/data`.
-
-Findet die Suche nichts, greift als Rückfall die Eltern-ID aus einer
-früheren Buchung desselben Kindes. Bleibt auch das erfolglos, wird die
-Einladung angelegt und die Lehrkraft ausdrücklich darauf hingewiesen,
-die Eltern auf anderem Weg zu informieren.
+**Erinnerungen** gehen einen dritten Weg: an eine WebUntis-Empfängerliste
+(Art und Kennung in der Oberfläche der Verwaltung eingestellt). Die Liste
+wird aufgelöst und über `/v2/messages/users` in Blöcken zu 500 Empfängern
+beschickt. Kein Zeitplan: Die Verwaltung sieht die Zahl der Empfänger und
+löst den Versand selbst aus.
 
 ## Wann Mitteilungen entstehen
 
-| Anlass | Auslöser | Inhalt |
+| Anlass | Auslöser | an |
 |---|---|---|
-| `bestaetigung` | Eltern buchen einen Termin | **alle** aktuellen Termine dieses Kontos mit Zeit, Lehrkraft und Raum |
-| `absage` | Lehrkraft/Administration sagt einen Termin ab | Zeit, Lehrkraft, optionaler Freitext, Hinweis auf Neubuchung |
-| `hinweis` | manuell über die API | frei |
+| `einladung` | eine Lehrkraft lädt zu einem Kind ein | die Eltern des Kindes (PARENTS) |
+| `bestaetigung` | eine Lehrkraft bucht **stellvertretend** | die Eltern des Kindes (PARENTS) |
+| `absage` | eine Lehrkraft oder die Verwaltung sagt einen Termin ab | die Eltern des Kindes (PARENTS); ohne Kennung des Kindes das buchende Konto |
+| `absage` | Krankheitsausfall: die Verwaltung gibt die Termine einer Lehrkraft frei | je Termin wie oben; alle zusammen in einem Versand |
+| `hinweis` | freie Mitteilung über `POST /api/mitteilungen` | ein Konto |
 
-Bei mehrfachen Buchungen wird die **offene** Bestätigung ersetzt, nicht
-ergänzt – es gilt immer der aktuelle Gesamtstand. Sagen Eltern selbst ab,
-entsteht keine Mitteilung (sie wissen es ja).
+**Keine Mitteilung entsteht,**
+- wenn Eltern selbst buchen: Elternkonten dürfen in WebUntis nicht senden
+  (403, gemessen 10.10.2026; v0.9.79). Der Termin steht in „Meine Termine“
+  und im Kalender-Abo.
+- wenn Eltern selbst absagen: Es wird nur gelöscht (E19).
 
-## Versand auslösen
+## Versand und Warteschlange
 
-> **Überholt (Dienstkonto seit v0.9.72, E17):** Den Knopf „Alle offenen
-> versenden“ mit eingetippten Zugangsdaten gibt es in der Oberfläche nicht
-> mehr (Stand v0.9.87 gesucht, kein Treffer; seit wann, ist nicht
-> nachgesehen), und ein Dienstkonto gibt es nicht mehr. Mitteilungen gehen
-> über die WebUntis-Sitzung der handelnden Person; was liegen blieb, steht
-> nach der Anmeldung als „N Mitteilungen sind gespeichert, aber noch nicht
-> verschickt“ und in der Ansicht „Mitteilungen“ (E17). Das gilt auch für
-> Schritt 2 im folgenden Abschnitt. Der Abschnitt bleibt als damaliger
-> Stand stehen.
+Jede Mitteilung wird **zuerst gespeichert** (Status `offen`) und dann
+sofort versucht – über die **WebUntis-Sitzung der Person, die handelt**
+(E17). Ein Dienstkonto oder hinterlegte Zugangsdaten gibt es nicht mehr.
 
-Administration → „Mitteilungen" → Sprechtag wählen → Zugangsdaten eingeben
-→ „Alle offenen versenden". Die Zugangsdaten werden nur für diesen Vorgang
-verwendet und nicht gespeichert; es wird **eine** WebUntis-Sitzung für alle
-Mitteilungen geöffnet (maximal 200 je Durchgang).
+- **Ist die Sitzung abgelaufen** (an der Referenzschule nach rund 25 bis 30
+  Minuten, E9), bleibt die Mitteilung offen, mit dem Grund. Die Handlung
+  selbst – Absage, Freigabe, Einladung – gilt trotzdem.
+- **Nach der nächsten Anmeldung** meldet die Seite „N Mitteilungen sind
+  gespeichert, aber noch nicht verschickt“; „Jetzt senden“ holt es nach.
+  Lehrkräfte sehen und senden nur Mitteilungen zu ihren eigenen Terminen,
+  die Verwaltung alle. „Alle offenen eines Sprechtags“ sind je Durchgang
+  höchstens 200.
+- **Lehnt WebUntis ab,** bleibt die Mitteilung ebenfalls offen. Die Antwort
+  nennt je Variante, was WebUntis gesagt hat – das ist die Auskunft, mit
+  der sich ein geänderter Versandweg nachstellen lässt (Mitschnitt in der
+  WebUntis-Oberfläche, dann als weitere Variante in `mit_varianten()`).
 
-Wer versendet, sollte in WebUntis das Recht zum Versenden von Mitteilungen
-an Erziehungsberechtigte besitzen. Ein Dienstkonto ist dafür geeignet.
+## Rechte (gemessen an der Referenzschule)
 
-## Erster Versand – was zu erwarten ist
+- **Lehrkraft-Sitzungen senden**, obwohl ihr Token nur den Bereich `mg:r`
+  trägt. Maßgeblich ist `messages/permissions`, nicht der Bereich im Token
+  (E1, berichtigt am 07.10.2026; die Fassung vom 24.07.2026 hielt `mg:r` für
+  „nur lesen“).
+- **Das WebUntis-Admin-Konto bekommt für PARENTS 403** (E23). Die
+  Verwaltung arbeitet deshalb über ein Lehrerkonto mit Kürzel in
+  `admin_kuerzel`.
+- **Elternkonten senden nicht** (403, 10.10.2026).
 
-Der erste Durchgang ist zugleich der Beweis, ob der Versandweg funktioniert.
-Sinnvoll ist ein Test mit **einer** Mitteilung an ein Testkonto:
+## Empfängersuche – nur noch beim stellvertretenden Buchen
 
-1. Mit dem Testeltern-Konto einen Termin buchen (erzeugt eine Bestätigung).
-2. Als Administration „Alle offenen versenden".
-3. Ergebnis prüfen: Bei Erfolg nennt die Meldung die Variante (z. B.
-   `v1_recipients_ids`). Im Testeltern-Konto sollte die Nachricht im
-   WebUntis-Nachrichtenzentrum liegen.
+Bucht eine Lehrkraft für Eltern, muss der Termin einem **Elternkonto**
+zugeordnet werden, damit er dort unter „Meine Termine“ und im Kalender-Abo
+erscheint. Die Mitteilung selbst braucht das nicht (PARENTS).
 
-Bleibt es bei „Kein Versand möglich", steht die genaue Fehlermeldung je
-Mitteilung in der Tabelle. Diese Meldung ist die entscheidende Information
-für den nächsten Schritt – am besten zusammen mit dem WebUntis-Netzwerk-Tab
-(Nachricht in der Weboberfläche versenden, POST-Body ansehen) auswerten.
-Die dort sichtbare Struktur lässt sich in `mit_varianten()` als weitere
-Variante ergänzen.
+- Gesucht wird über die Empfängersuche des Nachrichtenzentrums, mit der
+  Sitzung der Lehrkraft: als Lehrkraft
+  `GET …/v1/messages/recipients/PARENTS/search`, als Admin
+  `POST …/v2/messages/recipients/CUSTOM/filter` (belegt am 24.07.2026;
+  die Lehrkraft-Suche findet die Konten, gemessen v0.9.69).
+- **Die Verknüpfung in der Antwort läuft über Namen:** Unter `tags` stehen
+  die Namen der Kinder als Text. Der Abgleich ist deshalb streng –
+  normalisiert (Groß- und Kleinschreibung, Leerraum, Wortreihenfolge), aber
+  exakt; Teiltreffer zählen nicht, damit kein fremdes Konto zugeordnet
+  wird.
+- Konten mit `role: "STUDENT"` werden übergangen.
+- **Rückfall:** das Elternkonto aus einer früheren Buchung desselben
+  Kindes.
 
 ## Datenschutz
 
-Gespeichert werden Empfänger-**User-ID**, Betreff und Text – keine Namen
-von Eltern, keine E-Mail-Adressen. Der Text enthält Lehrkraftnamen und
-Uhrzeiten. Beim Archivieren eines Sprechtags werden alle Mitteilungen
-gelöscht.
+Gespeichert werden je Mitteilung: Anlass, Betreff, Text, Status und Grund,
+die Empfängerart, bei einem Konto dessen `user.id`, bei PARENTS die
+Kennung des Kindes, dazu Name und Klasse des Kindes für die Liste der
+Lehrkraft (E20). Keine Namen oder Kennungen der Eltern bei PARENTS, keine
+E-Mail-Adressen. Der Text nennt Lehrkraft und Uhrzeit, die Bestätigung
+auch den Raum, die Einladung den Namen des Kindes.
+
+Beim Archivieren eines Sprechtags werden seine Mitteilungen gelöscht.

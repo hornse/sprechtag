@@ -55,3 +55,15 @@ erledigte werden mit Version vermerkt, nicht gestrichen.
      Sondierwerkzeug (und später den Login)“ – seit v0.9.93 gilt die Bremse
      an Anmeldung, Sondierung und Stammdaten-Sync (gefunden 12.10.2026,
      nach der Bestandsaufnahme).
+7. **`PORT` in `docs/BETRIEB.md`** (vorgemerkt 12.10.2026, Betreiber).
+   `8085` ist ein Wert dieser Installation; in einer Anleitung mit
+   Platzhaltern wäre `PORT` konsequent. Mitnehmen, wenn `BETRIEB.md`
+   ohnehin angefasst wird.
+8. **Migrationsschleife auf leerer Datenbank messen** (vorgemerkt
+   12.10.2026, offener Punkt, keine Codeänderung). README „Installation“
+   und `docs/BETRIEB.md` sagen: auf leerer Datenbank alle Dateien in
+   Namensreihenfolge – am Text gelesen, nicht gelaufen, weil hier keine
+   MariaDB läuft. Messen lässt es sich, sobald jemand eine frische
+   Datenbank aufsetzt: Ausgabe der Schleife ansehen, danach den Testlauf
+   gegen das Schema halten. Bis dahin bleibt der Vermerk „nicht
+   ausprobiert“ stehen.
