@@ -132,6 +132,9 @@ foreach (token_get_all((string)file_get_contents($wurzel . '/backend/config.exam
 }
 pruefe('Kommentar zeigt die Array-Form mit mehreren Kürzeln',
     str_contains($bsp, "'admin_kuerzel' => ['Hq', 'Mq', 'Sq']"));
+pruefe('Kommentar nennt den Notzugang und verweist für alles Weitere auf die Seite „Administratoren“ (E29)',
+    preg_match('/NOTZUGANG/', $bsp) === 1 && str_contains($bsp, '„Administratoren“')
+    && preg_match('/aussperren/', $bsp) === 1);
 pruefe('Kommentar warnt vor [\'Hq, Mq\'] und nennt die Groß-/Kleinschreibung',
     str_contains($bsp, "['Hq, Mq']") && preg_match('/Groß- und Kleinschreibung/', $bsp) === 1);
 

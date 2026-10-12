@@ -2,8 +2,10 @@
 // tests/frontend_admin_konto_test.js
 // Prüft v0.9.80 (E23-Nachtrag): Wer mit dem echten WebUntis-Admin-Konto
 // angemeldet ist, sieht eine Warnung. Sie nennt, WAS nicht hinausgeht,
-// dass die Nachrichten offen stehen bleiben, und den Weg: ein Lehrerkonto
-// in admin_kuerzel. Der sichtbare Text wird ausgeführt.
+// dass die Nachrichten offen stehen bleiben, und den Weg: ein Lehrerkonto,
+// das Administrator ist – seit v0.9.100 (E29) über die Seite
+// „Administratoren“ oder als Notzugang in admin_kuerzel, vorher nur dieser.
+// Der sichtbare Text wird ausgeführt.
 // Aufruf: node tests/frontend_admin_konto_test.js
 // ============================================================
 'use strict';
@@ -36,8 +38,8 @@ pruefe('nennt, was nicht hinausgeht: Absagen, Ausfälle, Einladungen, Bestätigu
   /Absagen/.test(text) && /Ausfälle/.test(text) && /Einladungen/.test(text)
   && /Bestätigungen/.test(text) && /an Eltern/.test(text));
 pruefe('sagt, dass die Nachrichten offen stehen bleiben', /bleiben[^.]*offen stehen/.test(text));
-pruefe('nennt den Weg: Lehrerkonto, dessen Kürzel in admin_kuerzel steht',
-  /Lehrerkonto/.test(text) && /admin_kuerzel/.test(text));
+pruefe('nennt den Weg: Lehrerkonto, das Administrator ist – unter „Administratoren“ oder als Notzugang in admin_kuerzel (E29)',
+  /Lehrerkonto/.test(text) && /„Administratoren“/.test(text) && /Notzugang in admin_kuerzel/.test(text));
 pruefe('ist eine Warnung (Klasse meldung fehler, role alert)',
   !!box && /\bmeldung\b/.test(box.klasse) && /\bfehler\b/.test(box.klasse) && box.attr.role === 'alert');
 

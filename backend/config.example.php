@@ -15,8 +15,11 @@ return [
         // 2 = Lehrkraft, 5 = Schüler, 12 = Erziehungsberechtigte(r)
         // (LEGAL_GUARDIAN), 16 = WebUntis-Admin (personId -1!)
         'allowed_person_types' => [2, 5, 12, 16],
-        // Kürzel der Lehrkräfte mit Admin-Rechten in der App. Ein ARRAY, je
-        // Kürzel ein Eintrag:
+        // NOTZUGANG (E29): Kürzel der Lehrkräfte, die IMMER Administrator
+        // sind, damit sich niemand aussperren kann – ein oder zwei genügen.
+        // Ändern lässt es sich nur hier auf dem Server. Alle weiteren
+        // Administratoren werden in der App unter „Administratoren“
+        // eingetragen, nicht hier. Ein ARRAY, je Kürzel ein Eintrag:
         //     'admin_kuerzel' => ['Hq', 'Mq', 'Sq'],
         // NICHT ['Hq, Mq'] – das ist EIN Eintrag mit Komma. Die App teilt
         // ihn zur Sicherheit auf (seit v0.9.78), gemeint ist aber die

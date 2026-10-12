@@ -126,7 +126,8 @@ Schleife **nicht ausprobiert** – bitte die Ausgabe ansehen.
 darf nie eingecheckt werden.
 
 **Danach in der Oberfläche,** angemeldet mit einem Lehrerkonto, dessen
-Kürzel in `admin_kuerzel` steht: Gruppen der Volljährigen (einmal mit dem
+Kürzel in `admin_kuerzel` steht (dem Notzugang, E29): weitere
+Administratoren unter „Administratoren“, Gruppen der Volljährigen (mit dem
 WebUntis-Admin-Konto, siehe `docs/WEBUNTIS.md`), Empfängerliste für
 Erinnerungen, Erscheinungsbild und Texte, dann der erste Sprechtag.
 

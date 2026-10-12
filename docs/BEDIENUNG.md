@@ -3,19 +3,22 @@
 In welcher Reihenfolge man vorgeht und worauf man achtet. Was ein Knopf
 tut, steht in der Hilfe der Anwendung (Teil „Für die Administration“); was
 WebUntis bereitstellen muss, in `docs/WEBUNTIS.md`. Stand v0.9.93,
-12.10.2026, am Code gelesen. Die Fassung vom 23.07.2026, die auch Eltern
+12.10.2026, am Code gelesen; die Administratoren (E29) nachgezogen mit
+v0.9.100. Die Fassung vom 23.07.2026, die auch Eltern
 und Lehrkräfte beschrieb, steht in der Git-Geschichte; deren Teil deckt
 heute die Hilfe ab.
 
 ## Einmal vorab
 
-1. **Mit dem eigenen Lehrerkonto arbeiten**, dessen Kürzel in
-   `admin_kuerzel` steht – nicht mit dem WebUntis-Admin-Konto. Mit diesem
-   gehen keine Nachrichten an Eltern hinaus (E23).
+1. **Mit dem eigenen Lehrerkonto arbeiten**, das Administrator ist –
+   nicht mit dem WebUntis-Admin-Konto. Mit diesem gehen keine Nachrichten
+   an Eltern hinaus (E23). Administrator ist ein Lehrerkonto über die Seite
+   „Administratoren“ oder als Notzugang (siehe Schritt 6).
 2. **Volljährige Schüler:** Die WebUntis-Gruppen wählen, deren Mitglieder
    selbst buchen dürfen; es können mehrere sein. Die Liste der Gruppen
-   bekommt nur das WebUntis-Admin-Konto – für diesen einen Schritt einmal
-   damit anmelden, danach wieder mit dem Lehrerkonto.
+   bekommt nur das WebUntis-Admin-Konto – für diesen Schritt damit
+   anmelden, danach wieder mit dem Lehrerkonto. **Wiederholen, wenn in
+   WebUntis eine Gruppe dazukommt oder umbenannt wird** (E29).
 3. **Stammdaten aus WebUntis übernehmen** (unter „Sprechtage“): mit
    WebUntis-Benutzername und Passwort; sie werden nur für diesen Abruf
    verwendet. Beim ersten Lauf prüfen, ob die Zahlen zum Kollegium passen.
@@ -29,6 +32,15 @@ heute die Hilfe ab.
    festgehalten).
 5. **Erinnerungen:** die WebUntis-Empfängerliste einstellen (Art und
    Kennung) und mit „Empfänger prüfen“ nachsehen, wie viele es sind.
+
+6. **Administratoren** (unter „Administration“, E29): weitere Lehrkräfte
+   eintragen, die die Verwaltung mitbenutzen. Eintragen wirkt ab ihrer
+   nächsten Anmeldung, Entfernen sofort. Die Seite zeigt alle, die
+   Administrator sind, mit Herkunft. Zwei Wege lassen sich dort nicht
+   ändern: der **Notzugang** – ein oder zwei Kürzel in `admin_kuerzel` in
+   `config.php`, die immer gelten, damit sich niemand aussperren kann;
+   geändert wird er nur auf dem Server – und das
+   **WebUntis-Administrationskonto**, das immer Administrator ist.
 
 ## Vor dem Sprechtag – Phase „in Vorbereitung“
 

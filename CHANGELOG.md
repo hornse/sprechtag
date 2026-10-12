@@ -1,5 +1,52 @@
 # Changelog - sprechtag
 
+## v0.9.100 (Oktober 2026) – Admin-Rechte, Teil 3: die Dokumentation
+
+Teil 3 von 3 zu E29 (Aufräumliste 10). Alle Stellen, die nur
+`admin_kuerzel` als Weg zur Verwaltung nannten, nennen jetzt die
+Arbeitsteilung: die Seite „Administratoren“ als Normalweg, `admin_kuerzel`
+als Notzugang, das WebUntis-Administrationskonto immer.
+
+- **Hilfe, „Für die Administration“:** neuer Absatz „Wer Administrator
+  ist“ (die Seite, Eintragen ab der nächsten Anmeldung, Entfernen sofort,
+  Notzugang und WebUntis-Konto). **Berichtigt:** Das
+  WebUntis-Administrationskonto werde „nur einmal gebraucht“ – nach E29 (A)
+  wird es bei jeder neuen oder umbenannten Gruppe wieder gebraucht.
+- **Warnkasten beim WebUntis-Administrationskonto:** nennt als Weg ein
+  Lehrerkonto, das Administrator ist – unter „Administratoren“ oder als
+  Notzugang in `admin_kuerzel`.
+- **`config.example.php`:** Der Kommentar zu `admin_kuerzel` sagt
+  „NOTZUGANG“, wozu er da ist, und dass alle weiteren Administratoren in
+  der App eingetragen werden. Array-Form, Komma-Warnung und
+  Groß-/Kleinschreibung stehen unverändert.
+- **`docs/BEDIENUNG.md`:** Schritt 1 und 2 nachgezogen (Schritt 2 mit
+  „Wiederholen, wenn eine Gruppe dazukommt oder umbenannt wird“), neuer
+  Schritt 6 „Administratoren“ – angehängt, die Nummern 1–5 bleiben.
+- **`docs/WEBUNTIS.md`:** Rollentabelle, neuer Absatz „Wer Administrator
+  ist“ mit den drei Wegen, „Das Admin-Konto braucht man für die
+  Gruppenliste“ statt „einmal“, Abschnitt 4.
+- **Außerdem, gleiche Aussage, nicht auf der Liste des Betreibers:**
+  `README.md` (Einrichtung nach der Installation) und
+  `docs/MITTEILUNGEN.md` (PARENTS-Absatz).
+- **Stehen geblieben:** Kommentare im Code, die `admin_kuerzel` in seiner
+  Rolle für das WebUntis-Konto nennen (`auth.php`, `app.js` bei der
+  Lehrkraftauswahl, `sql/02_sprechtag.sql`) – sie stimmen weiter.
+- **Aufräumliste 16:** Nach dem Entfernen hinkt die Anzeige bis zum
+  Neuladen; die Meldung soll dann sagen, warum (Zusatz des Betreibers).
+
+### Prüfungen
+- **Zuerst rot gezeigt:** vier Prüfungen gegen den alten Wortlaut, zwei
+  davon neu – Hilfe „Wer Administrator ist“ (`frontend_hilfe_test`) und
+  der Notzugang im Kommentar der Vorlage (`run_admin_kuerzel`); geändert
+  „nennt den Weg“ (`frontend_admin_konto_test`) und die Hilfeprüfung zum
+  Konto, die bisher „nur einmal“ verlangte.
+- **Prüfzeilen 1751 → 1753, Suiten 78,** alle grün; `tests-sprechtag.sh` 29.
+- **Mutationen 622 → 626:** OA26–OA28 und AK16 neu; AO8 auf den neuen
+  Wortlaut umgezogen, Name behalten. Die Hilfeprüfung zum Konto hatte
+  bisher keine Mutation (jetzt OA26).
+- **Ohne Prüfung:** `BEDIENUNG.md`, `WEBUNTIS.md`, `README.md`,
+  `MITTEILUNGEN.md` – Fließtext für Menschen, gelesen statt geprüft.
+
 ## v0.9.99 (Oktober 2026) – Admin-Rechte, Teil 2: die Seite „Administratoren“
 
 Teil 2 von 3 zu E29 (Aufräumliste 10): die Oberfläche zu `/api/admins`.

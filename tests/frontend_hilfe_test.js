@@ -284,10 +284,19 @@ pruefe('Lehrkräfte: stellvertretend – Kind suchen, Zeit antippen, alle Erzieh
 pruefe('Krankheitsausfall: freigegebener Wortlaut, kein „automatisch“ (H8)',
   /Die betroffenen Erziehungsberechtigten werden benachrichtigt; ist die Anmeldung der Verwaltung abgelaufen, bleibt die Absage gespeichert und wird nach erneuter Anmeldung verschickt\./.test(verw)
   && !/automatisch benachrichtigt/.test(ganz));
-pruefe('Verwaltung: mit dem Lehrerkonto; Administrationskonto ohne Elternnachrichten, nur einmal für die Gruppen (E23)',
+// Bis v0.9.99 hieß es „Es wird nur einmal gebraucht“; der Betreiber hat
+// in E29 (A) festgehalten, dass das Konto bei jeder neuen oder umbenannten
+// Gruppe wieder gebraucht wird.
+pruefe('Verwaltung: mit dem Lehrerkonto; Administrationskonto ohne Elternnachrichten, gebraucht für die Gruppen, auch wieder (E23, E29)',
   /Die Verwaltung mit dem eigenen Lehrerkonto benutzen/.test(verw)
   && /Mit dem WebUntis-Administrationskonto gehen keine Nachrichten an Eltern hinaus/.test(verw)
-  && /Es wird nur einmal gebraucht, um unter „Volljährige Schüler“ die Gruppen auszuwählen/.test(verw));
+  && /Gebraucht wird es für die Auswahl der Gruppen unter „Volljährige Schüler“ – beim Einrichten und wieder, wenn in WebUntis eine Gruppe dazukommt oder umbenannt wird/.test(verw)
+  && !/nur einmal gebraucht/.test(verw));
+pruefe('Verwaltung: wer Administrator ist – die Seite, Wirkung, Notzugang und WebUntis-Konto (E29)',
+  /Unter „Administratoren“ werden Lehrkräfte als Administrator eingetragen und wieder entfernt/.test(verw)
+  && /Eintragen wirkt ab der nächsten Anmeldung, Entfernen sofort/.test(verw)
+  && /Notzugang/.test(verw) && /damit sich niemand aussperren kann/.test(verw)
+  && /WebUntis-Administrationskonto/.test(verw) && /Die Seite zeigt alle drei/.test(verw));
 pruefe('Verwaltung: unter „Volljährige Schüler“ die Gruppen wählen (E15)',
   /Unter „Volljährige Schüler“ werden die WebUntis-Gruppen gewählt, deren Mitglieder selbst buchen dürfen/.test(verw));
 pruefe('Verwaltung: gespeicherte, nicht verschickte Mitteilungen – „Jetzt senden“',

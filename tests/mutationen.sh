@@ -1098,7 +1098,8 @@ mut AO6 $APP 's/Absagen, Ausfälle, Einladungen und \x27/Absagen, Einladungen un
   $FAO "nennt, was nicht hinausgeht"
 mut AO7 $APP 's/unter „Mitteilungen“ offen stehen\./unter „Mitteilungen“ verworfen./' \
   $FAO "sagt, dass die Nachrichten offen stehen bleiben"
-mut AO8 $APP 's/\x27in admin_kuerzel steht\.\x27/\x27in der Verwaltung eingetragen ist.\x27/' \
+# AO8 seit v0.9.100 (E29) auf dem neuen Wortlaut; der Weg nennt beide Listen.
+mut AO8 $APP 's/\x27ist – eingetragen unter „Administratoren“ oder als Notzugang in admin_kuerzel\.\x27/\x27ist – eingetragen in admin_kuerzel.\x27/' \
   $FAO "nennt den Weg"
 mut AO9 $APP 's/el\(\x27div\x27, \x27meldung fehler admin-konto-warnung\x27\)/el(\x27div\x27, \x27meldung info admin-konto-warnung\x27)/' \
   $FAO "ist eine Warnung"
@@ -1702,6 +1703,21 @@ mut OA24 $APP 's/  b\.appendChild\(kartenTabelle\(tab\)\);/  b.appendChild(tabel
   $MO "Karten genau in"
 mut OA25 $APP 's/api\(\x27\/api\/admins\/\x27 \+ e\.id,/api(\x27\/api\/admins\/\x27 + e.kuerzel,/' \
   $RFA "Entfernen (Cq): DELETE"
+
+# ------------------------------------------------------------
+# OA26–OA28 und AK16 (v0.9.100, E29, Aufräumliste 10 Teil 3): die
+# Dokumentation in der Anwendung. OA26: die Hilfe sagt wieder „nur einmal“
+# über das WebUntis-Konto (bis v0.9.99 so; E29 A). OA27/OA28: der Absatz
+# „Wer Administrator ist“ falsch bzw. gar nicht angehängt. AK16: die Vorlage
+# nennt den Notzugang nicht mehr.
+mut OA26 $APP 's/\(Absagen, Ausfälle, Einladungen, Bestätigungen\)\. Gebraucht wird es für \x27/(Absagen, Ausfälle, Einladungen, Bestätigungen). Es wird nur einmal gebraucht, für \x27/' \
+  $HIT "Verwaltung: mit dem Lehrerkonto"
+mut OA27 $APP 's/wieder entfernt\. Eintragen wirkt ab der nächsten Anmeldung, Entfernen sofort\. /wieder entfernt. Eintragen und Entfernen wirken sofort. /' \
+  $HIT "Verwaltung: wer Administrator ist"
+mut OA28 $APP 's/  verwaltung\.appendChild\(el\(\x27p\x27, null,\n    \x27Unter „Administratoren“/  (el(\x27p\x27, null,\n    \x27Unter „Administratoren“/' \
+  $HIT "Verwaltung: wer Administrator ist"
+mut AK16 $CFE 's/\/\/ NOTZUGANG \(E29\): /\/\/ /' \
+  $RAK "Kommentar nennt den Notzugang"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi

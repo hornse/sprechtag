@@ -751,8 +751,8 @@ function adminKontoWarnungElement() {
     + 'nicht. Die Aktionen selbst werden ausgeführt, die Nachrichten bleiben '
     + 'unter „Mitteilungen“ offen stehen.'));
   box.appendChild(el('p', null,
-    'Für die Verwaltung bitte mit einem Lehrerkonto anmelden, dessen Kürzel '
-    + 'in admin_kuerzel steht.'));
+    'Für die Verwaltung bitte mit einem Lehrerkonto anmelden, das Administrator '
+    + 'ist – eingetragen unter „Administratoren“ oder als Notzugang in admin_kuerzel.'));
   return box;
 }
 
@@ -1280,8 +1280,18 @@ function ansichtHilfe(ziel) {
   verwaltung.appendChild(el('p', null,
     'Die Verwaltung mit dem eigenen Lehrerkonto benutzen. Mit dem '
     + 'WebUntis-Administrationskonto gehen keine Nachrichten an Eltern hinaus '
-    + '(Absagen, Ausfälle, Einladungen, Bestätigungen). Es wird nur einmal '
-    + 'gebraucht, um unter „Volljährige Schüler“ die Gruppen auszuwählen.'));
+    + '(Absagen, Ausfälle, Einladungen, Bestätigungen). Gebraucht wird es für '
+    + 'die Auswahl der Gruppen unter „Volljährige Schüler“ – beim Einrichten und '
+    + 'wieder, wenn in WebUntis eine Gruppe dazukommt oder umbenannt wird.'));
+
+  // Wer Administrator ist (E29): drei Wege, einer davon hier zu pflegen.
+  verwaltung.appendChild(el('h4', null, 'Wer Administrator ist'));
+  verwaltung.appendChild(el('p', null,
+    'Unter „Administratoren“ werden Lehrkräfte als Administrator eingetragen und '
+    + 'wieder entfernt. Eintragen wirkt ab der nächsten Anmeldung, Entfernen sofort. '
+    + 'Daneben gibt es zwei Wege, die sich dort nicht ändern lassen: den Notzugang '
+    + '(Kürzel in der Konfiguration auf dem Server), damit sich niemand aussperren '
+    + 'kann, und das WebUntis-Administrationskonto. Die Seite zeigt alle drei.'));
 
   verwaltung.appendChild(el('h4', null, 'Volljährige Schülerinnen und Schüler'));
   verwaltung.appendChild(el('p', null,

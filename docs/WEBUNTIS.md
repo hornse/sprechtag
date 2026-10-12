@@ -24,22 +24,35 @@ haben.
 
 | personType | Rolle in WebUntis | in `sprechtag` |
 |---|---|---|
-| 2 | Lehrkraft | Lehrkraft; mit einem Kürzel aus `admin_kuerzel` zugleich Verwaltung |
+| 2 | Lehrkraft | Lehrkraft; zugleich Verwaltung, wenn unter „Administratoren“ eingetragen oder als Notzugang in `admin_kuerzel` (E29) |
 | 5 | Schülerin oder Schüler | nur, wenn sie zu einer Gruppe für Volljährige gehören (Abschnitt 2) |
 | 12 | Erziehungsberechtigte | Eltern |
-| 16 | WebUntis-Admin | Verwaltung, mit dem ersten Kürzel aus `admin_kuerzel` |
+| 16 | WebUntis-Admin | Verwaltung, immer (E29); trägt das erste Kürzel aus `admin_kuerzel` |
 
 **Die Verwaltung arbeitet über ein Lehrerkonto, nicht über das Admin-Konto**
 (E23, gemessen). Dem WebUntis-Admin-Konto fehlt die Empfängerart PARENTS
 (403): Absagen, Ausfälle, Einladungen und Bestätigungen an Eltern gehen mit
-ihm nicht hinaus. Das Kürzel des Lehrerkontos gehört deshalb in
-`admin_kuerzel`.
+ihm nicht hinaus. Das Lehrerkonto muss deshalb Administrator sein: über
+die Seite „Administratoren“ oder als Notzugang in `admin_kuerzel` (E29).
 
-**Das Admin-Konto braucht man einmal:** Die Liste der Benutzergruppen
-(`userrole/config`) bekommt nur das Admin-Konto – 200 am 09.10.2026, 403 für
-das Lehrerkonto am 11.10.2026 (beides gemessen an der Referenzschule). Sie
-wird für die Auswahl der Gruppe der Volljährigen gebraucht. Danach reicht
-das Lehrerkonto.
+**Wer Administrator ist (E29, am Code gelesen):** drei Wege, eine
+Entscheidung (`adm_herkunft()` in `backend/api/admins.php`), geprüft bei
+der Anmeldung und bei jedem Aufruf einer Admin-Sitzung.
+- **Die Seite „Administratoren“** – der Normalweg; Einträge in
+  `app_admins`. Nur Lehrkräfte mit Stammsatz.
+- **Der Notzugang** – `admin_kuerzel` in `config.php`: ein oder zwei
+  Kürzel, die immer gelten, damit sich niemand aussperren kann. Er braucht
+  einen Serverzugang, den ein kompromittiertes WebUntis-Konto nicht hat.
+- **Das WebUntis-Administrationskonto** (personType 16) – immer, ohne
+  Bedingung: Notzugang für den Notzugang und gebraucht für die
+  Gruppenliste (unten).
+
+**Das Admin-Konto braucht man für die Gruppenliste:** Die Liste der
+Benutzergruppen (`userrole/config`) bekommt nur das Admin-Konto – 200 am
+09.10.2026, 403 für das Lehrerkonto am 11.10.2026 (beides gemessen an der
+Referenzschule). Sie wird für die Auswahl der Gruppe der Volljährigen
+gebraucht – beim Einrichten und wieder bei jeder neuen oder umbenannten
+Gruppe. Sonst reicht das Lehrerkonto.
 
 **Wer was senden darf (gemessen):**
 - **Lehrkräfte senden**, obwohl ihr Token nur den Bereich `mg:r` trägt.
@@ -123,9 +136,9 @@ Konten (sieben Varianten) –, liegt das daran.
 ## 4 — Was schulspezifisch einzustellen ist
 
 In `config.php` (Vorlage `backend/config.example.php`): Adresse und Kennung
-der Schule in WebUntis, zugelassene Rollen, Kürzel der Verwaltung, die
+der Schule in WebUntis, zugelassene Rollen, die Kürzel des Notzugangs, die
 Grenzen der Anmeldebremse, der Schalter des Sondierwerkzeugs.
 
-In der Oberfläche der Verwaltung: die Gruppen der Volljährigen, die
+In der Oberfläche der Verwaltung: die Administratoren, die Gruppen der Volljährigen, die
 Empfängerliste für Erinnerungen, die Texte, Phasen und Zeitfenster jedes
 Sprechtags.

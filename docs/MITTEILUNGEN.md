@@ -103,8 +103,8 @@ sofort versucht – über die **WebUntis-Sitzung der Person, die handelt**
   (E1, berichtigt am 07.10.2026; die Fassung vom 24.07.2026 hielt `mg:r` für
   „nur lesen“).
 - **Das WebUntis-Admin-Konto bekommt für PARENTS 403** (E23). Die
-  Verwaltung arbeitet deshalb über ein Lehrerkonto mit Kürzel in
-  `admin_kuerzel`.
+  Verwaltung arbeitet deshalb über ein Lehrerkonto, das Administrator ist
+  (über „Administratoren“ oder als Notzugang in `admin_kuerzel`, E29).
 - **Elternkonten senden nicht** (403, 10.10.2026).
 
 ## Empfängersuche – nur noch beim stellvertretenden Buchen

@@ -102,6 +102,7 @@ unter 9, weil vergebene Nummern nicht verschoben werden.
     drei Teilen. **Teil 1 (Backend) erledigt mit v0.9.98;** Teil 2
     (Oberfläche) und Teil 3 (Dokumentation) offen.
     **Teil 2 (Oberfläche) erledigt mit v0.9.99.** Teil 3 offen.
+    **Teil 3 (Dokumentation) erledigt mit v0.9.100. Punkt 10 erledigt.**
 11. **`run_elternzuordnung`: der Rollenfilter wird nie gefragt** (vorgemerkt
     12.10.2026). Die Prüfung „KEINE Schüler-Konten“ bleibt grün, auch wenn
     man in `mit_eltern_zu_kind()` den Rollenfilter entfernt: Die
@@ -146,3 +147,15 @@ unter 9, weil vergebene Nummern nicht verschoben werden.
     daraufhin den Stammdaten-Sync anwirft, statt den Fehler zu suchen.
     Fünf Aufrufstellen. Älter als E29, deshalb nicht nebenbei geändert.
     Prüfung zuerst: einen scheiternden Abruf rot zeigen.
+16. **Nach dem Entfernen hinkt die Anzeige** (vorgemerkt 12.10.2026,
+    gefunden beim Schreiben der Abnahmepunkte für v0.9.99; Betreiber:
+    nicht dringend). Wer als Administrator entfernt wird, während er
+    angemeldet ist, verliert die Rechte sofort (E29, Nachprüfung je
+    Aufruf). Die Leiste zeigt „Administration“ aber bis zum Neuladen
+    weiter, weil die Oberfläche die Rolle nur beim Laden liest; jede
+    Verwaltungsaktion antwortet „nur für die Sprechtags-Administration“.
+    Kein stiller Fehler, aber eine Meldung ohne Grund. **Zusatz des
+    Betreibers für die Behebung:** Die Meldung sagt, WARUM – dass die
+    Rechte entzogen wurden und ein Neuladen die Anzeige richtigstellt.
+    „Nur für die Sprechtags-Administration“ lässt jemanden rätseln, der
+    eben noch Administrator war.
