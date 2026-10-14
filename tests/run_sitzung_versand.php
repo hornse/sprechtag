@@ -227,7 +227,10 @@ $lkIds = (array)($rh->daten['ids'] ?? []);
 pruefe('Hinweis nach der Anmeldung, Lehrkraft: nur die eigenen (keine fremde Absage)',
     $rh->status === 200 && in_array($eigen, $lkIds, true) && !in_array($fremd, $lkIds, true));
 pruefe('Hinweis: nur Sprechtage ab heute (der vergangene fehlt)', !in_array($vorbei, $lkIds, true));
-pruefe('Hinweis, Lehrkraft: genau die eine, Anzahl 1', $lkIds === [$eigen] && ($rh->daten['anzahl'] ?? null) === 1);
+// Bis v0.9.102 hieß es hier „genau die eine“: Der Hinweis fragte nur
+// m.lehrer_id, der Versand auch die Buchungen (zwei Bedingungen, E31).
+pruefe('Hinweis, Lehrkraft: die eigene und die alte mit eigener Buchung, Anzahl 2 – wie der Versand (E31)',
+    $lkIds === [$eigen, $alt] && ($rh->daten['anzahl'] ?? null) === 2);
 $rha = route($zweig, $ad, 'GET', ['mitteilungen', 'offen-eigene']);
 pruefe('… Verwaltung: alle offenen ab heute', ($rha->daten['ids'] ?? null) === [$eigen, $fremd, $alt]);
 pruefe('… ohne Personenangaben: nur Anzahl und Kennungen der Mitteilungen',

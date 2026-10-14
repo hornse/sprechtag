@@ -170,6 +170,8 @@ unter 9, weil vergebene Nummern nicht verschoben werden.
     vermutlich keine (Mitteilungen ohne Lehrkraft sind älter als v0.9.72;
     der Hinweis zählt nur Sprechtage ab heute) – **nicht gemessen**.
     Entscheidung: angleichen, oder die engere Fassung begründen.
+    **Erledigt mit v0.9.103 (E31, zweiter Nachtrag):** angeglichen; für die
+    engere Fassung fand sich kein eigener Grund.
 18. **Beim Neuladen blitzt kurz die Anmeldung auf** (vorgemerkt 14.10.2026,
     Betreiber; nicht dringend). Die Oberfläche zeichnet die Anmeldeseite,
     bevor `/api/auth/me` geantwortet hat. Keine Folge der Cookie-Behebung

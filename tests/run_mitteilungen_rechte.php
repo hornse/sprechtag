@@ -118,6 +118,15 @@ pruefe('Verwaltung: alle vier (E31)', $sortiert($ids($r)) === $sortiert([$eigen,
 $r = route($zweig, ['rolle' => 'eltern', 'kinder' => []], 'GET', ['mitteilungen'], [], ['sprechtag' => '1']);
 pruefe('Gegenprobe Eltern: 403', $r->status === 403);
 
+echo "Hinweis nach der Anmeldung: dieselben wie die Liste (Aufräumliste 17)\n";
+foreach (['Lehrkraft 7' => $lk7, 'Lehrkraft 8' => $lk8, 'Verwaltung' => $ad] as $wer => $sitz) {
+    $h = route($zweig, $sitz, 'GET', ['mitteilungen', 'offen-eigene']);
+    $l = route($zweig, $sitz, 'GET', ['mitteilungen'], [], ['sprechtag' => '1', 'status' => 'offen']);
+    pruefe($wer . ': Hinweis und Liste der offenen nennen dieselben – ' . json_encode((array)($h->daten['ids'] ?? [])),
+        $h->status === 200 && $l->status === 200 && count($ids($l)) > 0
+        && $sortiert(array_map('intval', (array)($h->daten['ids'] ?? []))) === $sortiert($ids($l)));
+}
+
 echo "Befund 3: verwerfen – nur die eigenen\n";
 $r = route($zweig, $lk7, 'DELETE', ['mitteilungen', (string)$fremd]);
 pruefe('Lehrkraft 7 verwirft die fremde: 403, sie bleibt offen – ' . $zeig($r),
@@ -147,8 +156,8 @@ $ohne = function (string $q): string {
     return $c;
 };
 $z = $ohne('<?php ' . $zweig);
-pruefe('Liste, Verwerfen und Versand fragen mit_gehoert_bedingung (dreimal im Zweig)',
-    substr_count($z, 'mit_gehoert_bedingung(') === 3);
+pruefe('Liste, Verwerfen und Versand fragen mit_gehoert_bedingung, dazu der Hinweis nach der Anmeldung (viermal im Zweig)',
+    substr_count($z, 'mit_gehoert_bedingung(') === 4 && !str_contains($z, "' AND m.lehrer_id = ?'"));
 $mi = $ohne((string)file_get_contents(__DIR__ . '/../backend/api/mitteilungen.php'));
 pruefe('die Unterabfrage über die Buchungen steht nur in mitteilungen.php, nicht mehr im Zweig',
     !str_contains($z, 'b.eltern_user_id = m.empfaenger_user_id')

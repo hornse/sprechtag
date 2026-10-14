@@ -2096,3 +2096,22 @@ fragt eine eigene, engere Bedingung (nur `m.lehrer_id`, ohne die Buchungen
 für ältere Mitteilungen), und `run_sitzung_versand.php` verlangt genau
 das. Zwei Bedingungen für dieselbe Frage – gemeldet, nicht nebenbei
 geändert.
+
+**Nachtrag 14.10.2026 (Betreiber) — die Verwaltung sieht und verwirft
+alle: bestätigt, mit Grund.** Der Sammelversand braucht das Sehen, und wer
+sammelt, muss eine fehlerhafte Mitteilung auch zurückziehen können. Damit
+ist es eine Entscheidung, kein übriggebliebener Zustand. Die Abnahme im
+Betrieb macht der Betreiber mit einer Lehrersitzung.
+
+**Zweiter Nachtrag 14.10.2026 (v0.9.103) — der Hinweis nach der Anmeldung
+fragt dieselbe Bedingung (Aufräumliste 17).** Betreiber: Zwei Bedingungen
+für dieselbe Frage sind zwei Wahrheiten, auch ohne sichtbare Folge
+(REIHENREGELN 2); der Hinweis gehört an `mit_gehoert_bedingung()`, wenn die
+engere Fassung keinen eigenen Grund hat. **Gesucht, keinen gefunden:**
+Beide Fassungen entstanden im selben Commit (`158bc25`, v0.9.72) – die
+weitere im Versand, die engere in `offen-eigene` –, und E17 sagt nur „Eine
+Lehrkraft sieht ihre eigenen, die Verwaltung alle“. Dazu ein Grund
+**gegen** die engere: Der Knopf „Jetzt senden“ im Hinweis schickt dessen
+Kennungen an den Versand, und der fragt die weitere. Angeglichen; die
+Erwartung in `run_sitzung_versand.php` („genau die eine“) ist
+entsprechend geändert.

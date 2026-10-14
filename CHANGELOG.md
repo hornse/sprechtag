@@ -1,5 +1,34 @@
 # Changelog - sprechtag
 
+## v0.9.103 (Oktober 2026) – Der Hinweis nach der Anmeldung fragt dieselbe Bedingung wie Liste und Versand
+
+- **Aufräumliste 17 (E31, zweiter Nachtrag):** `GET
+  /api/mitteilungen/offen-eigene` fragte nur `m.lehrer_id`, Liste und
+  Versand auch die Buchungen (für Mitteilungen vor v0.9.72). Zwei
+  Bedingungen für dieselbe Frage. Jetzt `mit_gehoert_bedingung()` auch
+  hier. Für die engere Fassung fand sich kein eigener Grund: Beide
+  entstanden im selben Commit (`158bc25`); und „Jetzt senden“ im Hinweis
+  schickt dessen Kennungen an den Versand, der die weitere fragt.
+- **E31 bestätigt (Betreiber):** Die Verwaltung sieht und verwirft alle
+  Mitteilungen – der Sammelversand braucht das Sehen, und wer sammelt,
+  muss eine fehlerhafte Mitteilung zurückziehen können. Abnahme im
+  Betrieb durch den Betreiber mit einer Lehrersitzung.
+
+### Prüfungen
+- `run_sitzung_versand.php`: Die Erwartung „Hinweis, Lehrkraft: genau die
+  eine“ ist geändert zu „die eigene und die alte mit eigener Buchung,
+  Anzahl 2 – wie der Versand“ – zuerst rot gezeigt.
+- `run_mitteilungen_rechte.php`: neu „Hinweis und Liste der offenen nennen
+  dieselben“, je für zwei Lehrkräfte und die Verwaltung (zwei vorher rot,
+  die Verwaltung schon grün); die Engstelle zählt vier Aufrufe im Zweig
+  statt drei.
+- **Prüfzeilen 1778 → 1781,** Suiten 80, alle grün; `tests-sprechtag.sh` 29.
+- **Mutationen unverändert 638:** SV10 auf die gemeinsame Bedingung
+  umgezogen; MR1, MR2 und MR7 trafen danach zweimal (Liste und Hinweis
+  tragen denselben Block) und sind am Kommentar davor verankert. MR7
+  schrieb in der Ersetzung `$2[` – Perl liest das als Arrayzugriff; jetzt
+  `${2}`.
+
 ## v0.9.102 (Oktober 2026) – Mitteilungen: Lehrkräfte sehen und verwerfen nur die eigenen
 
 Review aus `koordination` (`BEFUND-2026-10-14-review-sprechtag-1.md`,

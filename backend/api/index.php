@@ -57,7 +57,7 @@ adm_sitzung_nachpruefen($cfg);
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.102', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.103', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -1134,9 +1134,12 @@ if (($seg[0] ?? '') === 'mitteilungen') {
                 JOIN sprechtage s ON s.id = m.sprechtag_id
                 WHERE m.status = 'offen' AND s.datum >= ?";
         $werte = [date('Y-m-d')];
+        // Dieselbe Bedingung wie Liste und Versand (E31, Aufräumliste 17):
+        // „Jetzt senden“ schickt diese Kennungen an den Versand.
         if ($u['rolle'] !== 'admin') {
-            $sql .= ' AND m.lehrer_id = ?';
-            $werte[] = (int)($u['lehrer_id'] ?? 0);
+            [$bed, $bw] = mit_gehoert_bedingung((int)($u['lehrer_id'] ?? 0));
+            $sql .= ' AND ' . $bed;
+            $werte = array_merge($werte, $bw);
         }
         $stmt = $pdo->prepare($sql . ' ORDER BY m.id LIMIT 200');
         $stmt->execute($werte);

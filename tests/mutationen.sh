@@ -798,7 +798,8 @@ mut SV8 $MI 's/return \[\x27\(m\.lehrer_id = \?/return [\x27(m.lehrer_id = -?/' 
   $SV "… die eigene Absage gehört zu „meinen Terminen“"
 mut SV9 $IDX 's/AND s\.datum >= \?";/AND (s.datum >= ? OR 1)";/' \
   $SV "Hinweis: nur Sprechtage ab heute"
-mut SV10 $IDX 's/            \$sql \.= \x27 AND m\.lehrer_id = \?\x27;\n            \$werte\[\] = \(int\)\(\$u\[\x27lehrer_id\x27\] \?\? 0\);\n//' \
+# SV10 seit v0.9.103 auf der gemeinsamen Bedingung (E31, Aufräumliste 17).
+mut SV10 $IDX 's/(        \/\/ „Jetzt senden“ schickt diese Kennungen an den Versand\.\n)        if \(\$u\[\x27rolle\x27\] !== \x27admin\x27\) \{\n/$1        if (false) {\n/' \
   $SV "Hinweis nach der Anmeldung, Lehrkraft: nur die eigenen"
 mut SV11 $IDX 's/\x27sitzung\x27 => \$sitzung\[\x27art\x27\], \x27grund\x27 => wu_sitzung_meldung/\x27sitzung\x27 => null, \x27grund\x27 => wu_sitzung_meldung/' \
   $SV "senden, Sitzung abgelaufen (kein Cookie)"
@@ -1744,9 +1745,11 @@ mut SC5 backend/router.php 's/\/\/ Ohne session_name\(\) geht die Session nach d
 # aus. MR1/MR3 nehmen die Prüfung weg (Lage der Review), MR2/MR4 schließen
 # die Verwaltung aus, MR7 baut die Bedingung im Zweig nach (Engstelle).
 RMR=tests/run_mitteilungen_rechte.php
-mut MR1 $IDX 's/        if \(\$u\[\x27rolle\x27\] !== \x27admin\x27\) \{\n(            \[\$bed, \$bw\] = mit_gehoert_bedingung\(\(int\)\(\$u\[\x27lehrer_id\x27\] \?\? 0\)\);\n            \$sql \.= )/        if (false) {\n$1/' \
+# MR1, MR2, MR7 seit v0.9.103 am Kommentar davor verankert: Liste und Hinweis
+# tragen seitdem denselben Block.
+mut MR1 $IDX 's/(        \/\/ Lehrkraft alle Mitteilungen aller Lehrkräfte, mit Kindname und Klasse\.\n)        if \(\$u\[\x27rolle\x27\] !== \x27admin\x27\) \{\n/$1        if (false) {\n/' \
   $RMR "Lehrkraft 7: die eigene und die alte"
-mut MR2 $IDX 's/        if \(\$u\[\x27rolle\x27\] !== \x27admin\x27\) \{\n(            \[\$bed, \$bw\] = mit_gehoert_bedingung\(\(int\)\(\$u\[\x27lehrer_id\x27\] \?\? 0\)\);\n            \$sql \.= )/        if (true) {\n$1/' \
+mut MR2 $IDX 's/(        \/\/ Lehrkraft alle Mitteilungen aller Lehrkräfte, mit Kindname und Klasse\.\n)        if \(\$u\[\x27rolle\x27\] !== \x27admin\x27\) \{\n/$1        if (true) {\n/' \
   $RMR "Verwaltung: alle vier"
 mut MR3 $IDX 's/        if \(\$u\[\x27rolle\x27\] !== \x27admin\x27\) \{\n(            \[\$bed, \$bw\] = mit_gehoert_bedingung\(\(int\)\(\$u\[\x27lehrer_id\x27\] \?\? 0\)\);\n            \$st = )/        if (false) {\n$1/' \
   $RMR "Lehrkraft 7 verwirft die fremde"
@@ -1756,7 +1759,7 @@ mut MR5 $IDX 's/        if \(\(int\)\$st->fetchColumn\(\) === 0\) json_err\(\x27
   $RMR "unbekannte Kennung: 404"
 mut MR6 $MI 's/AND b\.lehrer_id = \?\)\)\)\x27, \[\$lehrerId, \$lehrerId\]\];/AND b.lehrer_id <> ?)))\x27, [\$lehrerId, \$lehrerId]];/' \
   $RMR "Lehrkraft 7: die eigene und die alte"
-mut MR7 $IDX 's/mit_gehoert_bedingung\(\(int\)\(\$u\[\x27lehrer_id\x27\] \?\? 0\)\);\n(            \$sql \.= )/[\x27m.lehrer_id = ?\x27, [(int)(\$u[\x27lehrer_id\x27] ?? 0)]];\n$1/' \
+mut MR7 $IDX 's/(        \/\/ Lehrkraft alle Mitteilungen aller Lehrkräfte, mit Kindname und Klasse\.\n)(        if \(\$u\[\x27rolle\x27\] !== \x27admin\x27\) \{\n            \[\$bed, \$bw\] = )mit_gehoert_bedingung\(\(int\)\(\$u\[\x27lehrer_id\x27\] \?\? 0\)\);/${1}${2}[\x27m.lehrer_id = ?\x27, [(int)(\$u[\x27lehrer_id\x27] ?? 0)]];/' \
   $RMR "Liste, Verwerfen und Versand fragen mit_gehoert_bedingung"
 
 echo ""
