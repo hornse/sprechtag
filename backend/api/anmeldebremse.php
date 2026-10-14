@@ -10,39 +10,92 @@
 // jede Stelle, die authenticate mit übergebenen Zugangsdaten ruft, und
 // verlangt, dass sie vorher die Bremse fragt.
 //
-// Der SQL-Text ist aus der Anmelderoute übernommen, unverändert: Das
-// Zeitfenster rechnet die Datenbank (NOW()), wie die Spalte zeitpunkt.
+// v0.9.107 (E35, Review koordination 14.10.2026, Befund 5):
+//   * WARTEZEIT STATT SPERRE, je Benutzername. Bis v0.9.106 sperrte die
+//     Bremse nach 5 Fehlversuchen 15 Minuten lang – damit konnte ein Fremder
+//     jede Lehrkraft aussperren, deren Kürzel er kennt. Jetzt: ab der
+//     Schwelle 5 s Wartezeit nach dem letzten Fehlversuch, je weiterem
+//     verdoppelt, gedeckelt (BREMSE_DECKEL, Begründung in E35).
+//   * ABGEWIESEN WIRD MIT 429 UND RETRY-AFTER, nicht durch Warten im Prozess:
+//     Ein wartender Prozess hielte bei einem einzigen PHP-Prozess alle auf.
+//   * ZUERST EINTRAGEN, DANN ZÄHLEN, DANN WEBUNTIS FRAGEN: Der Versuch steht
+//     als „(läuft)“ im Protokoll, bevor gezählt wird – gleichzeitige Anfragen
+//     sehen einander. Ein abgewiesener Versuch wird wieder entfernt: Sonst
+//     verlängerte jeder Klick die Wartezeit.
+//   * Die Zeit rechnet PHP aus den Zeitstempeln der Datenbank (eigene Zeile
+//     gegen die anderen) – dasselbe SQL läuft in MariaDB und SQLite, und
+//     tests/run_bremse.php führt die Bremse aus.
 // ============================================================
 
 declare(strict_types=1);
 
-/** Zu viele Fehlversuche für diesen Benutzernamen im Zeitfenster? */
-function bremse_greift(PDO $pdo, array $cfg, string $benutzer): bool
+/** Erste Wartezeit an der Schwelle, in Sekunden; je weiterem Fehlversuch verdoppelt. */
+const BREMSE_BASIS = 5;
+/** Längste Wartezeit in Sekunden (Begründung: docs/ENTSCHEIDUNGEN.md, E35). */
+const BREMSE_DECKEL = 60;
+/** Grund eines Versuchs, der gerade läuft. */
+const BREMSE_LAEUFT = '(läuft)';
+
+/** Sekunden, die noch zu warten sind: $fehl Fehlversuche im Fenster, der letzte vor $seit Sekunden. */
+function bremse_warte_sekunden(int $fehl, int $seit, array $cfg): int
 {
-    $st = $pdo->prepare(
-        'SELECT COUNT(*) FROM login_log
-         WHERE webuntis_benutzer = ? AND erfolgreich = 0
-               AND zeitpunkt >= NOW() - INTERVAL ? MINUTE');
-    $st->execute([$benutzer, (int)($cfg['security']['lockout_minutes'] ?? 15)]);
-    return (int)$st->fetchColumn() >= (int)($cfg['security']['max_failed_logins'] ?? 5);
+    $schwelle = (int)($cfg['security']['max_failed_logins'] ?? 5);
+    if ($fehl < $schwelle) return 0;
+    $stufe = min($fehl - $schwelle, 16);   // 2^16 · 5 s liegt weit über jedem Deckel
+    $dauer = min(BREMSE_DECKEL, BREMSE_BASIS * (2 ** $stufe));
+    return max(0, $dauer - max(0, $seit));
 }
 
-/** Fehlschlag festhalten – immer: Die Bremse zählt ihn. */
-function bremse_fehlschlag(PDO $pdo, string $benutzer, string $grund): void
+/**
+ * Beginnt einen Anmeldeversuch: zuerst eintragen, dann zählen. Muss
+ * gewartet werden, wird der Eintrag entfernt und mit 429 geantwortet
+ * (Ende des Aufrufs). Rückgabe: die Kennung des Versuchs für
+ * bremse_fehlschlag() bzw. anmeldung_erfolg_merken().
+ */
+function bremse_beginnen(PDO $pdo, array $cfg, string $benutzer): int
 {
-    $pdo->prepare('INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, ip)
-                   VALUES (?, 0, ?, ?)')
-        ->execute([$benutzer, substr($grund, 0, 190), $_SERVER['REMOTE_ADDR'] ?? '']);
+    $pdo->prepare('INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, ip) VALUES (?, 0, ?, ?)')
+        ->execute([$benutzer, BREMSE_LAEUFT, $_SERVER['REMOTE_ADDR'] ?? '']);
+    $id = (int)$pdo->lastInsertId();
+    $st = $pdo->prepare('SELECT zeitpunkt FROM login_log WHERE id = ?');
+    $st->execute([$id]);
+    $jetzt = new DateTimeImmutable((string)$st->fetchColumn());
+    $fenster = max(1, (int)($cfg['security']['lockout_minutes'] ?? 15));
+    $st = $pdo->prepare('SELECT COUNT(*) AS n, MAX(zeitpunkt) AS letzter FROM login_log
+                         WHERE webuntis_benutzer = ? AND erfolgreich = 0 AND id <> ? AND zeitpunkt >= ?');
+    $st->execute([$benutzer, $id, $jetzt->modify('-' . $fenster . ' minutes')->format('Y-m-d H:i:s')]);
+    $z = $st->fetch(PDO::FETCH_ASSOC) ?: ['n' => 0, 'letzter' => null];
+    $warten = 0;
+    if ((int)$z['n'] > 0 && $z['letzter'] !== null) {
+        $seit = $jetzt->getTimestamp() - (new DateTimeImmutable((string)$z['letzter']))->getTimestamp();
+        $warten = bremse_warte_sekunden((int)$z['n'], $seit, $cfg);
+    }
+    if ($warten > 0) {
+        $pdo->prepare('DELETE FROM login_log WHERE id = ?')->execute([$id]);
+        if (!headers_sent()) header('Retry-After: ' . $warten);
+        json_ok(['fehler' => 'Zu viele Fehlversuche – bitte in ' . $warten . ' Sekunden erneut versuchen.',
+                 'warten_sekunden' => $warten], 429);
+    }
+    return $id;
+}
+
+/** Fehlschlag festhalten – immer: Die Bremse zählt ihn. Derselbe Eintrag wie der Versuch. */
+function bremse_fehlschlag(PDO $pdo, int $versuch, string $benutzer, string $grund): void
+{
+    $pdo->prepare('UPDATE login_log SET grund = ? WHERE id = ? AND webuntis_benutzer = ?')
+        ->execute([substr($grund, 0, 190), $versuch, $benutzer]);
 }
 
 /**
  * Erfolg festhalten – nur, wenn die Schule das Login-Protokoll aktiviert und
  * Erfolge ausdrücklich einbezogen hat (Admin-Einstellung, Datenschutz-Absatz
  * der Hilfe). $grund: die Rolle bei der Anmeldung, sonst die Route
- * („sondierung“, „stammdaten-sync“).
+ * („sondierung“, „stammdaten-sync“). Der laufende Eintrag des Versuchs
+ * entfällt in jedem Fall – er war kein Fehlschlag.
  */
-function anmeldung_erfolg_merken(PDO $pdo, string $benutzer, string $grund): void
+function anmeldung_erfolg_merken(PDO $pdo, int $versuch, string $benutzer, string $grund): void
 {
+    $pdo->prepare('DELETE FROM login_log WHERE id = ? AND webuntis_benutzer = ?')->execute([$versuch, $benutzer]);
     $logAktiv = (int)marke_wert($pdo, 'login_log_aktiv', '0') === 1;
     $logErfolge = (int)marke_wert($pdo, 'login_log_erfolge', '0') === 1;
     if ($logAktiv && $logErfolge) {

@@ -2284,3 +2284,77 @@ als mehrdeutig (5 Treffer).
 **Für die Reihe:** Jedes Projekt mit einer Mutationsliste hat dieselbe
 Lücke – Befund an `koordination`
 (`docs/BEFUND-2026-10-14-mutationsliste-vorpruefung.md`).
+
+## E35 — Anmeldebremse: gedeckelte Wartezeit statt Sperre, zuerst eintragen
+
+**Datum:** 14.10.2026 · **Version:** v0.9.107 · **Anlass:** Review aus
+`koordination` (Commit `a700ce2`), Befund 5. **Entschieden vom Betreiber.**
+
+**Lage (am Code):** Die Bremse sperrte nach 5 Fehlversuchen je
+Benutzername 15 Minuten lang, gleich von wo. Ein Fremder konnte damit jede
+Lehrkraft aussperren, deren Kürzel er kennt – und die Kürzel stehen auf der
+öffentlichen Anzeige. Streuversuche über viele Namen blieben ungebremst.
+Zählen und Eintragen waren getrennt; gleichzeitige Anfragen kamen alle an
+der Zählung vorbei.
+
+**Gemessen dazu (Befund `BEFUND-2026-10-14-adresse-hinter-dem-proxy.md`):**
+Hinter dem Proxy von Uberspace sieht die Anwendung in `REMOTE_ADDR` nur den
+Proxy; vertrauenswürdig ist der letzte Eintrag von `X-Forwarded-For`.
+
+**Entschieden (Betreiber):**
+1. **Wartezeit statt Sperre, je Benutzername, nicht je Herkunft.** Im
+   Schulnetz teilen sich alle eine Adresse, und wer aussperren will, sitzt
+   vermutlich im selben Netz. Eine gedeckelte Wartezeit schützt gegen
+   jeden.
+2. **Keine Grenze je Herkunft.** WebUntis bremst selbst, und sie träfe das
+   Schulnetz.
+3. **Zuerst eintragen, dann zählen, dann WebUntis fragen.**
+
+**Gebaut:** Ab der Schwelle (`max_failed_logins`, 5) wartet der nächste
+Versuch 5 s nach dem letzten Fehlversuch, je weiterem verdoppelt (10, 20,
+40), höchstens 60 s. Gezählt wird im Fenster `lockout_minutes` (15). Der
+Versuch steht als „(läuft)“ im Protokoll, bevor gezählt wird; laufende
+Versuche anderer zählen mit. Muss gewartet werden: 429 mit `Retry-After`
+und den Sekunden im Satz, und der Eintrag des abgewiesenen Versuchs wird
+entfernt – sonst verlängerte jeder Klick die Wartezeit. **Abgewiesen, nicht
+im Prozess gewartet:** Die Betriebsanleitung startet den Dienst ohne
+`PHP_CLI_SERVER_WORKERS`, also mit einem Prozess (am Server nicht gemessen);
+ein wartender Prozess hielte dann alle auf, und ein Angreifer könnte die
+Anwendung mit Fehlversuchen anhalten. Die Zeit rechnet PHP aus den
+Zeitstempeln der Datenbank; dasselbe SQL läuft in MariaDB und SQLite, und
+`tests/run_bremse.php` führt die Bremse aus.
+
+**Der Deckel – eine Abwägung, keine runde Zahl.** Zwei Größen ziehen in
+entgegengesetzte Richtungen:
+- **Was ein Angreifer je Stunde schafft,** gegen EIN Konto, wenn WebUntis
+  ihn nicht ohnehin bremst: Ist der Deckel erreicht, bleibt er erreicht –
+  im 15-Minuten-Fenster stehen dann immer mehr als 5 Fehlversuche. Danach
+  ein Versuch je Deckel.
+- **Was eine Lehrkraft am Sprechtag hinnimmt:** Wird sie angegriffen oder
+  vertippt sie sich mehrfach, wartet sie höchstens einen Deckel – der
+  Angreifer kann die Wartezeit nicht verlängern (abgewiesene Versuche
+  zählen nicht), und ihr eigener richtiger Versuch geht dann durch. Ein
+  Termin dauert voreingestellt 10 Minuten (`slot_minuten`).
+
+| Deckel | Angreifer je Konto und Stunde | Angreifer je Tag | Lehrkraft wartet höchstens |
+|---|---|---|---|
+| 30 s | 120 | 2880 | ½ Minute |
+| **60 s** | **60** | **1440** | **1 Minute – ein Zehntel eines Termins** |
+| 120 s | 30 | 720 | 2 Minuten |
+| 300 s | 12 | 288 | 5 Minuten – ein halber Termin |
+| zum Vergleich: bis v0.9.106 | 20 (5 je 15 Min.) | 480 | **15 Minuten, beliebig oft wiederholbar** |
+
+**Gewählt: 60 Sekunden.** Länger als eine Minute vor der Anmeldung zu
+warten, während Eltern vor der Tür stehen, ist für eine Lehrkraft nicht
+mehr hinnehmbar; kürzer verdoppelt die Versuche des Angreifers, ohne der
+Lehrkraft spürbar zu helfen. **Ehrlich festgehalten:** Gegenüber der alten
+Sperre erlaubt das dem Angreifer rund dreimal so viele Versuche je Konto
+und Stunde (60 statt 20). Gegen ein Passwort aus den tausend häufigsten
+reicht das in etwa 17 Stunden; gegen ein brauchbares nicht in Jahren. Der
+Ausgleich ist, dass niemand mehr ausgesperrt werden kann, und dass WebUntis
+seine eigene Anmeldung zusätzlich bremst (Review, Einordnung zu Befund 5;
+**wie stark, ist nicht gemessen**). Wird das gemessen und ist es schwach,
+ist der Deckel neu abzuwägen – die Zahl steht an einer Stelle
+(`BREMSE_DECKEL`).
+
+**Nicht gebaut:** eine Grenze je Herkunft (Punkt 2).

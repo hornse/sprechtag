@@ -16,8 +16,9 @@
 // index.php in einem eigenen Prozess (Vorbild run_ladereihenfolge.php), mit
 // der echten auth.php. Ersetzt sind Ausgabe (json_ok/json_err werfen),
 // Datenbank, der WebUntis-Aufruf und die Bremse (alle schreiben mit, wann
-// sie gerufen werden). Die Bremse ist ersetzt, weil ihr SQL MariaDB spricht
-// (NOW() - INTERVAL); ihre Zählung ist hier nicht ausgeführt.
+// sie gerufen werden). Die Bremse ist hier ersetzt; ihre Zählung führt seit
+// v0.9.107 tests/run_bremse.php gegen SQLite aus (E35). Die Ersatzfunktionen
+// prüfen, dass Fehlschlag und Erfolg die Kennung des Versuchs bekommen.
 // Teil 2 ist die Engstelle: Jede Funktion, die authenticate mit übergebenen
 // Zugangsdaten ruft, wird nur aus Routen gerufen, die vorher die Bremse
 // fragen – aus dem Code ermittelt, nicht aufgezählt.
@@ -72,9 +73,9 @@ function req(array $b, string $k): string { $w = trim((string)($b[$k] ?? "")); i
 function db(array $cfg): PDO { return new PDO("sqlite::memory:"); }
 function sleep_ersatz(int $s): int { return 0; }
 $GLOBALS["spur"] = [];
-function bremse_greift(PDO $p, array $cfg, string $b): bool { $GLOBALS["spur"][] = "bremse:" . $b; return (bool)($GLOBALS["BREMSE"] ?? false); }
-function bremse_fehlschlag(PDO $p, string $b, string $g): void { $GLOBALS["spur"][] = "fehlschlag:" . $b; }
-function anmeldung_erfolg_merken(PDO $p, string $b, string $g): void { $GLOBALS["spur"][] = "erfolg:" . $b . ":" . $g; }
+function bremse_beginnen(PDO $p, array $cfg, string $b): int { $GLOBALS["spur"][] = "bremse:" . $b; if ($GLOBALS["BREMSE"] ?? false) json_ok(["fehler" => "warten", "warten_sekunden" => 5], 429); return 7; }
+function bremse_fehlschlag(PDO $p, int $v, string $b, string $g): void { $GLOBALS["spur"][] = "fehlschlag:" . $b . ($v === 7 ? "" : ":falscher-versuch"); }
+function anmeldung_erfolg_merken(PDO $p, int $v, string $b, string $g): void { $GLOBALS["spur"][] = "erfolg:" . $b . ":" . $g . ($v === 7 ? "" : ":falscher-versuch"); }
 function wu_webuntis() { $GLOBALS["spur"][] = "webuntis"; if (($GLOBALS["WU"] ?? "ok") !== "ok") throw new RuntimeException("Anmeldung abgelehnt"); }
 function sondierung_ausfuehren(array $cfg, string $b, string $p, array $g, array $x = [], string $s = "", string $v = "", string $bis = ""): array { wu_webuntis(); return ["ok" => true]; }
 function wu_stammdaten_sync(array $cfg, PDO $pdo, string $b, string $p): array { wu_webuntis(); return ["lehrer" => 0, "raeume" => 0]; }
@@ -200,7 +201,8 @@ pruefe('Voraussetzung: Funktionen gefunden, die authenticate mit übergebenen Zu
     . implode(', ', array_keys($rufer)) . ')', count($rufer) >= 3);
 
 // Jeder Aufruf dieser Funktionen steht in index.php, in einer Route, die
-// vorher bremse_greift fragt. Anderswo gerufen, wäre es eine Stelle ohne Bremse.
+// vorher bremse_beginnen fragt (bis v0.9.106: bremse_greift). Anderswo
+// gerufen, wäre es eine Stelle ohne Bremse.
 $ohneBremse = [];
 foreach (array_keys($rufer) as $fn) {
     foreach (glob($API . '/*.php') as $f) {
@@ -213,7 +215,7 @@ foreach (array_keys($rufer) as $fn) {
             // die Route, in der der Aufruf steht: ab dem letzten „if ($methode ===“ davor
             $kopf = strrpos(substr($code, 0, $p), 'if ($methode ===');
             $route = $kopf === false ? '' : substr($code, $kopf, $p - $kopf);
-            if (!str_contains($route, 'bremse_greift(')) $ohneBremse[] = "$fn() in index.php ohne Bremse davor";
+            if (!str_contains($route, 'bremse_beginnen(')) $ohneBremse[] = "$fn() in index.php ohne Bremse davor";
         }
     }
 }
@@ -228,13 +230,15 @@ foreach (glob($API . '/*.php') as $f) {
 pruefe('in login_log schreibt nur anmeldebremse.php (gefunden: ' . implode(', ', $schreiber) . ')',
     $schreiber === ['anmeldebremse.php']);
 $login = zweig($quelle, "if (\$methode === 'POST' && \$unter === 'login') {");
-pruefe('Login benutzt dieselbe Bremse: bremse_greift vor wu_login, bremse_fehlschlag im catch, anmeldung_erfolg_merken danach',
+pruefe('Login benutzt dieselbe Bremse: bremse_beginnen vor wu_login, bremse_fehlschlag im catch, anmeldung_erfolg_merken danach – je mit dem Versuch',
     $login !== ''
-    && preg_match('/bremse_greift\(\$pdo, \$cfg, \$benutzer\)[\s\S]*wu_login\([\s\S]*catch \(RuntimeException \$e\) \{\s*bremse_fehlschlag\(\$pdo, \$benutzer,[\s\S]*anmeldung_erfolg_merken\(\$pdo, \$benutzer, \$daten\[\'rolle\'\]\)/', $login) === 1);
-pruefe('die Bremse zählt Fehlschläge je Benutzername im Zeitfenster, mit den Grenzen aus config.php (wie bis v0.9.92 im Login)',
-    str_contains($bremse, "WHERE webuntis_benutzer = ? AND erfolgreich = 0\n               AND zeitpunkt >= NOW() - INTERVAL ? MINUTE")
+    && preg_match('/\$versuch = bremse_beginnen\(\$pdo, \$cfg, \$benutzer\)[\s\S]*wu_login\([\s\S]*catch \(RuntimeException \$e\) \{\s*bremse_fehlschlag\(\$pdo, \$versuch, \$benutzer,[\s\S]*anmeldung_erfolg_merken\(\$pdo, \$versuch, \$benutzer, \$daten\[\'rolle\'\]\)/', $login) === 1);
+// Bis v0.9.106 stand hier eine Textprüfung des Zähl-SQL (NOW() - INTERVAL);
+// seit v0.9.107 führt tests/run_bremse.php die Zählung aus (E35).
+pruefe('die Bremse zählt je Benutzername im Zeitfenster, mit den Grenzen aus config.php (ausgeführt in run_bremse.php)',
+    str_contains($bremse, "WHERE webuntis_benutzer = ? AND erfolgreich = 0 AND id <> ? AND zeitpunkt >= ?")
     && str_contains($bremse, "(int)(\$cfg['security']['lockout_minutes'] ?? 15)")
-    && str_contains($bremse, ">= (int)(\$cfg['security']['max_failed_logins'] ?? 5)"));
+    && str_contains($bremse, "(int)(\$cfg['security']['max_failed_logins'] ?? 5)"));
 pruefe('Erfolge nur, wenn die Schule das Protokoll samt Erfolgen eingeschaltet hat (wie bis v0.9.92 im Login)',
     preg_match("/function anmeldung_erfolg_merken\([\s\S]*marke_wert\(\\\$pdo, 'login_log_aktiv', '0'\)[\s\S]*marke_wert\(\\\$pdo, 'login_log_erfolge', '0'\)[\s\S]*if \(\\\$logAktiv && \\\$logErfolge\)/", $bremse) === 1);
 

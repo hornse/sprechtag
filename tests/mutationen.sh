@@ -60,6 +60,18 @@ ruecknahme() {    # NAME DATEI
   fi
 }
 
+# Bricht eine Mutation die PHP-Syntax, prüft sie nichts – und ein „nicht
+# angeschlagen“ sähe aus wie eine Prüfung, die nichts fängt (v0.9.107, WZ4:
+# Anführungszeichen im SQL-Text). Nach dem Einbau deshalb php -l auf die
+# geänderte Datei; andere Dateien gelten als heil.
+syntax_heil() {   # DATEI → 0 wenn heil oder keine PHP-Datei
+  case "$1" in *.php) php -l "$1" > /dev/null 2>&1 ;; *) return 0 ;; esac
+}
+kaputt() {        # NAME DATEI → meldet und nimmt zurück
+  echo "$1: MUTATION KAPUTT – Syntaxfehler in ${2#$R/} nach dem Einbau"; FEHLT=$((FEHLT + 1))
+  ruecknahme "$1" "$2"
+}
+
 # Suite ausführen: PHP-Suiten mit php, alle anderen mit node.
 suite_lauf() {
   case "$1" in
@@ -73,6 +85,8 @@ mut() {
   local name=$1 datei="$R/$2" ausdruck=$3 suite=$4 erwartet=$5
   if ! einbauen "$datei" "$ausdruck"; then
     echo "$name: MUTATION NICHT ANGEKOMMEN – Suchmuster prüfen"; FEHLT=$((FEHLT + 1))
+  elif ! syntax_heil "$datei"; then
+    kaputt "$name" "$datei"; return
   else
     local aus e treffer
     aus=$(suite_lauf "$suite" 2>&1); e=$?
@@ -92,6 +106,8 @@ mut_lauf() {
   local name=$1 datei="$R/$2" ausdruck=$3
   if ! einbauen "$datei" "$ausdruck"; then
     echo "$name: MUTATION NICHT ANGEKOMMEN – Suchmuster prüfen"; FEHLT=$((FEHLT + 1))
+  elif ! syntax_heil "$datei"; then
+    kaputt "$name" "$datei"; return
   else
     if node "$R/tests/frontend_laufzeit_test.js" > /dev/null 2>&1; then
       echo "$name: NICHT ANGESCHLAGEN"; FEHLT=$((FEHLT + 1))
@@ -107,6 +123,8 @@ mut_sh() {
   local name=$1 datei="$R/$2" ausdruck=$3 erwartet=$4
   if ! einbauen "$datei" "$ausdruck"; then
     echo "$name: MUTATION NICHT ANGEKOMMEN – Suchmuster prüfen"; FEHLT=$((FEHLT + 1))
+  elif ! syntax_heil "$datei"; then
+    kaputt "$name" "$datei"; return
   else
     local aus e treffer
     aus=$("$R/tests-sprechtag.sh" 2>&1); e=$?
@@ -126,6 +144,8 @@ mut_sh_gruen() {
   local name=$1 datei="$R/$2" ausdruck=$3
   if ! einbauen "$datei" "$ausdruck"; then
     echo "$name: MUTATION NICHT ANGEKOMMEN – Suchmuster prüfen"; FEHLT=$((FEHLT + 1))
+  elif ! syntax_heil "$datei"; then
+    kaputt "$name" "$datei"; return
   else
     if "$R/tests-sprechtag.sh" > /dev/null 2>&1; then
       echo "$name: bleibt grün, wie verlangt"
@@ -1571,6 +1591,9 @@ echo "== v0.9.93: Anmeldebremse an jeder Stelle, die ein WebUntis-Passwort entge
 BRT=tests/run_anmeldebremse.php
 LLT=tests/frontend_loginlog_test.js
 BRS=backend/api/anmeldebremse.php
+RBR=tests/run_bremse.php
+# SD4/SD6 (seit v0.9.107): bremse_beginnen fort; SD10 an der Schwelle der
+# Wartezeit statt am Vergleich der alten Sperre (E35).
 # SD1–SD3: die Verwaltungsprüfung der Sondierung – entfernt, abgeschwächt,
 # als Kommentar stehen gelassen (Art 3).
 mut SD1 $IDX 's/    auth_require_admin\(\);\n(    \$benutzer = req\(\$body, \x27benutzername\x27\);\n    \$passwort = req\(\$body, \x27passwort\x27\);\n    \$gruppen)/$1/' \
@@ -1579,22 +1602,22 @@ mut SD2 $IDX 's/    auth_require_admin\(\);\n(    \$benutzer = req\(\$body, \x27
   $BRT "eingeschaltet, Lehrkraft: 403 „nur für die Sprechtags-Administration“, WebUntis nicht gerufen"
 mut SD3 $IDX 's/    auth_require_admin\(\);\n(    \$benutzer = req\(\$body, \x27benutzername\x27\);\n    \$passwort = req\(\$body, \x27passwort\x27\);\n    \$gruppen)/    \/\/ auth_require_admin();\n$1/' \
   $BRT "eingeschaltet, nicht angemeldet: 401, WebUntis nicht gerufen, Bremse nicht befragt"
-mut SD4 $IDX 's/(    \$pdo = db\(\$cfg\);\n)    if \(bremse_greift\(\$pdo, \$cfg, \$benutzer\)\) \{\n        json_err\([^\n]*\n    \}\n/$1/' \
+mut SD4 $IDX 's/(    \$pdo = db\(\$cfg\);\n)    \$versuch = bremse_beginnen\(\$pdo, \$cfg, \$benutzer\);[^\n]*\n/$1    \$versuch = 0;\n/' \
   $BRT "Verwaltung, Bremse greift: 429, WebUntis nicht gerufen"
-mut SD5 $IDX 's/        bremse_fehlschlag\(\$pdo, \$benutzer, \x27Sondierung: \x27 \. \$e->getMessage\(\)\);\n//' \
+mut SD5 $IDX 's/        bremse_fehlschlag\(\$pdo, \$versuch, \$benutzer, \x27Sondierung: \x27 \. \$e->getMessage\(\)\);\n//' \
   $BRT "Verwaltung, WebUntis lehnt ab: 502, der Fehlschlag steht im Protokoll"
 # SD6, SD7: der Stammdaten-Sync – Bremse fort; ein zweiter Aufruf außerhalb
 # einer Route mit Bremse (die Engstelle).
-mut SD6 $IDX 's/(        \$passwort = req\(\$body, \x27passwort\x27\);\n)        if \(bremse_greift\(\$pdo, \$cfg, \$benutzer\)\) \{\n[^\n]*\n        \}\n/$1/' \
+mut SD6 $IDX 's/(        \$passwort = req\(\$body, \x27passwort\x27\);\n)        \$versuch = bremse_beginnen\(\$pdo, \$cfg, \$benutzer\);[^\n]*\n/$1        \$versuch = 0;\n/' \
   $BRT "Sync, Bremse greift: 429, WebUntis nicht gerufen"
 mut SD7 backend/api/buchungen.php 's/\z/\nfunction probe_sync(array \$c, PDO \$p): array { return wu_stammdaten_sync(\$c, \$p, \x27a\x27, \x27b\x27); }\n/' \
   $BRT "jede Stelle, die authenticate mit übergebenen Zugangsdaten ruft, fragt vorher die Bremse"
 mut SD8 backend/config.example.php 's/\x27sondierung_freigeschaltet\x27 => false,/\x27sondierung_freigeschaltet\x27 => true,/' \
   $BRT "config.example.php: die Sondierung ist abgeschaltet voreingestellt"
-mut SD9 $IDX 's/            bremse_fehlschlag\(\$pdo, \$benutzer, \$e->getMessage\(\)\);/            \$pdo->prepare(\x27INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, ip) VALUES (?, 0, ?, ?)\x27)->execute([\$benutzer, \$e->getMessage(), \x27\x27]);/' \
+mut SD9 $IDX 's/            bremse_fehlschlag\(\$pdo, \$versuch, \$benutzer, \$e->getMessage\(\)\);/            \$pdo->prepare(\x27INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, ip) VALUES (?, 0, ?, ?)\x27)->execute([\$benutzer, \$e->getMessage(), \x27\x27]);/' \
   $BRT "in login_log schreibt nur anmeldebremse.php"
-mut SD10 $BRS 's/return \(int\)\$st->fetchColumn\(\) >= \(int\)/return (int)\$st->fetchColumn() > (int)/' \
-  $BRT "die Bremse zählt Fehlschläge je Benutzername im Zeitfenster"
+mut SD10 $BRS 's/    if \(\$fehl < \$schwelle\) return 0;/    if (\$fehl <= \$schwelle) return 0;/' \
+  $RBR "genau an der Schwelle (5): 5 Sekunden ab dem letzten"
 # LL1, LL2: die umgestellten Prüfungen der Login-Protokoll-Suite. LL1 hätte
 # die Prüfung bis v0.9.92 bestanden – derselbe Text stand in der
 # Einstellungsroute (Art 1).
@@ -1874,19 +1897,29 @@ mut XA11 $HKP 's/\x27wert\x27 => \x27sprechtag\x27\]/\x27wert\x27 => \x27sprecht
 mut XA12 $APP 's/  if \(optionen\.body\) kopf\[\x27Content-Type\x27\] = \x27application\/json\x27;\n//' \
   $FHK "POST mit Körper"
 
+
+
 # ------------------------------------------------------------
-# MH1–MH4 (v0.9.106, MESSUNG): Vergleich der Adressen hinter dem Proxy (O2).
-# Werden mit der Route entfernt.
-RMH=tests/run_messung_herkunft.php
-MHP=backend/api/messung_herkunft.php
-mut MH1 $MHP 's/substr\(hash_hmac\(\x27sha256\x27, \$w, \$salz\), 0, 12\)/substr(hash(\x27sha256\x27, \$w), 0, 12)/' \
-  $RMH "keine ungesalzene Prüfsumme einer Adresse in der Antwort"
-mut MH2 $MHP 's/\$xff !== \[\] && \$xff\[count\(\$xff\) - 1\] === \$ich,/(\$xff[0] ?? null) === \$ich,/' \
-  $RMH "hinter einem Proxy: REMOTE_ADDR ist nicht ich"
-mut MH3 $MHP 's/\[\x27remote_addr\x27 => \$ps\(\$ra\),/[\x27remote_addr\x27 => \$ra,/' \
-  $RMH "keine Adresse in der Antwort"
-mut MH4 $MHP 's/\x27login_log_gleich_ich\x27         => \$logIp === null \? null : \$logIp === \$ich,/\x27login_log_gleich_ich\x27         => \$logIp === \$ich,/' \
-  $RMH "ohne login_log-Eintrag: die beiden Vergleiche sind null"
+# WZ1–WZ9 (v0.9.107, E35, Review 14.10.2026 Befund 5): Wartezeit statt
+# Sperre, zuerst eintragen. run_bremse führt die Bremse gegen SQLite aus.
+mut WZ1 $BRS 's/\$dauer = min\(BREMSE_DECKEL, BREMSE_BASIS \* \(2 \*\* \$stufe\)\);/\$dauer = BREMSE_BASIS * (2 ** \$stufe);/' \
+  $RBR "gedeckelt bei 60 Sekunden"
+mut WZ2 $BRS 's/\$dauer = min\(BREMSE_DECKEL, BREMSE_BASIS \* \(2 \*\* \$stufe\)\);/\$dauer = min(BREMSE_DECKEL, BREMSE_BASIS);/' \
+  $RBR "verdoppelt: 6 → 10, 7 → 20, 8 → 40"
+mut WZ3 $BRS 's/    return max\(0, \$dauer - max\(0, \$seit\)\);/    return \$dauer;/' \
+  $RBR "abgelaufen: nichts mehr zu warten"
+mut WZ4 $BRS 's/AND zeitpunkt >= \?\x27\);/AND zeitpunkt >= ?\x27 . \x27 AND grund <> \x27 . \$pdo->quote(BREMSE_LAEUFT));/' \
+  $RBR "gleichzeitig: 4 Fehlversuche, zwei Anfragen"
+mut WZ5 $BRS 's/(    if \(\$warten > 0\) \{\n)        \$pdo->prepare\(\x27DELETE FROM login_log WHERE id = \?\x27\)->execute\(\[\$id\]\);\n/$1/' \
+  $RBR "der abgewiesene Versuch zählt nicht"
+mut WZ6 $BRS 's/\$jetzt->modify\(\x27-\x27 \. \$fenster \. \x27 minutes\x27\)/\$jetzt->modify(\x27-\x27 . (100 * \$fenster) . \x27 minutes\x27)/' \
+  $RBR "Fenster: 4 Fehlversuche vor 16 Minuten"
+mut WZ7 $BRS 's/WHERE webuntis_benutzer = \? AND erfolgreich = 0 AND id <> \?/WHERE (webuntis_benutzer = ? OR 1) AND erfolgreich = 0 AND id <> ?/' \
+  $RBR "je Benutzername: 9 fremde Fehlversuche"
+mut WZ8 $BRS 's/    \$pdo->prepare\(\x27DELETE FROM login_log WHERE id = \? AND webuntis_benutzer = \?\x27\)->execute\(\[\$versuch, \$benutzer\]\);\n//' \
+  $RBR "Erfolg, Protokoll aus"
+mut WZ9 $BRS 's/\x27Zu viele Fehlversuche – bitte in \x27 \. \$warten \. \x27 Sekunden erneut versuchen\.\x27/\x27Zu viele Fehlversuche – bitte später erneut versuchen.\x27/' \
+  $RBR "5 Fehlversuche, der letzte vor 1 s"
 
 
 if [ "${MUT_MODUS:-}" = "vor" ]; then

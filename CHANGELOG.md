@@ -1,5 +1,47 @@
 # Changelog - sprechtag
 
+## v0.9.107 (Oktober 2026) – Anmeldebremse: gedeckelte Wartezeit statt Sperre; Messroute entfernt
+
+Review aus `koordination` (Commit `a700ce2`), Befund 5 (E35).
+
+- **Wartezeit statt Sperre, je Benutzername:** ab 5 Fehlversuchen im
+  15-Minuten-Fenster 5 s nach dem letzten, je weiterem verdoppelt,
+  **höchstens 60 s** (Abwägung in E35). Bis v0.9.106: 15 Minuten Sperre –
+  ein Werkzeug, mit dem ein Fremder jede Lehrkraft aussperren konnte.
+- **Zuerst eintragen, dann zählen, dann WebUntis fragen:** Gleichzeitige
+  Anfragen sehen einander. Ein abgewiesener Versuch wird nicht gezählt.
+- 429 mit `Retry-After` und den Sekunden im Satz. Abgewiesen wird, nicht im
+  Prozess gewartet (ein Prozess laut Betriebsanleitung).
+- **Messroute `/api/messung/herkunft` entfernt** (v0.9.106, wie
+  angekündigt), samt Suite und MH1–MH4. Ergebnis im Befund
+  `docs/BEFUND-2026-10-14-adresse-hinter-dem-proxy.md`.
+- **Vorprüfung der Mutationen, Ergänzung:** Nach dem Einbau in eine
+  `.php`-Datei läuft `php -l`; bricht die Mutation die Syntax, meldet der
+  Lauf „MUTATION KAPUTT“ statt „nicht angeschlagen“. Gegenprobe: die erste
+  Fassung von WZ4 (Anführungszeichen im SQL-Text) wurde so gemeldet.
+
+### Abnahme (nicht offline messbar)
+- Im Browser: fünfmal falsches Passwort, dann eine Meldung mit Sekunden,
+  nach Ablauf geht die richtige Anmeldung durch.
+
+### Prüfungen
+- **Neue Suite `run_bremse.php`, 18 Prüfzeilen:** die Rechnung (Schwelle,
+  Verdoppelung, Deckel, Ablauf) und die Bremse **ausgeführt** gegen SQLite –
+  bis v0.9.106 war sie in jeder Suite ersetzt, weil ihr SQL MariaDB sprach.
+  Gegen den alten Stand alle rot (17 beim Bau; der Fall zum Zeitfenster kam
+  nach WZ6 dazu).
+- `run_anmeldebremse.php`: Ersatzfunktionen mit Versuchskennung; die
+  Quelltextprüfungen fragen `bremse_beginnen` statt `bremse_greift`; die
+  Textprüfung des alten Zähl-SQL ist durch die ausgeführte ersetzt.
+- `run_messung_herkunft.php` entfernt (9 Zeilen).
+- **Prüfzeilen 1853 → 1862, Suiten 84,** alle grün; `tests-sprechtag.sh` 29.
+- **Mutationen 666 → 671:** WZ1–WZ9 neu, MH1–MH4 entfernt, SD4/5/6/9/10
+  umgezogen. **Der erste Lauf war rot und wurde angehalten:** WZ4 brach die
+  PHP-Syntax (Suite starb stumm, Art 7), WZ6 fand keinen Fall – das
+  Zeitfenster wirkt bei 60 s Deckel nur auf die Zahl, und der Testfall
+  zeigte das nicht (Art 6). Beides behoben, der neue Fall gegen WZ6 rot
+  gezeigt.
+
 ## v0.9.106 (Oktober 2026) – MESSUNG: welche Adresse sieht die Anwendung hinter dem Proxy?
 
 Befristet, für Befund 5 der Review (Anmeldebremse) und die offene Frage O2.

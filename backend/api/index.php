@@ -38,7 +38,6 @@ require_once __DIR__ . '/webuntis_adapter.php';
 require_once __DIR__ . '/admins.php';
 require_once __DIR__ . '/sondierung.php';
 require_once __DIR__ . '/messung_sitzung.php';
-require_once __DIR__ . '/messung_herkunft.php';
 require_once __DIR__ . '/mitteilungen.php';
 require_once __DIR__ . '/einstellungen.php';
 require_once __DIR__ . '/kalender.php';
@@ -69,7 +68,7 @@ adm_sitzung_nachpruefen($cfg);
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.106', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.107', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -183,14 +182,12 @@ if (($seg[0] ?? '') === 'auth') {
 
         // Brute-Force-Bremse VOR dem WebUntis-Aufruf (anmeldebremse.php,
         // dieselbe wie bei der Sondierung).
-        if (bremse_greift($pdo, $cfg, $benutzer)) {
-            json_err('Zu viele Fehlversuche – bitte später erneut versuchen', 429);
-        }
+        $versuch = bremse_beginnen($pdo, $cfg, $benutzer);   // zuerst eintragen, dann zählen (E35)
 
         try {
             $daten = wu_login($cfg, $pdo, $benutzer, $passwort);
         } catch (RuntimeException $e) {
-            bremse_fehlschlag($pdo, $benutzer, $e->getMessage());
+            bremse_fehlschlag($pdo, $versuch, $benutzer, $e->getMessage());
             json_err('Anmeldung fehlgeschlagen: ' . $e->getMessage(), 401);
         }
 
@@ -200,7 +197,7 @@ if (($seg[0] ?? '') === 'auth') {
         // aus Sicherheitsgründen (Brute-Force-Bremse) immer festgehalten;
         // ERFOLGE nur, wenn die Schule das Protokoll aktiviert und Erfolge
         // ausdrücklich einbezogen hat.
-        anmeldung_erfolg_merken($pdo, $benutzer, $daten['rolle']);
+        anmeldung_erfolg_merken($pdo, $versuch, $benutzer, $daten['rolle']);
         // Aufbewahrung begrenzen: Einträge älter als login_log_tage entfernen
         // (Bereinigung bei Login, kein Cron nötig).
         $tage = max(1, min(365, (int)marke_wert($pdo, 'login_log_tage', '30')));
@@ -528,18 +525,16 @@ if (($seg[0] ?? '') === 'stammdaten') {
         // Bremse und dasselbe Protokoll wie bei der Anmeldung (v0.9.93).
         $benutzer = req($body, 'benutzername');
         $passwort = req($body, 'passwort');
-        if (bremse_greift($pdo, $cfg, $benutzer)) {
-            json_err('Zu viele Fehlversuche – bitte später erneut versuchen', 429);
-        }
+        $versuch = bremse_beginnen($pdo, $cfg, $benutzer);   // zuerst eintragen, dann zählen (E35)
         ignore_user_abort(true);
         set_time_limit(0);
         try {
             $zahl = wu_stammdaten_sync($cfg, $pdo, $benutzer, $passwort);
         } catch (RuntimeException $e) {
-            bremse_fehlschlag($pdo, $benutzer, 'Stammdaten-Sync: ' . $e->getMessage());
+            bremse_fehlschlag($pdo, $versuch, $benutzer, 'Stammdaten-Sync: ' . $e->getMessage());
             json_err('Stammdaten-Sync fehlgeschlagen: ' . $e->getMessage(), 502);
         }
-        anmeldung_erfolg_merken($pdo, $benutzer, 'stammdaten-sync');
+        anmeldung_erfolg_merken($pdo, $versuch, $benutzer, 'stammdaten-sync');
         json_ok(['ok' => true] + $zahl);
     }
 }
@@ -1028,20 +1023,18 @@ if ($methode === 'POST' && ($seg[0] ?? '') === 'sondierung') {
     // Dieselbe Bremse und dasselbe Protokoll wie bei der Anmeldung: Auch
     // hier entscheidet ein Passwort, ob WebUntis antwortet.
     $pdo = db($cfg);
-    if (bremse_greift($pdo, $cfg, $benutzer)) {
-        json_err('Zu viele Fehlversuche – bitte später erneut versuchen', 429);
-    }
+    $versuch = bremse_beginnen($pdo, $cfg, $benutzer);   // zuerst eintragen, dann zählen (E35)
     ignore_user_abort(true);
     set_time_limit(0);
     try {
         $bericht = sondierung_ausfuehren($cfg, $benutzer, $passwort,
             $gruppen, $extraPfade, $schuelerId, $von, $bis);
     } catch (RuntimeException $e) {
-        bremse_fehlschlag($pdo, $benutzer, 'Sondierung: ' . $e->getMessage());
+        bremse_fehlschlag($pdo, $versuch, $benutzer, 'Sondierung: ' . $e->getMessage());
         sleep(2);
         json_err('Sondierung fehlgeschlagen: ' . $e->getMessage(), 502);
     }
-    anmeldung_erfolg_merken($pdo, $benutzer, 'sondierung');
+    anmeldung_erfolg_merken($pdo, $versuch, $benutzer, 'sondierung');
     json_ok(['bericht' => $bericht]);
 }
 
@@ -1050,25 +1043,6 @@ if ($methode === 'POST' && ($seg[0] ?? '') === 'sondierung') {
 // Erinnerungen? Liste auflösen (nur lesen) bzw. an sie senden – nur QUICK, nur
 // bis 5 Empfänger, senden nur mit "bestaetigt": true, genau ein Versand.
 //   POST /api/messung/liste  {schritt: aufloesen|senden, liste_typ: QUICK, liste_id, bestaetigt}
-// MESSUNG (v0.9.106), kein Feature – siehe messung_herkunft.php; wird mit der
-// nächsten Version entfernt. Ohne Anmeldung (gemessen wird gerade ohne
-// Sitzung), aber POST mit Kopfzeile (Vorspann). Das Login-Protokoll wird nur
-// für erfundene Benutzernamen mit dem Präfix „messung-herkunft-“ gelesen.
-//   POST /api/messung/herkunft  {ich, benutzer}  → nur Vergleiche
-if ($methode === 'POST' && ($seg[0] ?? '') === 'messung' && ($seg[1] ?? '') === 'herkunft') {
-    $ich = trim((string)($body['ich'] ?? ''));
-    if (filter_var($ich, FILTER_VALIDATE_IP) === false) json_err('ich: keine Adresse');
-    $benutzer = (string)($body['benutzer'] ?? '');
-    $logIp = null;
-    if (str_starts_with($benutzer, 'messung-herkunft-')) {
-        $st = db($cfg)->prepare('SELECT ip FROM login_log WHERE webuntis_benutzer = ? ORDER BY id DESC LIMIT 1');
-        $st->execute([$benutzer]);
-        $w = $st->fetchColumn();
-        $logIp = $w === false ? null : (string)$w;
-    }
-    json_ok(mh_vergleich($_SERVER, $ich, $logIp) + ['login_log_eintrag' => $logIp !== null]);
-}
-
 if ($methode === 'POST' && ($seg[0] ?? '') === 'messung' && ($seg[1] ?? '') === 'liste') {
     $u = auth_require_lehrkraft();
     json_ok(['bericht' => messung_liste_ausfuehren($body, (string)$u['rolle'],
