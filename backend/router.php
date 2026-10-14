@@ -4,10 +4,15 @@
 //
 // KRITISCH (siehe NEUES_PROJEKT_PROMPT.md, Abschnitt 5):
 // Die beiden folgenden Zeilen MÜSSEN vor jedem require stehen.
-// Uberspace terminiert SSL vor PHP – ohne $_SERVER['HTTPS']='on'
-// fehlt das Secure-Flag am Session-Cookie und der Browser
-// verwirft es auf HTTPS. Ohne session_name() geht die Session
-// nach dem Login verloren.
+// Ohne session_name() geht die Session nach dem Login verloren.
+//
+// Berichtigt v0.9.101: Hier stand, ohne $_SERVER['HTTPS']='on' fehle das
+// Secure-Flag am Cookie. Das stimmte nicht – PHP leitet das Flag nicht
+// daraus ab, und am Server gemessen (14.10.2026) trug der Cookie trotz
+// dieser Zeile kein Secure. Die Behauptung war der Grund, warum der
+// Schutz nicht vermisst wurde. Secure, HttpOnly und SameSite setzt
+// bootstrap.php vor session_start(). Die Zeile bleibt; im Projekt liest
+// sie heute nichts.
 // ============================================================
 $_SERVER['HTTPS'] = 'on';
 session_name('sprechtag_session');

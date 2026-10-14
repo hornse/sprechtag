@@ -1719,6 +1719,23 @@ mut OA28 $APP 's/  verwaltung\.appendChild\(el\(\x27p\x27, null,\n    \x27Unter 
 mut AK16 $CFE 's/\/\/ NOTZUGANG \(E29\): /\/\/ /' \
   $RAK "Kommentar nennt den Notzugang"
 
+# ------------------------------------------------------------
+# SC1–SC5 (v0.9.101): der Sitzungs-Cookie trägt Secure, HttpOnly und
+# SameSite=Lax. run_sitzungscookie führt eine Kopie von bootstrap.php aus.
+# SC4: session_start() vor den Parametern – sie kämen zu spät an.
+RSC=tests/run_sitzungscookie.php
+BOO=backend/bootstrap.php
+mut SC1 $BOO 's/\x27secure\x27 => true,/\x27secure\x27 => false,/' \
+  $RSC "Secure gesetzt"
+mut SC2 $BOO 's/\x27httponly\x27 => true,/\x27httponly\x27 => false,/' \
+  $RSC "HttpOnly gesetzt"
+mut SC3 $BOO 's/\x27samesite\x27 => \x27Lax\x27,/\x27samesite\x27 => \x27\x27,/' \
+  $RSC "SameSite=Lax"
+mut SC4 $BOO 's/(if \(session_status\(\) !== PHP_SESSION_ACTIVE\) \{\n)/session_start();\n$1/' \
+  $RSC "Secure gesetzt"
+mut SC5 backend/router.php 's/\/\/ Ohne session_name\(\) geht die Session nach dem Login verloren\.\n/\/\/ Uberspace terminiert SSL vor PHP – ohne \$_SERVER[\x27HTTPS\x27]=\x27on\x27\n\/\/ fehlt das Secure-Flag am Session-Cookie und der Browser\n\/\/ Ohne session_name() geht die Session nach dem Login verloren.\n/' \
+  $RSC "behauptet nicht mehr"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1

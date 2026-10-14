@@ -1,5 +1,47 @@
 # Changelog - sprechtag
 
+## v0.9.101 (Oktober 2026) – Der Sitzungs-Cookie trägt Secure, HttpOnly und SameSite
+
+Befund aus der Messung über die Reihe (`koordination`, 14.10.2026): sechs
+Projekte setzen alle drei Flags am Sitzungs-Cookie, `sprechtag` als
+einziges keines.
+
+- **Gemessen vorher** (14.10.2026, 20:20):
+  `curl -sI https://sprechtag.hornse.de/api/auth/me` lieferte
+  `set-cookie: sprechtag_session=…; path=/` – kein Secure, kein HttpOnly,
+  kein SameSite. (Die Antwort auf HEAD war 404; den Cookie setzt die
+  Sitzung trotzdem.)
+- **`backend/bootstrap.php`** setzt vor `session_start()`
+  `secure`, `httponly` und `samesite => 'Lax'` – Muster aus
+  `lernzeiten/backend/bootstrap.php`, Zeilen 22–25. Lebensdauer 0 und Pfad
+  `/` wie bisher.
+- **Router-Kommentar berichtigt:** Er behauptete, ohne
+  `$_SERVER['HTTPS'] = 'on'` fehle das Secure-Flag. Das stimmte nicht –
+  PHP leitet es nicht daraus ab, und der Cookie trug trotz der Zeile keines.
+  **Die Behauptung war der Grund, warum der Schutz nicht vermisst wurde.**
+  Die Zeile bleibt; im Projekt liest sie nichts. Ebenso der Kopf von
+  `bootstrap.php` („HTTPS-Flag setzt bereits router.php“).
+- **Dieselbe Behauptung steht in der vendorten `FALLSTRICKE.md`**
+  (Abschnitt 1): „Ohne `HTTPS = 'on'` fehlt zusätzlich das
+  `Secure`-Flag“. Nicht geändert – Befund für `koordination`.
+
+### Abnahme am Server (nicht offline messbar)
+- Nach der Auslieferung:
+  `curl -sI https://sprechtag.hornse.de/api/auth/me | grep -i '^set-cookie'`
+  zeigt `Secure; HttpOnly; SameSite=Lax`. Erst dann ist es behoben.
+- Anmelden im Browser geht weiter; die Sitzung hält über das Neuladen.
+
+### Prüfungen
+- **Neue Suite `run_sitzungscookie.php`, 8 Prüfzeilen.** Sie führt eine
+  Kopie von `bootstrap.php` aus und liest die Cookie-Parameter; dazu der
+  Router-Kommentar (die alte, falsche Fassung wird ausdrücklich gesucht).
+  Gegen den alten Stand 5 von 8 rot – Secure, HttpOnly und SameSite
+  ausgeführt wie am Server gemessen. (Angekündigt hatte ich 9; verzählt,
+  der Vergleich je Suite gegen den vorigen Lauf zeigt keine fehlende Zeile.)
+- **Prüfzeilen 1753 → 1761, Suiten 78 → 79,** alle grün;
+  `tests-sprechtag.sh` 29.
+- **Mutationen 626 → 631:** SC1–SC5.
+
 ## v0.9.100 (Oktober 2026) – Admin-Rechte, Teil 3: die Dokumentation
 
 Teil 3 von 3 zu E29 (Aufräumliste 10). Alle Stellen, die nur

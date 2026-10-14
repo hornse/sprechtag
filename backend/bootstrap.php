@@ -1,15 +1,27 @@
 <?php
 // ============================================================
 // bootstrap.php – Session, Config, PDO, JSON-Helfer
-// Wird von backend/api/index.php eingebunden. Session-Name und
-// HTTPS-Flag setzt bereits router.php (GANZ OBEN, kritisch!).
+// Wird von backend/api/index.php eingebunden. Den Session-Namen setzt
+// bereits router.php (GANZ OBEN, kritisch!); die Cookie-Flags (Secure,
+// HttpOnly, SameSite) stehen unten vor session_start().
 // ============================================================
 
 declare(strict_types=1);
 
 require_once __DIR__ . '/helfer.php';
 
-session_start();
+// Sitzungs-Cookie mit Secure, HttpOnly und SameSite=Lax (v0.9.101), vor
+// session_start(). Muster aus lernzeiten/backend/bootstrap.php (Messung über
+// die Reihe, 14.10.2026: sechs Projekte setzen alle drei, sprechtag keines).
+// Secure kommt NICHT aus $_SERVER['HTTPS'] – PHP leitet es nicht daraus ab;
+// gemessen am Server 14.10.2026: Cookie nur mit „path=/“.
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_set_cookie_params([
+        'lifetime' => 0, 'path' => '/', 'secure' => true,
+        'httponly' => true, 'samesite' => 'Lax',
+    ]);
+    session_start();
+}
 
 $configPfad = __DIR__ . '/config.php';
 if (!is_file($configPfad)) {
