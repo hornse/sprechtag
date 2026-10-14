@@ -2115,3 +2115,77 @@ Lehrkraft sieht ihre eigenen, die Verwaltung alle“. Dazu ein Grund
 Kennungen an den Versand, und der fragt die weitere. Angeglichen; die
 Erwartung in `run_sitzung_versand.php` („genau die eine“) ist
 entsprechend geändert.
+
+## E32 — Das SVG-Logo wird am geparsten Dokument geprüft, nicht am Text
+
+**Datum:** 14.10.2026 · **Version:** v0.9.104 · **Anlass:** Review aus
+`koordination` (`BEFUND-2026-10-14-review-sprechtag-1.md`, Commit
+`a700ce2`), Befund 4. **Gewichtung des Betreibers (14.10.2026):** bleibt
+wichtig trotz HttpOnly – ein Skript auf derselben Domain kann das Cookie
+nicht mehr lesen, aber im Namen der Lehrkraft handeln; die Anfragen gehen
+als gleiche Seite mit. Reihenfolge der offenen Befunde: 4, dann 1, dann
+5 bis 9.
+
+**Lage:** `marke_svg_sicher()` suchte mit Mustern im Text. Der XML-Parser
+löst Zeichenreferenzen auf – `&#x6A;avascript:` bestand; `foreignObject`
+fehlte; ein nicht wohlgeformtes oder leeres Dokument ging durch. Das Logo
+wird öffentlich unter `/api/einstellungen/logo` mit `image/svg+xml` vom
+eigenen Ursprung ausgeliefert.
+
+**Entschieden (Betreiber):** Die Prüfung gehört an das geparste Dokument.
+
+**Gebaut:** `marke_svg_grund()` lädt das SVG mit `DOMDocument`
+(`LIBXML_NONET`, ohne Entitätsersetzung) und sieht Knoten und
+**aufgelöste** Attributwerte an. Abgelehnt: kein Parser, nicht
+wohlgeformt, Wurzel nicht `svg`, DOCTYPE, Verarbeitungsanweisungen,
+`script`/`foreignObject`/`iframe`/`object`/`embed`, Ereignisattribute,
+Animationen auf `href`, Skript-Adressen in irgendeinem Attribut (nach
+Entfernen von Leer- und Steuerzeichen), Adressen außer `#…` und
+`data:image/(png|jpeg|gif)`, CSS mit `@import` oder `url()` nach außen.
+Die Ablehnung nennt den Grund.
+
+**Zwei Festlegungen der Entwicklung:**
+- **Geschlossen scheitern:** Fehlt die Erweiterung `dom`, wird jedes SVG
+  abgelehnt, mit dem Hinweis auf PNG. Ob der Server `dom` hat, ist **nicht
+  gemessen** (`ssh` vom Arbeitsrechner abgewiesen); fehlt sie, sagt es
+  der erste SVG-Upload.
+- **Externe Adressen sind abgelehnt,** nicht nur Skript-Adressen: REIHEN-
+  REGELN 7 „keine externen Ressourcen“, und eine externe Adresse in einem
+  Logo lädt beim Betrachter von fremdem Server.
+
+**Nicht gebaut, gemeldet:** eine zweite Sicherung an der Auslieferung
+(`Content-Security-Policy` und `X-Content-Type-Options: nosniff` beim
+Logo, oder Auslieferung als Download). Die Review nennt sie; der Auftrag
+nannte die Prüfung am geparsten Dokument. **Ein bereits gespeichertes
+Logo wird nicht nachgeprüft** – ob im Betrieb ein SVG-Logo liegt, ist
+nicht gemessen.
+
+**Nachtrag 14.10.2026 (v0.9.104, vor der Auslieferung) — zweimal dieselbe
+Lage übersehen, nachdem sie an einer dritten Stelle gerade getrennt
+worden war.** Beim Bau hatte ich erkannt, dass eine Skript-Adresse im
+`href` an **zwei Stufen** hängen bleibt (Skriptprüfung und Liste erlaubter
+Adressen), und die Prüfung deshalb auf den **Wortlaut des Grundes**
+gestellt. Dieselbe Lage stand zweimal daneben, und ich sah sie nicht:
+- **Animation:** `<animate attributeName="xlink:href" values="&#106;…">`
+  lehnen die Animationsregel **und** die Skriptprüfung (am Attribut
+  `values`) ab. LG4 nahm die Animationsregel heraus, rot wurde die
+  Wortlautprüfung – nicht die Zeile, die ich als erwartete eingetragen
+  hatte. Die Mutation war richtig, die Erwartung falsch.
+- **CSS:** `@import url(https://…)` lehnen die `@import`-Regel **und** die
+  `url()`-Regel ab, und beide meldeten **denselben Satz**. LG8 nahm
+  `@import` heraus und blieb grün. Ein Fall, den nur `@import` abwehrt
+  (`@import "…"` ohne `url()`), fehlte in den Daten (Art 6, Befund
+  11.10.).
+
+Gefunden hat beides die Mutationsserie, nicht das Lesen – und erst, als
+sie lief. **Was gefehlt hat, war die Frage an jede Regel, nicht nur an die
+erste:** Lehnt eine andere Regel denselben Fall ebenfalls ab? Das
+Regelwerk sagt seit v1.25.0 (REIHENREGELN 2), was dann folgt: die Stufen
+melden sich verschieden, und die Gegenprobe prüft den Wortlaut. Ich hatte
+es an einer Stelle angewandt und für die Datei als erledigt behandelt.
+
+**Behoben (Betreiber, alle drei Punkte):** LG4 erwartet „Stufe
+Animation“. Die CSS-Stufen melden sich verschieden („importieren eine
+andere Datei (@import)“ / „laden etwas von außen (url())“). Neuer Fall
+`@import "…"` ohne `url()`, gegen LG8 rot gezeigt, mit Prüfung des
+Grundes; und für `@import url(…)` eine Prüfung, dass `@import` anschlägt.

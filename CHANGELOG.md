@@ -1,5 +1,50 @@
 # Changelog - sprechtag
 
+## v0.9.104 (Oktober 2026) – Das SVG-Logo wird am geparsten Dokument geprüft
+
+Review aus `koordination` (Commit `a700ce2`), Befund 4 (E32).
+
+- **Vorher:** `marke_svg_sicher()` suchte Muster im Text. `&#x6A;avascript:`
+  bestand (der Parser macht daraus `javascript:`), `foreignObject` fehlte,
+  ein nicht wohlgeformtes oder leeres Dokument ging durch, externe
+  Adressen und `<?xml-stylesheet?>` ebenso.
+- **Jetzt:** `marke_svg_grund()` lädt das SVG mit `DOMDocument` und prüft
+  Knoten und aufgelöste Attributwerte (Liste in E32). Die Ablehnung beim
+  Hochladen nennt den Grund. Fehlt die PHP-Erweiterung `dom`, wird jedes
+  SVG abgelehnt, mit Hinweis auf PNG – am Server nicht gemessen.
+- **Nicht gebaut, gemeldet:** zweite Sicherung an der Auslieferung (CSP,
+  `nosniff`, Download); kein Nachprüfen eines schon gespeicherten Logos.
+
+### Abnahme (nicht offline messbar)
+- Ein harmloses SVG-Logo lässt sich hochladen und erscheint. Kommt statt
+  dessen „PHP-Erweiterung dom fehlt“, fehlt `dom` auf dem Server.
+
+### Prüfungen
+- **Neue Suite `run_svg_logo.php`, 35 Prüfzeilen:** 20 Fälle, die abgelehnt
+  werden müssen (zuerst die Klartext-Gegenproben), 5, die angenommen werden
+  müssen, 6 zum Wortlaut des Grundes – wo zwei Stufen denselben Fall
+  ablehnen (Skript-Adresse im href, Animation, @import), sagt nur der
+  Grund, welche es war –, das
+  geschlossene Scheitern ohne Parser und die Aufrufstelle. Eine Ausnahme
+  zählt weder als abgelehnt noch als angenommen (Art 7). Gegen den alten
+  Stand 18 von 32 rot; die vier Prüfungen zur Stufe sind nach dem Code
+  entstanden und im Probebaum gegen den alten Stand rot gezeigt.
+- `frontend_marke_test.js`: „SVG-Sicherheitsprüfung“ verlangte das
+  Textmuster `<script` (Vorhandensein); jetzt die Aufrufstelle
+  `marke_svg_grund($binaer)`. Zuerst rot geworden, wie erwartet.
+- **Prüfzeilen 1781 → 1816, Suiten 80 → 81,** alle grün;
+  `tests-sprechtag.sh` 29.
+- **Mutationen 638 → 650:** LG1–LG12. Zwei Entwürfe griffen in der Probe
+  nicht: LG1 (über `saveXML` – das gibt das `j` ausgeschrieben zurück)
+  und LG10 (`!$ok` allein – ein nicht wohlgeformtes Dokument hat ohnehin
+  kein `documentElement`). Beide umgebaut vor dem Lauf.
+- **Der erste volle Lauf war rot (647 von 650, angehalten und gemeldet):**
+  LG4 schlug an der falschen Zeile an, LG8 gar nicht – zweimal zwei Stufen
+  gegen dieselbe Gefahr, die ich nicht getrennt hatte (E32, Nachtrag).
+  Behoben mit drei Zeilen mehr (32 → 35, angekündigt 1813 → 1816): ein
+  Fall `@import "…"` ohne `url()`, zwei Prüfungen des Grundes; die
+  CSS-Stufen melden sich jetzt verschieden.
+
 ## v0.9.103 (Oktober 2026) – Der Hinweis nach der Anmeldung fragt dieselbe Bedingung wie Liste und Versand
 
 - **Aufräumliste 17 (E31, zweiter Nachtrag):** `GET

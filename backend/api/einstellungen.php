@@ -96,21 +96,91 @@ function marke_text(string $t, int $max): string
     return kuerze($t, $max);
 }
 
-/**
- * Prüft ein SVG auf offensichtlich gefährliche Inhalte. SVG kann
- * Skripte und externe Referenzen tragen – solche Dateien lehnen wir ab.
- */
+/** Ist ein SVG als Logo unbedenklich? (E32) Siehe marke_svg_grund(). */
 function marke_svg_sicher(string $inhalt): bool
 {
-    $muster = [
-        '/<script/i', '/javascript:/i', '/on\w+\s*=/i', '/<iframe/i',
-        '/<object/i', '/<embed/i', '/xlink:href\s*=\s*["\']\s*javascript/i',
-        '/data:text\/html/i', '/<\?php/i',
-    ];
-    foreach ($muster as $m) {
-        if (preg_match($m, $inhalt)) return false;
+    return marke_svg_grund($inhalt) === null;
+}
+
+/**
+ * Prüft ein SVG am GEPARSTEN Dokument (v0.9.104, E32), nicht am Text: Der
+ * Parser löst Zeichenreferenzen auf (&#x6A; wird j) – eine Suche im Text
+ * sah „&#x6A;avascript:“ nicht (Review 14.10.2026, Befund 4). Rückgabe: null
+ * = unbedenklich, sonst der Grund der Ablehnung.
+ *
+ * Abgelehnt: kein Parser (geschlossen scheitern), nicht wohlgeformt, Wurzel
+ * nicht svg, DOCTYPE, Verarbeitungsanweisungen, die Elemente script,
+ * foreignObject, iframe, object, embed, Ereignisattribute (on…),
+ * Animationen, die ein href setzen, Adressen außer „#…“ und
+ * „data:image/(png|jpeg|gif)“, javascript:/vbscript:/data:text in irgendeinem
+ * Attribut, und in CSS @import oder url() außer „#…“/„data:image/…“.
+ * $parserDa: nur für die Prüfung; sonst aus class_exists('DOMDocument').
+ */
+function marke_svg_grund(string $inhalt, ?bool $parserDa = null): ?string
+{
+    if (!($parserDa ?? class_exists('DOMDocument'))) {
+        return 'SVG lässt sich auf diesem Server nicht prüfen (PHP-Erweiterung dom fehlt). '
+            . 'Bitte das Logo als PNG hochladen.';
     }
-    return true;
+    if (trim($inhalt) === '') return 'Die Datei ist leer.';
+    $vorher = libxml_use_internal_errors(true);
+    $dom = new DOMDocument();
+    // Ohne LIBXML_NOENT: Entitäten werden nicht ersetzt; ein DOCTYPE wird
+    // unten ohnehin abgelehnt. LIBXML_NONET: nichts aus dem Netz laden.
+    $ok = $dom->loadXML($inhalt, LIBXML_NONET);
+    libxml_clear_errors();
+    libxml_use_internal_errors($vorher);
+    if (!$ok || $dom->documentElement === null) return 'Die Datei ist kein wohlgeformtes SVG.';
+    if (strtolower($dom->documentElement->localName) !== 'svg') return 'Die Datei ist kein SVG.';
+    if ($dom->doctype !== null) return 'Die Datei enthält eine Dokumenttyp-Angabe (DOCTYPE).';
+
+    $verboten = ['script', 'foreignobject', 'iframe', 'object', 'embed'];
+    $animation = ['set', 'animate', 'animatetransform', 'animatemotion'];
+    $schema = fn(string $w): string => strtolower((string)preg_replace('/[\x00-\x20]+/', '', $w));
+    $adresseOk = function (string $w) use ($schema): bool {
+        $w = $schema($w);
+        return $w === '' || str_starts_with($w, '#')
+            || preg_match('#^data:image/(png|jpeg|gif)[;,]#', $w) === 1;
+    };
+    // Zwei Stufen im CSS, je mit eigenem Grund (die Prüfung unterscheidet
+    // sie am Wortlaut): @import, und url() nach außen.
+    $cssGrund = function (string $css) use ($adresseOk): ?string {
+        if (stripos($css, '@import') !== false) return 'Die Stilangaben importieren eine andere Datei (@import).';
+        preg_match_all('/url\(\s*([\'"]?)(.*?)\1\s*\)/is', $css, $m);
+        foreach ($m[2] as $ziel) {
+            if (!$adresseOk($ziel)) return 'Die Stilangaben laden etwas von außen (url()).';
+        }
+        return null;
+    };
+    $knoten = [$dom];
+    while ($knoten !== []) {
+        $n = array_pop($knoten);
+        foreach ($n->childNodes ?? [] as $k) $knoten[] = $k;
+        if ($n instanceof DOMProcessingInstruction) {
+            return 'Die Datei enthält eine Verarbeitungsanweisung (<?' . $n->target . ' …?>).';
+        }
+        if (!$n instanceof DOMElement) continue;
+        $name = strtolower($n->localName);
+        if (in_array($name, $verboten, true)) return 'Die Datei enthält das Element <' . $n->localName . '>.';
+        if ($name === 'style' && ($g = $cssGrund($n->textContent)) !== null) return $g;
+        if (in_array($name, $animation, true)
+            && str_contains(strtolower($n->getAttribute('attributeName')), 'href')) {
+            return 'Eine Animation setzt eine Adresse (href).';
+        }
+        foreach ($n->attributes as $a) {
+            $an = strtolower($a->localName);
+            $wert = (string)$a->value;   // Zeichenreferenzen sind hier aufgelöst
+            if (str_starts_with($an, 'on')) return 'Die Datei enthält ein Ereignisattribut (' . $a->nodeName . ').';
+            if (preg_match('#(javascript|vbscript|data:text)#', $schema($wert)) === 1) {
+                return 'Ein Attribut enthält eine Skript-Adresse (' . $a->nodeName . ').';
+            }
+            if ($an === 'href' && !$adresseOk($wert)) {
+                return 'Die Datei verweist nach außen (' . $a->nodeName . '); erlaubt sind „#…“ und eingebettete Bilder.';
+            }
+            if ($an === 'style' && ($g = $cssGrund($wert)) !== null) return $g;
+        }
+    }
+    return null;
 }
 
 /** Verzeichnis für Logos (außerhalb der statisch ausgelieferten Pfade). */
@@ -252,10 +322,13 @@ function marke_route(array $seg, string $methode, array $body, array $cfg): bool
             json_err('Nur PNG, JPG und SVG sind erlaubt (erkannt: '
                 . htmlspecialchars($mime) . ').');
         }
-        if ($mime === 'image/svg+xml' && !marke_svg_sicher($binaer)) {
-            @unlink($tmp);
-            json_err('Die SVG-Datei enthält potenziell gefährliche Inhalte '
-                . 'und wurde abgelehnt.');
+        if ($mime === 'image/svg+xml') {
+            // Am geparsten Dokument geprüft (E32), mit Grund in der Antwort.
+            $grund = marke_svg_grund($binaer);
+            if ($grund !== null) {
+                @unlink($tmp);
+                json_err('Die SVG-Datei wurde abgelehnt: ' . $grund);
+            }
         }
 
         $dir = marke_logo_dir();

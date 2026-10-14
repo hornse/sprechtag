@@ -1762,6 +1762,39 @@ mut MR6 $MI 's/AND b\.lehrer_id = \?\)\)\)\x27, \[\$lehrerId, \$lehrerId\]\];/AN
 mut MR7 $IDX 's/(        \/\/ Lehrkraft alle Mitteilungen aller Lehrkräfte, mit Kindname und Klasse\.\n)(        if \(\$u\[\x27rolle\x27\] !== \x27admin\x27\) \{\n            \[\$bed, \$bw\] = )mit_gehoert_bedingung\(\(int\)\(\$u\[\x27lehrer_id\x27\] \?\? 0\)\);/${1}${2}[\x27m.lehrer_id = ?\x27, [(int)(\$u[\x27lehrer_id\x27] ?? 0)]];/' \
   $RMR "Liste, Verwerfen und Versand fragen mit_gehoert_bedingung"
 
+# ------------------------------------------------------------
+# LG1–LG12 (v0.9.104, E32, Review 14.10.2026 Befund 4): die SVG-Prüfung am
+# geparsten Dokument. run_svg_logo führt marke_svg_grund aus. LG1/LG2 und LG6
+# trennen die beiden Stufen gegen Skript-Adressen (Skriptprüfung, Adressliste)
+# über den Wortlaut des Grundes; LG10 lässt die Wohlgeformtheit weg (Ausnahme
+# statt Grund); LG12 schaltet das geschlossene Scheitern ab.
+RSL=tests/run_svg_logo.php
+EIN=backend/api/einstellungen.php
+mut LG1 $EIN 's/            if \(preg_match\(\x27#\(javascript\|vbscript\|data:text\)#\x27, \$schema\(\$wert\)\) === 1\) \{/            if (false) {/' \
+  $RSL "Stufe Skript-Adresse: Entität im href"
+mut LG2 $EIN 's/\$schema = fn\(string \$w\): string => strtolower\(\(string\)preg_replace\(\x27\/\[\\x00-\\x20\]\+\/\x27, \x27\x27, \$w\)\);/\$schema = fn(string \$w): string => strtolower(\$w);/' \
+  $RSL "Stufe Skript-Adresse: Tabulator"
+mut LG3 $EIN 's/\$verboten = \[\x27script\x27, \x27foreignobject\x27,/\$verboten = [\x27script\x27,/' \
+  $RSL "foreignObject"
+mut LG4 $EIN 's/            && str_contains\(strtolower\(\$n->getAttribute\(\x27attributeName\x27\)\), \x27href\x27\)\) \{/            \&\& false) {/' \
+  $RSL "Stufe Animation"
+mut LG5 $EIN 's/if \(str_starts_with\(\$an, \x27on\x27\)\) return/if (str_starts_with(\$a->localName, \x27on\x27)) return/' \
+  $RSL "Ereignisattribut in Großbuchstaben"
+mut LG6 $EIN 's/            if \(\$an === \x27href\x27 && !\$adresseOk\(\$wert\)\) \{/            if (false) {/' \
+  $RSL "externe Referenz (http) im href"
+mut LG7 $EIN 's/        if \(\$n instanceof DOMProcessingInstruction\) \{/        if (false) {/' \
+  $RSL "Verarbeitungsanweisung <?xml-stylesheet?>"
+mut LG8 $EIN 's/        if \(stripos\(\$css, \x27\@import\x27\) !== false\) return \x27Die Stilangaben importieren eine andere Datei \(\@import\)\.\x27;\n//' \
+  $RSL "Stufe @import: @import ohne url()"
+mut LG9 $EIN 's/            if \(\$an === \x27style\x27 && \(\$g = \$cssGrund\(\$wert\)\) !== null\) return \$g;/            if (false) return \$g;/' \
+  $RSL "style-Attribut mit externer url()"
+mut LG10 $EIN 's/    if \(!\$ok \|\| \$dom->documentElement === null\) return \x27Die Datei ist kein wohlgeformtes SVG\.\x27;\n//' \
+  $RSL "nicht wohlgeformt"
+mut LG11 $EIN 's/    if \(strtolower\(\$dom->documentElement->localName\) !== \x27svg\x27\) return/    if (false) return/' \
+  $RSL "Wurzel ist kein svg"
+mut LG12 $EIN 's/    if \(!\(\$parserDa \?\? class_exists\(\x27DOMDocument\x27\)\)\) \{/    if (false) {/' \
+  $RSL "marke_svg_grund nennt den Grund; ohne Parser"
+
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
 echo "$FEHLT MUTATION(EN) OHNE BELEG"; exit 1

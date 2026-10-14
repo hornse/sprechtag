@@ -86,8 +86,12 @@ const migPfad = path.join(__dirname, '..', 'sql', '20_farbfelder_entfernen.sql')
 const mig = fs.existsSync(migPfad) ? sqlOhneKommentar(fs.readFileSync(migPfad, 'utf8')) : '';
 pruefe('Migration entfernt beide Farbfelder',
   /DELETE\s+FROM\s+einstellungen\s+WHERE\s+schluessel\s+IN\s*\(\s*'marke_farbe'\s*,\s*'marke_farbe2'\s*\)/.test(mig));
-pruefe('SVG-Sicherheitsprüfung',
-  php.includes('marke_svg_sicher') && php.includes('<script'));
+// Bis v0.9.103 verlangte diese Prüfung das Textmuster '<script' – eine
+// Vorhandensein-Prüfung an einer Textsuche, die die Review umging (Befund 4).
+// Seit v0.9.104 (E32) wird am geparsten Dokument geprüft; ausgeführt in
+// tests/run_svg_logo.php. Hier nur, dass der Upload sie fragt.
+pruefe('SVG-Sicherheitsprüfung: der Upload fragt marke_svg_grund (ausgeführt in run_svg_logo.php)',
+  php.includes('$grund = marke_svg_grund($binaer)'));
 pruefe('MIME per finfo statt Client-Angabe',
   php.includes('finfo(FILEINFO_MIME_TYPE)'));
 pruefe('Logo-Größenlimit 500 KB',
