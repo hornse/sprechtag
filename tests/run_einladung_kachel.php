@@ -142,7 +142,7 @@ pruefe('Kacheln: genau die Eingeladenen, die teilnehmen (1, 4)', $ids($k1['einge
 pruefe('Kacheln: keine Unterrichtenden daneben', $k1['unterrichtend'] === []);
 pruefe('Kacheln: keine Sonderrollen daneben', $k1['sonderlehrer'] === []);
 pruefe('Antwort sagt, dass nur Eingeladene gelten', ($k1['nur_eingeladene'] ?? null) === true);
-pruefe('Buchung: eingeladene, nicht unterrichtende Lehrkraft geht durch', buchbar($pdo, 'phase1', 'eltern', 1));
+pruefe('Buchung, Phase 1: eingeladene, nicht unterrichtende Lehrkraft geht durch', buchbar($pdo, 'phase1', 'eltern', 1));
 pruefe('Buchung: eingeladene, unterrichtende Lehrkraft geht durch', buchbar($pdo, 'phase1', 'eltern', 4));
 pruefe('Buchung: Unterrichtende ohne Einladung wird abgewiesen', !buchbar($pdo, 'phase1', 'eltern', 2));
 pruefe('Buchung: Sonderrolle ohne Einladung wird abgewiesen', !buchbar($pdo, 'phase1', 'eltern', 3));
@@ -157,7 +157,7 @@ pruefe('Kacheln: Sonderrolle (3)', $ids($k2['sonderlehrer']) === [3]);
 $alle = array_merge($k2['eingeladen'], $k2['unterrichtend'], $k2['sonderlehrer'], $k2['weitere']);
 pruefe('jede Lehrkraft genau einmal', count($alle) === count(array_unique(array_column($alle, 'lehrer_id'))));
 pruefe('Antwort sagt, dass nicht nur Eingeladene gelten', ($k2['nur_eingeladene'] ?? null) === false);
-pruefe('Buchung: eingeladene, nicht unterrichtende Lehrkraft geht durch', buchbar($pdo, 'phase2', 'eltern', 1));
+pruefe('Buchung, Phase 2: eingeladene, nicht unterrichtende Lehrkraft geht durch', buchbar($pdo, 'phase2', 'eltern', 1));
 pruefe('Buchung: Unterrichtende geht durch', buchbar($pdo, 'phase2', 'eltern', 2));
 // Seit v0.9.57 (Zug 3, E10) ist ab Phase 2 jede teilnehmende Lehrkraft
 // buchbar – auch 6. Geprüft bleibt, dass die fremde Einladung sie nicht

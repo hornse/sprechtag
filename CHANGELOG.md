@@ -1,5 +1,62 @@
 # Changelog - sprechtag
 
+## v0.9.105 (Oktober 2026) – Verändernde Aufrufe brauchen die Kopfzeile X-Angefordert-Von und einen JSON-Körper
+
+Review aus `koordination` (Commit `a700ce2`), Befund 1 (E33), nach M22.
+
+- **Erste Stufe:** Jeder Aufruf außer GET braucht `X-Angefordert-Von:
+  sprechtag` – einmal geprüft im Vorspann von `index.php`, vor dem Körper
+  und vor jeder Route (`backend/api/herkunft.php`). Sonst 403 „Ungültige
+  Anfrage. Bitte die Seite neu laden.“
+- **Zweite Stufe:** Ein nicht leerer Körper muss `application/json` sein,
+  sonst 415. Das ist der Weg, mit dem ein fremdes Formular JSON nachbaut
+  (`text/plain`, Review).
+- `api()` schickt die Kopfzeile bei jedem Aufruf.
+- **Gemeldet:** Wer beim Ausliefern eine Seite offen hat, muss nach dem
+  ersten 403 neu laden. `curl -sI` (HEAD) bekommt jetzt 403. Unter GET
+  schreibt mindestens ein Zweig einen Zwischenspeicher – nicht geprüft
+  (E33).
+
+### Abnahme am Server (nicht offline messbar)
+- `POST` ohne Kopfzeile → 403; mit Kopfzeile und JSON → die Route
+  antwortet wie bisher (z. B. 401 ohne Anmeldung).
+- Ein Preflight von fremder Herkunft bekommt kein
+  `Access-Control-Allow-Origin`.
+- Der Cookie trägt weiter `secure; HttpOnly; SameSite=Lax`.
+- Im Browser: anmelden, eine Buchung, eine Einstellung speichern – alles
+  wie vorher.
+
+### Prüfungen
+- **Neue Suite `run_herkunft.php`, 22 Prüfzeilen:** die Kopfzeile und der
+  Körper als reine Funktionen, der Vorspann von `index.php` ausgeführt
+  (Erfolgsfall zuerst; jede Stufe einzeln, am Status unterschieden), der
+  Aufbau statisch. Gegen den alten Stand 18 von 22 rot; zwei Prüfungen
+  bestanden zuerst leer (fehlende Funktion lieferte eine Zeichenkette) und
+  verlangen jetzt die Funktion.
+- **Neue Suite `frontend_herkunft_test.js`, 5 Prüfzeilen:** führt `api()`
+  aus – die Kopfzeile geht bei POST, DELETE und GET mit. Gegen den alten
+  Stand 3 von 5 rot.
+- **Vorprüfung der Mutationsliste (E34):** Vor dem Lauf muss jede
+  erwartete Zeile in der grünen Ausgabe ihrer Suite **genau einmal** stehen,
+  sonst wird nichts eingebaut. Anlass: dreimal in Folge scheiterte eine
+  neue Mutation an ihrer Definition (LG4, LG8, XA4/XA7 – `\/` in einer
+  Zeile, die mit `grep -F` gesucht wird). Gegenproben: der Schreibfehler
+  und eine mehrdeutige Zeile (5 Treffer) schlagen vor dem Lauf an. Der
+  erste Vorlauf fand neun Stellen, alle behoben: DS3, DS4 auf den festen
+  Teil gekürzt; AT50 mit eigener Prüfung mit festem Namen
+  (`frontend_datenschutz_test.js`, +1); H1–H3: grüne und rote Zeile in
+  `tests-sprechtag.sh` beginnen gleich; K1/K2: zwei gleichnamige Prüfungen
+  in `run_einladung_kachel.php` tragen jetzt die Phase (gemessen: beide
+  treffen Phase 1); PF5 auf den vollen festen Teil. Befund für die Reihe:
+  `docs/BEFUND-2026-10-14-mutationsliste-vorpruefung.md`.
+- **Aufräumliste 19:** Unter GET schreibt mindestens ein Zweig
+  (`buchbare-lehrer`, Zwischenspeicher) – erst erheben.
+- **Prüfzeilen 1816 → 1844, Suiten 81 → 83,** alle grün;
+  `tests-sprechtag.sh` 29 (zwei Zeilen umformuliert, Zahl gleich).
+- **Mutationen 650 → 662:** XA1–XA12 (nicht `HK` – das Präfix gibt es).
+  Der erste Lauf war rot (XA4, XA7: `\/` in der erwarteten Zeile) –
+  angehalten, gemeldet; nach der Vorprüfung 661 angeschlagen plus H4.
+
 ## v0.9.104 (Oktober 2026) – Das SVG-Logo wird am geparsten Dokument geprüft
 
 Review aus `koordination` (Commit `a700ce2`), Befund 4 (E32).

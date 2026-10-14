@@ -2189,3 +2189,98 @@ Animation“. Die CSS-Stufen melden sich verschieden („importieren eine
 andere Datei (@import)“ / „laden etwas von außen (url())“). Neuer Fall
 `@import "…"` ohne `url()`, gegen LG8 rot gezeigt, mit Prüfung des
 Grundes; und für `@import url(…)` eine Prüfung, dass `@import` anschlägt.
+
+## E33 — Verändernde Aufrufe brauchen eine feste Kopfzeile und einen JSON-Körper
+
+**Datum:** 14.10.2026 · **Version:** v0.9.105 · **Anlass:** Review aus
+`koordination` (Commit `a700ce2`), Befund 1. **Gewichtung des Betreibers:**
+„bald“ statt „sofort“ – SameSite=Lax (v0.9.101) hält fremde Formular-POSTs
+jetzt ab; dass `body_json()` einen `text/plain`-Körper annahm, blieb aber
+eine Lücke ohne zweite Sicherung, und sie greift wieder, sobald jemand den
+Cookie anders setzt.
+
+**Lage:** Keine Herkunftsprüfung; `body_json()` las `php://input` ohne
+Blick auf den Inhaltstyp. Ein fremdes Formular mit `enctype="text/plain"`
+baut damit einen JSON-Körper nach (Review, gemessen).
+
+**Entschieden für die Reihe (koordination M22), hier übernommen:** eine
+**feste Kopfzeile**, kein Token. Vorbild `kurse/backend/api/herkunft.php`;
+Name `X-Angefordert-Von` wie in `signage` und `kurse`, Wert `sprechtag`.
+
+**Gebaut:**
+- **Erste Stufe:** `spt_herkunft_pruefen()` im Vorspann von `index.php`,
+  einmal, vor dem Körper und vor jeder Route. Nur GET ist ausgenommen
+  (Positivliste – auch HEAD braucht sie). Exakter Vergleich. Abweisung
+  403 „Ungültige Anfrage. Bitte die Seite neu laden.“; der Grund ins
+  Protokoll, ohne den fremden Wert.
+- **Zweite Stufe:** `spt_koerper_pruefen()` in `body_json()`: ein nicht
+  leerer Körper nur als `application/json`, sonst 415. **Die beiden
+  Stufen melden sich verschieden** (403 / 415), und jede ist einzeln
+  geprüft – die Lehre aus E32 gleich angewandt.
+- `api()` in `app.js` schickt die Kopfzeile bei jedem Aufruf; es ist die
+  einzige `fetch()`-Stelle mit einer Methode.
+
+**Folgen, gemeldet:**
+- **Wer beim Ausliefern eine Seite offen hat,** hat noch das alte `app.js`
+  im Speicher; sein nächster verändernder Aufruf bekommt 403 mit „Bitte die
+  Seite neu laden“. Darum steht der Satz in der Antwort; er verrät einem
+  Fälscher nichts, was er nicht weiß.
+- **`curl -sI` schickt HEAD** und bekommt jetzt 403 statt 404. Den Cookie
+  sieht die Messung aus v0.9.101 trotzdem (die Sitzung startet vorher) –
+  nach der Auslieferung gemessen.
+- **Unter GET darf kein Zweig etwas ändern** (herkunft.php). Das ist
+  **nicht geprüft**: Mindestens `GET /api/buchbare-lehrer` schreibt den
+  Zwischenspeicher `kind_lehrer_cache` (am Code gelesen). Ein Fälscher
+  könnte das über ein `<img>` auslösen – Folge: WebUntis-Abrufe über die
+  Sitzung der Person, keine Änderung an Buchungen. Gemeldet, nicht
+  nebenbei geändert.
+
+## E34 — Die Mutationsliste wird vor dem Lauf geprüft: jede erwartete Zeile trifft genau einen Namen
+
+**Datum:** 14.10.2026 · **Version:** v0.9.105 · **Entschieden vom
+Betreiber**
+
+**Anlass – drei Einzelfälle in Folge (REIHENREGELN 1, seit v2.1.0):**
+Dreimal hintereinander scheiterte eine neue Mutation an ihrer eigenen
+Definition, nicht an der Prüfung: LG4 (falsche erwartete Zeile), LG8
+(Fall fehlte in den Daten), XA4/XA7 (`\/` in der erwarteten Zeile, die
+keine Regex ist, sondern mit `grep -F` gesucht wird). Die Vorprüfung vor
+dem Lauf zählte nur die Treffer des Suchmusters, nicht die erwartete
+Zeile.
+
+**Entschieden:** `tests/mutationen.sh` ruft sich vor dem Lauf im Modus
+„vor“ auf. Jede Suite läuft einmal unverändert; jede erwartete Zeile muss
+in deren Ausgabe als „✓ …“ **genau einmal** stehen – null ist der
+Schreibfehler, mehr als einer die Mehrdeutigkeit. Ist der Vorlauf rot,
+wird keine Mutation eingebaut (Exit 3).
+
+**Die Regel (Betreiber):** Der Name einer Prüfung beginnt mit einem
+festen Teil, und die erwartete Zeile ist dieser Teil – und trifft genau
+einen.
+
+**Gegenproben:** Mit `\/` in XA4 und XA7 meldete der Vorlauf genau diese
+beiden und brach ab, ohne etwas einzubauen (Prüfsummen gleich). AT50,
+gekürzt auf „Hilfe nennt, was beim Archivieren gelöscht wird“, meldete er
+als mehrdeutig (5 Treffer).
+
+**Was der erste Vorlauf außerdem fand (9 Stellen, behoben):**
+- **Namen, die den mutierten Wert tragen:** DS3 „(14 Tage)“, DS4 „(180)“ –
+  die erwartete Zeile ist jetzt der feste Teil davor.
+- **Eine Zeile, die es nur in Rot gibt:** AT50 fügt eine Tabelle hinzu; ihre
+  Zeile trug den Tabellennamen. Jetzt eine eigene Prüfung mit festem Namen
+  („Jede Tabelle, die das Archivieren leert, hat hier ein Merkmal …“),
+  eine Prüfzeile mehr.
+- **Grün und Rot verschieden formuliert:** `tests-sprechtag.sh` schrieb
+  „keine Hexfarben im JavaScript“ / „Hexfarben im JavaScript: …“ (H1–H3).
+  Jetzt beginnen beide mit „Hexfarben im JavaScript:“ bzw. „rgb/hsl im
+  JavaScript:“.
+- **Mehrdeutig, und bisher unbemerkt:** Zwei verschiedene Prüfungen in
+  `run_einladung_kachel.php` hießen gleich (Phase 1 und Phase 2); K1 und
+  K2 erwarteten diesen Namen. Gemessen: Beide machen die Zeile für
+  **Phase 1** rot. Die Prüfungen tragen jetzt die Phase im Namen. PF5
+  erwartete „keine Personenangaben“ – den Anfang zweier Namen; gemessen
+  wird der erste rot, die erwartete Zeile ist jetzt sein voller fester Teil.
+
+**Für die Reihe:** Jedes Projekt mit einer Mutationsliste hat dieselbe
+Lücke – Befund an `koordination`
+(`docs/BEFUND-2026-10-14-mutationsliste-vorpruefung.md`).

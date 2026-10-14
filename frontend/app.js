@@ -96,9 +96,13 @@ const S = {
 
 // ---------- API-Helfer ----------------------------------------------------
 async function api(pfad, optionen = {}) {
+  // Die feste Kopfzeile bei JEDEM Aufruf (E33, backend/api/herkunft.php): Der
+  // Server weist alles außer GET ohne sie ab. Kein Token, ein fester Wert.
+  const kopf = { 'X-Angefordert-Von': 'sprechtag' };
+  if (optionen.body) kopf['Content-Type'] = 'application/json';
   const antwort = await fetch(pfad, {
     method: optionen.method || 'GET',
-    headers: optionen.body ? { 'Content-Type': 'application/json' } : {},
+    headers: kopf,
     body: optionen.body ? JSON.stringify(optionen.body) : undefined,
   });
   const daten = await antwort.json().catch(() => ({}));

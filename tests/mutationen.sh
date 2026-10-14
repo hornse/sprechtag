@@ -136,6 +136,52 @@ mut_sh_gruen() {
   ruecknahme "$name" "$datei"
 }
 
+
+# ---------- Vorprüfung (v0.9.105) -----------------------------
+# Jede erwartete Zeile muss wörtlich als Prüfungsname in ihrer Suite stehen,
+# und zwar GENAU EINMAL, BEVOR eine Mutation eingebaut wird. Regel (Betreiber,
+# 14.10.2026): Der Name einer Prüfung beginnt mit einem festen Teil, und die
+# erwartete Zeile ist dieser Teil – und trifft genau einen. Gemessen an der Ausgabe der
+# unveränderten Suite („✓ …“) – so, wie der Lauf sie danach als „✗ …“ mit
+# grep -F sucht –, nicht am Quelltext, wo Namen escapt stehen können.
+# Anlass: dreimal in Folge scheiterte eine neue Mutation an ihrer eigenen
+# Definition, nicht an der Prüfung (LG4, LG8, XA4/XA7 – dort stand „\/“ in
+# der erwarteten Zeile, die keine Regex ist). Jede Suite läuft dafür einmal.
+# Das Skript ruft sich selbst im Modus „vor“ auf; ist der Vorlauf rot, wird
+# nichts eingebaut. MUT_OHNE_VORPRUEFUNG=1 lässt ihn aus (nur von Hand).
+if [ "${MUT_MODUS:-}" = "vor" ]; then
+  VORDIR="$SICH/vor"; mkdir -p "$VORDIR"
+  VGEPRUEFT=0; VFEHLT=0
+  vor_ausgabe() {   # SUITE → Datei mit der Ausgabe der unveränderten Suite
+    local f="$VORDIR/$(printf '%s' "$1" | tr '/.' '__')"
+    if [ ! -f "$f" ]; then
+      if [ "$1" = "tests-sprechtag.sh" ]; then "$R/tests-sprechtag.sh" > "$f" 2>&1
+      else suite_lauf "$1" > "$f" 2>&1; fi
+    fi
+    printf '%s' "$f"
+  }
+  # Genau EIN Treffer: null ist der Schreibfehler, mehr als einer die
+  # Mehrdeutigkeit (ein gekürzter fester Teil, der zwei Namen trifft).
+  vor_pruefe() {    # NAME SUITE ERWARTET
+    local f n; f=$(vor_ausgabe "$2"); VGEPRUEFT=$((VGEPRUEFT + 1))
+    n=$(grep -cF "✓ $3" "$f" || true)
+    if [ "$n" -eq 0 ]; then
+      echo "$1: ERWARTETE ZEILE STEHT NICHT IN $2 – „$3“"; VFEHLT=$((VFEHLT + 1))
+    elif [ "$n" -gt 1 ]; then
+      echo "$1: ERWARTETE ZEILE MEHRDEUTIG in $2 ($n Treffer) – „$3“"; VFEHLT=$((VFEHLT + 1))
+    fi
+  }
+  mut()          { vor_pruefe "$1" "$4" "$5"; }
+  mut_sh()       { vor_pruefe "$1" "tests-sprechtag.sh" "$4"; }
+  mut_lauf()     { :; }   # keine erwartete Zeile, nur der Exit-Code
+  mut_sh_gruen() { :; }   # erwartet Grün, keine Zeile
+elif [ "${MUT_OHNE_VORPRUEFUNG:-}" != "1" ]; then
+  if ! MUT_MODUS=vor "$0"; then
+    echo "ABBRUCH: Vorprüfung rot – keine Mutation eingebaut."; exit 3
+  fi
+  echo ""
+fi
+
 B=tests/frontend_barrierefreiheit_test.js
 M=tests/frontend_marke_test.js
 
@@ -211,9 +257,9 @@ BU=backend/api/buchungen.php
 
 echo "== Einladungs-Kachel: Buchungsrecht (Ursache 2)"
 mut K1 $BU 's/\n    if \(bu_eingeladen\(\$pdo, \$sprechtagId, \$schuelerId, \$lehrerId\)\) return true;\n//' \
-  $K "Buchung: eingeladene, nicht unterrichtende Lehrkraft geht durch"
+  $K "Buchung, Phase 1: eingeladene, nicht unterrichtende Lehrkraft geht durch"
 mut K2 $BU 's/if \(bu_eingeladen\(\$pdo, \$sprechtagId, \$schuelerId, \$lehrerId\)\) return true;/if (false \&\& bu_eingeladen(\$pdo, \$sprechtagId, \$schuelerId, \$lehrerId)) return true;/' \
-  $K "Buchung: eingeladene, nicht unterrichtende Lehrkraft geht durch"
+  $K "Buchung, Phase 1: eingeladene, nicht unterrichtende Lehrkraft geht durch"
 mut K3 $BU 's/(    )(if \(bu_eingeladen\(\$pdo, \$sprechtagId, \$schuelerId, \$lehrerId\)\) return true;)/$1\/\/ $2/' \
   $K "eingeladene, nicht unterrichtende Lehrkraft ist erlaubt"
 mut K4 $BU 's/(function bu_eingeladen\(.*?)return \(int\)\$st->fetchColumn\(\) > 0;/$1return (int)\$st->fetchColumn() >= 0;/s' \
@@ -609,7 +655,7 @@ mut PF3 $MS 's/if \(\$person && !\$gruppenschluessel && [^\n]*\) continue;/if (f
 mut PF4 $MS 's/\$mitWert = messung_ist_gruppe\(\$pfad\) \|\| messung_ist_gruppe\(\$eltern\);/\$mitWert = true;/' \
   $S "… auch in einer Gruppe keine Personennamen und keine Kennung eines Mitglieds"
 mut PF5 $MS 's/\$aus\[\x27schluessel\x27\] = \$schluessel;/\$aus[\x27schluessel\x27] = \$p;/' \
-  $S "keine Personenangaben"
+  $S "keine Personenangaben: weder Name, E-Mail noch Kennungen der Person"
 mut PF6 $MS 's/\x27Status 200, aber kein data\.profile – Antwortform prüfen \(z\. B\. Anmeldeseite\)\. KEIN Befund\.\x27/\x27Status 200 – kein Zugriff über diese Sitzung.\x27/' \
   $S "ohne data.profile: KEIN Befund"
 mut PF7 $MS 's/\x27gefuellt\x27  => \$ug !== null && \$ug !== \x27\x27 && \$ug !== \[\],/\x27gefuellt\x27  => \$ug !== null,/' \
@@ -883,9 +929,9 @@ mut DS1 $APP 's/  for \(const a of datenschutzAbsaetze\(\)\) datenschutz\.append
 mut DS2 $APP 's/(  for \(const a of datenschutzAbsaetze\(\)\) datenschutz\.appendChild\(el\(\x27p\x27, null, a\)\);\n)/${1}  datenschutz.appendChild(el(\x27p\x27, null, \x27Beim Archivieren werden alle persönlichen Daten gelöscht.\x27));\n/' \
   $DS "NICHT mehr: „alle persönlichen Daten“ werden gelöscht"
 mut DS3 sql/16_login_log.sql 's/\(\x27login_log_tage\x27,    \x2730\x27\)/(\x27login_log_tage\x27,    \x2714\x27)/' \
-  $DS "Login: Frist mit der Voreinstellung aus der Migration (14 Tage)"
+  $DS "Login: Frist mit der Voreinstellung aus der Migration ("
 mut DS4 $IDX 's/max\(1, min\(365, \(int\)marke_wert\(\$pdo, \x27login_log_tage\x27/max(1, min(180, (int)marke_wert(\$pdo, \x27login_log_tage\x27/' \
-  $DS "Login: Obergrenze aus dem Backend (180)"
+  $DS "Login: Obergrenze aus dem Backend ("
 mut DS5 $APP 's/    \x27Für den persönlichen Kalender-Link.*?\n(    \x27|  \];)/$1/s' \
   $DS "Hilfe nennt, was beim Archivieren bleibt: kalender_abo"
 # DS6 entfällt mit v0.9.82: Der Satz über die Schülerliste, den sie
@@ -1346,7 +1392,7 @@ mut AT48 $APP 's/\n    \+ \x27Die abgesagten Termine sieht die Lehrkraft weiter 
 mut AT49 $APP 's/, auch abgesagte Termine, die Einladungen/, die Einladungen/' \
   $DS "Hilfe nennt, was beim Archivieren gelöscht wird: abgesagte_termine"
 mut AT50 $AR 's/\x27mitteilungen\x27, \x27abgesagte_termine\x27\] as \$t\)/\x27mitteilungen\x27, \x27abgesagte_termine\x27, \x27probe_tabelle\x27] as \$t)/' \
-  $DS "Hilfe nennt, was beim Archivieren gelöscht wird: probe_tabelle"
+  $DS "Jede Tabelle, die das Archivieren leert, hat hier ein Merkmal für die Hilfe"
 # Mobil (E13-Nachtrag): fünf Kartenansichten, nicht still eine mehr oder weniger
 mut AT51 $APP 's/  ziel\.appendChild\(kartenTabelle\(tab\)\);\n\}\n\n\/\/ Zeilentexte der abgesagten Termine/  ziel.appendChild(tabelleRahmen(tab));\n}\n\n\/\/ Zeilentexte der abgesagten Termine/' \
   $MO "Karten genau in Meine Termine, Einladungen, Login-Protokoll, Mitteilungen, Abgesagte Termine"
@@ -1794,6 +1840,46 @@ mut LG11 $EIN 's/    if \(strtolower\(\$dom->documentElement->localName\) !== \x
   $RSL "Wurzel ist kein svg"
 mut LG12 $EIN 's/    if \(!\(\$parserDa \?\? class_exists\(\x27DOMDocument\x27\)\)\) \{/    if (false) {/' \
   $RSL "marke_svg_grund nennt den Grund; ohne Parser"
+
+# ------------------------------------------------------------
+# XA1–XA12 (v0.9.105, E33, Review 14.10.2026 Befund 1): die Herkunft
+# verändernder Aufrufe – feste Kopfzeile (erste Stufe) und JSON-Körper
+# (zweite Stufe). run_herkunft führt den Vorspann von index.php aus,
+# frontend_herkunft_test die Funktion api(). XA11 bricht den Erfolgsfall.
+RHK=tests/run_herkunft.php
+FHK=tests/frontend_herkunft_test.js
+HKP=backend/api/herkunft.php
+mut XA1 $IDX 's/if \(!\$herkunft\[\x27ok\x27\]\) \{/if (false) {/' \
+  $RHK "POST ohne Kopfzeile: 403"
+mut XA2 $HKP 's/    if \(\$methode === \x27GET\x27\) return/    if (in_array(\$methode, [\x27GET\x27, \x27HEAD\x27, \x27POST\x27], true)) return/' \
+  $RHK "ohne Kopfzeile: POST, PATCH, PUT, DELETE abgewiesen"
+mut XA3 $HKP 's/    if \(\$wert !== \$k\[\x27wert\x27\]\) \{/    if (strtolower(trim(\$wert)) !== \$k[\x27wert\x27]) {/' \
+  $RHK "falscher Wert, auch fast richtig"
+mut XA4 $HKP 's/            \. strlen\(\$wert\) \. \x27 Zeichen, Methode/            . \$wert . \x27 Zeichen, Methode/' \
+  $RHK "der Grund (fürs Protokoll) nennt fehlt/falsch"
+mut XA5 $HKP 's/    if \(\$typ !== \x27application\/json\x27\) \{/    if (false) {/' \
+  $RHK "zweite Stufe einzeln"
+mut XA6 $HKP 's/    if \(\$roh === \x27\x27\) return null;\n//' \
+  $RHK "leerer Körper"
+mut XA7 $HKP 's/\$typ = strtolower\(trim\(explode\(\x27;\x27, \(string\)\$inhaltstyp\)\[0\]\)\);/\$typ = strtolower(trim((string)\$inhaltstyp));/' \
+  $RHK "JSON mit application/json, auch mit charset"
+mut XA8 backend/bootstrap.php 's/    return spt_body_json\(\(string\)file_get_contents\(\x27php:\/\/input\x27\)\);/    \$j = json_decode((string)file_get_contents(\x27php:\/\/input\x27), true);\n    return is_array(\$j) ? \$j : [];/' \
+  $RHK "body_json() geht durch spt_body_json"
+mut XA9 $APP 's/  const kopf = \{ \x27X-Angefordert-Von\x27: \x27sprechtag\x27 \};/  const kopf = {};/' \
+  $FHK "POST mit Körper"
+mut XA10 $APP 's/  const kopf = \{ \x27X-Angefordert-Von\x27: \x27sprechtag\x27 \};/  const kopf = { \x27X-Angefordert-Von\x27: \x27Sprechtag\x27 };/' \
+  $RHK "Oberfläche und Server erwarten denselben Namen und Wert"
+mut XA11 $HKP 's/\x27wert\x27 => \x27sprechtag\x27\]/\x27wert\x27 => \x27sprechtagX\x27]/' \
+  $RHK "Erfolgsfall: POST mit „sprechtag“ geht durch"
+mut XA12 $APP 's/  if \(optionen\.body\) kopf\[\x27Content-Type\x27\] = \x27application\/json\x27;\n//' \
+  $FHK "POST mit Körper"
+
+if [ "${MUT_MODUS:-}" = "vor" ]; then
+  echo "VORPRÜFUNG: $VGEPRUEFT erwartete Zeilen geprüft, $VFEHLT nicht gefunden"
+  [ "$VGEPRUEFT" -gt 0 ] || { echo "FEHLER: keine erwartete Zeile geprüft"; exit 1; }
+  [ "$VFEHLT" -eq 0 ] && exit 0
+  exit 1
+fi
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi

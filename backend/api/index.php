@@ -30,6 +30,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../bootstrap.php';
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/herkunft.php';
 require_once __DIR__ . '/anmeldebremse.php';
 require_once __DIR__ . '/slots.php';
 require_once __DIR__ . '/absagen.php';
@@ -46,6 +47,16 @@ $methode = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $pfad    = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $seg     = array_values(array_filter(explode('/', trim($pfad, '/'))));
 array_shift($seg);   // 'api' entfernen
+
+// Herkunft (E33, koordination M22): Jeder Aufruf außer GET braucht die feste
+// Kopfzeile X-Angefordert-Von: sprechtag. EINMAL HIER, vor dem Körper und vor
+// jeder Route; warum das genügt und wann nicht mehr: herkunft.php. Der Grund
+// geht ins Protokoll, nicht in die Antwort.
+$herkunft = spt_herkunft_pruefen($methode, $_SERVER[spt_herkunft_kopfzeile()['server']] ?? null);
+if (!$herkunft['ok']) {
+    error_log('sprechtag: Herkunft abgewiesen – ' . $pfad . ': ' . $herkunft['grund']);
+    json_err('Ungültige Anfrage. Bitte die Seite neu laden.', 403);
+}
 $body    = in_array($methode, ['POST', 'PATCH', 'PUT'], true) ? body_json() : [];
 
 // Rolle einer Admin-Sitzung bei JEDEM Aufruf neu prüfen (E29), vor der
@@ -57,7 +68,7 @@ adm_sitzung_nachpruefen($cfg);
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.104', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.105', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------

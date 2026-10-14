@@ -114,9 +114,14 @@ const genannt = {
 };
 pruefe('Voraussetzung: geleerte Tabellen aus run_archivieren.php gelesen (mind. 5, darunter buchungen)',
   geleert.length >= 5 && geleert.includes('buchungen'));
-for (const t of geleert) {
-  pruefe('Hilfe nennt, was beim Archivieren gelöscht wird: ' + t,
-    genannt[t] !== undefined && genannt[t].test(text));
+// Eine neue Tabelle ohne Merkmal hier: eigene Prüfung mit festem Namen
+// (v0.9.105) – vorher trug nur die Zeile der neuen Tabelle deren Namen, und
+// die gab es in Grün nicht (Vorprüfung in tests/mutationen.sh, AT50).
+const ohneMerkmal = geleert.filter((t) => genannt[t] === undefined);
+pruefe('Jede Tabelle, die das Archivieren leert, hat hier ein Merkmal für die Hilfe – ohne: '
+  + (ohneMerkmal.join(', ') || 'keine'), ohneMerkmal.length === 0);
+for (const t of geleert.filter((x) => genannt[x] !== undefined)) {
+  pruefe('Hilfe nennt, was beim Archivieren gelöscht wird: ' + t, genannt[t].test(text));
 }
 
 // ---- was NICHT gelöscht wird: jede personenbezogene Tabelle genannt ----

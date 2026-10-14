@@ -79,10 +79,10 @@ if [ "$JSANZAHL" -eq 0 ]; then
     rot "keine JS-Datei im Frontend gefunden – rgb/hsl im JS nicht geprüft"
 else
     TREFFER=$(printf '%s' "$JSREST" | grep -oE '#[0-9a-fA-F]{3,8}\b' | sort -u || true)
-    [ -z "$TREFFER" ] && gruen "keine Hexfarben im JavaScript ($JSANZAHL Datei(en))" \
+    [ -z "$TREFFER" ] && gruen "Hexfarben im JavaScript: keine ($JSANZAHL Datei(en))" \
         || rot "Hexfarben im JavaScript: $(echo "$TREFFER" | tr '\n' ' ')"
     TREFFER=$(printf '%s' "$JSREST" | grep -oE '(rgba?|hsla?)\([^)]*\)' | sort -u || true)
-    [ -z "$TREFFER" ] && gruen "keine rgb/hsl-Angaben im JavaScript" \
+    [ -z "$TREFFER" ] && gruen "rgb/hsl im JavaScript: keine" \
         || rot "rgb/hsl im JavaScript: $(echo "$TREFFER" | tr '\n' ' ')"
 fi
 

@@ -177,3 +177,12 @@ unter 9, weil vergebene Nummern nicht verschoben werden.
     bevor `/api/auth/me` geantwortet hat. Keine Folge der Cookie-Behebung
     (v0.9.101): Die Oberfläche liest den Cookie nirgends. Antwort wäre ein
     neutraler Ladezustand bis zur Antwort.
+19. **Unter GET schreibt mindestens ein Zweig** (vorgemerkt 14.10.2026,
+    gefunden bei Befund 1 der Review, E33). Die Herkunftsprüfung lässt GET
+    ohne Kopfzeile durch und setzt voraus, dass kein GET-Zweig etwas
+    ändert. `GET /api/buchbare-lehrer` schreibt aber den Zwischenspeicher
+    `kind_lehrer_cache` (am Code gelesen, nicht vollständig erhoben). Ein
+    fremdes `<img>` könnte das auslösen – Folge: WebUntis-Abrufe über die
+    Sitzung der Person, keine Änderung an Buchungen. Prüfbar wie in
+    `kurse/tests/run_herkunft.php`: GET-Zweige ermitteln und auf schreibende
+    Aufrufe prüfen. Erst erheben, wie viele es sind.

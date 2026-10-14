@@ -66,12 +66,10 @@ function json_err(string $meldung, int $status = 400): never
     json_ok(['fehler' => $meldung], $status);
 }
 
-/** JSON-Body des Requests lesen. */
+/** JSON-Body des Requests lesen – nur als application/json (E33, herkunft.php). */
 function body_json(): array
 {
-    $roh = file_get_contents('php://input');
-    $j = json_decode($roh === false ? '' : $roh, true);
-    return is_array($j) ? $j : [];
+    return spt_body_json((string)file_get_contents('php://input'));
 }
 
 /** Pflichtfeld aus dem Body. */
