@@ -31,6 +31,15 @@ function pruefe(string $name, bool $ok): void
     if (!$ok) $fehler++;
 }
 
+// Bricht die Suite ab, steht das als eigene rote Zeile da, nicht nur im
+// Exit-Code (Art 7, Befund 11.10.2026; Vorbild frontend_abgesagte_termine_test).
+// Gefunden beim Bau von v0.9.108: Die fehlende Spalte ip ließ die Suite nach
+// 6 Zeilen ohne ✗ sterben.
+set_exception_handler(function (Throwable $e): void {
+    echo '  ✗ Suite abgebrochen: ' . get_class($e) . ': ' . $e->getMessage() . "\n";
+    exit(1);
+});
+
 final class Antwort extends Exception
 {
     public function __construct(public int $status, public array $daten) { parent::__construct('antwort'); }
@@ -61,8 +70,8 @@ function neue_db(): PDO
     $p = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
     $p->exec('CREATE TABLE login_log (id INTEGER PRIMARY KEY AUTOINCREMENT, webuntis_benutzer TEXT NOT NULL,
-        erfolgreich INTEGER NOT NULL DEFAULT 0, grund TEXT NOT NULL DEFAULT \'\', ip TEXT NOT NULL DEFAULT \'\',
-        zeitpunkt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
+        erfolgreich INTEGER NOT NULL DEFAULT 0, grund TEXT NOT NULL DEFAULT \'\',
+        zeitpunkt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');   // ohne ip: so nach sql/27 (E36)
     $p->exec('CREATE TABLE einstellungen (schluessel TEXT PRIMARY KEY, wert TEXT)');
     return $p;
 }
@@ -79,6 +88,9 @@ $beginnen = function (PDO $p, string $wer) use ($cfg, $da): array {
     if (!$da) return ['id' => null, 'status' => 0, 'daten' => []];
     try { return ['id' => bremse_beginnen($p, $cfg, $wer), 'status' => 200, 'daten' => []]; }
     catch (Antwort $a) { return ['id' => null, 'status' => $a->status, 'daten' => $a->daten]; }
+    // Jede andere Ausnahme wird an der Prüfung rot, die sie auslöst – nicht
+    // als Abbruch der Suite.
+    catch (Throwable $e) { echo '    (Ausnahme: ' . $e->getMessage() . ")\n"; return ['id' => null, 'status' => -1, 'daten' => []]; }
 };
 
 echo "Zuerst eintragen, dann zählen (Punkt 3)\n";
@@ -151,6 +163,14 @@ if ($da && $id !== null) anmeldung_erfolg_merken($p, (int)$id, 'probe', 'lehrkra
 $alle = $p->query('SELECT erfolgreich, grund FROM login_log')->fetchAll();
 pruefe('Erfolg, Protokoll mit Erfolgen: genau ein Eintrag, erfolgreich, mit der Rolle',
     $da && count($alle) === 1 && (int)$alle[0]['erfolgreich'] === 1 && $alle[0]['grund'] === 'lehrkraft');
+
+echo "Ohne IP-Adresse (E36)\n";
+// Die Testtabelle oben hat keine Spalte ip mehr: Schriebe die Bremse sie noch,
+// scheiterte jede Prüfung oben. Hier die Migration, die sie im Betrieb entfernt.
+$mig = is_file(__DIR__ . '/../sql/27_login_log_ohne_ip.sql')
+    ? (string)file_get_contents(__DIR__ . '/../sql/27_login_log_ohne_ip.sql') : '';
+pruefe('sql/27 entfernt login_log.ip, zweimal einspielbar (DROP COLUMN IF EXISTS)',
+    preg_match('/^ALTER TABLE login_log DROP COLUMN IF EXISTS ip;$/m', $mig) === 1);
 
 echo $fehler === 0 ? "\nALLE TESTS GRÜN\n" : "\n$fehler ROT\n";
 exit($fehler === 0 ? 0 : 1);

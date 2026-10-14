@@ -155,8 +155,11 @@ pruefe('Voraussetzung: schueler steht nicht mehr unter den personenbezogenen Tab
 const tage = (p('sql/16_login_log.sql').match(/\('login_log_tage', +'(\d+)'\)/) || [])[1];
 const hoechst = (idx.match(/min\((\d+), \(int\)marke_wert\(\$pdo, 'login_log_tage'/) || [])[1];
 pruefe('Voraussetzung: Voreinstellung (sql/16) und Obergrenze (index.php) gelesen', !!tage && !!hoechst);
-pruefe('Login: Benutzername und IP-Adresse fehlgeschlagener Anmeldeversuche',
-  /[Ff]ehlgeschlagene Anmeldeversuche[^\n]*Benutzername[^\n]*IP-Adresse/.test(text));
+// Bis v0.9.107 verlangte diese Prüfung „… und der IP-Adresse“. Gespeichert war
+// aber nur die des Proxys (gemessen, Befund 14.10.2026); seit v0.9.108 wird
+// keine mehr gespeichert (E36).
+pruefe('Login: fehlgeschlagene Anmeldeversuche mit Benutzername, ohne IP-Adresse (E36)',
+  /[Ff]ehlgeschlagene Anmeldeversuche[^\n]*Benutzername/.test(text) && !/IP-Adresse/.test(text));
 pruefe('Login: Frist mit der Voreinstellung aus der Migration (' + tage + ' Tage)',
   new RegExp('voreingestellt ' + tage + ' Tage').test(text));
 pruefe('Login: Obergrenze aus dem Backend (' + hoechst + ')',

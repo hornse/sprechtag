@@ -2358,3 +2358,30 @@ ist der Deckel neu abzuwägen – die Zahl steht an einer Stelle
 (`BREMSE_DECKEL`).
 
 **Nicht gebaut:** eine Grenze je Herkunft (Punkt 2).
+
+## E36 — login_log.ip entfällt
+
+**Datum:** 14.10.2026 · **Version:** v0.9.108 · **Entschieden vom
+Betreiber**
+
+**Lage (gemessen, `BEFUND-2026-10-14-adresse-hinter-dem-proxy.md`):**
+`login_log.ip` erhielt `REMOTE_ADDR`, und das ist hinter dem Proxy von
+Uberspace dessen Adresse. Alle 91 Einträge trugen dieselbe. Die Spalte hat
+nie etwas über ein Gerät gesagt.
+
+**Entschieden:** Die Spalte fällt weg. **Die echte Adresse (letzter Eintrag
+von `X-Forwarded-For`) zu speichern wäre neue Datenerhebung ohne Zweck:**
+Die Bremse zählt je Benutzername (E35), und eine Grenze je Herkunft ist
+abgelehnt (E35, Punkt 2).
+
+**Gebaut:** Die Bremse schreibt keine Adresse mehr. `sql/27_login_log_ohne_ip.sql`
+entfernt die Spalte samt Werten (`DROP COLUMN IF EXISTS`, **nach** dem
+Deploy einzuspielen; der Code bis v0.9.107 schreibt sie). **Die Hilfe sagte
+bis v0.9.107, die IP-Adresse werde gespeichert** (Datenschutzabsatz) – das
+stimmte nur im Wortlaut; jetzt nennt sie nur noch den Benutzernamen. Die
+Prüfung dazu verlangt das Fehlen.
+
+**Nebenbei gefunden:** Die neue Suite `run_bremse.php` starb beim ersten
+roten Lauf (fehlende Spalte) mit einem PHP-Fatal nach 6 von 18 Zeilen,
+ohne ✗ – Art 7. Sie meldet einen Abbruch jetzt als rote Zeile, und der
+Hilfsaufruf der Bremse meldet Ausnahmen an der Prüfung, die sie auslöst.

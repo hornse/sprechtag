@@ -1,5 +1,30 @@
 # Changelog - sprechtag
 
+## v0.9.108 (Oktober 2026) – login_log speichert keine IP-Adresse mehr
+
+Entscheidung des Betreibers (E36): Die Spalte hat nie etwas über ein Gerät
+gesagt – hinter dem Proxy steht dort dessen Adresse (gemessen, Befund
+14.10.2026) –, und die echte zu speichern wäre neue Datenerhebung ohne
+Zweck.
+
+- Die Bremse schreibt keine Adresse mehr.
+- **`sql/27_login_log_ohne_ip.sql` NACH dem Deploy einspielen** (Betreiber):
+  `ALTER TABLE login_log DROP COLUMN IF EXISTS ip;` – zweimal einspielbar.
+  Vorher eingespielt, scheiterte mit dem Code bis v0.9.107 jede Anmeldung.
+- **Hilfe, Datenschutz:** „… mit dem eingegebenen WebUntis-Benutzernamen und
+  der IP-Adresse“ → nur noch der Benutzername.
+- `run_bremse.php` meldet einen Abbruch als rote Zeile (Art 7) – beim ersten
+  roten Lauf starb sie ohne ✗.
+
+### Prüfungen
+- `run_bremse.php`: die Testtabelle hat keine Spalte `ip` mehr (so nach
+  sql/27) – gegen den alten Code bricht die Suite ab; neu die Prüfung der
+  Migration. `frontend_datenschutz_test.js`: verlangt jetzt das Fehlen der
+  IP-Adresse in der Hilfe, zuerst rot gezeigt.
+- **Prüfzeilen 1862 → 1863,** Suiten 84, alle grün; `tests-sprechtag.sh` 29.
+- **Mutationen 671 → 673:** IP1, IP2 neu; DS7 umgekehrt (die Hilfe nennt die
+  IP-Adresse wieder).
+
 ## v0.9.107 (Oktober 2026) – Anmeldebremse: gedeckelte Wartezeit statt Sperre; Messroute entfernt
 
 Review aus `koordination` (Commit `a700ce2`), Befund 5 (E35).

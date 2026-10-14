@@ -957,8 +957,9 @@ mut DS5 $APP 's/    \x27Für den persönlichen Kalender-Link.*?\n(    \x27|  \];
 # DS6 entfällt mit v0.9.82: Der Satz über die Schülerliste, den sie
 # entfernte, ist fort (F6). Die Nummer bleibt vergeben; die Umkehrung
 # belegt SA19.
-mut DS7 $APP 's/WebUntis-Benutzernamen und der IP-Adresse, zum Schutz/WebUntis-Benutzernamen, zum Schutz/' \
-  $DS "Login: Benutzername und IP-Adresse"
+# DS7 seit v0.9.108 umgekehrt (E36): die Hilfe nennt die IP-Adresse wieder.
+mut DS7 $APP 's/WebUntis-Benutzernamen, zum Schutz/WebUntis-Benutzernamen und der IP-Adresse, zum Schutz/' \
+  $DS "Login: fehlgeschlagene Anmeldeversuche mit Benutzername, ohne IP-Adresse"
 mut DS8 $APP 's/Dafür gibt es keine \x27\n      \+ \x27automatische Frist\. //' \
   $DS "… ohne automatische Frist"
 
@@ -1920,6 +1921,14 @@ mut WZ8 $BRS 's/    \$pdo->prepare\(\x27DELETE FROM login_log WHERE id = \? AND 
   $RBR "Erfolg, Protokoll aus"
 mut WZ9 $BRS 's/\x27Zu viele Fehlversuche – bitte in \x27 \. \$warten \. \x27 Sekunden erneut versuchen\.\x27/\x27Zu viele Fehlversuche – bitte später erneut versuchen.\x27/' \
   $RBR "5 Fehlversuche, der letzte vor 1 s"
+
+
+# ------------------------------------------------------------
+# IP1, IP2 (v0.9.108, E36): login_log ohne IP-Adresse.
+mut IP1 $BRS 's/INSERT INTO login_log \(webuntis_benutzer, erfolgreich, grund\) VALUES \(\?, 0, \?\)\x27\)\n        ->execute\(\[\$benutzer, BREMSE_LAEUFT\]\);/INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, ip) VALUES (?, 0, ?, ?)\x27)\n        ->execute([\$benutzer, BREMSE_LAEUFT, \$_SERVER[\x27REMOTE_ADDR\x27] ?? \x27\x27]);/' \
+  $RBR "ohne Vorgeschichte: durch"
+mut IP2 sql/27_login_log_ohne_ip.sql 's/^ALTER TABLE login_log DROP COLUMN IF EXISTS ip;\n//m' \
+  $RBR "sql/27 entfernt login_log.ip"
 
 
 if [ "${MUT_MODUS:-}" = "vor" ]; then

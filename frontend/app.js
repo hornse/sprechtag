@@ -1457,7 +1457,7 @@ function datenschutzAbsaetze() {
       + 'Kalender-App; sie bleibt dort, bis man sie selbst löscht.',
     'Unabhängig vom Archivieren bleibt Folgendes gespeichert:',
     'Fehlgeschlagene Anmeldeversuche mit dem eingegebenen '
-      + 'WebUntis-Benutzernamen und der IP-Adresse, zum Schutz vor dem '
+      + 'WebUntis-Benutzernamen, zum Schutz vor dem '
       + 'Durchprobieren von Passwörtern. '
       + 'Erfolgreiche Anmeldungen werden nur festgehalten, wenn die Schule es '
       + 'eingestellt hat. Die Einträge werden nach einer Frist gelöscht, die '

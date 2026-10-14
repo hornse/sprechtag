@@ -54,8 +54,9 @@ function bremse_warte_sekunden(int $fehl, int $seit, array $cfg): int
  */
 function bremse_beginnen(PDO $pdo, array $cfg, string $benutzer): int
 {
-    $pdo->prepare('INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, ip) VALUES (?, 0, ?, ?)')
-        ->execute([$benutzer, BREMSE_LAEUFT, $_SERVER['REMOTE_ADDR'] ?? '']);
+    // Keine Adresse (E36): REMOTE_ADDR ist hinter dem Proxy dessen Adresse.
+    $pdo->prepare('INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund) VALUES (?, 0, ?)')
+        ->execute([$benutzer, BREMSE_LAEUFT]);
     $id = (int)$pdo->lastInsertId();
     $st = $pdo->prepare('SELECT zeitpunkt FROM login_log WHERE id = ?');
     $st->execute([$id]);
@@ -99,8 +100,8 @@ function anmeldung_erfolg_merken(PDO $pdo, int $versuch, string $benutzer, strin
     $logAktiv = (int)marke_wert($pdo, 'login_log_aktiv', '0') === 1;
     $logErfolge = (int)marke_wert($pdo, 'login_log_erfolge', '0') === 1;
     if ($logAktiv && $logErfolge) {
-        $pdo->prepare('INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, ip)
-                       VALUES (?, 1, ?, ?)')
-            ->execute([$benutzer, $grund, $_SERVER['REMOTE_ADDR'] ?? '']);
+        $pdo->prepare('INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund)
+                       VALUES (?, 1, ?)')
+            ->execute([$benutzer, $grund]);
     }
 }

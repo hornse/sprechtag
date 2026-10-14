@@ -1,0 +1,21 @@
+-- ============================================================
+-- 27_login_log_ohne_ip.sql – login_log.ip entfällt (E36, v0.9.108)
+-- Idempotent. Einspielen: mysql hornse_sprechtag < sql/27_login_log_ohne_ip.sql
+--
+-- REIHENFOLGE: Diese Datei NACH dem Deploy von v0.9.108 einspielen. Der Code
+-- bis v0.9.107 schreibt die Spalte bei jedem Anmeldeversuch; vorher
+-- entfernt, scheiterte jede Anmeldung. Der Code ab v0.9.108 fasst sie nicht
+-- mehr an.
+--
+-- Die Spalte hat nie etwas über ein Gerät gesagt: Hinter dem Proxy von
+-- Uberspace ist REMOTE_ADDR dessen Adresse (gemessen 14.10.2026,
+-- docs/BEFUND-2026-10-14-adresse-hinter-dem-proxy.md); alle Einträge trugen
+-- dieselbe. Die echte Adresse aus X-Forwarded-For zu speichern wäre neue
+-- Datenerhebung ohne Zweck – die Bremse zählt je Benutzername (E35).
+-- Mit der Spalte gehen auch die gespeicherten Werte.
+--
+-- Zweimal einspielbar: DROP COLUMN IF EXISTS (MariaDB). Am Text geprüft
+-- (tests/run_bremse.php), nicht gegen MariaDB.
+-- ============================================================
+
+ALTER TABLE login_log DROP COLUMN IF EXISTS ip;
