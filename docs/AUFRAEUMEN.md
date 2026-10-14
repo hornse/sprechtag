@@ -159,3 +159,19 @@ unter 9, weil vergebene Nummern nicht verschoben werden.
     Rechte entzogen wurden und ein Neuladen die Anzeige richtigstellt.
     „Nur für die Sprechtags-Administration“ lässt jemanden rätseln, der
     eben noch Administrator war.
+17. **Zwei Bedingungen für „gehört zu meinen Terminen“** (vorgemerkt
+    14.10.2026, gefunden bei der Behebung der Review-Befunde 2 und 3,
+    E31). Liste, Verwerfen und Versand fragen `mit_gehoert_bedingung()`
+    (eigene Lehrkraft, oder bei Mitteilungen vor v0.9.72 eine eigene
+    Buchung). `GET /api/mitteilungen/offen-eigene` – der Hinweis nach der
+    Anmeldung – fragt nur `m.lehrer_id`, und `run_sitzung_versand.php`
+    verlangt das („genau die eine, Anzahl 1“). Eine alte Mitteilung der
+    Lehrkraft fehlt also im Hinweis, steht aber in ihrer Liste. Folge heute
+    vermutlich keine (Mitteilungen ohne Lehrkraft sind älter als v0.9.72;
+    der Hinweis zählt nur Sprechtage ab heute) – **nicht gemessen**.
+    Entscheidung: angleichen, oder die engere Fassung begründen.
+18. **Beim Neuladen blitzt kurz die Anmeldung auf** (vorgemerkt 14.10.2026,
+    Betreiber; nicht dringend). Die Oberfläche zeichnet die Anmeldeseite,
+    bevor `/api/auth/me` geantwortet hat. Keine Folge der Cookie-Behebung
+    (v0.9.101): Die Oberfläche liest den Cookie nirgends. Antwort wäre ein
+    neutraler Ladezustand bis zur Antwort.

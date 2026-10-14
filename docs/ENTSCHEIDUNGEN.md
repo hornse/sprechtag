@@ -2055,3 +2055,44 @@ das System benutzt hat. Bis dahin zählt die dritte Stelle weiter (0.9.101,
 **Folge für Werkzeuge:** Ab 0.9.100 hat die dritte Stelle drei Ziffern.
 `git tag | sort -V` ordnet richtig; ein einfaches `sort` stellt 0.9.100
 zwischen 0.9.10 und 0.9.11. Wer Versionen sortiert, sortiert nach Version.
+
+## E31 — Mitteilungen: Lehrkräfte sehen und verwerfen nur die eigenen, die Verwaltung alle
+
+**Datum:** 14.10.2026 · **Version:** v0.9.102 · **Anlass:** Review aus
+`koordination` (`docs/BEFUND-2026-10-14-review-sprechtag-1.md`, Commit
+`a700ce2`), Befunde 2 und 3, dort gemessen an `bff6a89`.
+
+**Lage (am Code bestätigt, ausgeführt in `run_mitteilungen_rechte.php`):**
+- **Befund 2:** `GET /api/mitteilungen` filterte nur nach Sprechtag und
+  Status. Jede Lehrkraft las alle Mitteilungen aller Lehrkräfte – mit
+  Kindname, Klasse, Betreff, Anlass und Empfängerkennung. Gegen den alten
+  Stand: Lehrkraft 7 bekam alle vier Mitteilungen der Testdaten.
+  Datenschutzfall im Betrieb.
+- **Befund 3:** `DELETE /api/mitteilungen/{id}` verwarf ohne
+  Eigentumsprüfung, mit 200. Eine offene Absage einer anderen Lehrkraft
+  ginge nie an die Eltern.
+- **Eine Ursache:** Die Frage „gehört die Mitteilung zu meinen Terminen?“
+  stellte nur der Versand (`senden`), mit eigener Bedingung im Zweig.
+
+**Behoben:**
+- `mit_gehoert_bedingung()` in `mitteilungen.php` ist die eine Bedingung
+  für Liste, Verwerfen und Versand: die eigene Lehrkraft an der
+  Mitteilung, oder – für Mitteilungen vor v0.9.72 ohne Lehrkraft – eine
+  eigene Buchung beim selben Empfänger.
+- Liste: Lehrkräfte bekommen nur die eigenen; eine Lehrkraft ohne
+  Stammsatz eine leere Liste.
+- Verwerfen: fremde 403, unbekannte Kennung 404 (bisher still 200).
+
+**Benannt, nicht nebenbei erhalten: Wer alles sieht und verwerfen darf,
+ist die Verwaltung (Rolle `admin`).** Die Verwaltung hat das bisher
+gekonnt, und daran hängen der Sammelversand (`senden` ohne Kennungen) und
+der Hinweis auf offene Mitteilungen nach der Anmeldung (E17). Der
+Betreiber hat es in seinem Auftrag vermutet („vermutlich die
+Verwaltung“); **die Bestätigung steht aus.** Eine Einschränkung – etwa
+nur lesen, nicht verwerfen – wäre eine Zeile in jedem der beiden Zweige.
+
+**Nicht angeglichen (Aufräumliste 17):** `GET /api/mitteilungen/offen-eigene`
+fragt eine eigene, engere Bedingung (nur `m.lehrer_id`, ohne die Buchungen
+für ältere Mitteilungen), und `run_sitzung_versand.php` verlangt genau
+das. Zwei Bedingungen für dieselbe Frage – gemeldet, nicht nebenbei
+geändert.

@@ -57,7 +57,7 @@ adm_sitzung_nachpruefen($cfg);
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.101', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.102', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -1092,6 +1092,8 @@ if ($methode === 'GET' && ($seg[0] ?? '') === 'messung' && ($seg[1] ?? '') === '
 //          Sitzung (E17); ist sie nicht nutzbar: gesendet 0 und 'sitzung'
 //   POST   /api/mitteilungen          {sprechtag_id, empfaenger_user_id, betreff, text}
 //   DELETE /api/mitteilungen/{id}     (verwerfen)
+// Liste und Verwerfen: Lehrkräfte nur die eigenen, die Verwaltung alle
+// (E31) – dieselbe Bedingung wie beim Versand (mit_gehoert_bedingung).
 // ============================================================
 if (($seg[0] ?? '') === 'mitteilungen') {
     $u   = auth_require_lehrkraft();   // Eltern haben hier nichts zu suchen
@@ -1105,6 +1107,13 @@ if (($seg[0] ?? '') === 'mitteilungen') {
                 FROM mitteilungen m
                 WHERE m.sprechtag_id = ?';
         $werte = [$sid];
+        // Befund 2 der Review (14.10.2026): ohne diese Bedingung las jede
+        // Lehrkraft alle Mitteilungen aller Lehrkräfte, mit Kindname und Klasse.
+        if ($u['rolle'] !== 'admin') {
+            [$bed, $bw] = mit_gehoert_bedingung((int)($u['lehrer_id'] ?? 0));
+            $sql .= ' AND ' . $bed;
+            $werte = array_merge($werte, $bw);
+        }
         if (($_GET['status'] ?? '') !== '') {
             $st = (string)$_GET['status'];
             if (!in_array($st, ['offen', 'gesendet', 'verworfen'], true)) {
@@ -1157,16 +1166,9 @@ if (($seg[0] ?? '') === 'mitteilungen') {
             $lid = (int)($u['lehrer_id'] ?? 0);
             if ($lid <= 0) json_err('Kein Lehrkraft-Stammsatz zugeordnet', 403);
             $platz = implode(',', array_fill(0, count($ids), '?'));
-            $stmt = $pdo->prepare(
-                "SELECT m.id FROM mitteilungen m
-                 WHERE m.id IN ($platz)
-                   AND (m.lehrer_id = ?
-                        OR (m.lehrer_id IS NULL
-                            AND EXISTS (SELECT 1 FROM buchungen b
-                                        WHERE b.sprechtag_id = m.sprechtag_id
-                                          AND b.eltern_user_id = m.empfaenger_user_id
-                                          AND b.lehrer_id = ?)))");
-            $stmt->execute(array_merge($ids, [$lid, $lid]));
+            [$bed, $bw] = mit_gehoert_bedingung($lid);
+            $stmt = $pdo->prepare("SELECT m.id FROM mitteilungen m WHERE m.id IN ($platz) AND $bed");
+            $stmt->execute(array_merge($ids, $bw));
             $ids = array_map('intval', array_column($stmt->fetchAll(), 'id'));
             if ($ids === []) {
                 json_err('Keine dieser Mitteilungen gehört zu Ihren Terminen. '
@@ -1204,8 +1206,22 @@ if (($seg[0] ?? '') === 'mitteilungen') {
     }
 
     if ($methode === 'DELETE' && isset($seg[1]) && ctype_digit($seg[1])) {
-        $pdo->prepare("UPDATE mitteilungen SET status = 'verworfen' WHERE id = ?")
-            ->execute([(int)$seg[1]]);
+        $mid = (int)$seg[1];
+        $st = $pdo->prepare('SELECT COUNT(*) FROM mitteilungen WHERE id = ?');
+        $st->execute([$mid]);
+        if ((int)$st->fetchColumn() === 0) json_err('Diese Mitteilung gibt es nicht.', 404);
+        // Befund 3 der Review (14.10.2026): ohne diese Prüfung konnte jede
+        // Lehrkraft eine fremde offene Absage verwerfen – sie ginge nie hinaus.
+        if ($u['rolle'] !== 'admin') {
+            [$bed, $bw] = mit_gehoert_bedingung((int)($u['lehrer_id'] ?? 0));
+            $st = $pdo->prepare("SELECT COUNT(*) FROM mitteilungen m WHERE m.id = ? AND $bed");
+            $st->execute(array_merge([$mid], $bw));
+            if ((int)$st->fetchColumn() === 0) {
+                json_err('Diese Mitteilung gehört nicht zu Ihren Terminen. '
+                    . 'Verwerfen kann sie nur die Lehrkraft selbst oder die Administration.', 403);
+            }
+        }
+        $pdo->prepare("UPDATE mitteilungen SET status = 'verworfen' WHERE id = ?")->execute([$mid]);
         json_ok(['ok' => true]);
     }
 }

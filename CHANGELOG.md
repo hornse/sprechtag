@@ -1,5 +1,42 @@
 # Changelog - sprechtag
 
+## v0.9.102 (Oktober 2026) – Mitteilungen: Lehrkräfte sehen und verwerfen nur die eigenen
+
+Review aus `koordination` (`BEFUND-2026-10-14-review-sprechtag-1.md`,
+Commit `a700ce2`), Befunde 2 und 3 (E31).
+
+- **Befund 2 – Datenschutzfall im Betrieb:** `GET /api/mitteilungen`
+  lieferte jeder Lehrkraft alle Mitteilungen aller Lehrkräfte, mit
+  Kindname, Klasse, Betreff und Anlass. Jetzt nur die eigenen.
+- **Befund 3:** `DELETE /api/mitteilungen/{id}` verwarf ohne
+  Eigentumsprüfung; eine offene Absage einer anderen Lehrkraft ginge nie
+  hinaus. Jetzt: fremde 403, unbekannte 404.
+- **Eine Ursache, eine Stelle:** `mit_gehoert_bedingung()` in
+  `mitteilungen.php` – dieselbe Bedingung, die bisher nur der Versand im
+  Zweig von `index.php` stehen hatte, jetzt für Liste, Verwerfen und
+  Versand.
+- **Die Verwaltung sieht und verwirft weiter alle** – in E31 als Regel
+  benannt; **die Bestätigung des Betreibers steht aus.**
+- **Nicht angeglichen:** `offen-eigene` (Hinweis nach der Anmeldung) fragt
+  eine engere Bedingung – Aufräumliste 17. Aufräumliste 18: Beim
+  Neuladen blitzt die Anmeldung auf (Betreiber).
+
+### Prüfungen
+- **Neue Suite `run_mitteilungen_rechte.php`, 17 Prüfzeilen.** Sie führt
+  den Zweig `/api/mitteilungen` aus `index.php` aus, mit zwei Lehrkräften,
+  je einer Mitteilung mit und ohne Lehrkraft, einer Lehrkraft ohne
+  Stammsatz, der Verwaltung und Eltern. Gegen den alten Stand 11 von 17
+  rot – Lehrkraft 7 bekam alle vier Mitteilungen, wie in der Review
+  gemessen, und verwarf eine fremde mit 200.
+- `run_sitzung_versand.php` unverändert grün – der Versand fragt dieselbe
+  Bedingung wie vorher, jetzt aus der Funktion.
+- **Prüfzeilen 1761 → 1778, Suiten 79 → 80,** alle grün;
+  `tests-sprechtag.sh` 29.
+- **Mutationen 631 → 638:** MR1–MR7 neu; SV8 an den neuen Ort umgezogen,
+  Name behalten. Eine erste Suche nach dem verschobenen Text in
+  Klartextform übersah SV8 (die Muster stehen regex-escapt); gefunden vor
+  dem Lauf durch die Suche nach dem Kernwort.
+
 ## v0.9.101 (Oktober 2026) – Der Sitzungs-Cookie trägt Secure, HttpOnly und SameSite
 
 Befund aus der Messung über die Reihe (`koordination`, 14.10.2026): sechs

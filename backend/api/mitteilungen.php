@@ -445,6 +445,24 @@ function mit_datum_deutsch(string $iso): string
  *            Versand, ob eine Mitteilung „zu meinen Terminen“ gehört – auch
  *            nach einer Absage, wenn die Buchung schon gelöscht ist.
  */
+/**
+ * Bedingung „die Mitteilung gehört zu den Terminen dieser Lehrkraft“ (E31),
+ * für eine Abfrage mit dem Alias m – eine Stelle für Liste, Verwerfen und
+ * Versand. Seit v0.9.72 trägt die Mitteilung die Lehrkraft selbst (auch
+ * nach einer Absage, wenn die Buchung gelöscht ist); ältere ohne sie über
+ * die Buchungen. Die Verwaltung fragt diese Bedingung nicht (E31).
+ * Rückgabe: [SQL-Ausdruck, Werte].
+ */
+function mit_gehoert_bedingung(int $lehrerId): array
+{
+    return ['(m.lehrer_id = ?
+              OR (m.lehrer_id IS NULL
+                  AND EXISTS (SELECT 1 FROM buchungen b
+                              WHERE b.sprechtag_id = m.sprechtag_id
+                                AND b.eltern_user_id = m.empfaenger_user_id
+                                AND b.lehrer_id = ?)))', [$lehrerId, $lehrerId]];
+}
+
 function mit_einreihen(PDO $pdo, int $sprechtagId, int $empfaengerUserId,
                        string $anlass, string $betreff, string $text,
                        ?int $schuelerId = null, ?int $lehrerId = null,

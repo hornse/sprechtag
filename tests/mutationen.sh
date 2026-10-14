@@ -792,7 +792,9 @@ mut SV6 $MI 's/if \(is_int\(\$n\) && \$n >= 1\)/if (is_int(\$n) && \$n > 1)/' \
   $SV "Grenze: 1 Empfänger ist erreicht"
 mut SV7 $MI 's/if \(\(string\)\(\$m\[\x27empfaenger_art\x27\] \?\? \x27konto\x27\) === \x27eltern\x27\) \{/if (false) {/' \
   $SV "genau ein Aufruf an /v2/messages mit PARENTS"
-mut SV8 $IDX 's/AND \(m\.lehrer_id = \?/AND (m.lehrer_id = -?/' \
+# SV8 seit v0.9.102 (E31) in mit_gehoert_bedingung (mitteilungen.php); die
+# Bedingung stand bis dahin im Zweig von index.php.
+mut SV8 $MI 's/return \[\x27\(m\.lehrer_id = \?/return [\x27(m.lehrer_id = -?/' \
   $SV "… die eigene Absage gehört zu „meinen Terminen“"
 mut SV9 $IDX 's/AND s\.datum >= \?";/AND (s.datum >= ? OR 1)";/' \
   $SV "Hinweis: nur Sprechtage ab heute"
@@ -1735,6 +1737,27 @@ mut SC4 $BOO 's/(if \(session_status\(\) !== PHP_SESSION_ACTIVE\) \{\n)/session_
   $RSC "Secure gesetzt"
 mut SC5 backend/router.php 's/\/\/ Ohne session_name\(\) geht die Session nach dem Login verloren\.\n/\/\/ Uberspace terminiert SSL vor PHP – ohne \$_SERVER[\x27HTTPS\x27]=\x27on\x27\n\/\/ fehlt das Secure-Flag am Session-Cookie und der Browser\n\/\/ Ohne session_name() geht die Session nach dem Login verloren.\n/' \
   $RSC "behauptet nicht mehr"
+
+# ------------------------------------------------------------
+# MR1–MR7 (v0.9.102, E31, Review 14.10.2026 Befunde 2 und 3): wem eine
+# Mitteilung gehört. run_mitteilungen_rechte führt den Zweig aus index.php
+# aus. MR1/MR3 nehmen die Prüfung weg (Lage der Review), MR2/MR4 schließen
+# die Verwaltung aus, MR7 baut die Bedingung im Zweig nach (Engstelle).
+RMR=tests/run_mitteilungen_rechte.php
+mut MR1 $IDX 's/        if \(\$u\[\x27rolle\x27\] !== \x27admin\x27\) \{\n(            \[\$bed, \$bw\] = mit_gehoert_bedingung\(\(int\)\(\$u\[\x27lehrer_id\x27\] \?\? 0\)\);\n            \$sql \.= )/        if (false) {\n$1/' \
+  $RMR "Lehrkraft 7: die eigene und die alte"
+mut MR2 $IDX 's/        if \(\$u\[\x27rolle\x27\] !== \x27admin\x27\) \{\n(            \[\$bed, \$bw\] = mit_gehoert_bedingung\(\(int\)\(\$u\[\x27lehrer_id\x27\] \?\? 0\)\);\n            \$sql \.= )/        if (true) {\n$1/' \
+  $RMR "Verwaltung: alle vier"
+mut MR3 $IDX 's/        if \(\$u\[\x27rolle\x27\] !== \x27admin\x27\) \{\n(            \[\$bed, \$bw\] = mit_gehoert_bedingung\(\(int\)\(\$u\[\x27lehrer_id\x27\] \?\? 0\)\);\n            \$st = )/        if (false) {\n$1/' \
+  $RMR "Lehrkraft 7 verwirft die fremde"
+mut MR4 $IDX 's/        if \(\$u\[\x27rolle\x27\] !== \x27admin\x27\) \{\n(            \[\$bed, \$bw\] = mit_gehoert_bedingung\(\(int\)\(\$u\[\x27lehrer_id\x27\] \?\? 0\)\);\n            \$st = )/        if (true) {\n$1/' \
+  $RMR "Verwaltung verwirft jede"
+mut MR5 $IDX 's/        if \(\(int\)\$st->fetchColumn\(\) === 0\) json_err\(\x27Diese Mitteilung gibt es nicht\.\x27, 404\);\n//' \
+  $RMR "unbekannte Kennung: 404"
+mut MR6 $MI 's/AND b\.lehrer_id = \?\)\)\)\x27, \[\$lehrerId, \$lehrerId\]\];/AND b.lehrer_id <> ?)))\x27, [\$lehrerId, \$lehrerId]];/' \
+  $RMR "Lehrkraft 7: die eigene und die alte"
+mut MR7 $IDX 's/mit_gehoert_bedingung\(\(int\)\(\$u\[\x27lehrer_id\x27\] \?\? 0\)\);\n(            \$sql \.= )/[\x27m.lehrer_id = ?\x27, [(int)(\$u[\x27lehrer_id\x27] ?? 0)]];\n$1/' \
+  $RMR "Liste, Verwerfen und Versand fragen mit_gehoert_bedingung"
 
 echo ""
 if [ "$FEHLT" -eq 0 ]; then echo "ALLE MUTATIONEN ANGESCHLAGEN"; exit 0; fi
