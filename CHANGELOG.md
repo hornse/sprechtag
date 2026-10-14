@@ -1,5 +1,35 @@
 # Changelog - sprechtag
 
+## v0.9.106 (Oktober 2026) – MESSUNG: welche Adresse sieht die Anwendung hinter dem Proxy?
+
+Befristet, für Befund 5 der Review (Anmeldebremse) und die offene Frage O2.
+**Wird mit der nächsten Version entfernt**, samt Route, Suite und
+Mutationen.
+
+- **Gemessen vom Betreiber vorher:** Die 91 Einträge in `login_log` tragen
+  eine einzige IPv4-Adresse – nicht intern, nicht die des Servers, nicht
+  die heutige des Rechners, von dem fast alle Anmeldungen kamen. Proxy
+  oder gewechselte Adresse: Das trennt diese Messung nicht.
+- **Neu, befristet:** `POST /api/messung/herkunft {ich, benutzer}` –
+  vergleicht `REMOTE_ADDR`, `X-Forwarded-For` (erster und letzter
+  Eintrag) und `X-Real-IP` mit der mitgeschickten Adresse und mit dem
+  `login_log`-Eintrag eines **erfundenen** Benutzernamens (Präfix
+  `messung-herkunft-`). Antwort: nur Wahrheitswerte, Zahlen, Namen der
+  Weiterleitungs-Kopfzeilen und Prüfsummen mit einem Salz, das nicht
+  herausgegeben wird. Ohne Anmeldung, aber nur als POST mit der Kopfzeile.
+- **Aufräumliste 19:** Einschätzung des Betreibers vermerkt – mit
+  SameSite=Lax trägt das `<img>`-Szenario vermutlich nicht mehr, ein
+  fremder Link schon; bei der Erhebung prüfen.
+
+### Prüfungen
+- **Neue Suite `run_messung_herkunft.php`, 9 Prüfzeilen** (vorher alle rot):
+  keine Adresse und keine ungesalzene Prüfsumme in der Antwort, die
+  Vergleiche hinter einem Proxy und direkt.
+- **Prüfzeilen 1844 → 1853, Suiten 83 → 84,** alle grün;
+  `tests-sprechtag.sh` 29.
+- **Mutationen 662 → 666:** MH1–MH4; Vorprüfung 664 von 664, 665
+  angeschlagen plus H4.
+
 ## v0.9.105 (Oktober 2026) – Verändernde Aufrufe brauchen die Kopfzeile X-Angefordert-Von und einen JSON-Körper
 
 Review aus `koordination` (Commit `a700ce2`), Befund 1 (E33), nach M22.

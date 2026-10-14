@@ -1874,6 +1874,21 @@ mut XA11 $HKP 's/\x27wert\x27 => \x27sprechtag\x27\]/\x27wert\x27 => \x27sprecht
 mut XA12 $APP 's/  if \(optionen\.body\) kopf\[\x27Content-Type\x27\] = \x27application\/json\x27;\n//' \
   $FHK "POST mit Körper"
 
+# ------------------------------------------------------------
+# MH1–MH4 (v0.9.106, MESSUNG): Vergleich der Adressen hinter dem Proxy (O2).
+# Werden mit der Route entfernt.
+RMH=tests/run_messung_herkunft.php
+MHP=backend/api/messung_herkunft.php
+mut MH1 $MHP 's/substr\(hash_hmac\(\x27sha256\x27, \$w, \$salz\), 0, 12\)/substr(hash(\x27sha256\x27, \$w), 0, 12)/' \
+  $RMH "keine ungesalzene Prüfsumme einer Adresse in der Antwort"
+mut MH2 $MHP 's/\$xff !== \[\] && \$xff\[count\(\$xff\) - 1\] === \$ich,/(\$xff[0] ?? null) === \$ich,/' \
+  $RMH "hinter einem Proxy: REMOTE_ADDR ist nicht ich"
+mut MH3 $MHP 's/\[\x27remote_addr\x27 => \$ps\(\$ra\),/[\x27remote_addr\x27 => \$ra,/' \
+  $RMH "keine Adresse in der Antwort"
+mut MH4 $MHP 's/\x27login_log_gleich_ich\x27         => \$logIp === null \? null : \$logIp === \$ich,/\x27login_log_gleich_ich\x27         => \$logIp === \$ich,/' \
+  $RMH "ohne login_log-Eintrag: die beiden Vergleiche sind null"
+
+
 if [ "${MUT_MODUS:-}" = "vor" ]; then
   echo "VORPRÜFUNG: $VGEPRUEFT erwartete Zeilen geprüft, $VFEHLT nicht gefunden"
   [ "$VGEPRUEFT" -gt 0 ] || { echo "FEHLER: keine erwartete Zeile geprüft"; exit 1; }

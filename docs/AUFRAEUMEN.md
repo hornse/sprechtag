@@ -186,3 +186,8 @@ unter 9, weil vergebene Nummern nicht verschoben werden.
     Sitzung der Person, keine Änderung an Buchungen. Prüfbar wie in
     `kurse/tests/run_herkunft.php`: GET-Zweige ermitteln und auf schreibende
     Aufrufe prüfen. Erst erheben, wie viele es sind.
+    **Einschätzung des Betreibers (14.10.2026, ungemessen):** Mit
+    SameSite=Lax (v0.9.101) geht der Cookie bei einem fremden `<img>` nicht
+    mit, nur bei Navigationen auf oberster Ebene. Das Bild-Szenario trägt
+    vermutlich nicht mehr, ein fremder Link schon. Bei der Erhebung der
+    schreibenden GET-Zweige prüfen.
