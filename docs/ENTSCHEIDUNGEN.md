@@ -2324,6 +2324,9 @@ Anwendung mit Fehlversuchen anhalten. Die Zeit rechnet PHP aus den
 Zeitstempeln der Datenbank; dasselbe SQL läuft in MariaDB und SQLite, und
 `tests/run_bremse.php` führt die Bremse aus.
 
+> **Überholt (Nachtrag 15.10.2026, v0.9.109):** keine Staffel mehr – ab der
+> Schwelle gleich 60 s. Die Staffel war im Tempo einer Person nie zu spüren.
+
 **Der Deckel – eine Abwägung, keine runde Zahl.** Zwei Größen ziehen in
 entgegengesetzte Richtungen:
 - **Was ein Angreifer je Stunde schafft,** gegen EIN Konto, wenn WebUntis
@@ -2335,6 +2338,9 @@ entgegengesetzte Richtungen:
   Angreifer kann die Wartezeit nicht verlängern (abgewiesene Versuche
   zählen nicht), und ihr eigener richtiger Versuch geht dann durch. Ein
   Termin dauert voreingestellt 10 Minuten (`slot_minuten`).
+
+> **Falsch (Nachtrag 15.10.2026):** Ein Skript, das einmal pro Minute
+> fehlschlägt, hält eine Lehrkraft dauerhaft in der Wartezeit.
 
 | Deckel | Angreifer je Konto und Stunde | Angreifer je Tag | Lehrkraft wartet höchstens |
 |---|---|---|---|
@@ -2358,6 +2364,66 @@ ist der Deckel neu abzuwägen – die Zahl steht an einer Stelle
 (`BREMSE_DECKEL`).
 
 **Nicht gebaut:** eine Grenze je Herkunft (Punkt 2).
+
+**Nachtrag 15.10.2026 (v0.9.109) — die Abnahme ist gescheitert; ab der
+Schwelle gleich der Deckel (Betreiber).**
+
+**Gemessen im Betrieb (Betreiber, 14.10.2026, v0.9.108):** echter
+Benutzername, falsches Passwort, sieben Versuche von Hand – nie eine
+Wartezeit, jedes Mal „WebUntis-Fehler -8504: bad credentials“. In
+`login_log`, letzte 15 Minuten: 7 Zeilen, `erfolgreich = 0`, alle mit
+diesem Grund. Die Versuche standen im Protokoll; die Bremse ließ sie durch.
+
+**Gemessen am Server (14.10.2026, 22:40:56–22:42:10, v0.9.108, erfundener
+Benutzername):** sieben falsche Anmeldungen im Abstand von 12–13 s, alle
+401, keine 429.
+
+**Ursache (am Code):** Die Staffel begann beim sechsten Versuch mit 5 s nach
+dem letzten Fehlversuch, beim siebten 10 s. Wer neu tippt, braucht länger –
+die Wartezeit war vorbei, bevor der nächste Versuch kam; spürbar wäre sie
+erst ab dem achten oder neunten geworden. **Nicht** die Ursache: der Grund
+(die Zählung filtert nicht danach) und die Zeitzone (beide Zeitstempel
+kommen aus der Uhr der Datenbank, die Rechnung vergleicht nur sie).
+
+**Die Messung am Server um 22:16 (v0.9.107)** war richtig gemacht und hat
+den falschen Fall geprüft: Sie lief in Bruchteilen einer Sekunde. Die
+Abnahmeanweisung „fünfmal falsch, dann eine Meldung mit Sekunden“
+versprach, was die Bremse in diesem Tempo nicht tat.
+
+**Lehre (Betreiber):** Ein Messaufbau unterscheidet sich vom Betrieb in mehr
+als dem einen Merkmal, das man bewusst ersetzt hat. Ersetzt war der Name;
+unbemerkt mitersetzt war das Tempo.
+
+**Entschieden (Betreiber):**
+1. **Ab der Schwelle gleich 60 s** nach dem letzten Fehlversuch, ohne
+   Staffel. Die Abwägung oben gilt unverändert – die Tabelle beschrieb
+   schon den Zustand am Deckel. Die Staffel gab einem schnellen Angreifer
+   vier Versuche mehr und einer Person nichts.
+2. **„Nicht erreichbar“ zählt nicht für die Bremse.** Erreicht
+   `authenticate` WebUntis nicht (kein Netz, keine JSON-Antwort), hat kein
+   Passwort entschieden, und die Bremse bremst das Raten. Geschlossen
+   scheitert es ohnehin – bei einem Ausfall kommt niemand hinein. Zählen
+   hieße nur, Lehrkräfte für einen Ausfall von WebUntis warten zu lassen.
+   Die Antwort darf es dann sagen (503); jede Ablehnung, bei der ein
+   Passwort im Spiel war, bekommt einen Satz (Review, Befund 7;
+   `backend/api/anmeldefehler.php`).
+
+**Bekannte Grenze – die Wartezeit ist eine Waffe (Betreiber):** Ein Skript,
+das einmal pro Minute fehlschlägt, hält eine Lehrkraft dauerhaft in der
+Wartezeit; die Kürzel sind öffentlich. Abgewiesene Versuche zählen zwar
+nicht, aber jeder zugelassene Fehlversuch nach Ablauf beginnt die Minute
+neu, und wer den Ablauf abpasst, kommt vor der Lehrkraft an. Die Aussage
+des Betreibers, die Wartezeit lasse sich nicht als Waffe benutzen, war
+falsch (Betreiber, 15.10.2026); oben steht sie als „der Angreifer kann die
+Wartezeit nicht verlängern … und ihr eigener richtiger Versuch geht dann
+durch“. **Ob die Herkunft dazukommt, ist eine eigene Entscheidung**, weil
+sie wieder etwas über die Herkunft speichern müsste (E36).
+
+**Geprüft, zuerst rot:** der Fall der Abnahme (fünf Fehlversuche mit -8504
+im Abstand von 15 s – die sechste Anfrage wartet), ein Fall genau auf der
+Grenze (59 s: noch 1 s; 60 s: durch), und dass ein Versuch ohne Antwort von
+WebUntis nicht zählt. Die Mutation WZ10 baut die alte Staffel zurück; der
+Fall der Abnahme schlägt an.
 
 ## E36 — login_log.ip entfällt
 

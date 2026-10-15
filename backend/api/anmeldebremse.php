@@ -14,8 +14,11 @@
 //   * WARTEZEIT STATT SPERRE, je Benutzername. Bis v0.9.106 sperrte die
 //     Bremse nach 5 Fehlversuchen 15 Minuten lang – damit konnte ein Fremder
 //     jede Lehrkraft aussperren, deren Kürzel er kennt. Jetzt: ab der
-//     Schwelle 5 s Wartezeit nach dem letzten Fehlversuch, je weiterem
-//     verdoppelt, gedeckelt (BREMSE_DECKEL, Begründung in E35).
+//     Schwelle eine Wartezeit nach dem letzten Fehlversuch (BREMSE_DECKEL,
+//     Begründung in E35).
+//   * v0.9.109: ab der Schwelle GLEICH der Deckel. Bis dahin 5 s, je weiterem
+//     verdoppelt – im Tempo einer Person nie zu spüren: Bei der Abnahme vom
+//     14.10.2026 kam auch der siebte Versuch von Hand ohne Wartezeit durch.
 //   * ABGEWIESEN WIRD MIT 429 UND RETRY-AFTER, nicht durch Warten im Prozess:
 //     Ein wartender Prozess hielte bei einem einzigen PHP-Prozess alle auf.
 //   * ZUERST EINTRAGEN, DANN ZÄHLEN, DANN WEBUNTIS FRAGEN: Der Versuch steht
@@ -29,9 +32,7 @@
 
 declare(strict_types=1);
 
-/** Erste Wartezeit an der Schwelle, in Sekunden; je weiterem Fehlversuch verdoppelt. */
-const BREMSE_BASIS = 5;
-/** Längste Wartezeit in Sekunden (Begründung: docs/ENTSCHEIDUNGEN.md, E35). */
+/** Wartezeit ab der Schwelle in Sekunden, nach dem letzten Fehlversuch (Begründung: docs/ENTSCHEIDUNGEN.md, E35). */
 const BREMSE_DECKEL = 60;
 /** Grund eines Versuchs, der gerade läuft. */
 const BREMSE_LAEUFT = '(läuft)';
@@ -41,9 +42,7 @@ function bremse_warte_sekunden(int $fehl, int $seit, array $cfg): int
 {
     $schwelle = (int)($cfg['security']['max_failed_logins'] ?? 5);
     if ($fehl < $schwelle) return 0;
-    $stufe = min($fehl - $schwelle, 16);   // 2^16 · 5 s liegt weit über jedem Deckel
-    $dauer = min(BREMSE_DECKEL, BREMSE_BASIS * (2 ** $stufe));
-    return max(0, $dauer - max(0, $seit));
+    return max(0, BREMSE_DECKEL - max(0, $seit));
 }
 
 /**
@@ -85,6 +84,18 @@ function bremse_fehlschlag(PDO $pdo, int $versuch, string $benutzer, string $gru
 {
     $pdo->prepare('UPDATE login_log SET grund = ? WHERE id = ? AND webuntis_benutzer = ?')
         ->execute([substr($grund, 0, 190), $versuch, $benutzer]);
+}
+
+/**
+ * Versuch ohne Entscheid beenden: WebUntis hat nicht geantwortet, kein
+ * Passwort hat entschieden (v0.9.109, Entscheidung Betreiber 15.10.2026). Der
+ * laufende Eintrag entfällt und zählt nicht – die Bremse bremst das Raten,
+ * und zählte ein Ausfall, warteten Lehrkräfte für ihn.
+ */
+function bremse_ohne_entscheid(PDO $pdo, int $versuch, string $benutzer): void
+{
+    $pdo->prepare('DELETE FROM login_log WHERE id = ? AND webuntis_benutzer = ? AND grund = ?')
+        ->execute([$versuch, $benutzer, BREMSE_LAEUFT]);
 }
 
 /**

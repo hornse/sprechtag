@@ -1,5 +1,55 @@
 # Changelog - sprechtag
 
+## v0.9.109 (Oktober 2026) – Anmeldebremse greift im Tempo einer Person; die Anmeldung nennt keinen WebUntis-Fehler mehr
+
+Die Abnahme von v0.9.107/108 ist gescheitert (E35, Nachtrag 15.10.2026);
+dazu Review aus `koordination` (Commit `a700ce2`), Befund 7.
+
+- **Ab der Schwelle gleich 60 s** nach dem letzten Fehlversuch, ohne
+  Staffel. Bis v0.9.108: 5 s, verdoppelt – von Hand kam auch der siebte
+  Versuch ohne Wartezeit durch (gemessen im Betrieb und am Server).
+- **Eine Antwort, solange ein Passwort entschied:** -8504, ein nicht
+  freigeschalteter Kontotyp und jeder Fehler nach `authenticate` geben 401
+  „Anmeldung fehlgeschlagen. Bitte Benutzername und Passwort prüfen.“ Der
+  Grund steht weiter in `login_log`. Bis v0.9.108 stand der Text der
+  Ausnahme bei der Nutzerin.
+- **Nur wenn `authenticate` WebUntis nicht erreichte** (kein Netz, keine
+  JSON-Antwort): 503 mit dem Satz des Sitzungszugangs („WebUntis ist gerade
+  nicht erreichbar …“), und der Versuch **zählt nicht** für die Bremse
+  (Betreiber: kein Passwort hat entschieden). Der Grund geht ins
+  Server-Log, ohne Benutzernamen. Neue Datei `backend/api/anmeldefehler.php`.
+- **Bekannte Grenze, in E35 festgehalten:** Ein Skript, das einmal pro
+  Minute fehlschlägt, hält eine Lehrkraft dauerhaft in der Wartezeit.
+
+### Abnahme (nicht offline messbar)
+- Im Browser, echter Benutzername, falsches Passwort, im eigenen Tempo: Die
+  Meldungen nennen keinen WebUntis-Fehlercode; der sechste Versuch zeigt
+  eine Wartezeit von knapp einer Minute; nach Ablauf geht die richtige
+  Anmeldung durch.
+
+### Prüfungen
+- **`run_bremse.php` 19 → 24:** der Fall der Abnahme (zwei), die Grenze
+  59/60 s, „ohne Staffel“ statt „verdoppelt“, ein Versuch ohne Entscheid
+  (zwei); umgestellt auf 60 s: Schwelle, 58–59 s, „vor 61 s durch“ statt
+  „vor 10 s“. Gegen den alten Stand 6 rot, die zwei zu „ohne Entscheid“
+  danach einzeln rot gezeigt. **Angekündigt hatte ich 18 → 21** – falsch
+  gerechnet, der Ausgang war 19 (die Prüfung zu sql/27 aus v0.9.108).
+- **`run_anmeldebremse.php` 21 → 33:** der Login ausgeführt mit -8504,
+  Kontotyp, Fehler nach `authenticate` und „nicht erreichbar“ (503, zählt
+  nicht); die Einordnung an den Texten der vendorten `WebUntisAuth.php`
+  festgehalten; `wu_login` gegen eine Adresse ohne Dienst ausgeführt. Vor
+  der Behebung 10 rot, „zählt nicht“ danach einzeln rot.
+- **Die Engstellen-Prüfung des Logins liest ohne Kommentare.** Sie bestand
+  mit auskommentiertem `anmeldung_erfolg_merken` (Gegenprobe auf v0.9.108:
+  die ganze Suite grün) und wurde durch einen Kommentar im `catch`
+  grundlos rot. Der erste Versuch der Behebung wirkte nicht: Ohne `<?php`
+  liest der Tokenizer alles als HTML.
+- **Prüfzeilen 1863 → 1880,** Suiten 84, alle grün; `tests-sprechtag.sh` 29.
+- **Mutationen 673 → 682:** WZ1, WZ2 fort (die Staffel ist fort); WZ3 an der
+  neuen Zeile; SD10 erwartet nur noch den festen Teil; neu WZ10–WZ12,
+  AF1–AF7, SD11. Vorprüfung 680/680, 681 angeschlagen plus H4, Rücknahme
+  belegt (Prüfsummen, 202 Dateien).
+
 ## v0.9.108 (Oktober 2026) – login_log speichert keine IP-Adresse mehr
 
 Entscheidung des Betreibers (E36): Die Spalte hat nie etwas über ein Gerät

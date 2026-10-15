@@ -20,6 +20,7 @@ require_once __DIR__ . '/../auth/WebUntisAuth.php';
 require_once __DIR__ . '/../auth/WebUntisRest.php';
 require_once __DIR__ . '/../auth/extractors.php';
 require_once __DIR__ . '/klassenleitung.php';
+require_once __DIR__ . '/anmeldefehler.php';
 
 // ---- Sitzungszugang (v0.9.72, E17) ----------------------------------------
 
@@ -204,13 +205,18 @@ function schueler_gruppen_auswahl(callable $sitzung): array
  *   kinder       – [['id'=>int,'name'=>string], …] (nur Eltern)
  *   wu_gruppe    – Benutzergruppe aus profile/general (Text) oder null (E15)
  *
- * Wirft RuntimeException bei Anmeldefehlern.
+ * Wirft RuntimeException bei Anmeldefehlern – WuNichtErreichbar, wenn
+ * authenticate WebUntis nicht erreicht hat (anmeldefehler.php, Befund 7).
  */
 function wu_login(array $cfg, PDO $pdo, string $benutzer, string $passwort): array
 {
     $wcfg = $cfg['webuntis'];
     $wu = new WebUntisAuth($wcfg['base_url'], $wcfg['school'], $wcfg['client']);
-    $auth = $wu->authenticate($benutzer, $passwort);
+    try {
+        $auth = $wu->authenticate($benutzer, $passwort);
+    } catch (RuntimeException $e) {
+        throw wu_anmeldefehler($e);
+    }
 
     $personType = (int)($auth['personType'] ?? 0);
     $personId   = (int)($auth['personId'] ?? 0);

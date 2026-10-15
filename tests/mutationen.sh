@@ -1618,7 +1618,7 @@ mut SD8 backend/config.example.php 's/\x27sondierung_freigeschaltet\x27 => false
 mut SD9 $IDX 's/            bremse_fehlschlag\(\$pdo, \$versuch, \$benutzer, \$e->getMessage\(\)\);/            \$pdo->prepare(\x27INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, ip) VALUES (?, 0, ?, ?)\x27)->execute([\$benutzer, \$e->getMessage(), \x27\x27]);/' \
   $BRT "in login_log schreibt nur anmeldebremse.php"
 mut SD10 $BRS 's/    if \(\$fehl < \$schwelle\) return 0;/    if (\$fehl <= \$schwelle) return 0;/' \
-  $RBR "genau an der Schwelle (5): 5 Sekunden ab dem letzten"
+  $RBR "genau an der Schwelle (5)"
 # LL1, LL2: die umgestellten Prüfungen der Login-Protokoll-Suite. LL1 hätte
 # die Prüfung bis v0.9.92 bestanden – derselbe Text stand in der
 # Einstellungsroute (Art 1).
@@ -1903,11 +1903,11 @@ mut XA12 $APP 's/  if \(optionen\.body\) kopf\[\x27Content-Type\x27\] = \x27appl
 # ------------------------------------------------------------
 # WZ1–WZ9 (v0.9.107, E35, Review 14.10.2026 Befund 5): Wartezeit statt
 # Sperre, zuerst eintragen. run_bremse führt die Bremse gegen SQLite aus.
-mut WZ1 $BRS 's/\$dauer = min\(BREMSE_DECKEL, BREMSE_BASIS \* \(2 \*\* \$stufe\)\);/\$dauer = BREMSE_BASIS * (2 ** \$stufe);/' \
-  $RBR "gedeckelt bei 60 Sekunden"
-mut WZ2 $BRS 's/\$dauer = min\(BREMSE_DECKEL, BREMSE_BASIS \* \(2 \*\* \$stufe\)\);/\$dauer = min(BREMSE_DECKEL, BREMSE_BASIS);/' \
-  $RBR "verdoppelt: 6 → 10, 7 → 20, 8 → 40"
-mut WZ3 $BRS 's/    return max\(0, \$dauer - max\(0, \$seit\)\);/    return \$dauer;/' \
+# WZ1, WZ2 entfallen mit v0.9.109 (E35, Nachtrag): Die Staffel, die sie
+# mutierten, ist fort – ab der Schwelle gleich der Deckel. Die Nummern
+# bleiben vergeben; dass die Staffel nicht zurückkommt, belegt WZ10.
+# WZ3 seit v0.9.109 an der neuen Zeile.
+mut WZ3 $BRS 's/    return max\(0, BREMSE_DECKEL - max\(0, \$seit\)\);/    return BREMSE_DECKEL;/' \
   $RBR "abgelaufen: nichts mehr zu warten"
 mut WZ4 $BRS 's/AND zeitpunkt >= \?\x27\);/AND zeitpunkt >= ?\x27 . \x27 AND grund <> \x27 . \$pdo->quote(BREMSE_LAEUFT));/' \
   $RBR "gleichzeitig: 4 Fehlversuche, zwei Anfragen"
@@ -1929,6 +1929,43 @@ mut IP1 $BRS 's/INSERT INTO login_log \(webuntis_benutzer, erfolgreich, grund\) 
   $RBR "ohne Vorgeschichte: durch"
 mut IP2 sql/27_login_log_ohne_ip.sql 's/^ALTER TABLE login_log DROP COLUMN IF EXISTS ip;\n//m' \
   $RBR "sql/27 entfernt login_log.ip"
+
+
+# ------------------------------------------------------------
+# WZ10–WZ12 (v0.9.109, E35 Nachtrag): ab der Schwelle gleich 60 s; ein
+# Versuch ohne Antwort von WebUntis zählt nicht. WZ10 baut die Staffel von
+# v0.9.107/108 zurück – der Fall der Abnahme muss anschlagen.
+mut WZ10 $BRS 's/    return max\(0, BREMSE_DECKEL - max\(0, \$seit\)\);/    return max(0, min(BREMSE_DECKEL, 5 * (2 ** min(\$fehl - \$schwelle, 16))) - max(0, \$seit));/' \
+  $RBR "fünf Fehlversuche (-8504) im Abstand von 15 s"
+mut WZ11 $BRS 's/    return max\(0, BREMSE_DECKEL - max\(0, \$seit\)\);/    return max(0, BREMSE_DECKEL - 1 - max(0, \$seit));/' \
+  $RBR "auf der Grenze"
+mut WZ12 $BRS 's/(function bremse_ohne_entscheid\(PDO \$pdo, int \$versuch, string \$benutzer\): void\n\{\n)    \$pdo->prepare\([^\n]*\n[^\n]*\n/$1/' \
+  $RBR "ohne Entscheid zählt nicht"
+
+# AF1–AF7 (v0.9.109, Review koordination a700ce2, Befund 7): eine Antwort,
+# solange ein Passwort entschied; „nicht erreichbar“ nur, wenn authenticate
+# WebUntis nicht erreichte – und das zählt nicht für die Bremse.
+AFD=backend/api/anmeldefehler.php
+mut AF1 $AFD 's/        return new WuNichtErreichbar\(\$m, 0, \$e\);/        return \$e;/' \
+  $BRT "einordnen: „WebUntis nicht erreichbar"
+mut AF2 $AFD 's/    if \(str_starts_with\(\$m, \x27WebUntis nicht erreichbar: \x27\)/    if (true || str_starts_with(\$m, \x27WebUntis nicht erreichbar: \x27)/' \
+  $BRT "einordnen: „WebUntis-Fehler -8504"
+mut AF3 backend/api/webuntis_adapter.php 's/        throw wu_anmeldefehler\(\$e\);/        throw \$e;/' \
+  $BRT "wu_login, WebUntis antwortet nicht"
+mut AF4 $IDX 's/            json_err\(ANMELDUNG_ABGELEHNT, 401\);/            json_err(\x27Anmeldung fehlgeschlagen: \x27 . \$e->getMessage(), 401);/' \
+  $BRT "Anmeldung, WebUntis -8504"
+mut AF5 $IDX 's/            json_err\(wu_sitzung_meldung\(\x27nicht_erreichbar\x27\), 503\);/            json_err(ANMELDUNG_ABGELEHNT, 401);/' \
+  $BRT "Anmeldung, WebUntis nicht erreichbar: 503"
+mut AF6 $IDX 's/            bremse_ohne_entscheid\(\$pdo, \$versuch, \$benutzer\);/            bremse_fehlschlag(\$pdo, \$versuch, \$benutzer, \$e->getMessage());/' \
+  $BRT "Anmeldung, WebUntis nicht erreichbar: zählt nicht"
+mut AF7 $IDX 's/            json_err\(ANMELDUNG_ABGELEHNT, 401\);/            json_err(str_contains(\$e->getMessage(), \x27Kontotyp\x27) ? \x27Kontotyp nicht freigeschaltet\x27 : ANMELDUNG_ABGELEHNT, 401);/' \
+  $BRT "Anmeldung, Kontotyp"
+
+# SD11 (v0.9.109): anmeldung_erfolg_merken im Login auskommentiert – jede
+# erfolgreiche Anmeldung bliebe als Fehlversuch stehen. Bestand bis dahin die
+# Engstellen-Prüfung, die Kommentare mitlas (Gegenprobe auf v0.9.108).
+mut SD11 $IDX 's/(\n        )(anmeldung_erfolg_merken\(\$pdo, \$versuch, \$benutzer, \$daten\[\x27rolle\x27\]\);)/$1\/\/ $2/' \
+  $BRT "Login benutzt dieselbe Bremse"
 
 
 if [ "${MUT_MODUS:-}" = "vor" ]; then

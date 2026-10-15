@@ -75,14 +75,33 @@ function sleep_ersatz(int $s): int { return 0; }
 $GLOBALS["spur"] = [];
 function bremse_beginnen(PDO $p, array $cfg, string $b): int { $GLOBALS["spur"][] = "bremse:" . $b; if ($GLOBALS["BREMSE"] ?? false) json_ok(["fehler" => "warten", "warten_sekunden" => 5], 429); return 7; }
 function bremse_fehlschlag(PDO $p, int $v, string $b, string $g): void { $GLOBALS["spur"][] = "fehlschlag:" . $b . ($v === 7 ? "" : ":falscher-versuch"); }
+function bremse_ohne_entscheid(PDO $p, int $v, string $b): void { $GLOBALS["spur"][] = "ohne-entscheid:" . $b . ($v === 7 ? "" : ":falscher-versuch"); }
 function anmeldung_erfolg_merken(PDO $p, int $v, string $b, string $g): void { $GLOBALS["spur"][] = "erfolg:" . $b . ":" . $g . ($v === 7 ? "" : ":falscher-versuch"); }
 function wu_webuntis() { $GLOBALS["spur"][] = "webuntis"; if (($GLOBALS["WU"] ?? "ok") !== "ok") throw new RuntimeException("Anmeldung abgelehnt"); }
 function sondierung_ausfuehren(array $cfg, string $b, string $p, array $g, array $x = [], string $s = "", string $v = "", string $bis = ""): array { wu_webuntis(); return ["ok" => true]; }
 function wu_stammdaten_sync(array $cfg, PDO $pdo, string $b, string $p): array { wu_webuntis(); return ["lehrer" => 0, "raeume" => 0]; }
+// Anmeldung (v0.9.109, Befund 7): die echte anmeldefehler.php, wu_login ersetzt
+// – je $GLOBALS["WU"] eine der Arten, auf die die Anmeldung scheitert.
+if (is_file(FEHLERDATEI)) require_once FEHLERDATEI;
+function wu_login(array $cfg, PDO $pdo, string $b, string $p): array {
+    $GLOBALS["spur"][] = "webuntis";
+    switch ($GLOBALS["WU"] ?? "ok") {
+        case "8504":     throw new RuntimeException("WebUntis-Fehler -8504: bad credentials", -8504);
+        case "kontotyp": throw new RuntimeException("Dieser Kontotyp ist für die Terminbuchung nicht freigeschaltet");
+        case "danach":   throw new RuntimeException("Unerwartete WebUntis-Antwort (kein JSON)");
+        case "nicht_erreichbar":
+            throw class_exists("WuNichtErreichbar") ? new WuNichtErreichbar("WebUntis nicht erreichbar: Connection refused")
+                                                    : new RuntimeException("WebUntis nicht erreichbar: Connection refused");
+    }
+    return [];
+}
+function wu_sitzung_meldung(?string $art): string { return "MELDUNG:" . $art; }
 ';
 $tmp = sys_get_temp_dir() . '/sprechtag-bremse-' . getmypid();
 @mkdir($tmp);
-file_put_contents("$tmp/ersatz.php", $ersatz);
+$FEHLERDATEI = $API . '/anmeldefehler.php';
+file_put_contents("$tmp/ersatz.php", str_replace('FEHLERDATEI', var_export($FEHLERDATEI, true), $ersatz));
+if (is_file($FEHLERDATEI)) require_once $FEHLERDATEI;
 
 /** Führt einen Zweig aus. $rolle: null = nicht angemeldet. */
 function lauf(string $tmp, string $zweig, string $api, array $seg, ?string $rolle, bool $schalter = true,
@@ -93,7 +112,7 @@ function lauf(string $tmp, string $zweig, string $api, array $seg, ?string $roll
     $skript = '<?php declare(strict_types=1);
 require ' . var_export("$tmp/ersatz.php", true) . ';
 require_once ' . var_export("$api/auth.php", true) . ';
-$methode = "POST"; $seg = ' . var_export($seg, true) . ';
+$methode = "POST"; $seg = ' . var_export($seg, true) . '; $unter = $seg[1] ?? "";
 $body = ["benutzername" => "probe", "passwort" => "geheim"];
 $cfg = ["sondierung_freigeschaltet" => ' . ($schalter ? 'true' : 'false') . ', "security" => []];
 $GLOBALS["BREMSE"] = ' . ($bremse ? 'true' : 'false') . '; $GLOBALS["WU"] = ' . var_export($wu, true) . ';
@@ -162,6 +181,85 @@ $r = lauf($tmp, $sync, $API, $sy, 'admin', true, false, 'abgelehnt');
 pruefe('Sync, WebUntis lehnt ab: 502, der Fehlschlag steht im Protokoll – ' . $zeig($r),
     $r['status'] === 502 && $r['spur'] === ['bremse:probe', 'webuntis', 'fehlschlag:probe']);
 
+// -- Anmeldung: eine Antwort, solange ein Passwort entschied (Befund 7) --
+// Bis v0.9.108 gab die Anmeldung den Text der Ausnahme weiter – „WebUntis-
+// Fehler -8504: bad credentials“ stand bei der Nutzerin (Abnahme 14.10.2026).
+// FALLSTRICKE Abschnitt 8: Wo ein Passwort über den Zugang entschied, ist die
+// Ablehnung einheitlich; der Grund gehört ins Protokoll. Nur wenn WebUntis gar
+// nicht antwortete, hat kein Passwort entschieden – das darf die Antwort sagen.
+echo "Anmeldung: eine Antwort, solange ein Passwort entschied (Befund 7)\n";
+$anm = zweig($quelle, "if (\$methode === 'POST' && \$unter === 'login') {");
+$satz = defined('ANMELDUNG_ABGELEHNT') ? ANMELDUNG_ABGELEHNT : null;
+pruefe('Voraussetzung: Route POST /api/auth/login genau einmal gefunden, ANMELDUNG_ABGELEHNT in anmeldefehler.php',
+    $anm !== '' && is_string($satz) && $satz !== '');
+$al = ['auth', 'login'];
+$r8 = lauf($tmp, $anm, $API, $al, null, true, false, '8504');
+pruefe('Anmeldung, WebUntis -8504: 401 mit dem einen Satz, ohne Fehlercode; der Fehlschlag steht im Protokoll – ' . $zeig($r8),
+    $r8['status'] === 401 && $satz !== null && $fehlerText($r8) === $satz && !str_contains($r8['roh'], '8504')
+    && $r8['spur'] === ['bremse:probe', 'webuntis', 'fehlschlag:probe']);
+$r = lauf($tmp, $anm, $API, $al, null, true, false, 'kontotyp');
+pruefe('Anmeldung, Kontotyp nicht freigeschaltet: dieselbe Antwort wie bei -8504 – ' . $zeig($r),
+    $r['status'] === 401 && $satz !== null && $fehlerText($r) === $satz && $r['daten'] === $r8['daten']
+    && $r['spur'] === ['bremse:probe', 'webuntis', 'fehlschlag:probe']);
+$r = lauf($tmp, $anm, $API, $al, null, true, false, 'danach');
+pruefe('Anmeldung, Fehler nach authenticate: dieselbe Antwort wie bei -8504 – ' . $zeig($r),
+    $r['status'] === 401 && $satz !== null && $fehlerText($r) === $satz && $r['daten'] === $r8['daten']
+    && $r['spur'] === ['bremse:probe', 'webuntis', 'fehlschlag:probe']);
+$r = lauf($tmp, $anm, $API, $al, null, true, false, 'nicht_erreichbar');
+pruefe('Anmeldung, WebUntis nicht erreichbar: 503 mit dem Satz aus wu_sitzung_meldung – ' . $zeig($r),
+    $r['status'] === 503 && $fehlerText($r) === 'MELDUNG:nicht_erreichbar');
+// Entscheidung Betreiber (15.10.2026): Dort hat kein Passwort entschieden, und
+// die Bremse bremst das Raten. Zählte es, warteten Lehrkräfte für einen
+// Ausfall von WebUntis; geschlossen scheitert die Anmeldung ohnehin.
+pruefe('Anmeldung, WebUntis nicht erreichbar: zählt nicht für die Bremse – der Versuch endet ohne Entscheid, kein Fehlschlag – ' . $zeig($r),
+    $r['spur'] === ['bremse:probe', 'webuntis', 'ohne-entscheid:probe']);
+
+// Einordnen: Welche Meldung aus WebUntisAuth heißt „nicht erreichbar“? Die
+// Texte stammen aus der vendorten Datei (dort nicht änderbar) – die Prüfung
+// hält sie fest, sonst ordnete eine neue Fassung still alles als Ablehnung ein.
+echo "Anmeldefehler einordnen\n";
+$wua = (string)file_get_contents(__DIR__ . '/../backend/auth/WebUntisAuth.php');
+pruefe('Voraussetzung: WebUntisAuth wirft genau diese drei Meldungen – „WebUntis nicht erreichbar: …“, „… (kein JSON)“, „WebUntis-Fehler $code: $msg“',
+    substr_count($wua, "throw new RuntimeException('WebUntis nicht erreichbar: ' . \$err);") === 1
+    && substr_count($wua, "throw new RuntimeException('Unerwartete WebUntis-Antwort (kein JSON)');") === 1
+    && substr_count($wua, 'throw new RuntimeException("WebUntis-Fehler $code: $msg", (int)$code);') === 1
+    && substr_count($wua, 'throw new') === 3);
+$ein = function (string $m): ?RuntimeException {
+    if (!function_exists('wu_anmeldefehler')) return null;
+    return wu_anmeldefehler(new RuntimeException($m));
+};
+$e = $ein('WebUntis nicht erreichbar: Connection refused');
+pruefe('einordnen: „WebUntis nicht erreichbar: …“ wird WuNichtErreichbar, die Ursache bleibt in der Meldung',
+    $e !== null && get_class($e) === 'WuNichtErreichbar' && $e->getMessage() === 'WebUntis nicht erreichbar: Connection refused');
+$e = $ein('Unerwartete WebUntis-Antwort (kein JSON)');
+pruefe('einordnen: „Unerwartete WebUntis-Antwort (kein JSON)“ wird WuNichtErreichbar',
+    $e !== null && get_class($e) === 'WuNichtErreichbar');
+$roh = new RuntimeException('WebUntis-Fehler -8504: bad credentials', -8504);
+$e = function_exists('wu_anmeldefehler') ? wu_anmeldefehler($roh) : null;
+pruefe('einordnen: „WebUntis-Fehler -8504: bad credentials“ bleibt dieselbe Ausnahme – ein Passwort hat entschieden',
+    $e === $roh);
+$e = $ein('irgendetwas Neues');
+pruefe('einordnen: eine unbekannte Meldung bleibt ebenso – im Zweifel der eine Satz, nicht „nicht erreichbar“',
+    $e !== null && get_class($e) === 'RuntimeException');
+
+// Ausgeführt: wu_login gegen eine Adresse, an der niemand lauscht.
+file_put_contents("$tmp/wu.php", '<?php declare(strict_types=1);
+require ' . var_export(__DIR__ . '/../backend/api/webuntis_adapter.php', true) . ';
+$cfg = ["webuntis" => ["base_url" => "http://127.0.0.1:1", "school" => "probe", "client" => "probe",
+        "allowed_person_types" => [2]]];
+try { wu_login($cfg, new PDO("sqlite::memory:"), "probe", "geheim"); echo "KEINE AUSNAHME"; }
+catch (Throwable $e) { echo "AUSNAHME " . get_class($e) . ": " . $e->getMessage(); }
+');
+$aus = []; $rc = 0;
+exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg("$tmp/wu.php") . ' 2>&1', $aus, $rc);
+// Die Zeile wird gesucht, nicht am Anfang erwartet: PHP 8.5 meldet davor ein
+// „Deprecated: curl_close()“ aus der vendorten Datei.
+$wuAus = implode("\n", $aus);
+preg_match('/^(AUSNAHME|KEINE AUSNAHME).*$/m', $wuAus, $wuZeile);
+pruefe('wu_login, WebUntis antwortet nicht (127.0.0.1:1): WuNichtErreichbar (ausgeführt) – ' . substr($wuZeile[0] ?? $wuAus, 0, 120),
+    str_starts_with($wuZeile[0] ?? '', 'AUSNAHME WuNichtErreichbar: WebUntis nicht erreichbar: '));
+@unlink("$tmp/wu.php");
+
 @unlink("$tmp/lauf.php"); @unlink("$tmp/ersatz.php"); @rmdir($tmp);
 
 // ---- 2. eine Bremse, eine Stelle -------------------------------------------
@@ -229,7 +327,13 @@ foreach (glob($API . '/*.php') as $f) {
 }
 pruefe('in login_log schreibt nur anmeldebremse.php (gefunden: ' . implode(', ', $schreiber) . ')',
     $schreiber === ['anmeldebremse.php']);
+// Ohne Kommentare gelesen (v0.9.109): Bis dahin bestand die Prüfung auch mit
+// auskommentiertem anmeldung_erfolg_merken – vor ihm darf beliebiger Text
+// stehen (Gegenprobe auf v0.9.108, Mutation SD11). Und ein Kommentar im catch
+// machte sie grundlos rot. Das „<?php“ davor braucht der Tokenizer, sonst ist
+// alles HTML und nichts wird entfernt (beim Bau so geschehen).
 $login = zweig($quelle, "if (\$methode === 'POST' && \$unter === 'login') {");
+$login = $login === '' ? '' : ohne_kommentar('<?php ' . $login);
 pruefe('Login benutzt dieselbe Bremse: bremse_beginnen vor wu_login, bremse_fehlschlag im catch, anmeldung_erfolg_merken danach – je mit dem Versuch',
     $login !== ''
     && preg_match('/\$versuch = bremse_beginnen\(\$pdo, \$cfg, \$benutzer\)[\s\S]*wu_login\([\s\S]*catch \(RuntimeException \$e\) \{\s*bremse_fehlschlag\(\$pdo, \$versuch, \$benutzer,[\s\S]*anmeldung_erfolg_merken\(\$pdo, \$versuch, \$benutzer, \$daten\[\'rolle\'\]\)/', $login) === 1);

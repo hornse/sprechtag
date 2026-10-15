@@ -68,7 +68,7 @@ adm_sitzung_nachpruefen($cfg);
 if ($methode === 'GET' && ($seg[0] ?? '') === 'health') {
     $db = 'fehlt';
     try { db($cfg)->query('SELECT 1'); $db = 'ok'; } catch (Throwable $e) { }
-    json_ok(['app' => 'sprechtag', 'version' => '0.9.108', 'db' => $db]);
+    json_ok(['app' => 'sprechtag', 'version' => '0.9.109', 'db' => $db]);
 }
 
 // ---- GET /api/anzeige : öffentliche Raumübersicht (Signage) --------
@@ -186,9 +186,19 @@ if (($seg[0] ?? '') === 'auth') {
 
         try {
             $daten = wu_login($cfg, $pdo, $benutzer, $passwort);
+        } catch (WuNichtErreichbar $e) {
+            // Kein Passwort hat entschieden – das darf die Antwort sagen, und
+            // es zählt nicht für die Bremse. Der Grund ins Server-Log, ohne
+            // Benutzernamen.
+            bremse_ohne_entscheid($pdo, $versuch, $benutzer);
+            error_log('sprechtag: Anmeldung ohne Entscheid: ' . $e->getMessage());
+            json_err(wu_sitzung_meldung('nicht_erreichbar'), 503);
         } catch (RuntimeException $e) {
+            // Ein Satz für jede Ablehnung, der Grund nur ins Protokoll
+            // (Befund 7, FALLSTRICKE Abschnitt 8): -8504 stand bis v0.9.108
+            // bei der Nutzerin.
             bremse_fehlschlag($pdo, $versuch, $benutzer, $e->getMessage());
-            json_err('Anmeldung fehlgeschlagen: ' . $e->getMessage(), 401);
+            json_err(ANMELDUNG_ABGELEHNT, 401);
         }
 
         auth_login_speichern($daten);
