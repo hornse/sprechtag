@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v2.1.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v2.2.0 – dort ändern, hierher kopieren! -->
 # Fallstricke: PHP, Router, WebUntis
 
 Ergänzung zu `REIHENREGELN.md`. **Quelle ist `hornse/koordination`**; die
@@ -21,8 +21,8 @@ Weise, die sich wiederholen kann.
 
 ## 1 — Router und Sitzung
 
-**`session_name()` und `$_SERVER['HTTPS'] = 'on';` stehen vor dem ersten
-Sitzungszugriff**, in der Regel ganz oben im Router und vor jedem
+**`session_name()` und `session_set_cookie_params()` stehen vor dem
+ersten Sitzungszugriff**, in der Regel ganz oben im Router und vor jedem
 `require`. Wer die Sitzung über eine eigene Klasse aufsetzt, hält die
 Regel dort ein — maßgeblich ist der Zeitpunkt, nicht die Datei.
 
@@ -30,10 +30,16 @@ PHP liest den Cookie-Namen beim ersten Sitzungszugriff. Kommt
 `session_name()` zu spät, legt PHP bei jedem Request eine neue leere
 Sitzung an — der Login gibt 200 zurück, der Cookie steht im Browser, die
 Sitzungsdatei liegt korrekt auf der Platte, und jeder Folgeaufruf
-antwortet trotzdem mit 401. Ohne `HTTPS = 'on'` fehlt zusätzlich das
-`Secure`-Flag, weil SSL vor dem PHP-Prozess terminiert wird; solche
-Cookies werden auf HTTPS-Seiten stillschweigend verworfen. Die Suche hat
-einmal einen halben Tag gekostet.
+antwortet trotzdem mit 401. Die Suche hat einmal einen halben Tag
+gekostet.
+
+Ob das Sitzungscookie geschützt ist, entscheidet **allein
+`session_set_cookie_params()`** — `secure`, `httponly` und `samesite`
+ausdrücklich. `$_SERVER['HTTPS']` hat darauf keinen Einfluss. **Belegt
+wird es am Betrieb**, nicht am Code: Die Antwortkopfzeile `Set-Cookie`
+muss alle drei zeigen. **`Lax`, nicht `Strict`:** `Strict` schickt das
+Cookie bei einem Link von außen nicht mit, und wer von der Startseite
+kommt, steht abgemeldet da.
 
 **In der Router-Datei kann deshalb kein `declare(strict_types=1)`
 stehen.** Alle anderen Dateien setzen es.
@@ -437,8 +443,13 @@ getrennt zu halten, damit beim nächsten Umbau nicht das eine mit dem
 anderen wegfällt.
 
 **Eine SVG-Datei ist XML und kann Skript tragen.** Wo ein Logo oder eine
-andere SVG hochgeladen wird, prüft die Annahme vier Merkmale —
-`script`, `foreignObject`, `javascript:` und Ereignisattribute —, den
+andere SVG hochgeladen wird, prüft die Annahme **das geparste Dokument,
+nicht die Zeichenkette** — Entitäten, Kodierungen und Schreibweisen sind
+erst nach dem Parsen aufgelöst; `&#x6A;avascript:` geht an jeder
+Textsuche vorbei. **Oder die Datei wird so ausgeliefert, dass sie kein
+Skript ausführen kann:** mit einer Content-Security-Policy, als Download
+oder in ein Rasterformat umgewandelt. Als Bild eingebunden zu sein
+genügt nicht, solange die Adresse auch direkt aufrufbar ist. Dazu der
 Inhaltstyp **aus der Datei** statt aus dem Namen, und eine Größengrenze.
 
 **Ein Logo steht auf jeder Seite, auch auf der der Verwaltung.** Wer die

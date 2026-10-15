@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v2.1.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v2.2.0 – dort ändern, hierher kopieren! -->
 # Regeln der Reihe
 
 Gilt für alle Projekte, die diese Datei führen. **Quelle ist
@@ -250,6 +250,13 @@ sorgfältig benannte Suiten sind davon betroffen.** Für PHP trennt der
 Tokenizer Kommentar, Zeichenkette und Code; für JavaScript und CSS fehlt
 ein solches Werkzeug.
 
+**Und umgekehrt: Wo ein Ausdruck escapt steht, findet ihn die Suche nach
+seiner Klartextform nicht** — in einem Prüfmuster, einer Mutationsliste,
+einem regulären Ausdruck. Beim Umzug einer Bedingung wäre einmal eine
+Mutation verwaist, weil das Muster `m\.lehrer_id = \?` lautete; gefangen
+hat es eine zweite Suche nach dem Kernwort. **Wer verschiebt, sucht
+beide Formen.**
+
 **Wo aus einem Vorfall bekannt ist, wie die falsche Fassung aussieht,
 sucht die Prüfung ausdrücklich nach ihr.** Die Anwesenheit der richtigen
 Form allein genügt nicht — sie schließt nicht aus, dass die falsche
@@ -450,7 +457,7 @@ noch offen sei, und im schlechteren Fall zu einer doppelten Ausführung.
 Das `rm` kommt **nach** dem Commit, nie davor, solange die Kopie im
 Durchgang die einzige ist.
 
-**Fünf Fallen der interaktiven zsh**, alle schon eingetreten — und für
+**Sechs Fallen der interaktiven zsh**, alle schon eingetreten — und für
 zwei davon gibt es **eine** Vorbeugung: **nach einem Variablennamen immer
 `${…}`.** Der Doppelpunkt und die eckige Klammer sind derselbe Fall.
 
@@ -465,7 +472,7 @@ zwei davon gibt es **eine** Vorbeugung: **nach einem Variablennamen immer
   auch in doppelten Anführungszeichen. Aus `"$t:FALLSTRICKE.md"` wurde
   einmal `…/v1.16.0LLSTRICKE.md`; `${t}:FALLSTRICKE.md` ist richtig.
 
-  **Diese Falle ist gefährlicher als die vier anderen**, weil sie nicht
+  **Diese Falle ist gefährlicher als die fünf anderen**, weil sie nicht
   abbricht und keinen Unsinn liefert, sondern ein **plausibles Ergebnis**.
 
   **`da39a3ee5e6b` ist die Prüfsumme der leeren Eingabe.** Wer sie einmal
@@ -478,8 +485,12 @@ zwei davon gibt es **eine** Vorbeugung: **nach einem Variablennamen immer
 * **Ein führendes `=` wird als Befehlspfad gelesen.** `echo ======`
   bricht ab; in Anführungszeichen läuft es. Betrifft jede Trennlinie in
   einer Ausgabe.
+* **`path` ist an `PATH` gebunden.** `for path in …` überschreibt den
+  Suchpfad der Shell, und danach findet kein Befehl mehr sich selbst.
+  **Keine Falle, die ein falsches Ergebnis liefert, sondern eine, die die
+  Umgebung zerlegt.**
 
-In einem Skript mit `#!/bin/bash` gilt keine der fünf.
+In einem Skript mit `#!/bin/bash` gilt keine der sechs.
 
 **Ein Block zum Einfügen ist ein Skript ohne Kopfzeile.** Er läuft in
 der Shell, die der Leser hat, und jede Annahme darüber kann fallen.
@@ -625,6 +636,12 @@ Namentliches Addieren trennt Commits, nicht Pushes. Ein fremder Push
 liefert eigene Commits mit aus — beim eigenen sieht man, was mitgeht,
 beim fremden nicht.
 
+**Ein Verteillauf pusht deshalb nur nach GitHub.** Die Auslieferung macht
+die Anwendung selbst, mit ihrem Auslieferungsskript — dort läuft die
+Prüfung, dort werden die Cache-Werte gesetzt, dort wird getaggt. **Muss
+er doch nach der Server-Gegenstelle pushen, sieht er vorher nach, ob
+lokale Commits darunterliegen, und hält an.**
+
 **Der Bericht jedes Laufs wird ins Repo committet.** Ohne abgelegten
 Vorbericht ist keine Vorher-Nachher-Aussage prüfbar — und darauf beruht
 die Regel über Prüfungszahlen.
@@ -721,6 +738,12 @@ namentlich stagen, dann `if ! git diff --cached --quiet; then git commit
 
 **Cache-Busting mit einem Ausdruck über beliebige Zeichen**, nicht nur
 Ziffern. `?v=DEV` ändert sich sonst nie.
+
+**Wer eine Anwendung ohne ihr Auslieferungsskript pusht, liefert neuen
+Servercode mit altem Browsercode aus.** Die Cache-Werte bleiben, und
+Dateien mit langer Haltbarkeit (`immutable`) halten den alten Stand fest,
+bis jemand neue Werte nachschiebt — **ein Zustand, den niemand getestet
+hat.**
 
 **Eine Ablage, die in der Summe klein ist, kann einen einzelnen Vorgang
 sprengen.** Sechzehn Megabyte sind für ein Repo unerheblich, für einen
