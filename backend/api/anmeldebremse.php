@@ -36,6 +36,15 @@ declare(strict_types=1);
 const BREMSE_DECKEL = 60;
 /** Grund eines Versuchs, der gerade läuft. */
 const BREMSE_LAEUFT = '(läuft)';
+/**
+ * Grund des Vermerks einer gelungenen Anmeldung (E37). Er ist ein Zähler,
+ * kein Protokolleintrag: ohne Rolle, nie in login_log_eintraege(), und nach
+ * dem Zählfenster gelöscht. Ab seiner Kennung zählt die Bremse neu.
+ */
+const BREMSE_ZURUECK = '(zurückgesetzt)';
+/** Satz, wenn die Zählung scheitert – unterscheidbar von „Passwort falsch“ (E37). */
+const BREMSE_OHNE_ZAEHLUNG = 'Die Anmeldung ist gerade nicht möglich – die Prüfung der '
+    . 'Anmeldeversuche antwortet nicht. Bitte in ein paar Minuten noch einmal.';
 
 /** Sekunden, die noch zu warten sind: $fehl Fehlversuche im Fenster, der letzte vor $seit Sekunden. */
 function bremse_warte_sekunden(int $fehl, int $seit, array $cfg): int
@@ -50,25 +59,53 @@ function bremse_warte_sekunden(int $fehl, int $seit, array $cfg): int
  * gewartet werden, wird der Eintrag entfernt und mit 429 geantwortet
  * (Ende des Aufrufs). Rückgabe: die Kennung des Versuchs für
  * bremse_fehlschlag() bzw. anmeldung_erfolg_merken().
+ *
+ * E37: Gezählt wird erst ab der Kennung der letzten gelungenen Anmeldung –
+ * nach der Nummer, nicht nach der Uhrzeit, denn zwei Zeilen können dieselbe
+ * Sekunde tragen. Zurücksetzen kann nur, wer das Passwort kennt. Scheitert
+ * die Zählung, wird abgewiesen, mit eigenem Satz und 503.
  */
 function bremse_beginnen(PDO $pdo, array $cfg, string $benutzer): int
 {
-    // Keine Adresse (E36): REMOTE_ADDR ist hinter dem Proxy dessen Adresse.
-    $pdo->prepare('INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund) VALUES (?, 0, ?)')
-        ->execute([$benutzer, BREMSE_LAEUFT]);
-    $id = (int)$pdo->lastInsertId();
-    $st = $pdo->prepare('SELECT zeitpunkt FROM login_log WHERE id = ?');
-    $st->execute([$id]);
-    $jetzt = new DateTimeImmutable((string)$st->fetchColumn());
-    $fenster = max(1, (int)($cfg['security']['lockout_minutes'] ?? 15));
-    $st = $pdo->prepare('SELECT COUNT(*) AS n, MAX(zeitpunkt) AS letzter FROM login_log
-                         WHERE webuntis_benutzer = ? AND erfolgreich = 0 AND id <> ? AND zeitpunkt >= ?');
-    $st->execute([$benutzer, $id, $jetzt->modify('-' . $fenster . ' minutes')->format('Y-m-d H:i:s')]);
-    $z = $st->fetch(PDO::FETCH_ASSOC) ?: ['n' => 0, 'letzter' => null];
-    $warten = 0;
-    if ((int)$z['n'] > 0 && $z['letzter'] !== null) {
-        $seit = $jetzt->getTimestamp() - (new DateTimeImmutable((string)$z['letzter']))->getTimestamp();
-        $warten = bremse_warte_sekunden((int)$z['n'], $seit, $cfg);
+    $id = 0;
+    // NUR BETRIEBSFEHLER (FALLSTRICKE 3): Ein Programmierfehler (Error) endet
+    // weiter als 500 – geschlossen ist beides.
+    try {
+        // Keine Adresse (E36): REMOTE_ADDR ist hinter dem Proxy dessen Adresse.
+        $pdo->prepare('INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund) VALUES (?, 0, ?)')
+            ->execute([$benutzer, BREMSE_LAEUFT]);
+        $id = (int)$pdo->lastInsertId();
+        $st = $pdo->prepare('SELECT zeitpunkt FROM login_log WHERE id = ?');
+        $st->execute([$id]);
+        $jetzt = new DateTimeImmutable((string)$st->fetchColumn());
+        $fenster = max(1, (int)($cfg['security']['lockout_minutes'] ?? 15));
+        $ab = $jetzt->modify('-' . $fenster . ' minutes')->format('Y-m-d H:i:s');
+        // Der Vermerk hält höchstens das Zählfenster (E37).
+        $pdo->prepare('DELETE FROM login_log WHERE grund = ? AND zeitpunkt < ?')->execute([BREMSE_ZURUECK, $ab]);
+        $st = $pdo->prepare('SELECT COALESCE(MAX(id), 0) FROM login_log WHERE webuntis_benutzer = ? AND erfolgreich = 1');
+        $st->execute([$benutzer]);
+        $zurueck = (int)$st->fetchColumn();
+        $st = $pdo->prepare('SELECT COUNT(*) AS n, MAX(zeitpunkt) AS letzter FROM login_log
+                             WHERE webuntis_benutzer = ? AND erfolgreich = 0 AND id <> ? AND id > ? AND zeitpunkt >= ?');
+        $st->execute([$benutzer, $id, $zurueck, $ab]);
+        $z = $st->fetch(PDO::FETCH_ASSOC) ?: ['n' => 0, 'letzter' => null];
+        $warten = 0;
+        if ((int)$z['n'] > 0 && $z['letzter'] !== null) {
+            $seit = $jetzt->getTimestamp() - (new DateTimeImmutable((string)$z['letzter']))->getTimestamp();
+            $warten = bremse_warte_sekunden((int)$z['n'], $seit, $cfg);
+        }
+    } catch (Exception $e) {
+        // Der Grund ins Server-Log, ohne Benutzernamen.
+        error_log('sprechtag: Bremse – Zählung gescheitert, Anmeldung abgewiesen ('
+            . get_class($e) . ' ' . $e->getCode() . ')');
+        if ($id > 0) {
+            try {
+                $pdo->prepare('DELETE FROM login_log WHERE id = ?')->execute([$id]);
+            } catch (Exception $e2) {
+                error_log('sprechtag: Bremse – abgewiesener Versuch nicht entfernt (' . get_class($e2) . ')');
+            }
+        }
+        json_err(BREMSE_OHNE_ZAEHLUNG, 503);
     }
     if ($warten > 0) {
         $pdo->prepare('DELETE FROM login_log WHERE id = ?')->execute([$id]);
@@ -102,17 +139,37 @@ function bremse_ohne_entscheid(PDO $pdo, int $versuch, string $benutzer): void
  * Erfolg festhalten – nur, wenn die Schule das Login-Protokoll aktiviert und
  * Erfolge ausdrücklich einbezogen hat (Admin-Einstellung, Datenschutz-Absatz
  * der Hilfe). $grund: die Rolle bei der Anmeldung, sonst die Route
- * („sondierung“, „stammdaten-sync“). Der laufende Eintrag des Versuchs
- * entfällt in jedem Fall – er war kein Fehlschlag.
+ * („sondierung“, „stammdaten-sync“).
+ *
+ * E37: Der laufende Eintrag wird nicht mehr gelöscht, sondern zur gelungenen
+ * Anmeldung – sie setzt die Zählung der Bremse zurück. Mit Erfolgsprotokoll
+ * trägt er die Rolle; ohne bleibt er als Vermerk „(zurückgesetzt)“ stehen,
+ * ohne Rolle, außerhalb des Protokolls und höchstens für das Zählfenster.
+ * Die Einstellung der Schule bleibt gewahrt.
  */
 function anmeldung_erfolg_merken(PDO $pdo, int $versuch, string $benutzer, string $grund): void
 {
-    $pdo->prepare('DELETE FROM login_log WHERE id = ? AND webuntis_benutzer = ?')->execute([$versuch, $benutzer]);
     $logAktiv = (int)marke_wert($pdo, 'login_log_aktiv', '0') === 1;
     $logErfolge = (int)marke_wert($pdo, 'login_log_erfolge', '0') === 1;
-    if ($logAktiv && $logErfolge) {
-        $pdo->prepare('INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund)
-                       VALUES (?, 1, ?)')
-            ->execute([$benutzer, $grund]);
-    }
+    $pdo->prepare('UPDATE login_log SET erfolgreich = 1, grund = ? WHERE id = ? AND webuntis_benutzer = ?')
+        ->execute([($logAktiv && $logErfolge) ? $grund : BREMSE_ZURUECK, $versuch, $benutzer]);
+}
+
+/**
+ * Das Protokoll für die Verwaltung (E37 aus der Route gezogen, damit es
+ * ausgeführt geprüft werden kann): neueste zuerst, optional gefiltert nach
+ * Benutzername – OHNE die Vermerke der Bremse.
+ */
+function login_log_eintraege(PDO $pdo, string $filter, int $limit): array
+{
+    $sql = 'SELECT webuntis_benutzer, erfolgreich, grund, zeitpunkt FROM login_log WHERE grund <> ?'
+         . ($filter !== '' ? ' AND webuntis_benutzer LIKE ?' : '')
+         . ' ORDER BY zeitpunkt DESC LIMIT ?';
+    $st = $pdo->prepare($sql);
+    $n = 1;
+    $st->bindValue($n++, BREMSE_ZURUECK);
+    if ($filter !== '') $st->bindValue($n++, '%' . $filter . '%');
+    $st->bindValue($n, $limit, PDO::PARAM_INT);
+    $st->execute();
+    return $st->fetchAll(PDO::FETCH_ASSOC);
 }

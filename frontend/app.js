@@ -1460,7 +1460,9 @@ function datenschutzAbsaetze() {
       + 'WebUntis-Benutzernamen, zum Schutz vor dem '
       + 'Durchprobieren von Passwörtern. '
       + 'Erfolgreiche Anmeldungen werden nur festgehalten, wenn die Schule es '
-      + 'eingestellt hat. Die Einträge werden nach einer Frist gelöscht, die '
+      + 'eingestellt hat. Sonst bleibt nach einer Anmeldung höchstens 15 Minuten '
+      + 'ein Vermerk ohne Rolle stehen, der die Zählung der Fehlversuche '
+      + 'zurücksetzt; er erscheint in keinem Protokoll. Die Einträge werden nach einer Frist gelöscht, die '
       + 'die Schule festlegt (voreingestellt 30 Tage, höchstens 365), und zwar '
       + 'bei der ersten Anmeldung an der App nach Ablauf der Frist.',
     'Für den persönlichen Kalender-Link eine Kennnummer des Kontos '

@@ -336,24 +336,10 @@ if (($seg[0] ?? '') === 'login-log') {
             json_ok(['aktiv' => false, 'eintraege' => []]);
         }
         $limit = max(1, min(500, (int)($_GET['limit'] ?? 200)));
-        // Optionaler Filter nach Benutzername
+        // Optionaler Filter nach Benutzername. Die Abfrage steht in
+        // anmeldebremse.php (E37): Sie lässt die Vermerke der Bremse aus.
         $filter = trim((string)($_GET['benutzer'] ?? ''));
-        if ($filter !== '') {
-            $st = $pdo->prepare(
-                'SELECT webuntis_benutzer, erfolgreich, grund, zeitpunkt
-                 FROM login_log WHERE webuntis_benutzer LIKE ?
-                 ORDER BY zeitpunkt DESC LIMIT ?');
-            $st->bindValue(1, '%' . $filter . '%');
-            $st->bindValue(2, $limit, PDO::PARAM_INT);
-            $st->execute();
-        } else {
-            $st = $pdo->prepare(
-                'SELECT webuntis_benutzer, erfolgreich, grund, zeitpunkt
-                 FROM login_log ORDER BY zeitpunkt DESC LIMIT ?');
-            $st->bindValue(1, $limit, PDO::PARAM_INT);
-            $st->execute();
-        }
-        json_ok(['aktiv' => true, 'eintraege' => $st->fetchAll()]);
+        json_ok(['aktiv' => true, 'eintraege' => login_log_eintraege($pdo, $filter, $limit)]);
     }
 
     // Protokoll leeren

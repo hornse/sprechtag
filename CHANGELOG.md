@@ -1,5 +1,43 @@
 # Changelog - sprechtag
 
+## v0.9.110 (Oktober 2026) – Eine gelungene Anmeldung setzt die Anmeldebremse zurück
+
+Auftrag aus `koordination` (`AUFTRAG-anmeldebremse-reihe.md`, 16.10.2026):
+die Bauart der Reihe, Vorbild `lernzeiten` (E406). Begründung in E37.
+
+- **Rücksetzen:** Gezählt werden nur Fehlversuche nach der letzten
+  gelungenen Anmeldung desselben Benutzernamens – nach der Kennung, nicht
+  nach der Uhrzeit. Zurücksetzen kann nur, wer das Passwort kennt. Bis
+  v0.9.109 zählten fünf Fehlversuche weiter, auch wenn sich die Lehrkraft
+  zwischendurch angemeldet hatte.
+- **Der Vermerk ist ein Zähler, kein Protokolleintrag:** Ohne
+  Erfolgsprotokoll wird der laufende Versuch zum Vermerk „(zurückgesetzt)“
+  – ohne Rolle, nie im Login-Protokoll der Verwaltung, nach dem Zählfenster
+  (15 Minuten) gelöscht. Mit Erfolgsprotokoll trägt er wie bisher die Rolle.
+  Die Hilfe sagt es im Datenschutzabsatz.
+- **Die Zählung scheitert geschlossen, mit eigenem Satz:** 503 „Die
+  Anmeldung ist gerade nicht möglich – die Prüfung der Anmeldeversuche
+  antwortet nicht …“. Bis v0.9.109 fiel eine Ausnahme aus der Bremse
+  ungefangen hinaus: abgewiesen, aber als 500 ohne Satz.
+- Das Protokoll der Verwaltung liest `login_log_eintraege()` in
+  `anmeldebremse.php` statt zweier Abfragen in der Route.
+
+### Abnahme (nicht offline messbar)
+- Testkonto, falsches Passwort im eigenen Tempo: der sechste Versuch zeigt
+  eine Wartezeit von knapp einer Minute.
+- Nach Ablauf der Minute: richtiges Passwort, die Anmeldung geht durch.
+- Abmelden, einmal falsches Passwort, dann richtiges: durch, ohne Wartezeit
+  (zurückgesetzt). Im Login-Protokoll (falls aktiv, Erfolge aus) stehen die
+  Fehlschläge, kein Vermerk.
+
+### Prüfungen
+- `run_bremse.php` 24 → 37: Rücksetzen mit Gegenprobe, nach der Kennung,
+  je Benutzername, Vermerk außerhalb des Protokolls und nach dem Fenster
+  fort, Grenze ausgeführt (58/60 s), die bekannte Grenze im Minutentakt,
+  Datenbank antwortet nicht. Kennungen beginnen in der Suite bei 4711.
+- `frontend_datenschutz_test.js` +1 (der Vermerk in der Hilfe).
+- Mutationen WZ8 an die neue Zeile, RS1–RS10 neu.
+
 ## v0.9.109 (Oktober 2026) – Anmeldebremse greift im Tempo einer Person; die Anmeldung nennt keinen WebUntis-Fehler mehr
 
 Die Abnahme von v0.9.107/108 ist gescheitert (E35, Nachtrag 15.10.2026);

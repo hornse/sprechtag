@@ -340,11 +340,11 @@ pruefe('Login benutzt dieselbe Bremse: bremse_beginnen vor wu_login, bremse_fehl
 // Bis v0.9.106 stand hier eine Textprüfung des Zähl-SQL (NOW() - INTERVAL);
 // seit v0.9.107 führt tests/run_bremse.php die Zählung aus (E35).
 pruefe('die Bremse zählt je Benutzername im Zeitfenster, mit den Grenzen aus config.php (ausgeführt in run_bremse.php)',
-    str_contains($bremse, "WHERE webuntis_benutzer = ? AND erfolgreich = 0 AND id <> ? AND zeitpunkt >= ?")
+    str_contains($bremse, "WHERE webuntis_benutzer = ? AND erfolgreich = 0 AND id <> ? AND id > ? AND zeitpunkt >= ?")
     && str_contains($bremse, "(int)(\$cfg['security']['lockout_minutes'] ?? 15)")
     && str_contains($bremse, "(int)(\$cfg['security']['max_failed_logins'] ?? 5)"));
 pruefe('Erfolge nur, wenn die Schule das Protokoll samt Erfolgen eingeschaltet hat (wie bis v0.9.92 im Login)',
-    preg_match("/function anmeldung_erfolg_merken\([\s\S]*marke_wert\(\\\$pdo, 'login_log_aktiv', '0'\)[\s\S]*marke_wert\(\\\$pdo, 'login_log_erfolge', '0'\)[\s\S]*if \(\\\$logAktiv && \\\$logErfolge\)/", $bremse) === 1);
+    preg_match("/function anmeldung_erfolg_merken\([\s\S]*marke_wert\(\\\$pdo, 'login_log_aktiv', '0'\)[\s\S]*marke_wert\(\\\$pdo, 'login_log_erfolge', '0'\)[\s\S]*\(\\\$logAktiv && \\\$logErfolge\) \? \\\$grund : BREMSE_ZURUECK/", $bremse) === 1);
 
 // ---- 3. die Vorlage ----------------------------------------------------------
 $vorlage = ohne_kommentar((string)file_get_contents(__DIR__ . '/../backend/config.example.php'));

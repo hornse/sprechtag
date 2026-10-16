@@ -1917,7 +1917,9 @@ mut WZ6 $BRS 's/\$jetzt->modify\(\x27-\x27 \. \$fenster \. \x27 minutes\x27\)/\$
   $RBR "Fenster: 4 Fehlversuche vor 16 Minuten"
 mut WZ7 $BRS 's/WHERE webuntis_benutzer = \? AND erfolgreich = 0 AND id <> \?/WHERE (webuntis_benutzer = ? OR 1) AND erfolgreich = 0 AND id <> ?/' \
   $RBR "je Benutzername: 9 fremde Fehlversuche"
-mut WZ8 $BRS 's/    \$pdo->prepare\(\x27DELETE FROM login_log WHERE id = \? AND webuntis_benutzer = \?\x27\)->execute\(\[\$versuch, \$benutzer\]\);\n//' \
+# WZ8 seit E37 an der neuen Zeile: Der Versuch wird nicht mehr gelöscht,
+# sondern zur gelungenen Anmeldung. Ohne die Zeile bliebe er „(läuft)“.
+mut WZ8 $BRS 's/    \$pdo->prepare\(\x27UPDATE login_log SET erfolgreich = 1, grund = \? WHERE id = \? AND webuntis_benutzer = \?\x27\)\n        ->execute\([^\n]*\);\n//' \
   $RBR "Erfolg, Protokoll aus"
 mut WZ9 $BRS 's/\x27Zu viele Fehlversuche – bitte in \x27 \. \$warten \. \x27 Sekunden erneut versuchen\.\x27/\x27Zu viele Fehlversuche – bitte später erneut versuchen.\x27/' \
   $RBR "5 Fehlversuche, der letzte vor 1 s"
@@ -1925,7 +1927,7 @@ mut WZ9 $BRS 's/\x27Zu viele Fehlversuche – bitte in \x27 \. \$warten \. \x27 
 
 # ------------------------------------------------------------
 # IP1, IP2 (v0.9.108, E36): login_log ohne IP-Adresse.
-mut IP1 $BRS 's/INSERT INTO login_log \(webuntis_benutzer, erfolgreich, grund\) VALUES \(\?, 0, \?\)\x27\)\n        ->execute\(\[\$benutzer, BREMSE_LAEUFT\]\);/INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, ip) VALUES (?, 0, ?, ?)\x27)\n        ->execute([\$benutzer, BREMSE_LAEUFT, \$_SERVER[\x27REMOTE_ADDR\x27] ?? \x27\x27]);/' \
+mut IP1 $BRS 's/INSERT INTO login_log \(webuntis_benutzer, erfolgreich, grund\) VALUES \(\?, 0, \?\)\x27\)\n            ->execute\(\[\$benutzer, BREMSE_LAEUFT\]\);/INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, ip) VALUES (?, 0, ?, ?)\x27)\n        ->execute([\$benutzer, BREMSE_LAEUFT, \$_SERVER[\x27REMOTE_ADDR\x27] ?? \x27\x27]);/' \
   $RBR "ohne Vorgeschichte: durch"
 mut IP2 sql/27_login_log_ohne_ip.sql 's/^ALTER TABLE login_log DROP COLUMN IF EXISTS ip;\n//m' \
   $RBR "sql/27 entfernt login_log.ip"
@@ -1966,6 +1968,31 @@ mut AF7 $IDX 's/            json_err\(ANMELDUNG_ABGELEHNT, 401\);/            js
 # Engstellen-Prüfung, die Kommentare mitlas (Gegenprobe auf v0.9.108).
 mut SD11 $IDX 's/(\n        )(anmeldung_erfolg_merken\(\$pdo, \$versuch, \$benutzer, \$daten\[\x27rolle\x27\]\);)/$1\/\/ $2/' \
   $BRT "Login benutzt dieselbe Bremse"
+
+# ------------------------------------------------------------
+# RS1–RS9 (E37, Auftrag koordination 16.10.2026): Eine gelungene Anmeldung
+# setzt zurück – nach der Kennung, je Benutzername; der Vermerk ist ein
+# Zähler, kein Protokolleintrag; scheitert die Zählung, 503 mit eigenem Satz.
+mut RS1 $BRS 's/        \$zurueck = \(int\)\$st->fetchColumn\(\);/        \$zurueck = 0;/' \
+  $RBR "Rücksetzen: 5 Fehlversuche, dann angemeldet"
+mut RS2 $BRS 's/AND id <> \? AND id > \? AND zeitpunkt >= \?/AND id <> ? AND zeitpunkt > (SELECT MAX(z2.zeitpunkt) FROM login_log z2 WHERE z2.webuntis_benutzer = ? AND z2.erfolgreich = 1) AND zeitpunkt >= ?/; s/\[\$benutzer, \$id, \$zurueck, /[\$benutzer, \$id, \$benutzer, /' \
+  $RBR "nach der Nummer"
+mut RS3 $BRS 's/FROM login_log WHERE webuntis_benutzer = \? AND erfolgreich = 1\x27\);\n        \$st->execute\(\[\$benutzer\]\);/FROM login_log WHERE erfolgreich = 1 OR ? IS NULL\x27);\n        \$st->execute([\$benutzer]);/' \
+  $RBR "je Benutzername: die Anmeldung eines anderen"
+mut RS4 $BRS 's/        \$pdo->prepare\(\x27DELETE FROM login_log WHERE grund = \? AND zeitpunkt < \?\x27\)->execute\(\[BREMSE_ZURUECK, \$ab\]\);\n//' \
+  $RBR "der Vermerk hält höchstens das Zählfenster"
+mut RS5 $BRS 's/DELETE FROM login_log WHERE grund = \? AND zeitpunkt < \?/DELETE FROM login_log WHERE grund = ? AND (zeitpunkt < ? OR 1 = 1)/' \
+  $RBR "… einer von vor 14 Minuten bleibt"
+mut RS6 $BRS 's/FROM login_log WHERE grund <> \?\x27/FROM login_log WHERE (grund <> ? OR 1 = 1)\x27/' \
+  $RBR "Protokoll an, Erfolge aus"
+mut RS7 $BRS 's/\(\$logAktiv && \$logErfolge\) \? \$grund : BREMSE_ZURUECK/\$grund/' \
+  $RBR "Erfolg, Protokoll aus"
+mut RS8 $BRS 's/    \} catch \(Exception \$e\) \{\n        \/\/ Der Grund ins Server-Log/    } catch (DomainException \$e) {\n        \/\/ Der Grund ins Server-Log/' \
+  $RBR "ohne Tabelle"
+mut RS9 $BRS 's/Die Anmeldung ist gerade nicht möglich – die Prüfung der \x27/Anmeldung nicht möglich. Bitte Zugangsdaten prüfen. \x27/' \
+  $RBR "ohne Tabelle"
+mut RS10 frontend/app.js 's/Sonst bleibt nach einer Anmeldung höchstens 15 Minuten /Sonst bleibt nach einer Anmeldung höchstens 30 Minuten /' \
+  tests/frontend_datenschutz_test.js "Login: der Vermerk der Bremse"
 
 
 if [ "${MUT_MODUS:-}" = "vor" ]; then

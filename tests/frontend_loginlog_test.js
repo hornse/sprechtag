@@ -32,8 +32,10 @@ pruefe('Default 30 Tage', mig.includes("('login_log_tage',    '30')"));
 // nichts mehr bewachte: Ihr Text stand auch in der Einstellungsroute (Art 1,
 // docs/BEFUND-2026-10-11-pruefungen-in-der-datei.md).
 const erfolg = rumpf(bremse, 'function anmeldung_erfolg_merken(');
+// E37: Der Versuch wird zur gelungenen Anmeldung – mit Rolle nur bei
+// aktiv+erfolge, sonst als Vermerk ohne Rolle (ausgeführt in run_bremse.php).
 pruefe('Erfolge nur bei aktiv+erfolge geloggt',
-  /if \(\$logAktiv && \$logErfolge\) \{\s*\$pdo->prepare\('INSERT INTO login_log/.test(erfolg));
+  /\(\$logAktiv && \$logErfolge\) \? \$grund : BREMSE_ZURUECK/.test(erfolg));
 pruefe('Bereinigung bei Login (Aufbewahrung)',
   idx.includes('DELETE FROM login_log WHERE zeitpunkt < NOW() - INTERVAL ? DAY'));
 pruefe('Admin-Route login-log (nur Admin)',

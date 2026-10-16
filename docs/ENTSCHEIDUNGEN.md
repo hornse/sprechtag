@@ -2451,3 +2451,66 @@ Prüfung dazu verlangt das Fehlen.
 roten Lauf (fehlende Spalte) mit einem PHP-Fatal nach 6 von 18 Zeilen,
 ohne ✗ – Art 7. Sie meldet einen Abbruch jetzt als rote Zeile, und der
 Hilfsaufruf der Bremse meldet Ausnahmen an der Prüfung, die sie auslöst.
+
+## E37 — Eine gelungene Anmeldung setzt die Bremse zurück; der Vermerk ist ein Zähler
+
+**Datum:** 16.10.2026 · **Version:** v0.9.110 · **Anlass:** Auftrag aus
+`koordination` (`AUFTRAG-anmeldebremse-reihe.md`), die Bauart der Reihe nach
+B74 aus `lernzeiten` und E35 von hier. **Entschieden vom Betreiber.**
+
+**Lage (am Code, v0.9.109):** Gezählt wurden alle Fehlversuche je
+Benutzername im Fenster von 15 Minuten. Eine gelungene Anmeldung änderte
+daran nichts: Wer sich viermal vertippt, sich dann anmeldet und sich nach dem
+Abmelden noch einmal vertippt, wartete eine Minute. Und eine gelungene
+Anmeldung hinterließ ohne Erfolgsprotokoll **nichts** – der laufende Eintrag
+wurde gelöscht. Ab einer Zeile, die es nicht gibt, lässt sich nicht
+zurücksetzen.
+
+**Erwogen:**
+
+1. **Ein kurzer Vermerk** – der laufende Versuch bleibt als
+   „(zurückgesetzt)“ stehen, ohne Rolle, außerhalb des Protokolls, nach dem
+   Zählfenster gelöscht.
+2. **Die gezählten Fehlversuche löschen**, wenn die Anmeldung gelingt.
+3. Kein Rücksetzen in diesem Projekt.
+
+**Entschieden: 1.** Die Begründung des Betreibers:
+
+> Option 2 würde beim Anmelden des Inhabers die Spuren eines Angriffs aus
+> dem Verwaltungsprotokoll löschen – genau dann, wenn jemand nachsehen will.
+> Der Vermerk ist ein Zähler, kein Protokolleintrag: höchstens 15 Minuten,
+> ohne Rolle, außerhalb des Protokolls. Die Einstellung der Schule bleibt
+> gewahrt.
+
+**Warum Rücksetzen überhaupt (Bauart der Reihe):** Zurücksetzen kann nur,
+wer das Passwort kennt – ein Angreifer gewinnt nichts. Meldet sich der
+Inhaber zwischendurch an, verliert der Angreifer seinen Vorlauf.
+
+**Gebaut:**
+
+* `anmeldung_erfolg_merken()` macht den laufenden Versuch zur gelungenen
+  Anmeldung (`erfolgreich = 1`): mit Rolle, wenn die Schule Erfolge
+  protokolliert, sonst mit dem Grund `(zurückgesetzt)`.
+* `bremse_beginnen()` zählt nur Fehlversuche mit einer **höheren Kennung**
+  als die letzte gelungene Anmeldung desselben Benutzernamens – nach der
+  Nummer, nicht nach der Uhrzeit, denn zwei Zeilen können dieselbe Sekunde
+  tragen. Vermerke, die älter sind als das Fenster, löscht sie bei jedem
+  Versuch.
+* `login_log_eintraege()` liest das Protokoll der Verwaltung und lässt die
+  Vermerke aus. Es stand bis hier als zwei Abfragen in der Route; gezogen,
+  damit es ausgeführt geprüft wird.
+* **Nebenbei, weil der Auftrag es zur Bauart zählt:** Scheitert die Zählung
+  (Datenbank), wird mit 503 und eigenem Satz abgewiesen. Bis hier fiel die
+  Ausnahme ungefangen hinaus – geschlossen, aber als 500 ohne Satz. Die
+  Auftragsdatei nahm an, sprechtag habe das schon; es galt nur für den
+  Verbindungsaufbau in `db()`.
+* Die Hilfe nennt den Vermerk im Datenschutzabsatz.
+
+**Die bekannte Grenze bleibt (E35):** Ein Skript, das einmal pro Minute
+fehlschlägt, hält eine Lehrkraft in der Wartezeit. `run_bremse.php` hält das
+jetzt als Prüfung fest – wird sie rot, hat sich die Bauart geändert.
+
+**Gemessen dazu:** `run_bremse.php` führt die Bremse gegen SQLite aus, mit
+Kennungen ab 4711 (in `lernzeiten` war eine Prüfung blind, weil Kennungen
+bei 1 begannen). Mutationen RS1–RS10; die Teilserie der Bremse (WZ, IP, AF,
+SD11, RS) schlug 30 von 30 an.

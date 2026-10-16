@@ -166,6 +166,11 @@ pruefe('Login: Obergrenze aus dem Backend (' + hoechst + ')',
   new RegExp('höchstens ' + hoechst + '\\b').test(text));
 pruefe('Login: Erfolge nur, wenn die Schule es eingestellt hat',
   /Erfolgreiche Anmeldungen[^\n]*nur[^\n]*eingestellt/.test(text));
+// E37: Ohne Erfolgsprotokoll bleibt ein Vermerk ohne Rolle für das Zählfenster
+// der Bremse. Die Hilfe nennt ihn mit der Dauer aus der Vorlage.
+const fenster = (p('backend/config.example.php').match(/'lockout_minutes'\s*=>\s*(\d+)/) || [])[1];
+pruefe('Login: der Vermerk der Bremse, höchstens ' + fenster + ' Minuten, ohne Rolle (E37)',
+  !!fenster && new RegExp('höchstens ' + fenster + ' Minuten[^\\n]*ohne Rolle').test(text));
 
 pruefe('Kalender: Kennnummer des Kontos, kein Name, keine Frist',
   /Kalender-Link[^\n]*Kennnummer[^\n]*kein Name/.test(text) && /derzeit keine Frist/.test(text));

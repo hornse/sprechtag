@@ -77,6 +77,11 @@ function neue_db(): PDO
         erfolgreich INTEGER NOT NULL DEFAULT 0, grund TEXT NOT NULL DEFAULT \'\',
         zeitpunkt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');   // ohne ip: so nach sql/27 (E36)
     $p->exec('CREATE TABLE einstellungen (schluessel TEXT PRIMARY KEY, wert TEXT)');
+    // KENNUNGEN BEGINNEN NICHT BEI 0 (E37): Das Rücksetzen vergleicht mit der
+    // Kennung der letzten gelungenen Anmeldung. Eine Rechnung, die „keine“ als
+    // 0 nimmt, wäre bei Kennungen ab 1 nicht von einer richtigen zu
+    // unterscheiden – in lernzeiten war eine Prüfung genau dort blind.
+    $p->exec("INSERT INTO sqlite_sequence (name, seq) VALUES ('login_log', 4710)");
     return $p;
 }
 /** $n Fehlversuche für $wer, der letzte vor $vor Sekunden. */
@@ -184,7 +189,11 @@ pruefe('Fehlschlag: derselbe Eintrag bekommt den Grund, kein zweiter', $zeilen($
 $p = neue_db();
 $id = $beginnen($p, 'probe')['id'];
 if ($da && $id !== null) anmeldung_erfolg_merken($p, (int)$id, 'probe', 'lehrkraft');
-pruefe('Erfolg, Protokoll aus: der laufende Eintrag verschwindet, nichts bleibt', $da && $zeilen($p) === 0);
+// Bis E37: „der laufende Eintrag verschwindet, nichts bleibt“. Seit E37 bleibt
+// der Vermerk für das Rücksetzen – ohne Rolle, und nicht im Protokoll.
+$alle = $p->query('SELECT erfolgreich, grund FROM login_log')->fetchAll();
+pruefe('Erfolg, Protokoll aus: nur der Vermerk bleibt – erfolgreich, ohne Rolle, „(zurückgesetzt)“',
+    $da && count($alle) === 1 && (int)$alle[0]['erfolgreich'] === 1 && $alle[0]['grund'] === '(zurückgesetzt)');
 $p = neue_db();
 $p->exec("INSERT INTO einstellungen VALUES ('login_log_aktiv', '1'), ('login_log_erfolge', '1')");
 $id = $beginnen($p, 'probe')['id'];
@@ -209,6 +218,119 @@ for ($i = 0; $i < 5 && $oe; $i++) {
 }
 pruefe('ohne Entscheid zählt nicht: 4 Fehlversuche, dann fünf Versuche ohne Antwort von WebUntis – der nächste ist durch',
     $oe && $beginnen($p, 'probe')['status'] === 200);
+
+// ---- E37: Rücksetzen, Grenze, Datenbank – Auftrag koordination 16.10.2026 --
+/** Fehlversuche für $wer mit den Altern $alter (Sekunden), in dieser Reihenfolge eingetragen. */
+function fehl_alter(PDO $p, string $wer, array $alter): void
+{
+    foreach ($alter as $a) {
+        $p->prepare("INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, zeitpunkt)
+                     VALUES (?, 0, 'WebUntis-Fehler -8504: bad credentials', datetime('now', ?))")
+            ->execute([$wer, '-' . $a . ' seconds']);
+    }
+}
+$anmelden = function (PDO $p, string $wer) use ($beginnen, $da): void {
+    $id = $beginnen($p, $wer)['id'];
+    if ($da && $id !== null) anmeldung_erfolg_merken($p, (int)$id, $wer, 'lehrkraft');
+};
+
+echo "Eine gelungene Anmeldung setzt zurück (E37)\n";
+// Fünf Fehlversuche, deren Wartezeit vorbei ist; dann meldet sich der Inhaber
+// an; dann vertippt er sich einmal. Ohne Rücksetzen wären es sechs, der
+// letzte vor 1 s – er müsste warten.
+$p = neue_db();
+fehl_alter($p, 'erfundenq', [300, 280, 260, 240, 220]);
+$anmelden($p, 'erfundenq');
+fehl_alter($p, 'erfundenq', [1]);
+pruefe('Rücksetzen: 5 Fehlversuche, dann angemeldet, dann ein Fehlversuch vor 1 s – durch',
+    $beginnen($p, 'erfundenq')['status'] === 200);
+// Gegenprobe: dieselbe Lage ohne die Anmeldung muss warten – sonst prüfte der
+// Fall oben nur, dass die Schwelle nicht erreicht ist.
+$p = neue_db();
+fehl_alter($p, 'erfundenq', [300, 280, 260, 240, 220, 1]);
+pruefe('Gegenprobe: dieselben sechs Fehlversuche ohne Anmeldung dazwischen – es wird gewartet',
+    $beginnen($p, 'erfundenq')['status'] === 429);
+// Gezählt wird ab der KENNUNG der letzten gelungenen, nicht ab ihrer Uhrzeit:
+// Ein Fehlversuch, der dieselbe Sekunde trägt wie die Anmeldung, aber danach
+// eingetragen wurde, zählt mit.
+$p = neue_db();
+fehl_alter($p, 'erfundenq', [300, 280, 260, 240]);
+$anmelden($p, 'erfundenq');
+$z = $p->query("SELECT zeitpunkt FROM login_log WHERE erfolgreich = 1")->fetchColumn();
+for ($i = 0; $i < 5; $i++) {
+    $p->prepare("INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, zeitpunkt) VALUES ('erfundenq', 0, 'falsch', ?)")
+      ->execute([(string)$z]);
+}
+pruefe('nach der Nummer: fünf Fehlversuche in derselben Sekunde wie die Anmeldung, danach eingetragen – sie zählen, es wird gewartet',
+    $z !== false && $beginnen($p, 'erfundenq')['status'] === 429);
+$p = neue_db();
+fehl_alter($p, 'andere', [300, 280, 260, 240, 220]);
+$anmelden($p, 'erfundenq');
+fehl_alter($p, 'andere', [1]);
+pruefe('je Benutzername: die Anmeldung eines anderen setzt nicht zurück',
+    $beginnen($p, 'andere')['status'] === 429);
+
+echo "Der Vermerk ist ein Zähler, kein Protokolleintrag (E37)\n";
+$le = $da && function_exists('login_log_eintraege');
+$p = neue_db();
+$p->exec("INSERT INTO einstellungen VALUES ('login_log_aktiv', '1'), ('login_log_erfolge', '0')");
+fehl_alter($p, 'erfundenq', [100]);
+$anmelden($p, 'erfundenq');
+$e = $le ? login_log_eintraege($p, '', 200) : null;
+pruefe('Protokoll an, Erfolge aus: die Verwaltung sieht den Fehlversuch, nicht den Vermerk',
+    is_array($e) && count($e) === 1 && (int)$e[0]['erfolgreich'] === 0);
+$e = $le ? login_log_eintraege($p, 'erfund', 200) : null;
+pruefe('… auch mit Filter nach Benutzername',
+    is_array($e) && count($e) === 1 && (int)$e[0]['erfolgreich'] === 0);
+$p = neue_db();
+$p->prepare("INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, zeitpunkt)
+             VALUES ('erfundenq', 1, '(zurückgesetzt)', datetime('now', '-16 minutes'))")->execute();
+$beginnen($p, 'probe');
+pruefe('der Vermerk hält höchstens das Zählfenster: einer von vor 16 Minuten ist beim nächsten Versuch fort',
+    (int)$p->query("SELECT COUNT(*) FROM login_log WHERE grund = '(zurückgesetzt)'")->fetchColumn() === 0);
+$p = neue_db();
+$p->prepare("INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, zeitpunkt)
+             VALUES ('erfundenq', 1, '(zurückgesetzt)', datetime('now', '-14 minutes'))")->execute();
+$beginnen($p, 'probe');
+pruefe('… einer von vor 14 Minuten bleibt',
+    (int)$p->query("SELECT COUNT(*) FROM login_log WHERE grund = '(zurückgesetzt)'")->fetchColumn() === 1);
+
+echo "Die Grenze, ausgeführt\n";
+// Die Zeitstempel haben Sekunden: Zwischen dem Eintragen der Vorgeschichte und
+// dem eigenen Versuch kann eine Sekundengrenze liegen. Deshalb 58 und 60 –
+// die Grenze auf die Sekunde steht rein oben („auf der Grenze“).
+$p = neue_db();
+fehl_alter($p, 'erfundenq', [240, 180, 120, 90, 58]);
+pruefe('der letzte von 5 vor 58 s (59 beim Zählen): abgewiesen, 1–2 s Rest',
+    in_array($beginnen($p, 'erfundenq')['daten']['warten_sekunden'] ?? null, [1, 2], true));
+$p = neue_db();
+fehl_alter($p, 'erfundenq', [240, 180, 120, 90, 60]);
+pruefe('der letzte von 5 vor 60 s: durch', $beginnen($p, 'erfundenq')['status'] === 200);
+
+echo "Die bekannte Grenze: ein Skript im Minutentakt (E35, E37)\n";
+// Ein Skript, das einmal je Minute fehlschlägt, hält das Konto in der
+// Wartezeit – mühsamer als die Sperre, nicht ausgeschlossen. Diese Prüfung
+// hält fest, dass es so ist; wird sie rot, hat sich die Bauart geändert.
+$p = neue_db();
+fehl_alter($p, 'erfundenq', [541, 481, 421, 361, 301, 241, 181, 121, 61, 1]);
+$r = $beginnen($p, 'erfundenq');
+pruefe('Skript im Minutentakt, der letzte vor 1 s: der Inhaber muss warten (58–59 s)',
+    $r['status'] === 429 && in_array($r['daten']['warten_sekunden'] ?? null, [58, 59], true));
+$p = neue_db();
+fehl_alter($p, 'erfundenq', [600, 540, 480, 420, 360, 300, 240, 180, 120, 60]);
+pruefe('… und der nächste Versuch des Skripts nach der Minute ist wieder durch',
+    $beginnen($p, 'erfundenq')['status'] === 200);
+
+echo "Die Datenbank antwortet nicht (E37)\n";
+// Bis E37 fiel eine Ausnahme aus bremse_beginnen ungefangen hinaus: Der
+// Browser bekam einen 500 ohne Satz. Geschlossen war das auch – aber nicht
+// unterscheidbar von einem Absturz.
+$p = neue_db();
+$p->exec('DROP TABLE login_log');
+$r = $beginnen($p, 'erfundenq');
+pruefe('ohne Tabelle: abgewiesen mit 503 und eigenem Satz, nicht „Passwort falsch“',
+    $r['status'] === 503 && str_contains((string)($r['daten']['fehler'] ?? ''), 'Anmeldeversuche')
+    && !str_contains((string)($r['daten']['fehler'] ?? ''), 'Zugangsdaten'));
 
 echo "Ohne IP-Adresse (E36)\n";
 // Die Testtabelle oben hat keine Spalte ip mehr: Schriebe die Bremse sie noch,
