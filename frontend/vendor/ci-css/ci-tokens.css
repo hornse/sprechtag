@@ -1,4 +1,4 @@
-/* VENDORED aus hornse/ci-css v1.9.0 – dort ändern, hierher kopieren! */
+/* VENDORED aus hornse/ci-css v2.1.0 – dort ändern, hierher kopieren! */
 /* ============================================================
    ci-tokens.css – Design-Tokens der FRG-Projektreihe
    Stufe 1 von 2. Enthält ausschließlich Werte, keine Regeln.
@@ -82,16 +82,18 @@
     --ci-akzent-text:    #0c447c;
 
     /* ---- Projektpalette -------------------------------------
-       Derselbe Textton wie --ci-akzent-text je Projektblock, aber
+       Textton und Fläche je Projekt, dieselben Werte wie
+       --ci-akzent-text und --ci-akzent-flaeche im Projektblock, aber
        hier die EINE Quelle: am :root und damit unabhängig von
        data-projekt verfügbar. Gebraucht von Übersichtsseiten, die
        mehrere Projekte gleichzeitig zeigen — dort kann data-projekt
        nicht greifen, weil es nur einen Wert je Dokument gibt.
 
        Die [data-projekt="…"]-Blöcke weiter unten referenzieren diese
-       Werte über var() statt sie zu wiederholen. Damit kann
-       --ci-akzent-text eines Blocks nicht mehr von hier abweichen —
-       es gibt nur noch eine Stelle, an der der Wert steht. */
+       Werte über var() statt sie zu wiederholen. Damit können Textton
+       und Fläche eines Blocks nicht mehr von hier abweichen — es gibt
+       nur noch eine Stelle, an der der Wert steht. Die Fläche kam in
+       v2.1.0 dazu; bis dahin führten Übersichten eine eigene Kopie. */
     --ci-farbe-sprechtag:       #0c447c;
     --ci-farbe-fachkonferenzen: #1f4034;
     --ci-farbe-projektstunden:  #2b5009;
@@ -99,6 +101,18 @@
     --ci-farbe-signage:         #712b13;
     --ci-farbe-lernzeiten:      #09474e;
     --ci-farbe-kurse:           #54244b;
+    --ci-farbe-antraege:        #572b71;
+    --ci-farbe-inventar:        #4a4304;
+
+    --ci-farbe-sprechtag-flaeche:       #e6f1fb;
+    --ci-farbe-fachkonferenzen-flaeche: #e6f2ee;
+    --ci-farbe-projektstunden-flaeche:  #eef5e4;
+    --ci-farbe-schulprozesse-flaeche:   #eeedfe;
+    --ci-farbe-signage-flaeche:         #faece7;
+    --ci-farbe-lernzeiten-flaeche:      #edf9fa;
+    --ci-farbe-kurse-flaeche:           #f9edf6;
+    --ci-farbe-antraege-flaeche:        #f4ebfa;
+    --ci-farbe-inventar-flaeche:        #faf8eb;
 
     /* ---- Rückmeldungen ------------------------------------- */
     --ci-erfolg:          #1e7d3e;
@@ -245,7 +259,7 @@
 [data-projekt="sprechtag"] {
     --ci-akzent:         #1d4e89;
     --ci-akzent-hover:   #2c6cb8;
-    --ci-akzent-flaeche: #e6f1fb;
+    --ci-akzent-flaeche: var(--ci-farbe-sprechtag-flaeche);
     --ci-akzent-text:    var(--ci-farbe-sprechtag);
 }
 
@@ -253,7 +267,7 @@
 [data-projekt="fachkonferenzen"] {
     --ci-akzent:         #2e5b4c;
     --ci-akzent-hover:   #3d7665;
-    --ci-akzent-flaeche: #e6f2ee;
+    --ci-akzent-flaeche: var(--ci-farbe-fachkonferenzen-flaeche);
     --ci-akzent-text:    var(--ci-farbe-fachkonferenzen);
 }
 
@@ -266,7 +280,7 @@
 [data-projekt="projektstunden"] {
     --ci-akzent:         #3b6d11;
     --ci-akzent-hover:   #498218;
-    --ci-akzent-flaeche: #eef5e4;
+    --ci-akzent-flaeche: var(--ci-farbe-projektstunden-flaeche);
     --ci-akzent-text:    var(--ci-farbe-projektstunden);
 }
 
@@ -277,14 +291,14 @@
 [data-projekt="schulprozesse"] {
     --ci-akzent:         #534ab7;
     --ci-akzent-hover:   #6a61cc;
-    --ci-akzent-flaeche: #eeedfe;
+    --ci-akzent-flaeche: var(--ci-farbe-schulprozesse-flaeche);
     --ci-akzent-text:    var(--ci-farbe-schulprozesse);
 }
 
 [data-projekt="signage"] {
     --ci-akzent:         #993c1d;
     --ci-akzent-hover:   #b8532f;
-    --ci-akzent-flaeche: #faece7;
+    --ci-akzent-flaeche: var(--ci-farbe-signage-flaeche);
     --ci-akzent-text:    var(--ci-farbe-signage);
 }
 
@@ -297,7 +311,7 @@
 [data-projekt="lernzeiten"] {
     --ci-akzent:         #0b5c65;
     --ci-akzent-hover:   #0e737e;
-    --ci-akzent-flaeche: #edf9fa;
+    --ci-akzent-flaeche: var(--ci-farbe-lernzeiten-flaeche);
     --ci-akzent-text:    var(--ci-farbe-lernzeiten);
 }
 
@@ -308,8 +322,37 @@
 [data-projekt="kurse"] {
     --ci-akzent:         #6b2d5f;
     --ci-akzent-hover:   #8a3a7a;
-    --ci-akzent-flaeche: #f9edf6;
+    --ci-akzent-flaeche: var(--ci-farbe-kurse-flaeche);
     --ci-akzent-text:    var(--ci-farbe-kurse);
+}
+
+/* Violett. Die größte Lücke lag jetzt zwischen signage (15°) und
+   projektstunden (93°), 78° breit — aber mittig darin sitzt auch
+   --ci-warnung (44°): Knöpfe im Ton der Warnhinweise wären in einer
+   Anwendung mit Formularen die Verwechslung, die die Akzentfarbe
+   verhindern soll. Violett ist der einzige freie Ton ohne Nähe zu einer
+   Statusfarbe: 33° zu schulprozesse (245°), 34° zu kurse (312°), 84° zu
+   --ci-fehler. Wahrgenommen (OKLCH) liegt er der Aubergine näher als die
+   34° vermuten lassen, 24° — deshalb kräftiger und heller als sie. */
+[data-projekt="antraege"] {
+    --ci-akzent:         #753997;
+    --ci-akzent-hover:   #924bbb;
+    --ci-akzent-flaeche: var(--ci-farbe-antraege-flaeche);
+    --ci-akzent-text:    var(--ci-farbe-antraege);
+}
+
+/* Senf. Das Inventar ist fremde Software mit eigener Oberfläche und
+   bindet dieses Modul nicht ein; seine Farbe gilt nur für Übersichten
+   wie die Kachel der Startseite. Der Block steht trotzdem hier, damit
+   die Palette nur Projekte mit vollständigem, geprüftem Satz führt.
+   Er sitzt in der größten Lücke, 39° zu signage und zu projektstunden.
+   Die Nähe zu --ci-warnung (10°) zählt nur, wo Warnhinweise neben dem
+   Akzent stehen — in einer Übersicht tun sie das nicht. */
+[data-projekt="inventar"] {
+    --ci-akzent:         #655c05;
+    --ci-akzent-hover:   #7a6f06;
+    --ci-akzent-flaeche: var(--ci-farbe-inventar-flaeche);
+    --ci-akzent-text:    var(--ci-farbe-inventar);
 }
 
 /* ============================================================
