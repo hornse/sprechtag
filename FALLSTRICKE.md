@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v2.2.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v2.4.0 – dort ändern, hierher kopieren! -->
 # Fallstricke: PHP, Router, WebUntis
 
 Ergänzung zu `REIHENREGELN.md`. **Quelle ist `hornse/koordination`**; die
@@ -22,7 +22,8 @@ Weise, die sich wiederholen kann.
 ## 1 — Router und Sitzung
 
 **`session_name()` und `session_set_cookie_params()` stehen vor dem
-ersten Sitzungszugriff**, in der Regel ganz oben im Router und vor jedem
+ersten Sitzungszugriff — mit `secure`, `httponly` und `samesite` `Lax`
+ausdrücklich gesetzt**, in der Regel ganz oben im Router und vor jedem
 `require`. Wer die Sitzung über eine eigene Klasse aufsetzt, hält die
 Regel dort ein — maßgeblich ist der Zeitpunkt, nicht die Datei.
 
@@ -48,8 +49,17 @@ stehen.** Alle anderen Dateien setzen es.
 ein `ini_set()` im Projekt. Bei PHP-FPM greift es dort zu spät. Nach der
 Änderung den PHP-Dienst neu starten.
 
-**Pfad-Traversal:** Der PHP built-in Server normalisiert `..` nicht.
-**Immer** `realpath()` plus Präfixprüfung mit Verzeichnistrenner.
+**Pfad-Traversal: immer `realpath()` plus Präfixprüfung mit
+Verzeichnistrenner.** Der PHP built-in Server normalisiert `..` nicht.
+
+**Unter dem Docroot liegt nur, was ausgeliefert werden soll — keine
+Sicherung, keine Editor-Reste** (`.save`, `.swp`, `.bak`, `.old`, `~`).
+PHP führt diese Endungen nicht aus; der Webserver liefert sie als Text,
+auch eine Konfiguration mit Passwort.
+
+**Hinter dem Proxy von Uberspace ist `REMOTE_ADDR` der Proxy, nicht das
+Gerät.** Vertrauenswürdig ist nur der letzte Eintrag von
+`X-Forwarded-For`; `X-Real-IP` setzt der Aufrufer frei.
 
 ---
 
@@ -59,6 +69,15 @@ ein `ini_set()` im Projekt. Bei PHP-FPM greift es dort zu spät. Nach der
 sobald `PHP_CLI_SERVER_WORKERS` gesetzt ist. Sonst überleben Kindprozesse
 den Neustart, halten den Port, und der Dienst steht auf `FATAL`, während
 die Seite weiterläuft.
+Sie wirken beim Stoppen, nicht beim unerwarteten Ende des
+Hauptprozesses: Dann halten verwaiste Arbeitsprozesse den Port weiter,
+mit demselben Bild.
+
+**`supervisorctl update` nur mit Dienstnamen;** ohne Namen wendet es
+jede eingelesene Änderung an, auch fremde. Offenes zeigt `reread`.
+
+**Eine Dienstdatei wird erst abgelegt, wenn der Dienst laufen darf —
+sonst mit `autostart=false`.**
 
 ---
 
@@ -118,6 +137,9 @@ in dem Werkzeug, dessen Zweck es ist, Unterschiede sichtbar zu machen.
 Wo beide Zustände verschiedene Dinge bedeuten, trennt `array_key_exists`
 sie.
 
+**`x || ersatz` liest eine 0 als fehlend.** Für Zahlen, die 0 sein können
+— Zeitstempel, Zähler, Kennungen —, `??` oder ein Vergleich mit `null`.
+
 **`$a + $b` behält bei gleichen Schlüsseln den linken Wert.** Eine
 Prüfung, die so zusammenführt, **misst womöglich ihre eigene Eingabe
 statt der Mutation.** Für „rechts gewinnt" gibt es `array_merge` oder den
@@ -162,8 +184,8 @@ Die vier Ersetzungen:
 | `NOW()` | `datetime('now')` |
 | `DATE_SUB(NOW(), INTERVAL 7 DAY)` | `datetime('now','-7 days')` |
 
-**Und sie zählen nach einem `UPDATE` verschieden:** MariaDB meldet die
-**geänderten** Zeilen, SQLite die **gefundenen**. Wer `rowCount()` als
+**Und sie zählen nach einem `UPDATE` verschieden: MariaDB meldet die
+geänderten Zeilen, SQLite die gefundenen.** Wer `rowCount()` als
 „gefunden" liest, bekommt gegen SQLite grün und im Betrieb einen Fehler.
 **Die Prüfung sagt dann das Falsche, nicht nichts** — und das ist die
 schlechtere Hälfte.
@@ -184,6 +206,13 @@ prüfbare Teil davon: `CREATE TABLE` und `ADD COLUMN` immer mit
 Muster legitim (`INSERT IGNORE`, `ON DUPLICATE KEY UPDATE`, ein
 `DELETE`-Vorspann in einer Transaktion), und eine Prüfung darüber wäre
 löchrig oder falsch-rot.
+
+**Zeiten, die verglichen werden, kommen aus derselben Uhr.** SQLite
+schreibt `CURRENT_TIMESTAMP` in UTC, MariaDB in der Zone des Systems: Eine
+Grenze aus PHP gegen einen Wert der Datenbank stimmt dann im Betrieb und
+nicht in der Prüfung. Den Zeitpunkt im INSERT aus PHP setzen, mit
+übergebbarer Uhr. Grenzen über Datumsarithmetik (`modify('-30 days')`),
+nicht über n × 86 400 Sekunden.
 
 ---
 
@@ -223,8 +252,8 @@ nicht" heißen, nicht „diesen Pfad gibt es nicht".** Wer ihn als
 Pfadbefund liest, streicht einen Weg, den es gibt — und sucht danach
 einen anderen, den es nicht gibt.
 
-**Prüfbar ist es am Körper:** Ein 404 **mit** `validationErrors` ist eine
-Aussage über die **Kennung**, einer **ohne** eine über den **Pfad**.
+**Prüfbar ist es am Körper: Ein 404 mit `validationErrors` ist eine
+Aussage über die Kennung, einer ohne eine über den Pfad.**
 Belegt an einem Fall, in dem eine Unterrichtsnummer als Fach-ID
 eingetragen war — die Kennung gab es, nur nicht als Fach.
 
@@ -269,14 +298,31 @@ führt in die falsche Richtung, wenn die Gegenseite die Verbindung
 abgebrochen hat — dann sucht man beim Netz, wo nichts zu finden ist.
 
 **Fremde Fehlermeldungen übersetzen, eigene Fehler vorher fangen.**
-`-8500 invalid schoolname` kam einmal von einem mitkopierten `#`. Was
-sich selbst prüfen lässt, wird vorher geprüft; was nicht, bekommt eine
+`-8500 invalid schoolname` heißt **„Schule unbekannt oder Instanz
+gewechselt“**: Einmal kam es von einem mitkopierten `#`, einmal hatte
+WebUntis die Spielwiese neu angelegt, mit neuem Schulschlüssel.
+**`-8500` wird behandelt wie ein Ausfall:** 503, der Versuch zählt nicht
+als Fehlversuch, der Code kommt ins Protokoll. **Aber mit eigenem Satz,
+nicht dem des Ausfalls — Warten behebt `-8500` nicht.** Der Satz fordert
+zum Melden auf (Abschnitt 8). `-8500` entscheidet nicht über ein Konto — es ist
+die eine Ausnahme von „jeder Fehlercode ist ein Fehlschlag“. Was sich
+selbst prüfen lässt, wird vorher geprüft; was nicht, bekommt eine
 Übersetzung, die die Ursache nennt.
 
 **Vor eigener Datenhaltung prüfen, ob WebUntis das Feld schon führt.**
 Räume, Zeiten, Kapazitäten und Buchungsfristen stehen dort bereits. Jedes
 nachgebaute Feld ist eine zweite Wahrheit — und doppelte Pflege war der
 Anlass der Reihe, nicht ihr Ergebnis.
+
+**Die WebUntis-Spielwiese ist für den Datenschutz wie der Betrieb zu
+behandeln**, solange sie eine Kopie mit echten Daten ist: keine Werte in
+Ausgaben, Logs, Dateien oder Repos, ihr Schulschlüssel ist ein
+Zugangswert. Schreibproben bleiben dort erlaubt. Ein Beleg von der
+Spielwiese ist trotzdem keiner vom Betrieb.
+
+**Eine Seite der WebUntis-Oberfläche kann beim bloßen Öffnen schreiben.**
+Für eine lesende Beobachtung genügt „nichts anklicken“ deshalb nicht; nur
+ein Wächter, der jede nicht freigegebene Anfrage zurückhält, zeigt es.
 
 ---
 
@@ -292,7 +338,8 @@ Abfrage nach Fach steht das Fach am Tag, nicht an der Stunde. Wo der
 Aufbau einer Antwort belegt ist, wird er genutzt; die allgemeine Suche
 bleibt Rückfall für unbekannte Formen.
 
-**Personenbezogene Endpunkte gehören nicht hinein.** Die
+**Personenbezogene Endpunkte gehören nicht hinein — wo ein Schlüssel
+gebraucht wird, werden nur `id` und `key` übernommen.** Die
 Lehrkraftabfrage trägt `birthDate`, `gender`, `personnelNumber` und
 `varQuotas` (Deputate); die Schülerabfrage Namen und Geschlecht. Für eine
 Teilnehmerliste genügt das Kürzel aus dem Stundenplan. Wo ein Schlüssel
@@ -308,10 +355,10 @@ in Minuten geklärt hat.
 
 ## 8 — Anmeldung und Rollen
 
-**Die `personType`-Zuordnung ist überall dieselbe:** 2 = Lehrkraft,
-5 = Schüler, 16 = WebUntis-Admin. **Wer zugelassen ist, ist es nicht** —
-das entscheidet jedes Projekt für sich und hält es in seiner `CLAUDE.md`
-fest.
+**Die `personType`-Zuordnung ist überall dieselbe: 2 = Lehrkraft,
+5 = Schüler, 12 = Erziehungsberechtigte, 16 = WebUntis-Admin.** **Die
+Zuordnung beschreibt, was es gibt — zulassen entscheidet jede Anwendung
+selbst** und hält es in ihrer `CLAUDE.md` fest.
 
 **Ein WebUntis-Admin (`personType 16`) hat `personId = -1`** und taucht
 in `getTeachers()` nicht auf, weil Admins keine Stundenplan-Personen
@@ -320,7 +367,8 @@ das Kürzel aus der lokalen Datenbank geholt. Die Bedingung als **Bereich**
 prüfen, nicht als Gleichheit — dann ist der Fall der ID 0 aus Abschnitt 3
 mit abgedeckt.
 
-**Die Ablehnung ist einheitlich, solange ein Passwort im Spiel ist.** Es
+**Die Ablehnung ist einheitlich, solange ein Passwort im Spiel ist —
+auch beim zweiten Schritt über Freigabe oder Zuordnung.** Es
 darf nicht erkennbar sein, ob ein Kürzel existiert — und ebenso wenig, ob
 das Passwort stimmte.
 
@@ -349,7 +397,18 @@ ein fremdes Konto. Formal betroffen, dem Zweck nach nicht.
 **`session_regenerate_id(true)` beim Login.**
 
 **Eine Brute-Force-Bremse gehört dazu, und sie scheitert geschlossen** —
-im Fehlerfall wird abgewiesen, nicht durchgelassen.
+im Fehlerfall wird abgewiesen, nicht durchgelassen. Sie kommt aus
+`Anmeldebremse` (`webuntis-auth-php`): Wartezeit statt Sperre, gezählt
+nach Kennung und Ziel, nie nach Adresse. „Ohne Entscheid“ gilt nur bei
+Transportfehlern; jeder Fehlercode ist ein Fehlschlag.
+
+**Die Meldungen der Anmeldung haben je Fall einen Satz, ohne Anrede:**
+„Zu viele Fehlversuche. Bitte in N Sekunden erneut versuchen.“ — „Die
+Anmeldung ist gerade nicht möglich – die Prüfung der Anmeldeversuche
+antwortet nicht. Bitte in ein paar Minuten noch einmal.“ — „WebUntis ist
+gerade nicht erreichbar. Bitte in ein paar Minuten erneut versuchen.“ —
+bei `-8500`: „Die Anmeldung ist gerade nicht möglich. Bitte der Schule
+Bescheid geben.“
 
 **Ein Notfall-Zugang darf nur das, wofür er da ist.** Kein Import, kein
 Lesepfad, kein Schreibweg.
@@ -428,7 +487,8 @@ auf Strukturzahlen, weil nur die an der Quelle hängen.
 jeden Export und jeden Upload, und beide Fälle der Reihe sehen
 verschieden aus.
 
-**CSV ist eine Formelsprache.** Ein Feld, das mit `=`, `+`, `-` oder `@`
+**CSV ist eine Formelsprache: Fremder Freitext bekommt ein
+Anführungszeichen davor.** Ein Feld, das mit `=`, `+`, `-` oder `@`
 beginnt, wird in Excel und LibreOffice als **Formel** ausgewertet. Wo ein
 Freitext in eine CSV gerät, den jemand anderes geschrieben hat, gehört
 ein Anführungszeichen davor.
@@ -442,7 +502,9 @@ Umlaute falsch an. **Kein Sicherheitspunkt, sondern Lesbarkeit** — und
 getrennt zu halten, damit beim nächsten Umbau nicht das eine mit dem
 anderen wegfällt.
 
-**Eine SVG-Datei ist XML und kann Skript tragen.** Wo ein Logo oder eine
+**Eine SVG-Datei ist XML und kann Skript tragen: Geprüft wird das
+geparste Dokument, nicht die Zeichenkette — oder sie wird so
+ausgeliefert, dass sie kein Skript ausführen kann.** Wo ein Logo oder eine
 andere SVG hochgeladen wird, prüft die Annahme **das geparste Dokument,
 nicht die Zeichenkette** — Entitäten, Kodierungen und Schreibweisen sind
 erst nach dem Parsen aufgelöst; `&#x6A;avascript:` geht an jeder

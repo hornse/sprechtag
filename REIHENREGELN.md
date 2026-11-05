@@ -1,4 +1,4 @@
-<!-- VENDORED aus hornse/koordination v2.2.0 – dort ändern, hierher kopieren! -->
+<!-- VENDORED aus hornse/koordination v2.4.0 – dort ändern, hierher kopieren! -->
 # Regeln der Reihe
 
 Gilt für alle Projekte, die diese Datei führen. **Quelle ist
@@ -19,6 +19,10 @@ wer sie führt.
 Fachfragen, der eigene Stack — sowie die technischen Fallstricke von
 PHP, Router und WebUntis. Die stehen in `FALLSTRICKE.md`, die nur die
 Projekte führen, die sie brauchen.
+
+Was nur die Quelle betrifft — Aufträge über mehrere Repos schreiben, den
+Bestand ermitteln, verteilen —, steht in `REGELN-koordination.md` und wird
+nicht verteilt.
 
 ---
 
@@ -46,6 +50,10 @@ aussieht — und dann rückgängig gemacht wird.
 
 **Rückfragen vor Entscheidungen mit Tragweite, nicht danach.**
 
+**Ein Halt heißt: anhalten, berichten, auf ein Ja warten** —
+auch wo der Auftrag davor eine Prüfung nennt. Eine Prüfung, nach der es von
+selbst weitergeht, ist kein Halt.
+
 **Paketweise arbeiten, nicht alles auf einmal.**
 
 **Beobachten schlägt raten.** Wo eine Oberfläche dieselbe Sache kann, die
@@ -64,9 +72,12 @@ kopiert wurde, und für einen Befehlsblock, von dem nur die Hälfte lief.
 **Wer einen Auftrag erteilt, nennt im nächsten Schritt etwas, das nur
 nach seiner Ausführung dasteht** — eine Zahl, eine Zeile, einen Commit.
 Das kostet nichts und trennt „gesagt" von „geschehen".
+Ebenso endet eine Kette, deren Ergebnis gelesen wird, mit einer Zeile,
+die nur dasteht, wenn sie durchlief, und ihre Ausgabedatei wird vorher
+gelöscht.
 
-**Eine örtliche Behebung ist keine Behebung.** Wo ein Fehler eine *Art*
-hat, gehört die Frage dazu, wie viele Stellen dieser Art es gibt — und
+**Wo ein Fehler eine *Art* hat, ist eine örtliche Behebung keine
+Behebung.** Dann gehört die Frage dazu, wie viele Stellen dieser Art es gibt — und
 ob sich eine **Engstelle** bauen lässt, an der es nur noch eine gibt.
 
 **Und eine Engstelle ist statisch prüfbar, wo ein Datenfluss es nicht
@@ -97,6 +108,11 @@ gegen eine nachgebildete. Sobald eine fremde Struktur belegt ist, gehört
 sie als Testfall ins Repo. Ausgedachte Beispiele prüfen nur die eigenen
 Annahmen.
 
+**Auch die Eingabe einer Anzeige-Prüfung ist eine fremde Struktur.** Wer
+sie selbst baut, prüft, was er für möglich hält — einschließlich der
+Reihenfolge. Sie kommt aus dem Code, der sie im Betrieb baut, oder ein
+Haken misst, wie weit sie davon abweicht.
+
 **Das gilt auch für jede Ausprägung einer bekannten Struktur.** **Eine
 Prüfung ist nur so gut wie die Fälle in ihren Daten.**
 
@@ -116,6 +132,12 @@ beschriftet, belegt jede Angabe einzeln oder nennt sie **erfunden**. Und
 eine Prüfung hält die Angabe fest, sonst driftet sie wie jede andere
 ungepflegte Angabe.
 
+**Testdaten für Zeit liegen fest oder weit vom heutigen Tag, und eine
+gestellte Uhr, ein Zähler, eine Kennung beginnt nicht bei 0.** Ein Datum
+nahe am Schreibtag prüft an diesem Tag womöglich nichts; eine 0 verdeckt,
+was `||` falsch liest; ein Stellvertreter für „irgendwann“ bricht, sobald
+eine Regel nach dem Abstand fragt.
+
 **Und die Gegenprobe selbst wird geprüft**, indem der geprüfte Code
 absichtlich beschädigt wird. Schlägt sie dann nicht an, prüft sie
 nichts.
@@ -127,6 +149,14 @@ fehlgeschlagenen Eingriff liest sich wie Bestehen.**
 
 Ein Eingriff ohne Wirkungsnachweis belegt nichts — auch nicht, dass die
 Prüfung greift.
+
+**Abrufe gegen den eigenen Server laufen mit Pause zwischen den
+Abrufen.** Nach rund 300 Abrufen in 70 Sekunden war der Arbeitsrechner
+auf Port 443 gesperrt, vorübergehend, ohne Meldung: Jeder weitere Abruf
+lieferte `000`. **Gefährlich ist das für eine Gegenprobe, die „nicht
+200“ erwartet** — eine gesperrte Verbindung besteht sie. Und eine
+Messreihe, die in die Sperre läuft, sieht aus wie ein Ausfall des
+Servers.
 
 **Und wo eine Gegenprobe zwei Ergebnisse vergleicht, gehört der Nachweis
 dazu, dass sie sich überhaupt unterscheiden.** Besser als eine
@@ -145,6 +175,15 @@ Werkzeug, mit dem Gegenproben gefahren werden, gehört zu den Belegen.
 Nichttreffer sind ein Muster, einer ist Rauschen — und ein einzelner
 Durchrutscher verleitet zur Einzelfallerklärung.
 
+**Vor einer Mutationsserie läuft jede Suite einmal unverändert, und jede
+erwartete Zeile steht in deren Ausgabe genau einmal.** Null ist der
+Schreibfehler, mehr als einer die Mehrdeutigkeit. Gemessen an der
+Ausgabe, nicht am Quelltext.
+
+**Eine Vorprüfung, die anders zählt als erwartet, ist ein Halt** — kein
+Anlass, das Gezählte anzusehen. Sie zeigt, dass das Muster seinen
+Gegenstand nicht sieht.
+
 **Und die Rücknahme braucht ihren eigenen Nachweis.**
 
 **Eine Rücknahme, die nicht ankommt, ist gefährlicher als eine Mutation,
@@ -155,12 +194,16 @@ Vergleich gegen den Sollstand: Prüfsumme oder leerer `git diff`.
 **Eine Prüfumgebung darf nicht mehr kennen als der Betrieb.** **Wo die
 Umgebung großzügiger ist als die Wirklichkeit, prüft sie die eigene
 Großzügigkeit mit.**
+**Das gilt auch für die Umgebung selbst.** Jede Shell-Suite läuft ein
+zweites Mal unter `env -i`, mit leerem `HOME` und ohne Git-Konfiguration;
+die Prüfungszahl bleibt gleich.
 
 **Wonach gesucht wird, wird dort gesucht, wo es wirken soll** — im Rumpf
 der Funktion, nicht in der Datei. Eine Suche über eine ganze Datei
 belegt **Vorkommen, nicht Wirkung**.
 
-**Dasselbe gilt für Stilregeln und für doppelte Darstellungen.** Steht
+**Dasselbe gilt für Stilregeln und für doppelte Darstellungen — dort
+zählt die Prüfung die Vorkommen.** Steht
 eine CSS-Eigenschaft in mehreren Regeln, wird **in der Regel** gesucht,
 nicht in der Datei. Und wo eine Oberfläche dieselbe Sache zweimal
 darstellt, **zählt** die Prüfung die Vorkommen, statt eines zu suchen —
@@ -214,6 +257,8 @@ läuft mit und meldet sichtbar, dass er übersprungen wurde** — oder er
 ist keine Prüfung, sondern eine Anleitung. Alles drei ist zulässig; nur
 muss dabeistehen, was davon es ist. **Nur von Hand gestartet, läuft er
 nicht.**
+Das gilt für jeden Schritt eines Werkzeugs, nicht nur für Prüfungen: Ein
+übersprungener Schritt wird gezählt und gemeldet, nie still.
 
 **Wird eine Prüfung erweitert, muss die Prüfungszahl um den erwarteten
 Betrag steigen.** Bleibt sie gleich oder steigt sie um weniger, ist die
@@ -264,8 +309,8 @@ danebensteht. Wer prüft, ob `$id > 0` vorkommt, muss zusätzlich prüfen,
 dass `$id === -1` **nicht** vorkommt.
 
 **Wo eine Prüfung die Nachbarschaft zweier Stellen misst statt eines
-Vorkommens, braucht sie zwei Gegenproben:** die benachbarte Bedingung
-entfernen, **und** sie entwerten, ohne sie zu entfernen — etwa zu
+Vorkommens, braucht sie zwei Gegenproben: die benachbarte Bedingung
+entfernen und sie entwerten, ohne sie zu entfernen** — etwa zu
 `if (true)`. Bleibt die Prüfung im zweiten Fall grün, misst sie Textnähe
 und nicht Wirkung.
 
@@ -309,13 +354,17 @@ geführt.**
 
 Eine Prüfung, die eine Darstellung nicht messen kann, soll nicht so tun.
 Sonst zählt sie mit und belegt nichts.
+Eine Prüfung auf eine CSS-Regel ist eine auf Vorhandensein und heißt so.
+Soll eine Regel ein Verhältnis herstellen (bündig, kein Überlauf), misst
+es eine Messung im Browser mit Gegenprobe, oder es ist ein Abnahmepunkt.
 
 **Ein Skript, das aus der Suite genommen wird, wird geteilt, nicht
 herausgenommen.** Einmal lief eine Testdatei nicht mit, weil ein Teil
 davon eine Datenbank braucht — und verlor damit auch die Prüfungen, die
 keine brauchen.
 
-**Ein Weg, den niemand aufruft, ist eine zweite Wahrheit.** **Ein toter
+**Ein Weg, den niemand aufruft, ist eine zweite Wahrheit — gezählt für
+den Bericht, nicht als Rot/Grün-Prüfung.** **Ein toter
 Weg ist schlimmer als ein falscher** — ein falscher fällt auf. Wie viele
 Funktionen niemand aufruft, ist billig zu zählen und gehört in den
 Bericht; als Rot/Grün-Prüfung erzeugte es Fehlalarme bei Schnittstellen,
@@ -349,6 +398,8 @@ stärkere Mittel.
 **Wo sich die Eigenschaft ausführen lässt, wird sie ausgeführt.** Die
 Reihenfolge ist der Rückfall für den Fall, dass das nicht geht, und
 gehört dann als solcher gekennzeichnet.
+Ist ein Browser da, ersetzt eine Prüfung am Quelltext keine Prüfung des
+Verhaltens.
 
 **Ein Name ist eine Schnittstelle.** In JavaScript gewinnt die letzte
 Deklaration einer Funktion im selben Geltungsbereich — ohne Warnung,
@@ -421,9 +472,9 @@ beschnitten wird, ist das Fehlen einer Zeile keine Auskunft.
 **`export LC_ALL=C`** in jedem Skript mit Zahlenvergleichen. Ohne das
 kann ein Zahlenvergleich je nach Locale unterschiedlich ausfallen.
 
-**`grep` mit Exit-Code 1 bricht unter `set -e` ab**, auch wenn das der
-Erfolgsfall ist. `|| true` anhängen — aber **nur** um den echten
-Erfolgsfall abzufangen, nie um einen Werkzeugfehler.
+**`grep` mit Exit-Code 1 bricht unter `set -e` ab, auch wenn das der
+Erfolgsfall ist — `|| true` nur um den echten Erfolgsfall, nie um einen
+Werkzeugfehler.**
 
 **Prüfskripte, die über den eigenen Baum nach Textmustern suchen,
 schlagen auf ihre eigenen Suchmuster an.** `--exclude` für das Skript
@@ -445,6 +496,13 @@ dem Index.** `git checkout <datei>` stellt den letzten Commit her und
 verwirft dabei alles, was in derselben Sitzung korrigiert, aber noch
 nicht committet war.
 
+**`rm` mit einer Variablen nur als `"${VAR:?}"`** — auch wo es harmlos
+ist, weil die Form kopiert wird. Gesucht wird jedes `rm -`, auch in
+`trap`.
+
+**Ein Heredoc beendet die `&&`-Kette.** Der Folgeschritt steht auf der
+Startzeile (`python3 - <<'X' && git add …`), nicht unter dem Körper.
+
 **Anwesenheit einer Datei wird durch Auflisten geprüft, nicht durch
 `grep`.** `grep` über eine vorhandene Datei prüft ihren Inhalt, nicht die
 Anwesenheit der Datei daneben. `ls -1` und `git status --short` vor jedem
@@ -457,7 +515,7 @@ noch offen sei, und im schlechteren Fall zu einer doppelten Ausführung.
 Das `rm` kommt **nach** dem Commit, nie davor, solange die Kopie im
 Durchgang die einzige ist.
 
-**Sechs Fallen der interaktiven zsh**, alle schon eingetreten — und für
+**Sieben Fallen der interaktiven zsh**, alle schon eingetreten — und für
 zwei davon gibt es **eine** Vorbeugung: **nach einem Variablennamen immer
 `${…}`.** Der Doppelpunkt und die eckige Klammer sind derselbe Fall.
 
@@ -472,7 +530,7 @@ zwei davon gibt es **eine** Vorbeugung: **nach einem Variablennamen immer
   auch in doppelten Anführungszeichen. Aus `"$t:FALLSTRICKE.md"` wurde
   einmal `…/v1.16.0LLSTRICKE.md`; `${t}:FALLSTRICKE.md` ist richtig.
 
-  **Diese Falle ist gefährlicher als die fünf anderen**, weil sie nicht
+  **Diese Falle ist gefährlicher als die sechs anderen**, weil sie nicht
   abbricht und keinen Unsinn liefert, sondern ein **plausibles Ergebnis**.
 
   **`da39a3ee5e6b` ist die Prüfsumme der leeren Eingabe.** Wer sie einmal
@@ -489,8 +547,18 @@ zwei davon gibt es **eine** Vorbeugung: **nach einem Variablennamen immer
   Suchpfad der Shell, und danach findet kein Befehl mehr sich selbst.
   **Keine Falle, die ein falsches Ergebnis liefert, sondern eine, die die
   Umgebung zerlegt.**
+* **Ein Glob ohne Treffer bricht die ganze Zeile ab** (`no matches
+  found`), bevor der Befehl läuft. Steht er in einer Schleife über
+  Repos, sieht das Ergebnis für dieses Repo aus wie „null Treffer“.
+  Abhilfe: das Muster in Anführungszeichen an das Werkzeug geben, oder
+  unter `bash` mit `shopt -s nullglob`.
 
-In einem Skript mit `#!/bin/bash` gilt keine der sechs.
+In einem Skript mit `#!/bin/bash` gilt keine der sieben.
+
+**In `--option=~/…` bleibt die Tilde stehen. `$HOME` schreiben.** Nur
+eine Zuweisung (`p=~/x`) löst sie auf; ein Argument nicht, in bash wie
+in zsh. Geschrieben wird dann in ein Verzeichnis namens `~` unter dem
+Arbeitsverzeichnis. PHP löst `~` in einem Pfad ebenfalls nicht auf.
 
 **Ein Block zum Einfügen ist ein Skript ohne Kopfzeile.** Er läuft in
 der Shell, die der Leser hat, und jede Annahme darüber kann fallen.
@@ -514,23 +582,12 @@ vor".**
 Nullen eine Messung. **Und `2>/dev/null` gehört dort nicht hin** — es
 fängt genau den Fehler ab, der die Auskunft entwertet.
 
-**Eine Sollzahl ist eine Vermutung über die Umgebung des Empfängers.**
-Wer für einen anderen einen Auftrag schreibt und eine erwartete Zahl mit
-einem Werkzeug ermittelt, hat sich auf dieses Werkzeug festgelegt — ohne
-zu wissen, ob es dort vorhanden ist und in welcher Fassung. Der Auftrag
-prüft deshalb zuerst, dass das Werkzeug existiert, oder er kennzeichnet
-die Zahl als ungeprüft.
-
 ---
 
 ## 4 — Ermittlung statt Aufzählung
 
 **Kein Projektname in einem Skript.** Weder in einer Liste noch in einer
 Fallunterscheidung. Der Bestand wird gefunden, nicht aufgezählt.
-
-**Auftragsdateien zählen keine Projekte auf, sie ermitteln den Bestand.**
-Eine feste Liste vergisst das nächste Projekt — genau der Fehler, vor dem
-sie warnt.
 
 **Fest verdrahtete Projektlisten sind die gefährlichste Stelle einer
 gewachsenen Reihe.** Sie fallen unbemerkt auseinander, weil nichts warnt.
@@ -561,11 +618,6 @@ Vorbild, als Vergleich, als Vorlage —, wird sie **beigelegt**: als Kopie
 im eigenen Repo, nicht als Zugriff über Verzeichnisgrenzen. Der
 Nebengewinn: Im Repo steht dann, welche Fassung als Vorbild diente.
 
-**Wer dagegen den Bestand ermittelt, braucht Zugriff auf alle** und kann
-nichts beilegen. Die Trennlinie ist: eine **benannte** Datei wird
-beigelegt, ein **ermittelter** Bestand wird vorausgesetzt und im ersten
-Schritt geprüft.
-
 **Eine Aussage über einen Zustand wird mit Datum weitergegeben oder vor
 der Verwendung geprüft.** Versionsstand, Prüfungszahl, welches Repo was
 führt — das veraltet von selbst. **Eine Entscheidung gilt, bis sie
@@ -584,25 +636,6 @@ von Hand hergestellt werden muss — eine Ebene höher: **Eine
 Voraussetzung, die erst mitten im Lauf auffällt, ist eine, die im
 Ausgangsstand fehlte.**
 
-**Und eine Auftragsdatei benennt, welche Abschnitte einer vorhandenen
-Erhebung sie voraussetzt.** Nicht die Datei — den Abschnitt. Bei einer
-Erhebung von einigem Umfang liest man den Anfang und arbeitet dann; wer
-die Stelle nennt, zwingt zum Nachschlagen an der richtigen. **Eine
-Erhebung, deren Ergebnis beim Bauen nicht gelesen wird, ist verlorene
-Arbeit** — und schlimmer als keine, weil sie den Eindruck erzeugt, die
-Frage sei geklärt.
-
-**Es ist kein Aufmerksamkeitsproblem.** Wer eine Erhebung beauftragt,
-hat sie beim Schreiben im Kopf und beim Bauen nicht mehr — deshalb steht
-die Benennung in der Auftragsdatei und nicht im Gedächtnis.
-
-**Die Umkehrung gehört dazu:** Ein Abschnitt, den nach mehreren Aufträgen
-keiner voraussetzt, war entweder überflüssig oder ist es geworden. Das
-ist der Anlass, ihn zu streichen oder zu schärfen — nicht ein Gefühl.
-
-**Vor dem Lauf: `git status` in allen betroffenen Repos.** Sonst ist
-hinterher nicht zu trennen, was das Werkzeug getan hat.
-
 **Wer in einem fremden Repo committet, addiert namentlich — nie `git add
 -A`.** Ein Auftrag weiß, welche Dateien er anfasst; wenn nicht, ist das
 das eigentliche Problem.
@@ -611,17 +644,7 @@ das eigentliche Problem.
 Laufzeit.** An mehreren Repos wird selten allein gearbeitet, auch wenn
 nur eine Person beteiligt ist.
 
-**Eine Änderung an einem Werkzeug, das über mehrere Repos läuft, wird im
-Probebaum durchgespielt.** Den Baum kopieren, das Werkzeug daraufsetzen,
-und **zuerst belegen, dass der Ausgangslauf dort Zahl für Zahl derselbe
-ist** — ohne diesen Beleg ist der Probebaum eine Annahme. Danach lässt
-sich die Änderung vollständig ausprobieren, ohne ein einziges Repo
-anzufassen.
-
-**Der letzte Schritt bleibt manuell.** Ein Deploy über mehrere Repos
-macht eine Änderung wirksam, die niemand einzeln zurücknimmt — dabei soll
-ein Mensch die Ausgabe sehen. Innerhalb eines Projekts gehört
-`deploy.sh` weiterhin zum Auftrag.
+**Innerhalb eines Projekts gehört `deploy.sh` zum Auftrag.**
 
 **Remote und Zweig werden ausdrücklich genannt.** Die Reihe ist
 gewachsen; die Upstreams zeigen je Repo verschieden mal auf die eine,
@@ -635,12 +658,6 @@ anderen Vorhaben, die zufällig darunter liegen. **Und umgekehrt:**
 Namentliches Addieren trennt Commits, nicht Pushes. Ein fremder Push
 liefert eigene Commits mit aus — beim eigenen sieht man, was mitgeht,
 beim fremden nicht.
-
-**Ein Verteillauf pusht deshalb nur nach GitHub.** Die Auslieferung macht
-die Anwendung selbst, mit ihrem Auslieferungsskript — dort läuft die
-Prüfung, dort werden die Cache-Werte gesetzt, dort wird getaggt. **Muss
-er doch nach der Server-Gegenstelle pushen, sieht er vorher nach, ob
-lokale Commits darunterliegen, und hält an.**
 
 **Der Bericht jedes Laufs wird ins Repo committet.** Ohne abgelegten
 Vorbericht ist keine Vorher-Nachher-Aussage prüfbar — und darauf beruht
@@ -672,7 +689,8 @@ VENDORED aus hornse/<quelle> vX.Y.Z – dort ändern, hierher kopieren!
 Der Bestandslauf liest ihn; die Form ist deshalb keine Geschmacksfrage.
 In Markdown steht er als HTML-Kommentar.
 
-**Bewährtes gehört ins Modul — nicht kopieren.** Was sich in einem
+**Bewährtes, das allgemein nützlich ist, gehört ins Modul — nicht
+kopieren.** Was sich in einem
 Projekt bewährt hat und allgemein nützlich ist, wandert ins Modul-Repo,
 und die anderen bedienen sich daraus.
 
@@ -699,6 +717,16 @@ etwas anderes trägt, als er benennt, ist dieselbe Falle wie eine
 ungepflegte Angabe** — nur schwerer zu sehen, weil er nach Beleg
 aussieht.
 
+**Vor dem Taggen läuft die Suite auf dem committeten Stand, in einem
+sauberen Baum** — frischer Klon oder `git worktree`, `git status --short`
+leer. Die Prüfungszahl in Commit-Meldung und Changelog stammt aus diesem
+Lauf. Der Arbeitsbaum kann mehr enthalten als der Commit, auch die Datei,
+an der eine Prüfung anschlägt.
+
+**Wer den Betrieb meint, misst am ausgelieferten Commit, nicht am
+neuesten Tag.** Wo die Auslieferung nicht taggt, liegt der Tag beliebig
+weit zurück.
+
 **Eine Angabe, die nicht gepflegt wird, ist schlechter als keine.** Sie
 sieht aus wie eine Auskunft und ist eine Falle. Wo sich ein Zustand
 ableiten lässt, wird er nicht aufgeschrieben.
@@ -720,8 +748,8 @@ sieht sie, kein `git diff`, kein Test.
 Werte:** Schlüssel, Aufbau, Vorhandensein. Werte müssen abweichen — das
 ist ihr Zweck.
 
-**Ein Auslieferungsskript addiert namentlich und lässt vor dem Commit
-die Prüfungen laufen.** Pauschales Addieren hätte einmal eine Datei mit
+**Ein Auslieferungsskript addiert namentlich, hält bei unverfolgten
+Dateien an und lässt vor dem Commit die Prüfungen laufen.** Pauschales Addieren hätte einmal eine Datei mit
 einer Personenkennung ausgeliefert und hat einmal einen stillen
 Rückschritt über vier Auslieferungen getragen; ohne Prüfung ging ein
 roter Stand mit 17 Fehlern hinaus. **Bei unverfolgten Dateien hält es an
@@ -751,22 +779,18 @@ Push über HTTPS nicht: `HTTP 400`, Abbruch, und die Meldung nennt die
 Ursache nicht. Abhilfe ist `http.postBuffer`. Beim erstmaligen
 Hinzufügen größerer Bestände gehört das dazugesagt.
 
-**Nichts Ausgeliefertes an der Projektwurzel** — es sei denn, die
-Projektwurzel **ist** der Docroot. Der Dienst läuft mit
-Arbeitsverzeichnis gleich Projektwurzel; liegt dort ein Verzeichnis,
-dessen Name am Anfang einer ausgelieferten URL steht, wird die Datei am
-Router vorbei behandelt und läuft auf dem Server in einen Fatal, weil
-`doc_root` auf `/var/www/virtual/<benutzer>/` beschränkt ist. Maßgeblich
-ist der Docroot, nicht ein bestimmter Verzeichnisname — die Reihe kennt
-dafür mehrere gleichwertige Anordnungen.
+**Nichts Ausgeliefertes an der Projektwurzel — es sei denn, die
+Projektwurzel ist der Docroot.** Docroot von `php -S` ist das
+Arbeitsverzeichnis des Dienstes. **Außerhalb von
+`/var/www/virtual/<benutzer>` beantwortet `php -S` vorhandene Dateien mit
+`500`, ohne den Router** — Ursache unbekannt (`doc_root` ist leer); nicht
+darauf verlassen. Eine ausgelieferte URL, die dort eine Datei trifft,
+bricht. **Innerhalb läuft der Router immer: Jede Anwendung sperrt in ihrem
+Router selbst.**
 
-**Dieselbe Beschränkung schützt, was nicht ausgeliefert werden soll — und
-zwar nur nebenbei.** Ein Abruf auf eine Konfigurationsdatei außerhalb des
-Docroots wird von PHP-FPM abgelehnt (`Primary script unknown`), bevor die
-Datei geöffnet wird; nach außen erscheint das als `500`. Das ist ein
-echter Schutz, aber niemand hat ihn zu diesem Zweck eingerichtet: Ändert
-sich `doc_root` oder der Ort des Dienstes, fällt er weg, und nichts
-warnt.
+Unter Apache lehnt PHP-FPM eine Datei außerhalb des Docroots ab (`Primary
+script unknown`, nach außen `500`) — ein Schutz, den niemand dazu
+eingerichtet hat.
 
 **Geprüft wird deshalb der Inhalt, nicht der Statuscode.** Ein `500` sagt
 nichts darüber, ob die Datei gelesen wurde — es ist derselbe Code für
@@ -775,11 +799,18 @@ brauchbare Prüfung ist: Der Abruf gibt **keine Zeichenfolge aus der
 Datei** zurück. Das gilt unabhängig davon, welchen Code der Server
 liefert.
 
+**Unter dem ausgelieferten Verzeichnis liegt keine Datei, die der Server
+nicht ausliefern soll** — Editor-Reste, Daten, Einstellungen,
+Punktdateien. `pruefe_alles.sh` sucht danach und wird rot. Die Liste
+ist dieselbe wie in `docs/betrieb/apache/webroot.htaccess` in
+`koordination`.
+
 ---
 
 ## 7 — Erscheinungsbild
 
-**Kein Farbwert außerhalb von `ci-tokens.css`.** Ausgenommen sind
+**Kein Farbwert außerhalb von `ci-tokens.css` — außer einer
+Kategorienpalette, die nur ein Projekt braucht.** Ausgenommen sind
 Kategorienpaletten, die nur ein Projekt braucht: im `:root`-Block des
 Projekts, mit Kommentar, der die Entscheidung festhält. Diese Ausnahme
 ist ausdrücklich beschlossen und kein Schlupfloch.
@@ -810,8 +841,8 @@ Deklaration.
 mit.** Sie **ermittelt den Bestand** aus den vendorten Dateien, statt ihn
 aufzuzählen — sonst veraltet sie mit der nächsten Modulfassung.
 
-**Und die zweite Gegenprobe ist die wichtigere:** `var(--name, 4px)`
-**mit** Ersatzwert ist zulässig und darf **nicht** anschlagen. Eine
+**Und die zweite Gegenprobe ist die wichtigere: `var(--name, 4px)`
+mit Ersatzwert ist zulässig und darf nicht anschlagen.** Eine
 Prüfung, die jedes `var()` mit unbekanntem Namen meldet, schlüge bei der
 richtigen Form an — und würde abgeschaltet.
 
@@ -883,11 +914,6 @@ braucht einen eindeutigen Pfad oder eine Kombination.
 Abfrage ein Merkmal führt, heißt nicht, dass die Nachbarabfrage es auch
 führt — zwei Quellen, zwei Feldmengen.
 
-**Ein Auftrag, der ein Merkmal aus einem anderen Projekt heranzieht,
-nennt den Aufruf, aus dem es stammt** — nicht den Protokolleintrag, der
-es erwähnt. Steht der Aufruf da, fällt der Fehler beim Schreiben auf;
-steht nur die Nummer da, erst beim Ausführen.
-
 **Wo die Struktur einer fremden Antwort geraten werden musste, liefert
 der Bericht die Struktur mit** — Schlüsselpfade und Typen, keine Werte.
 
@@ -912,12 +938,33 @@ Anforderung, keine Haltung.
 Fremdschlüssel. Für die Frage „gibt es einen brauchbaren Schlüssel"
 genügen Zählwerte. Was nicht gebraucht wird, wird nicht ausgegeben.
 
-**Personenbezogene Endpunkte gehören nicht in eine Anwendung**, die
-ohne sie auskommt — nicht in ein einzelnes Werkzeug, nicht in irgendein
+**Ein Befehl, der Verzeichnisse oder Prozesse des ganzen Systems
+auflistet, wird auf das eigene Konto beschränkt.** Auf einem geteilten
+Server stehen sonst die Namen anderer Konten in der Ausgabe — und mit
+ihr im Bericht. Zweimal ist das geschehen.
+
+**Ein lesender Lauf auf dem Server legt keine Zwischendatei an, auch
+keine flüchtige.** Gezählt wird in der Pipe. Braucht es doch eine Datei,
+entsteht sie lokal im Scratchpad.
+
+**Werte aus Dateien mit Zugangsdaten erscheinen in keiner Ausgabe, auch
+maskiert nicht.** Gesucht wird über eine Datei mit `umask 077` und
+`grep -F -f`; ausgegeben werden Namen und Zahlen. Eine Maske hängt an der
+Form der Zeile, und die kennt man vorher nicht.
+
+**Wo ein Leseauftrag Personendaten berühren kann, liest die Sitzung
+selbst.**
+
+**Aus Logs wird gezählt, nie eine Zeile ausgegeben.** Eine Logzeile kann
+Sitzung, Token oder Namen tragen, auch wo man nur die Form ansehen wollte.
+
+**Personenbezogene Endpunkte gehören nicht in eine Anwendung, die
+ohne sie auskommt** — nicht in ein einzelnes Werkzeug, nicht in irgendein
 anderes.
 
 **Wird ein Mitschnitt zu Testdaten, werden zuerst alle Zugangsdaten
-ersetzt**, dann der Rest übernommen. Platzhalter gleicher Länge, damit
+ersetzt — und vor dem ersten Commit auch Namen, Kennungen und
+Adressen.** Dann wird der Rest übernommen. Platzhalter gleicher Länge, damit
 Längenprüfungen weiter etwas prüfen. Nicht umgekehrt. **Und übernommen
 wird die Struktur, nicht die Werte:** Namen, Kennungen und Adressen
 werden ebenso ersetzt, **vor dem ersten Commit** — danach stehen sie in
@@ -931,6 +978,11 @@ Vertrauen.** Wo ein Wert adressierbar ist, geht das Ersetzen der Regel
 vor, alte Protokolleinträge nicht zu ändern (Abschnitt 10) — eine
 Adresse kann jemand benutzen, ein Kürzel sagt außerhalb der Schule
 niemandem etwas. Eine Arbeitsdatei ist ohnehin kein Protokolleintrag.
+
+**Rohdaten eines Mitschnitts werden nach der Auswertung gelöscht; ins
+Repo kommt nur die Auswertung** — Pfade, Feldnamen, Typen. Ein Export mit
+Antwortkörpern enthält Sitzungskennungen und Token, aus einer
+Verwaltungssitzung auch Geheimnisse von Anwendungen.
 
 **Anonymisierung darf die Auskunft nicht zerstören.** Wo eine Antwortform
 belegt ist und keine Personendaten enthält, tritt eine gezielte
@@ -971,6 +1023,9 @@ nicht importiert — wer es braucht, liest es.
 **Und eine Prüfung zählt die Importe und wird über der Grenze rot.** Ohne
 sie fällt nur auf, dass etwas nicht ankommt — und das sieht aus wie
 Vergesslichkeit, nicht wie ein Fehler.
+Die Prüfung ermittelt die Importe selbst, rekursiv und ohne Codeblöcke
+und Codespannen, und hält sie gegen die Grenze des Projekts. Ohne sie
+ist die Regel eine Absicht.
 
 **Vergebene Nummern werden nie neu vergeben und nie verschoben** — E, M,
 und jede Nummerierung in einer Befunddatei. Neue kommen ans Ende. Ein
@@ -984,7 +1039,9 @@ stammt. Mehrere Projekte führen eigene E-Reihen mit denselben Zahlen.
 
 **Sprache ist Deutsch** — Bezeichner, Kommentare, Ausgaben, Commits.
 
-**Lizenz ist GPL-3.0-or-later.**
+**Lizenz ist GPL-3.0-or-later.** Wo ein Empfänger unter GPL-2.0 steht,
+steht die Datei, die er braucht, zusätzlich unter GPL-2.0-or-later
+(`Anmeldebremse.php`, für das MRBS).
 
 **Keine Frameworks, kein Build-Schritt**, weder für PHP noch für
 JavaScript.
