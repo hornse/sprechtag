@@ -2514,3 +2514,37 @@ jetzt als Prüfung fest – wird sie rot, hat sich die Bauart geändert.
 Kennungen ab 4711 (in `lernzeiten` war eine Prüfung blind, weil Kennungen
 bei 1 begannen). Mutationen RS1–RS10; die Teilserie der Bremse (WZ, IP, AF,
 SD11, RS) schlug 30 von 30 an.
+
+## E38 — Schwelle der Bremse: acht Fehlversuche, als Konstante im Code
+
+**Datum:** 05.11.2026 · **Version:** v0.9.111 · **Anlass:** Auftrag aus
+`koordination` (S75, `ENTWURF-AUFTRAG-doku-hilfe-S75.md`) nach
+**koordination M56** („Acht Fehlversuche, in der ganzen Reihe“, 03.11.2026).
+**Entschieden vom Betreiber.**
+
+**Hebt in E35 die Zahl auf:** Dort steht „Ab der Schwelle
+(`max_failed_logins`, 5)“. Das galt bis v0.9.110. Die übrige Bauart aus E35
+und E37 bleibt: Wartezeit statt Sperre, je Benutzername, gedeckelt bei 60 s,
+Fenster `lockout_minutes`, eine gelungene Anmeldung setzt zurück.
+
+**Entschieden:** Ab **acht** Fehlversuchen im Fenster wartet der nächste
+Versuch. Die Zahl steht als Konstante `BREMSE_SCHWELLE` in
+`backend/api/anmeldebremse.php`, **nicht** in `config.php`. Ein
+`security.max_failed_logins` wird nicht mehr gelesen und steht nicht mehr in
+der Vorlage.
+
+**Warum eine Konstante:** M56 macht die Schwelle zu einer Zahl der Reihe,
+nicht der Schule. Die Hilfe nennt sie („Nach acht Fehlversuchen …“). Stünde
+sie in der nicht versionierten `config.php`, könnte der Betrieb eine andere
+Zahl tragen als die Hilfe, und keine Prüfung sähe es. Als Konstante hält
+`tests/frontend_hilfe_test.js` beide zusammen (REIHENREGELN 2, „Zwei
+Schwellen für dieselbe Frage sind zwei Wahrheiten“).
+
+**Geprüft:** `run_bremse.php` führt die Grenze aus (7 Fehlversuche durch,
+8 wartet; ein Wert in `config.php` ändert nichts), `run_anmeldebremse.php`
+findet `max_failed_logins` in keiner Backend-Datei. Mutationen SB1–SB5 und
+SB10.
+
+**Im Betrieb:** Ein `max_failed_logins` in der `config.php` auf dem Server
+ist wirkungslos und darf entfernt werden. Gelesen wurde die Datei für diese
+Entscheidung nicht.
