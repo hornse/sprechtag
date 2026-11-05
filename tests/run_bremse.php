@@ -53,7 +53,10 @@ require __DIR__ . '/../backend/api/anmeldebremse.php';
 
 $da = function_exists('bremse_beginnen') && function_exists('bremse_warte_sekunden');
 pruefe('Voraussetzung: bremse_beginnen und bremse_warte_sekunden vorhanden', $da);
-$cfg = ['security' => ['max_failed_logins' => 5, 'lockout_minutes' => 15]];
+// S75 (M56): Die Schwelle ist die Konstante BREMSE_SCHWELLE (8), nicht mehr
+// security.max_failed_logins – die Testkonfiguration nennt sie deshalb nicht.
+// Die Zahlen unten sind erwartete Werte, nicht aus der Konstante gelesen.
+$cfg = ['security' => ['lockout_minutes' => 15]];
 
 // ---- die Rechnung, rein ----------------------------------------------------
 // v0.9.109 (E35, Nachtrag): ab der Schwelle gleich der Deckel, ohne Staffel.
@@ -61,12 +64,18 @@ $cfg = ['security' => ['max_failed_logins' => 5, 'lockout_minutes' => 15]];
 // vom 14.10.2026 hat es gezeigt (Fall unten).
 echo "Wartezeit: ab der Schwelle gleich 60 Sekunden\n";
 $w = fn(int $fehl, int $seit): int => $da ? bremse_warte_sekunden($fehl, $seit, $cfg) : -1;
-pruefe('unter der Schwelle (4 Fehlversuche): keine Wartezeit', $w(4, 0) === 0);
-pruefe('genau an der Schwelle (5): 60 Sekunden ab dem letzten, nach 15 s noch 45', $w(5, 0) === 60 && $w(5, 15) === 45);
-pruefe('ohne Staffel: 6 und 7 Fehlversuche warten wie 5 – 60 Sekunden', $w(6, 0) === 60 && $w(7, 0) === 60);
-pruefe('gedeckelt bei 60 Sekunden: 9, 20, 500 Fehlversuche', $w(9, 0) === 60 && $w(20, 0) === 60 && $w(500, 0) === 60);
-pruefe('auf der Grenze: 59 s nach dem letzten noch 1 s, nach 60 s nichts mehr', $w(5, 59) === 1 && $w(5, 60) === 0);
-pruefe('abgelaufen: nichts mehr zu warten, nie negativ', $w(5, 61) === 0 && $w(9, 61) === 0 && $w(9, 600) === 0);
+pruefe('unter der Schwelle (7 Fehlversuche): keine Wartezeit', $w(7, 0) === 0);
+pruefe('genau an der Schwelle (8): 60 Sekunden ab dem letzten, nach 15 s noch 45', $w(8, 0) === 60 && $w(8, 15) === 45);
+pruefe('ohne Staffel: 9 und 10 Fehlversuche warten wie 8 – 60 Sekunden', $w(9, 0) === 60 && $w(10, 0) === 60);
+pruefe('gedeckelt bei 60 Sekunden: 12, 20, 500 Fehlversuche', $w(12, 0) === 60 && $w(20, 0) === 60 && $w(500, 0) === 60);
+pruefe('auf der Grenze: 59 s nach dem letzten noch 1 s, nach 60 s nichts mehr', $w(8, 59) === 1 && $w(8, 60) === 0);
+pruefe('abgelaufen: nichts mehr zu warten, nie negativ', $w(8, 61) === 0 && $w(12, 61) === 0 && $w(12, 600) === 0);
+// M56: Ein Wert in der nicht versionierten config.php darf die Schwelle nicht
+// mehr setzen – im Betrieb stand dort vermutlich noch 5 (nicht gelesen).
+$wCfg = fn(int $fehl, int $m): int => $da ? bremse_warte_sekunden($fehl, 0,
+    ['security' => ['max_failed_logins' => $m, 'lockout_minutes' => 15]]) : -1;
+pruefe('ein Wert in config.php ändert die Schwelle nicht: mit 5 warten 7 Fehlversuche nicht, mit 20 warten 8',
+    $wCfg(7, 5) === 0 && $wCfg(5, 5) === 0 && $wCfg(8, 20) === 60);
 
 // ---- ausgeführt gegen SQLite ----------------------------------------------
 function neue_db(): PDO
@@ -110,26 +119,26 @@ pruefe('ohne Vorgeschichte: durch, und der Versuch steht schon im Protokoll – 
     $r['status'] === 200 && is_array($z) && $z['webuntis_benutzer'] === 'probe' && (int)$z['erfolgreich'] === 0
     && $z['grund'] === '(läuft)');
 $p = neue_db();
-fehl($p, 'probe', 4, 30);
+fehl($p, 'probe', 7, 30);
 $r1 = $beginnen($p, 'probe');
 $r2 = $beginnen($p, 'probe');
-pruefe('gleichzeitig: 4 Fehlversuche, zwei Anfragen – die erste läuft, die zweite sieht die erste und wartet',
+pruefe('gleichzeitig: 7 Fehlversuche, zwei Anfragen – die erste läuft, die zweite sieht die erste und wartet',
     $r1['status'] === 200 && $r2['status'] === 429);
 pruefe('der abgewiesene Versuch zählt nicht: kein Eintrag dafür (sonst verlängerte jeder Klick die Wartezeit)',
-    $zeilen($p) === 5);
+    $zeilen($p) === 8);
 
 echo "Wartezeit statt Sperre (Punkt 1)\n";
 $p = neue_db();
-fehl($p, 'probe', 5, 1);
+fehl($p, 'probe', 8, 1);
 $r = $beginnen($p, 'probe');
 // 58 oder 59: Die Zeitstempel haben Sekunden; liegt zwischen den Einträgen eine
 // Sekundengrenze, ist der letzte schon 2 s alt.
 $ws = $r['daten']['warten_sekunden'] ?? null;
-pruefe('5 Fehlversuche, der letzte vor 1 s: 429 mit Wartezeit in Sekunden (58–59) und Satz dazu',
+pruefe('8 Fehlversuche, der letzte vor 1 s: 429 mit Wartezeit in Sekunden (58–59) und Satz dazu',
     $r['status'] === 429 && in_array($ws, [58, 59], true)
     && str_contains((string)($r['daten']['fehler'] ?? ''), $ws . ' Sekunden'));
 $p = neue_db();
-fehl($p, 'probe', 5, 61);
+fehl($p, 'probe', 8, 61);
 pruefe('… der letzte vor 61 s: die Wartezeit ist vorbei, durch – keine Sperre über 15 Minuten',
     $beginnen($p, 'probe')['status'] === 200);
 $p = neue_db();
@@ -149,9 +158,9 @@ pruefe('je Benutzername: 9 fremde Fehlversuche gerade eben zählen nicht',
 // heben sie die Zahl über die Schwelle (v0.9.107, nach WZ6 – bis dahin stand
 // hier ein Fall, der das Fenster nicht zeigte; Art 6).
 $p = neue_db();
-fehl($p, 'probe', 4, 16 * 60);
+fehl($p, 'probe', 7, 16 * 60);
 fehl($p, 'probe', 1, 1);
-pruefe('Fenster: 4 Fehlversuche vor 16 Minuten und einer vor 1 s – nur der eine zählt, durch',
+pruefe('Fenster: 7 Fehlversuche vor 16 Minuten und einer vor 1 s – nur der eine zählt, durch',
     $beginnen($p, 'probe')['status'] === 200);
 
 echo "Der Fall der Abnahme (14.10.2026)\n";
@@ -169,14 +178,18 @@ function fehl_von_hand(PDO $p, string $wer, int $n, int $abstand): void
     }
 }
 $p = neue_db();
-fehl_von_hand($p, 'erfundenq', 5, 15);
+fehl_von_hand($p, 'erfundenq', 7, 15);
+pruefe('sieben Fehlversuche (-8504) im Abstand von 15 s, von Hand: die achte Anfrage ist durch (Grenze, M56)',
+    $beginnen($p, 'erfundenq')['status'] === 200);
+$p = neue_db();
+fehl_von_hand($p, 'erfundenq', 8, 15);
 $r = $beginnen($p, 'erfundenq');
-pruefe('fünf Fehlversuche (-8504) im Abstand von 15 s, von Hand: die sechste Anfrage wartet',
+pruefe('acht Fehlversuche (-8504) im Abstand von 15 s, von Hand: die neunte Anfrage wartet',
     $r['status'] === 429);
 $p = neue_db();
-fehl_von_hand($p, 'erfundenq', 6, 15);
+fehl_von_hand($p, 'erfundenq', 9, 15);
 $r = $beginnen($p, 'erfundenq');
-pruefe('… sechs im Abstand von 15 s: die siebte wartet ebenso',
+pruefe('… neun im Abstand von 15 s: die zehnte wartet ebenso',
     $r['status'] === 429);
 
 echo "Abschluss des Versuchs\n";
@@ -211,12 +224,12 @@ $id = $beginnen($p, 'probe')['id'];
 if ($oe && $id !== null) bremse_ohne_entscheid($p, (int)$id, 'probe');
 pruefe('ohne Entscheid: der laufende Eintrag verschwindet, nichts bleibt', $oe && $zeilen($p) === 0);
 $p = neue_db();
-fehl($p, 'probe', 4, 1);
+fehl($p, 'probe', 7, 1);
 for ($i = 0; $i < 5 && $oe; $i++) {
     $id = $beginnen($p, 'probe')['id'];
     if ($id !== null) bremse_ohne_entscheid($p, (int)$id, 'probe');
 }
-pruefe('ohne Entscheid zählt nicht: 4 Fehlversuche, dann fünf Versuche ohne Antwort von WebUntis – der nächste ist durch',
+pruefe('ohne Entscheid zählt nicht: 7 Fehlversuche, dann fünf Versuche ohne Antwort von WebUntis – der nächste ist durch',
     $oe && $beginnen($p, 'probe')['status'] === 200);
 
 // ---- E37: Rücksetzen, Grenze, Datenbank – Auftrag koordination 16.10.2026 --
@@ -235,36 +248,36 @@ $anmelden = function (PDO $p, string $wer) use ($beginnen, $da): void {
 };
 
 echo "Eine gelungene Anmeldung setzt zurück (E37)\n";
-// Fünf Fehlversuche, deren Wartezeit vorbei ist; dann meldet sich der Inhaber
-// an; dann vertippt er sich einmal. Ohne Rücksetzen wären es sechs, der
+// Acht Fehlversuche, deren Wartezeit vorbei ist; dann meldet sich der Inhaber
+// an; dann vertippt er sich einmal. Ohne Rücksetzen wären es neun, der
 // letzte vor 1 s – er müsste warten.
 $p = neue_db();
-fehl_alter($p, 'erfundenq', [300, 280, 260, 240, 220]);
+fehl_alter($p, 'erfundenq', [300, 280, 260, 240, 220, 200, 180, 160]);
 $anmelden($p, 'erfundenq');
 fehl_alter($p, 'erfundenq', [1]);
-pruefe('Rücksetzen: 5 Fehlversuche, dann angemeldet, dann ein Fehlversuch vor 1 s – durch',
+pruefe('Rücksetzen: 8 Fehlversuche, dann angemeldet, dann ein Fehlversuch vor 1 s – durch',
     $beginnen($p, 'erfundenq')['status'] === 200);
 // Gegenprobe: dieselbe Lage ohne die Anmeldung muss warten – sonst prüfte der
 // Fall oben nur, dass die Schwelle nicht erreicht ist.
 $p = neue_db();
-fehl_alter($p, 'erfundenq', [300, 280, 260, 240, 220, 1]);
-pruefe('Gegenprobe: dieselben sechs Fehlversuche ohne Anmeldung dazwischen – es wird gewartet',
+fehl_alter($p, 'erfundenq', [300, 280, 260, 240, 220, 200, 180, 160, 1]);
+pruefe('Gegenprobe: dieselben neun Fehlversuche ohne Anmeldung dazwischen – es wird gewartet',
     $beginnen($p, 'erfundenq')['status'] === 429);
 // Gezählt wird ab der KENNUNG der letzten gelungenen, nicht ab ihrer Uhrzeit:
 // Ein Fehlversuch, der dieselbe Sekunde trägt wie die Anmeldung, aber danach
 // eingetragen wurde, zählt mit.
 $p = neue_db();
-fehl_alter($p, 'erfundenq', [300, 280, 260, 240]);
+fehl_alter($p, 'erfundenq', [300, 280, 260, 240, 220, 200, 180]);
 $anmelden($p, 'erfundenq');
 $z = $p->query("SELECT zeitpunkt FROM login_log WHERE erfolgreich = 1")->fetchColumn();
-for ($i = 0; $i < 5; $i++) {
+for ($i = 0; $i < 8; $i++) {
     $p->prepare("INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, zeitpunkt) VALUES ('erfundenq', 0, 'falsch', ?)")
       ->execute([(string)$z]);
 }
-pruefe('nach der Nummer: fünf Fehlversuche in derselben Sekunde wie die Anmeldung, danach eingetragen – sie zählen, es wird gewartet',
+pruefe('nach der Nummer: acht Fehlversuche in derselben Sekunde wie die Anmeldung, danach eingetragen – sie zählen, es wird gewartet',
     $z !== false && $beginnen($p, 'erfundenq')['status'] === 429);
 $p = neue_db();
-fehl_alter($p, 'andere', [300, 280, 260, 240, 220]);
+fehl_alter($p, 'andere', [300, 280, 260, 240, 220, 200, 180, 160]);
 $anmelden($p, 'erfundenq');
 fehl_alter($p, 'andere', [1]);
 pruefe('je Benutzername: die Anmeldung eines anderen setzt nicht zurück',
@@ -300,12 +313,12 @@ echo "Die Grenze, ausgeführt\n";
 // dem eigenen Versuch kann eine Sekundengrenze liegen. Deshalb 58 und 60 –
 // die Grenze auf die Sekunde steht rein oben („auf der Grenze“).
 $p = neue_db();
-fehl_alter($p, 'erfundenq', [240, 180, 120, 90, 58]);
-pruefe('der letzte von 5 vor 58 s (59 beim Zählen): abgewiesen, 1–2 s Rest',
+fehl_alter($p, 'erfundenq', [400, 350, 300, 240, 180, 120, 90, 58]);
+pruefe('der letzte von 8 vor 58 s (59 beim Zählen): abgewiesen, 1–2 s Rest',
     in_array($beginnen($p, 'erfundenq')['daten']['warten_sekunden'] ?? null, [1, 2], true));
 $p = neue_db();
-fehl_alter($p, 'erfundenq', [240, 180, 120, 90, 60]);
-pruefe('der letzte von 5 vor 60 s: durch', $beginnen($p, 'erfundenq')['status'] === 200);
+fehl_alter($p, 'erfundenq', [400, 350, 300, 240, 180, 120, 90, 60]);
+pruefe('der letzte von 8 vor 60 s: durch', $beginnen($p, 'erfundenq')['status'] === 200);
 
 echo "Die bekannte Grenze: ein Skript im Minutentakt (E35, E37)\n";
 // Ein Skript, das einmal je Minute fehlschlägt, hält das Konto in der

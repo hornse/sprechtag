@@ -23,6 +23,9 @@ verteilt neu; der Bestandslauf misst die Kopien.
 
 In diese Datei gehört nur, was **dieses Projekt** ausmacht.
 
+**Entscheidungen mit Begründung** stehen in `docs/ENTSCHEIDUNGEN.md` (E-Reihe
+dieses Projekts) – ein Protokoll, genannt, nicht importiert.
+
 **Was über die WebUntis-API gemessen ist, liegt verstreut.** Die Liste
 aller Fundstellen steht in
 `~/Projekte/koordination/docs/BEFUND-2026-10-11-webuntis-api-bestand.md`

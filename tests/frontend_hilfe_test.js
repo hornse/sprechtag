@@ -96,9 +96,9 @@ pruefe('Sprungmarke der eigenen Rolle zuerst, keine fehlt',
   erste('eltern') === '#hilfe-eltern' && erste('schueler') === '#hilfe-schueler'
   && erste('lehrkraft') === '#hilfe-lehrkraefte' && erste('admin') === '#hilfe-verwaltung'
   && erste(null) === '#hilfe-eltern');
-const login = rumpf('function ansichtLogin(ziel)');
-pruefe('Login-Screen verlinkt Hilfe',
-  login.includes("el('p', 'login-hilfe')") && login.includes("wechsleAnsicht('hilfe')"));
+// S75 (V37): „Login-Screen verlinkt Hilfe“ prüfte den Quelltext der Maske.
+// Ersetzt durch die Prüfung im Browser (frontend_browser_test.js: Link
+// sichtbar, ein Klick zeigt die Häufigen Fragen, Desktop und Telefon).
 pruefe('Sidebar hat Hilfe-Eintrag', rumpf('function zeichneNavigation()').includes("navKnopf('hilfe', 'Hilfe'"));
 const knoepfe = (z) => (z ? alle(z).filter((k) => k.tag === 'button' && k.text === 'Zur Anmeldung').length : -1);
 pruefe('ohne Anmeldung erreichbar: „Zur Anmeldung“ nur ohne Anmeldung',
@@ -313,6 +313,61 @@ pruefe('FAQ ohne Doppelung zur Schritt-Liste: kein Ablauf des Absagens, keine Le
   fragen.length >= 8 && !fragen.includes('Wie sage ich einen Termin ab?')
   && !fragen.some((f) => /^Als Lehrkraft:/.test(f)));
 
+// ============================================================
+// S75: Anmeldung in den Häufigen Fragen – die Sätze aus dem ausgeführten Code
+// (koordination ENTWURF-AUFTRAG-doku-hilfe-S75.md, C). Ob die Anwendung sie
+// auch ZEIGT, misst frontend_browser_test.js.
+// ============================================================
+const apiDir = path.join(__dirname, '..', 'backend', 'api');
+let anm = null;
+try {
+  anm = JSON.parse(execFileSync('php', ['-r', `
+    require $argv[1]; require $argv[2];
+    echo json_encode([
+      'schwelle' => defined('BREMSE_SCHWELLE') ? BREMSE_SCHWELLE : null,
+      'deckel' => defined('BREMSE_DECKEL') ? BREMSE_DECKEL : null,
+      'warten' => function_exists('bremse_wartesatz') ? bremse_wartesatz(60) : null,
+      'ausfall' => wu_sitzung_meldung('nicht_erreichbar'),
+    ]);`, path.join(apiDir, 'webuntis_adapter.php'), path.join(apiDir, 'anmeldebremse.php')], { encoding: 'utf8' }));
+} catch (e) { console.log('    (php: ' + String(e.message).split('\n')[0] + ')'); }
+const antwortAuf = (frage) => {
+  const d = alleKn(faqK).find((k) => k.tag === 'details' && k.text === frage);
+  return d ? textVon(d) : '';
+};
+const anmeldenFaq = antwortAuf('Ich kann mich nicht anmelden.');
+const ZAHLWORT = { 5: 'fünf', 6: 'sechs', 7: 'sieben', 8: 'acht', 9: 'neun', 10: 'zehn' };
+const dauer = anm && anm.deckel === 60 ? 'eine Minute' : (anm ? anm.deckel + ' Sekunden' : null);
+pruefe('FAQ „Ich kann mich nicht anmelden.“: Wartezeit nach acht Fehlversuchen, eine Minute – Zahl und Dauer aus BREMSE_SCHWELLE und BREMSE_DECKEL (ausgeführt)',
+  !!anm && anm.schwelle === 8 && !!ZAHLWORT[anm.schwelle] && !!dauer
+  && anmeldenFaq.includes('Nach ' + ZAHLWORT[anm.schwelle] + ' Fehlversuchen müssen Sie ' + dauer + ' warten')
+  && ganz !== '' && !/(fünf|5) Fehlversuch|sechste[nr]? Versuch/.test(ganz));
+// Die Sekundenzahl steht in der Hilfe als „…“; dieses Zitat prüft diese
+// Zeile gegen den ausgeführten Satz, die Zitatprüfung unten nimmt es aus.
+const wartenZitat = anm && anm.warten ? anm.warten.replace(/\d+ Sekunden/, '… Sekunden') : null;
+const ausgefuehrtGeprueft = new Set();
+pruefe('FAQ „Ich kann mich nicht anmelden.“: der Satz der Wartezeit ist der von bremse_wartesatz, mit „…“ statt der Sekunden (ausgeführt)',
+  !!wartenZitat && wartenZitat !== anm.warten && anmeldenFaq.includes('„' + wartenZitat + '“')
+  && !!ausgefuehrtGeprueft.add(wartenZitat));
+pruefe('FAQ „Ich kann mich nicht anmelden.“: der Ausfallsatz ist der von wu_sitzung_meldung, und er zählt nicht als Fehlversuch (ausgeführt)',
+  !!anm && !!anm.ausfall && anmeldenFaq.includes('„' + anm.ausfall + '“')
+  && /der Versuch zählt nicht als Fehlversuch/.test(anmeldenFaq));
+const elternFaq = antwortAuf('Ich bin Elternteil und komme nicht hinein.');
+const zitatEltern = (elternFaq.match(/steht auf der Buchungsseite „([^“]+)“/) || [])[1] || '';
+pruefe('FAQ „Ich bin Elternteil und komme nicht hinein.“: eigener Zugang, nicht der des Kindes; der zitierte Satz beginnt beide Meldungen aus bu_sperre_text (ausgeführt)',
+  /mit Ihrem eigenen WebUntis-Zugang an, nicht mit dem Ihres Kindes/.test(elternFaq)
+  && zitatEltern.length > 10 && Array.isArray(sperre) && sperre.length === 2
+  && sperre.every((t) => t.startsWith(zitatEltern)));
+// FALLSTRICKE 8: Ein nicht zugelassener Kontotyp sieht aus wie ein falsches
+// Passwort – die Hilfe darf ihn nicht erklären (koordination Befund §8).
+const kontotyp = ganz.match(/Kontotyp|Kontoart|Benutzertyp|personType/i);
+pruefe('die Hilfe erklärt keinen Kontotyp (FALLSTRICKE 8): kein „Kontotyp“, „Kontoart“, „Benutzertyp“, „personType“',
+  ganz !== '' && !kontotyp);
+const passwortFaq = antwortAuf('Nach dem Abmelden steht mein Passwort wieder im Feld.');
+pruefe('FAQ „Nach dem Abmelden steht mein Passwort wieder im Feld.“: die Seite behält es nicht; auf geteilten Geräten nicht im Browser speichern (das Neuladen misst frontend_browser_test.js)',
+  /Die Seite selbst behält das Passwort nicht/.test(passwortFaq)
+  && /hat Ihr Browser es gespeichert/.test(passwortFaq)
+  && /Auf Geräten, die auch andere benutzen, das Passwort nicht im Browser speichern/.test(passwortFaq));
+
 // Jedes Zitat „…“ der Hilfe (ohne den Datenschutz-Teil) muss als Text im
 // Code stehen – in app.js außerhalb von ansichtHilfe und
 // datenschutzAbsaetze, oder im Backend. Kommentare zählen nicht (rumpf
@@ -335,7 +390,7 @@ const hilfeOhneDs = alleKn(ohne).filter((k) => !alleKn(abschnitt('hilfe-datensch
 const zitate = [...new Set([...hilfeOhneDs.matchAll(/„([^“"]+)[“"]/g)].map((m) => m[1]))];
 const imCode = (z) => new RegExp('[\'"„]' + z.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   + '(?:[\'"“(.:,]| \\()').test(code);
-const fehlen = zitate.filter((z) => !imCode(z));
+const fehlen = zitate.filter((z) => !imCode(z) && !ausgefuehrtGeprueft.has(z));
 if (fehlen.length) console.log('    (nicht im Code: ' + fehlen.map((z) => '„' + z + '“').join(', ') + ')');
 pruefe('jedes Zitat der Hilfe steht als Text im Code, außerhalb der Hilfe, an Grenzen (mind. 15 Zitate)',
   code.length > 10000 && zitate.length >= 15 && fehlen.length === 0);

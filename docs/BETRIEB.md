@@ -30,6 +30,7 @@ durch die eigenen zu ersetzen – wie in `backend/config.example.php`:
 | Bare Repo | `/home/BENUTZER/repos/sprechtag.git` |
 | GitHub | `hornse/sprechtag` (öffentlich) |
 | Stack | PHP 8.1+ ohne Framework, Vanilla JS, MariaDB/PDO |
+| PHP im Betrieb | 8.4.27 (`/usr/bin/php`, so ruft ihn der Dienst auf) – gemessen am 04.11.2026 per SSH; „8.1+“ ist die Mindestangabe, kein Stand |
 | Lizenz | GPL-3.0-or-later (siehe `LICENSE`) |
 
 ## Erstinstallation (Server)

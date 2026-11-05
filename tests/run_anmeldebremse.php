@@ -339,10 +339,11 @@ pruefe('Login benutzt dieselbe Bremse: bremse_beginnen vor wu_login, bremse_fehl
     && preg_match('/\$versuch = bremse_beginnen\(\$pdo, \$cfg, \$benutzer\)[\s\S]*wu_login\([\s\S]*catch \(RuntimeException \$e\) \{\s*bremse_fehlschlag\(\$pdo, \$versuch, \$benutzer,[\s\S]*anmeldung_erfolg_merken\(\$pdo, \$versuch, \$benutzer, \$daten\[\'rolle\'\]\)/', $login) === 1);
 // Bis v0.9.106 stand hier eine Textprüfung des Zähl-SQL (NOW() - INTERVAL);
 // seit v0.9.107 führt tests/run_bremse.php die Zählung aus (E35).
-pruefe('die Bremse zählt je Benutzername im Zeitfenster, mit den Grenzen aus config.php (ausgeführt in run_bremse.php)',
+// S75 (M56): Die Schwelle ist die Konstante BREMSE_SCHWELLE; ausgeführt in
+// run_bremse.php. Hier bleibt nur das Fenster aus config.php.
+pruefe('die Bremse zählt je Benutzername im Zeitfenster, mit dem Fenster aus config.php (ausgeführt in run_bremse.php)',
     str_contains($bremse, "WHERE webuntis_benutzer = ? AND erfolgreich = 0 AND id <> ? AND id > ? AND zeitpunkt >= ?")
-    && str_contains($bremse, "(int)(\$cfg['security']['lockout_minutes'] ?? 15)")
-    && str_contains($bremse, "(int)(\$cfg['security']['max_failed_logins'] ?? 5)"));
+    && str_contains($bremse, "(int)(\$cfg['security']['lockout_minutes'] ?? 15)"));
 pruefe('Erfolge nur, wenn die Schule das Protokoll samt Erfolgen eingeschaltet hat (wie bis v0.9.92 im Login)',
     preg_match("/function anmeldung_erfolg_merken\([\s\S]*marke_wert\(\\\$pdo, 'login_log_aktiv', '0'\)[\s\S]*marke_wert\(\\\$pdo, 'login_log_erfolge', '0'\)[\s\S]*\(\\\$logAktiv && \\\$logErfolge\) \? \\\$grund : BREMSE_ZURUECK/", $bremse) === 1);
 
@@ -351,6 +352,19 @@ $vorlage = ohne_kommentar((string)file_get_contents(__DIR__ . '/../backend/confi
 pruefe('config.example.php: die Sondierung ist abgeschaltet voreingestellt',
     preg_match("/'sondierung_freigeschaltet'\s*=>\s*false\s*,/", $vorlage) === 1
     && preg_match("/'sondierung_freigeschaltet'\s*=>\s*true/", $vorlage) === 0);
+
+// S75 (M56): Die Schwelle ist eine Konstante (acht Fehlversuche). Ein Wert in
+// der Vorlage wäre eine zweite Wahrheit, die nichts mehr bewirkt; gelesen
+// werden darf er nirgends im Backend. AM QUELLTEXT – als Rückfall: Dass der
+// Wert keine Wirkung hat, misst run_bremse.php ausgeführt.
+$liestSchwelle = [];
+foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(__DIR__ . '/../backend', FilesystemIterator::SKIP_DOTS)) as $f) {
+    if (substr((string)$f, -4) !== '.php' || basename((string)$f) === 'config.php') continue;
+    if (str_contains(ohne_kommentar((string)file_get_contents((string)$f)), 'max_failed_logins')) $liestSchwelle[] = basename((string)$f);
+}
+if ($liestSchwelle) echo '    (max_failed_logins in: ' . implode(', ', $liestSchwelle) . ")\n";
+pruefe('keine Schwelle aus config.php: max_failed_logins steht in keiner Backend-Datei, auch nicht in der Vorlage (am Quelltext)',
+    $vorlage !== '' && $bremse !== '' && $liestSchwelle === []);
 
 echo "\n" . ($fehler === 0 ? "ALLE TESTS GRÜN\n" : "$fehler ROT\n");
 exit($fehler === 0 ? 0 : 1);

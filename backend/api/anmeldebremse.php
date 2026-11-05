@@ -32,6 +32,14 @@
 
 declare(strict_types=1);
 
+/**
+ * Ab so vielen Fehlversuchen im Fenster wartet der nächste Versuch: acht, in
+ * der ganzen Reihe (koordination M56, S75). Bis S75 stand der Wert in
+ * config.php (security.max_failed_logins, Vorlage und Rückfall 5) – der Wert
+ * dort wird nicht mehr gelesen. Die Hilfe nennt die Zahl; die Suite hält
+ * beide zusammen (tests/frontend_hilfe_test.js).
+ */
+const BREMSE_SCHWELLE = 8;
 /** Wartezeit ab der Schwelle in Sekunden, nach dem letzten Fehlversuch (Begründung: docs/ENTSCHEIDUNGEN.md, E35). */
 const BREMSE_DECKEL = 60;
 /** Grund eines Versuchs, der gerade läuft. */
@@ -49,9 +57,15 @@ const BREMSE_OHNE_ZAEHLUNG = 'Die Anmeldung ist gerade nicht möglich – die Pr
 /** Sekunden, die noch zu warten sind: $fehl Fehlversuche im Fenster, der letzte vor $seit Sekunden. */
 function bremse_warte_sekunden(int $fehl, int $seit, array $cfg): int
 {
-    $schwelle = (int)($cfg['security']['max_failed_logins'] ?? 5);
+    $schwelle = BREMSE_SCHWELLE;
     if ($fehl < $schwelle) return 0;
     return max(0, BREMSE_DECKEL - max(0, $seit));
+}
+
+/** Was bei einer Wartezeit angezeigt wird. Eigene Funktion, damit die Hilfe gegen den ausgeführten Satz geprüft wird (S75). */
+function bremse_wartesatz(int $sekunden): string
+{
+    return 'Zu viele Fehlversuche – bitte in ' . $sekunden . ' Sekunden erneut versuchen.';
 }
 
 /**
@@ -110,8 +124,7 @@ function bremse_beginnen(PDO $pdo, array $cfg, string $benutzer): int
     if ($warten > 0) {
         $pdo->prepare('DELETE FROM login_log WHERE id = ?')->execute([$id]);
         if (!headers_sent()) header('Retry-After: ' . $warten);
-        json_ok(['fehler' => 'Zu viele Fehlversuche – bitte in ' . $warten . ' Sekunden erneut versuchen.',
-                 'warten_sekunden' => $warten], 429);
+        json_ok(['fehler' => bremse_wartesatz($warten), 'warten_sekunden' => $warten], 429);
     }
     return $id;
 }

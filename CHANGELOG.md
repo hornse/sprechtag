@@ -1,5 +1,62 @@
 # Changelog - sprechtag
 
+## v0.9.111 (November 2026) – Anmeldung, Doku und Hilfe nachgezogen: acht Fehlversuche, Hilfe nennt Wartezeit und Ausfall
+
+Auftrag aus `koordination` (S75, `ENTWURF-AUFTRAG-doku-hilfe-S75.md`).
+
+- **Bremse ab acht Fehlversuchen** (koordination M56): Konstante
+  `BREMSE_SCHWELLE = 8` in `anmeldebremse.php`. Bis v0.9.110 stand die
+  Schwelle in `config.php` (`security.max_failed_logins`, Vorlage und
+  Rückfall 5); ein solcher Wert wird nicht mehr gelesen und steht nicht mehr
+  in der Vorlage.
+- **Der Satz der Wartezeit kommt aus `bremse_wartesatz()`**, damit die Hilfe
+  gegen den ausgeführten Satz geprüft wird. Der Ausfallsatz bleibt
+  unverändert (Sie-Form wie die Hilfe).
+- **Hilfe, „Häufige Fragen“:** „Ich kann mich nicht anmelden.“ nennt
+  Wartezeit und Ausfall mit den Sätzen der Anwendung, den Kontotyp nicht
+  (FALLSTRICKE 8). Neu: „Ich bin Elternteil und komme nicht hinein.“ (eigener
+  Zugang, nicht der des Kindes) und „Nach dem Abmelden steht mein Passwort
+  wieder im Feld.“ (gespeichert vom Browser; Hinweis für geteilte Geräte).
+- **Nach einer Ablehnung bleibt der Benutzername stehen**, das Passwortfeld
+  ist leer. Bis v0.9.110 zeichnete die Meldung die Maske neu, und beide Felder
+  waren leer.
+- Doku: `BETRIEB.md` (PHP im Betrieb, gemessen), `WEBUNTIS.md` (Ausfall
+  zählt nicht; Schwelle im Code), `BEDIENUNG.md` (Standvermerk), `CLAUDE.md`
+  (nennt `docs/ENTSCHEIDUNGEN.md`, ohne Import).
+
+### Abnahme (nicht offline messbar)
+- Testkonto, falsches Passwort: der achte Versuch zeigt noch die Ablehnung,
+  der neunte „Zu viele Fehlversuche – bitte in … Sekunden erneut versuchen.“
+  Danach mit diesem Konto eine Minute nichts erwarten.
+- Nach einer Ablehnung steht der Benutzername noch im Feld.
+- Hilfe ohne Anmeldung: die drei Fragen oben in „Häufige Fragen“,
+  Anführungszeichen richtig, auch am Telefon.
+- Abmelden: Steht danach ein Passwort im Feld, ist es das des Browsers
+  (Passwortmanager) – im privaten Fenster bleibt es leer.
+- Optional: `max_failed_logins` aus der `config.php` auf dem Server
+  entfernen; der Wert wird nicht mehr gelesen.
+
+### Prüfungen
+- 84 → 85 Suiten, 1894 → 1912 Prüfzeilen in `tests/`;
+  `tests-sprechtag.sh` 29 unverändert.
+- `frontend_browser_test.js` neu (10): Chromium ohne Fenster, echte Tasten
+  und Klicks; Hilfe ohne Anmeldung (Desktop, Telefon), Enter, Abmelden,
+  die drei Sätze sichtbar, Benutzername bleibt, Hilfe zitiert den
+  angezeigten Satz.
+- `frontend_hilfe_test.js` 37 → 42: sechs neu (Sätze der Hilfe gegen den
+  ausgeführten PHP-Code, kein Kontotyp), „Login-Screen verlinkt Hilfe“ am
+  Quelltext entfällt – das prüft jetzt der Browser.
+- `run_bremse.php` 37 → 39: von Hand sieben Fehlversuche, der achte ist
+  durch; ein Wert in `config.php` ändert die Schwelle nicht. Die übrigen
+  Fälle von 5 auf 8 umgestellt.
+- `run_anmeldebremse.php` 33 → 34: `max_failed_logins` steht in keiner
+  Backend-Datei (am Quelltext).
+- Mutationen 692 → 717: SB1–SB25 neu, WZ9 nachgezogen, **LL2 umgehängt** –
+  sie war seit E37 verwaist (Muster `if ($logAktiv && $logErfolge)`, der Code
+  liest `($logAktiv && $logErfolge) ? $grund : …`) und erwartet jetzt die
+  ausgeführte Prüfung „Protokoll an, Erfolge aus“. Vorprüfung 715/715,
+  716 angeschlagen plus H4 grün, Rücknahme belegt.
+
 ## v0.9.110 (Oktober 2026) – Eine gelungene Anmeldung setzt die Anmeldebremse zurück
 
 Auftrag aus `koordination` (`AUFTRAG-anmeldebremse-reihe.md`, 16.10.2026):

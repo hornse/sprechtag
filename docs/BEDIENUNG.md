@@ -4,7 +4,8 @@ In welcher Reihenfolge man vorgeht und worauf man achtet. Was ein Knopf
 tut, steht in der Hilfe der Anwendung (Teil „Für die Administration“); was
 WebUntis bereitstellen muss, in `docs/WEBUNTIS.md`. Stand v0.9.93,
 12.10.2026, am Code gelesen; die Administratoren (E29) nachgezogen mit
-v0.9.100. Die Fassung vom 23.07.2026, die auch Eltern
+v0.9.100. Am 04.11.2026 (S75) auf Anmeldung und Anmeldebremse gelesen:
+nichts zu ändern; der übrige Ablauf ist dabei nicht neu geprüft. Die Fassung vom 23.07.2026, die auch Eltern
 und Lehrkräfte beschrieb, steht in der Git-Geschichte; deren Teil deckt
 heute die Hilfe ab.
 

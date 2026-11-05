@@ -66,6 +66,7 @@ const S = {
   buchungHinweisLaedt: false,
   loginHinweis: undefined,    // gerendertes Login-Hinweis-HTML
   loginHinweisLaedt: false,
+  loginBenutzer: '',          // Benutzername der Maske über das Neuzeichnen nach einer Ablehnung (S75)
   texte: null,                // Editor-Cache je Textschlüssel {roh, html}
   texteLaedt: {},             // Guards je Textschlüssel
   erinnerungConf: undefined,  // Erinnerungs-Einstellungen (undefined = ungeladen)
@@ -1105,7 +1106,9 @@ function ansichtLogin(ziel) {
   }
 
   const form = document.createElement('form');
-  form.appendChild(feld('WebUntis-Benutzername', 'login-benutzer'));
+  // S75: meldung() zeichnet die Maske neu. Bis dahin war danach auch der
+  // Benutzername fort, nach jeder Ablehnung; das Passwort bleibt leer.
+  form.appendChild(feld('WebUntis-Benutzername', 'login-benutzer', 'text', S.loginBenutzer));
   form.appendChild(feld('Passwort', 'login-passwort', 'password'));
   const aktionen = el('div', 'aktionen');
   const senden = el('button', null, 'Anmelden');
@@ -1129,6 +1132,7 @@ function ansichtLogin(ziel) {
       meldung(null);
     } catch (f) {
       senden.disabled = false;
+      S.loginBenutzer = wert('login-benutzer');
       meldung(String(f.message), 'fehler');
     }
   });
@@ -1335,10 +1339,32 @@ function ansichtHilfe(ziel) {
   // ---- FAQ ----
   const faq = teil('hilfe-faq');
   const fragen = [
+    // S75: Wartezeit und Ausfall mit den Sätzen der Anwendung. Zahl, Dauer
+    // und Wortlaut prüft tests/frontend_hilfe_test.js gegen den ausgeführten
+    // PHP-Code, die Anzeige tests/frontend_browser_test.js. Den Kontotyp
+    // nennt die Hilfe nicht (FALLSTRICKE 8): Er sieht aus wie ein falsches
+    // Passwort.
     ['Ich kann mich nicht anmelden.',
      'Bitte prüfen Sie, ob Sie den eigenen WebUntis-Zugang verwenden (nicht '
-     + 'den des Kindes) und ob Benutzername und Passwort stimmen. Bei '
-     + 'anhaltenden Problemen ' + kontaktSatz('wenden Sie sich an')],
+     + 'den des Kindes) und ob Benutzername und Passwort stimmen. '
+     + 'Nach acht Fehlversuchen müssen Sie eine Minute warten; die Seite zeigt '
+     + 'dann „Zu viele Fehlversuche – bitte in … Sekunden erneut versuchen.“ '
+     + 'Steht dort „WebUntis ist gerade nicht erreichbar. Bitte versuchen Sie es '
+     + 'in einigen Minuten erneut.“, liegt es nicht an Ihren Zugangsdaten, und '
+     + 'der Versuch zählt nicht als Fehlversuch. Bei anhaltenden Problemen '
+     + kontaktSatz('wenden Sie sich an')],
+    ['Ich bin Elternteil und komme nicht hinein.',
+     'Melden Sie sich mit Ihrem eigenen WebUntis-Zugang an, nicht mit dem Ihres '
+     + 'Kindes. Mit dem Zugang des Kindes steht auf der Buchungsseite „Termine '
+     + 'buchen die Erziehungsberechtigten.“ – dann abmelden und mit dem eigenen '
+     + 'Zugang neu anmelden. Haben Sie keinen eigenen Zugang, '
+     + kontaktSatz('wenden Sie sich an')],
+    ['Nach dem Abmelden steht mein Passwort wieder im Feld.',
+     'Die Seite selbst behält das Passwort nicht: Beim Abmelden lädt sie neu, '
+     + 'und das Feld ist leer. Steht es trotzdem da, hat Ihr Browser es '
+     + 'gespeichert und setzt es ein. Auf Geräten, die auch andere benutzen, das '
+     + 'Passwort nicht im Browser speichern und ein gespeichertes in den '
+     + 'Einstellungen des Browsers löschen.'],
     ['Warum sehe ich keine freien Termine?',
      'Läuft Phase 1 und liegt für Ihr Kind keine Einladung vor, erscheint '
      + 'keine Kachel – die Seite sagt das dann selbst. Sonst ist die Lehrkraft '

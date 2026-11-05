@@ -122,6 +122,10 @@ WebUntis kann sie mit jedem Update ändern, ohne Ankündigung.
   abgeschaltet) ruft darüber hinaus weitere Pfade zur Diagnose; im Betrieb
   wird es nicht gebraucht.
 
+**Antwortet WebUntis bei der Anmeldung nicht**, sagt die Anmeldung das mit
+eigenem Satz (503), und der Versuch zählt nicht als Fehlversuch für die
+Anmeldebremse – kein Passwort hat entschieden (v0.9.109).
+
 **Zwischen zwei Schuljahren ist in WebUntis keines aktiv** (FALLSTRICKE 6).
 Die Anwendung setzt die Schuljahres-Kopfzeile nicht (am Code gelesen). **Ob
 ihre Aufrufe in dieser Zeit scheitern, ist nicht gemessen** – belegt ist
@@ -136,8 +140,10 @@ Konten (sieben Varianten) –, liegt das daran.
 ## 4 — Was schulspezifisch einzustellen ist
 
 In `config.php` (Vorlage `backend/config.example.php`): Adresse und Kennung
-der Schule in WebUntis, zugelassene Rollen, die Kürzel des Notzugangs, die
-Grenzen der Anmeldebremse, der Schalter des Sondierwerkzeugs.
+der Schule in WebUntis, zugelassene Rollen, die Kürzel des Notzugangs, das
+Zählfenster der Anmeldebremse, der Schalter des Sondierwerkzeugs. Die
+Schwelle der Bremse (acht Fehlversuche) steht fest im Code, nicht in
+`config.php` (S75).
 
 In der Oberfläche der Verwaltung: die Administratoren, die Gruppen der Volljährigen, die
 Empfängerliste für Erinnerungen, die Texte, Phasen und Zeitfenster jedes

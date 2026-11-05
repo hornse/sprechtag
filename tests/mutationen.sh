@@ -1618,14 +1618,19 @@ mut SD8 backend/config.example.php 's/\x27sondierung_freigeschaltet\x27 => false
 mut SD9 $IDX 's/            bremse_fehlschlag\(\$pdo, \$versuch, \$benutzer, \$e->getMessage\(\)\);/            \$pdo->prepare(\x27INSERT INTO login_log (webuntis_benutzer, erfolgreich, grund, ip) VALUES (?, 0, ?, ?)\x27)->execute([\$benutzer, \$e->getMessage(), \x27\x27]);/' \
   $BRT "in login_log schreibt nur anmeldebremse.php"
 mut SD10 $BRS 's/    if \(\$fehl < \$schwelle\) return 0;/    if (\$fehl <= \$schwelle) return 0;/' \
-  $RBR "genau an der Schwelle (5)"
+  $RBR "genau an der Schwelle (8)"
 # LL1, LL2: die umgestellten Prüfungen der Login-Protokoll-Suite. LL1 hätte
 # die Prüfung bis v0.9.92 bestanden – derselbe Text stand in der
 # Einstellungsroute (Art 1).
+# LL2 war seit E37 verwaist: Das Muster suchte „if ($logAktiv && $logErfolge)“,
+# der Code liest seither „($logAktiv && $logErfolge) ? $grund : …“ (S75
+# umgehängt). Erwartet wird die ausgeführte Prüfung für „Protokoll an, Erfolge
+# aus“ – genau der Fall, den ein „||“ verfälscht – statt der Prüfung am
+# Quelltext; die bleibt für das Muster dort zuständig.
 mut LL1 $IDX 's/        if \(\(int\)marke_wert\(\$pdo, \x27login_log_aktiv\x27, \x270\x27\) !== 1\) \{\n            json_ok\(\[\x27aktiv\x27 => false, \x27eintraege\x27 => \[\]\]\);\n        \}\n//' \
   $LLT "Protokoll nur bei aktiv sichtbar"
-mut LL2 $BRS 's/if \(\$logAktiv && \$logErfolge\)/if (\$logAktiv || \$logErfolge)/' \
-  $LLT "Erfolge nur bei aktiv+erfolge geloggt"
+mut LL2 $BRS 's/\(\$logAktiv && \$logErfolge\) \? \$grund/(\$logAktiv || \$logErfolge) ? \$grund/' \
+  $RBR "Protokoll an, Erfolge aus: die Verwaltung sieht den Fehlversuch, nicht den Vermerk"
 
 # ------------------------------------------------------------
 # SS1–SS5 (v0.9.95): die Stammdaten-Sondierung, ausgeführt mit Attrappen der
@@ -1910,19 +1915,20 @@ mut XA12 $APP 's/  if \(optionen\.body\) kopf\[\x27Content-Type\x27\] = \x27appl
 mut WZ3 $BRS 's/    return max\(0, BREMSE_DECKEL - max\(0, \$seit\)\);/    return BREMSE_DECKEL;/' \
   $RBR "abgelaufen: nichts mehr zu warten"
 mut WZ4 $BRS 's/AND zeitpunkt >= \?\x27\);/AND zeitpunkt >= ?\x27 . \x27 AND grund <> \x27 . \$pdo->quote(BREMSE_LAEUFT));/' \
-  $RBR "gleichzeitig: 4 Fehlversuche, zwei Anfragen"
+  $RBR "gleichzeitig: 7 Fehlversuche, zwei Anfragen"
 mut WZ5 $BRS 's/(    if \(\$warten > 0\) \{\n)        \$pdo->prepare\(\x27DELETE FROM login_log WHERE id = \?\x27\)->execute\(\[\$id\]\);\n/$1/' \
   $RBR "der abgewiesene Versuch zählt nicht"
 mut WZ6 $BRS 's/\$jetzt->modify\(\x27-\x27 \. \$fenster \. \x27 minutes\x27\)/\$jetzt->modify(\x27-\x27 . (100 * \$fenster) . \x27 minutes\x27)/' \
-  $RBR "Fenster: 4 Fehlversuche vor 16 Minuten"
+  $RBR "Fenster: 7 Fehlversuche vor 16 Minuten"
 mut WZ7 $BRS 's/WHERE webuntis_benutzer = \? AND erfolgreich = 0 AND id <> \?/WHERE (webuntis_benutzer = ? OR 1) AND erfolgreich = 0 AND id <> ?/' \
   $RBR "je Benutzername: 9 fremde Fehlversuche"
 # WZ8 seit E37 an der neuen Zeile: Der Versuch wird nicht mehr gelöscht,
 # sondern zur gelungenen Anmeldung. Ohne die Zeile bliebe er „(läuft)“.
 mut WZ8 $BRS 's/    \$pdo->prepare\(\x27UPDATE login_log SET erfolgreich = 1, grund = \? WHERE id = \? AND webuntis_benutzer = \?\x27\)\n        ->execute\([^\n]*\);\n//' \
   $RBR "Erfolg, Protokoll aus"
-mut WZ9 $BRS 's/\x27Zu viele Fehlversuche – bitte in \x27 \. \$warten \. \x27 Sekunden erneut versuchen\.\x27/\x27Zu viele Fehlversuche – bitte später erneut versuchen.\x27/' \
-  $RBR "5 Fehlversuche, der letzte vor 1 s"
+# WZ9 seit S75 in bremse_wartesatz() (vorher Literal mit $warten in bremse_beginnen).
+mut WZ9 $BRS 's/\x27Zu viele Fehlversuche – bitte in \x27 \. \$sekunden \. \x27 Sekunden erneut versuchen\.\x27/\x27Zu viele Fehlversuche – bitte später erneut versuchen.\x27/' \
+  $RBR "8 Fehlversuche, der letzte vor 1 s"
 
 
 # ------------------------------------------------------------
@@ -1938,7 +1944,7 @@ mut IP2 sql/27_login_log_ohne_ip.sql 's/^ALTER TABLE login_log DROP COLUMN IF EX
 # Versuch ohne Antwort von WebUntis zählt nicht. WZ10 baut die Staffel von
 # v0.9.107/108 zurück – der Fall der Abnahme muss anschlagen.
 mut WZ10 $BRS 's/    return max\(0, BREMSE_DECKEL - max\(0, \$seit\)\);/    return max(0, min(BREMSE_DECKEL, 5 * (2 ** min(\$fehl - \$schwelle, 16))) - max(0, \$seit));/' \
-  $RBR "fünf Fehlversuche (-8504) im Abstand von 15 s"
+  $RBR "acht Fehlversuche (-8504) im Abstand von 15 s"
 mut WZ11 $BRS 's/    return max\(0, BREMSE_DECKEL - max\(0, \$seit\)\);/    return max(0, BREMSE_DECKEL - 1 - max(0, \$seit));/' \
   $RBR "auf der Grenze"
 mut WZ12 $BRS 's/(function bremse_ohne_entscheid\(PDO \$pdo, int \$versuch, string \$benutzer\): void\n\{\n)    \$pdo->prepare\([^\n]*\n[^\n]*\n/$1/' \
@@ -1974,7 +1980,7 @@ mut SD11 $IDX 's/(\n        )(anmeldung_erfolg_merken\(\$pdo, \$versuch, \$benut
 # setzt zurück – nach der Kennung, je Benutzername; der Vermerk ist ein
 # Zähler, kein Protokolleintrag; scheitert die Zählung, 503 mit eigenem Satz.
 mut RS1 $BRS 's/        \$zurueck = \(int\)\$st->fetchColumn\(\);/        \$zurueck = 0;/' \
-  $RBR "Rücksetzen: 5 Fehlversuche, dann angemeldet"
+  $RBR "Rücksetzen: 8 Fehlversuche, dann angemeldet"
 mut RS2 $BRS 's/AND id <> \? AND id > \? AND zeitpunkt >= \?/AND id <> ? AND zeitpunkt > (SELECT MAX(z2.zeitpunkt) FROM login_log z2 WHERE z2.webuntis_benutzer = ? AND z2.erfolgreich = 1) AND zeitpunkt >= ?/; s/\[\$benutzer, \$id, \$zurueck, /[\$benutzer, \$id, \$benutzer, /' \
   $RBR "nach der Nummer"
 mut RS3 $BRS 's/FROM login_log WHERE webuntis_benutzer = \? AND erfolgreich = 1\x27\);\n        \$st->execute\(\[\$benutzer\]\);/FROM login_log WHERE erfolgreich = 1 OR ? IS NULL\x27);\n        \$st->execute([\$benutzer]);/' \
@@ -1994,6 +2000,66 @@ mut RS9 $BRS 's/Die Anmeldung ist gerade nicht möglich – die Prüfung der \x2
 mut RS10 frontend/app.js 's/Sonst bleibt nach einer Anmeldung höchstens 15 Minuten /Sonst bleibt nach einer Anmeldung höchstens 30 Minuten /' \
   tests/frontend_datenschutz_test.js "Login: der Vermerk der Bremse"
 
+
+# ------------------------------------------------------------
+# SB1–SB25 (S75, koordination ENTWURF-AUFTRAG-doku-hilfe-S75.md): acht
+# Fehlversuche als Konstante (M56), die Hilfe sagt, was die Anwendung zeigt,
+# der Benutzername bleibt nach einer Ablehnung stehen. Wo Hilfe-Suite
+# (ausgeführter Satz) und Browser (angezeigter Satz) dieselbe Gefahr
+# abwehren, belegt je eine Mutation jede Stufe.
+BRW=tests/frontend_browser_test.js
+mut SB1 $BRS 's/    \$schwelle = BREMSE_SCHWELLE;/    \$schwelle = (int)(\$cfg[\x27security\x27][\x27max_failed_logins\x27] ?? BREMSE_SCHWELLE);/' \
+  $RBR "ein Wert in config.php ändert die Schwelle nicht"
+mut SB2 $BRS 's/^const BREMSE_SCHWELLE = 8;/const BREMSE_SCHWELLE = 5;/m' \
+  $RBR "unter der Schwelle (7 Fehlversuche)"
+mut SB3 $BRS 's/^const BREMSE_SCHWELLE = 8;/const BREMSE_SCHWELLE = 9;/m' \
+  $RBR "genau an der Schwelle (8)"
+mut SB4 $CFE 's/(\n        \x27lockout_minutes\x27   => 15,)/\n        \x27max_failed_logins\x27 => 8,$1/' \
+  $BRT "keine Schwelle aus config.php"
+mut SB5 $BRS 's/^const BREMSE_SCHWELLE = 8;/const BREMSE_SCHWELLE = 9;/m' \
+  $HIT "FAQ „Ich kann mich nicht anmelden.“: Wartezeit nach acht Fehlversuchen"
+mut SB6 $BRS 's/\x27Zu viele Fehlversuche – bitte in \x27 \. \$sekunden/\x27Zu viele Fehlversuche – bitte nach \x27 . \$sekunden/' \
+  $HIT "FAQ „Ich kann mich nicht anmelden.“: der Satz der Wartezeit ist der von bremse_wartesatz"
+mut SB7 $BRS 's/\x27Zu viele Fehlversuche – bitte in \x27 \. \$sekunden/\x27Zu viele Fehlversuche – bitte nach \x27 . \$sekunden/' \
+  $BRW "Hilfe „Ich kann mich nicht anmelden.“ (aufgeklappt) zitiert den angezeigten Ausfallsatz"
+mut SB8 $ADP 's/\x27WebUntis ist gerade nicht erreichbar\. Bitte versuchen Sie es in einigen Minuten erneut\.\x27/\x27WebUntis ist gerade nicht erreichbar. Bitte in ein paar Minuten erneut versuchen.\x27/' \
+  $HIT "FAQ „Ich kann mich nicht anmelden.“: der Ausfallsatz ist der von wu_sitzung_meldung"
+mut SB9 $ADP 's/\x27WebUntis ist gerade nicht erreichbar\. Bitte versuchen Sie es in einigen Minuten erneut\.\x27/\x27WebUntis ist gerade nicht erreichbar. Bitte in ein paar Minuten erneut versuchen.\x27/' \
+  $BRW "Hilfe „Ich kann mich nicht anmelden.“ (aufgeklappt) zitiert den angezeigten Ausfallsatz"
+# SB10: die bekannte falsche Fassung (Vorlage 5, Befund §1).
+mut SB10 $APP 's/Nach acht Fehlversuchen müssen Sie/Nach fünf Fehlversuchen müssen Sie/' \
+  $HIT "FAQ „Ich kann mich nicht anmelden.“: Wartezeit nach acht Fehlversuchen"
+# SB11: der Vorschlag, den Befund §8 als falsch erkannt hat.
+mut SB11 $APP 's/(der Versuch zählt nicht als Fehlversuch\. )/$1Ist Ihr Kontotyp nicht freigeschaltet, erscheint derselbe Satz wie bei einem falschen Passwort. /' \
+  $HIT "die Hilfe erklärt keinen Kontotyp"
+mut SB12 $SLP 's/return \x27Termine buchen die Erziehungsberechtigten\. Selbst buchen können \x27/return \x27Termine buchen Erziehungsberechtigte. Selbst buchen können \x27/' \
+  $HIT "FAQ „Ich bin Elternteil und komme nicht hinein.“"
+mut SB13 $APP 's/      S\.loginBenutzer = wert\(\x27login-benutzer\x27\);\n//' \
+  $BRW "falsches Passwort (401): der Benutzername bleibt stehen"
+mut SB14 $APP 's/\x27login-benutzer\x27, \x27text\x27, S\.loginBenutzer\)/\x27login-benutzer\x27)/' \
+  $BRW "falsches Passwort (401): der Benutzername bleibt stehen"
+mut SB15 $APP 's/  location\.replace\(location\.pathname\);/  S.user = null; S.ansicht = \x27login\x27; zeichne();/' \
+  $BRW "Abmelden lädt die Seite neu"
+mut SB16 $APP 's/  hilfe\.appendChild\(link\);\n  ziel\.appendChild\(hilfe\);/  hilfe.appendChild(link);/' \
+  $BRW "Hilfe ohne Anmeldung, Desktop (1280 px)"
+mut SB17 $CSS 's/\z/\n\@media (max-width: 760px) { .login-hilfe { display: none; } }\n/' \
+  $BRW "Hilfe ohne Anmeldung, Telefon (390 px)"
+mut SB18 $APP 's/  senden\.type = \x27submit\x27;\n  aktionen\.appendChild\(senden\);/  senden.type = \x27button\x27;\n  aktionen.appendChild(senden);/' \
+  $BRW "Enter im Passwortfeld schickt genau eine Anmeldung ab"
+mut SB19 $APP 's/(      S\.loginBenutzer = wert\(\x27login-benutzer\x27\);\n)      meldung\(String\(f\.message\), \x27fehler\x27\);/$1      meldung(null);/' \
+  $BRW "falsches Passwort (401): der Satz des Servers steht sichtbar"
+mut SB20 $APP 's/Auf Geräten, die auch andere benutzen, das /Auf Geräten das /' \
+  $HIT "FAQ „Nach dem Abmelden steht mein Passwort wieder im Feld.“"
+mut SB21 $APP 's/bitte in … Sekunden erneut versuchen\.“ /bitte in … Minuten erneut versuchen.“ /' \
+  $HIT "FAQ „Ich kann mich nicht anmelden.“: der Satz der Wartezeit ist der von bremse_wartesatz"
+mut SB22 $APP 's/in einigen Minuten erneut\.“, liegt/in ein paar Minuten erneut.“, liegt/' \
+  $HIT "FAQ „Ich kann mich nicht anmelden.“: der Ausfallsatz ist der von wu_sitzung_meldung"
+mut SB23 $BRS 's/bremse_wartesatz\(/bremse_satz_warten(/g' \
+  $BRW "Voraussetzung: Chromium läuft"
+mut SB24 $APP 's/der Versuch zählt nicht als Fehlversuch\. /der Versuch zählt als Fehlversuch. /' \
+  $HIT "FAQ „Ich kann mich nicht anmelden.“: der Ausfallsatz ist der von wu_sitzung_meldung"
+mut SB25 $APP 's/Melden Sie sich mit Ihrem eigenen WebUntis-Zugang an, nicht mit dem Ihres /Melden Sie sich mit dem WebUntis-Zugang Ihres /' \
+  $HIT "FAQ „Ich bin Elternteil und komme nicht hinein.“"
 
 if [ "${MUT_MODUS:-}" = "vor" ]; then
   echo "VORPRÜFUNG: $VGEPRUEFT erwartete Zeilen geprüft, $VFEHLT nicht gefunden"

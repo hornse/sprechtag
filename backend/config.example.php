@@ -36,10 +36,11 @@ return [
     ],
 
     'security' => [
-        // Brute-Force-Bremse für das Sondierwerkzeug (und später den Login):
-        // ab so vielen Fehlversuchen je Benutzername/IP innerhalb des
-        // Fensters wird geblockt, BEVOR WebUntis gefragt wird.
-        'max_failed_logins' => 5,
+        // Anmeldebremse (Anmeldung, Sondierung, Stammdaten-Sync): gezählt
+        // werden Fehlversuche je Benutzername in diesem Fenster (Minuten).
+        // Die Schwelle steht nicht hier, sondern als Konstante
+        // BREMSE_SCHWELLE (8) in backend/api/anmeldebremse.php (S75); ein
+        // max_failed_logins aus älteren Fassungen wird nicht mehr gelesen.
         'lockout_minutes'   => 15,
     ],
 
